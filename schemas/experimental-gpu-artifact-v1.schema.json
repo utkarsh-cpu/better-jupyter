@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger experimental v5 artifact (not a released runtime format)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "byte_size", "sha256", "chunks"],
+  "properties": {
+    "schema": {"const": "kernelledger.experimental.artifact/1"},
+    "kind": {"enum": ["tensor-storage", "adapter-state", "input", "native-process", "environment", "cache"]},
+    "byte_size": {"type": "integer", "minimum": 0, "maximum": 68719476736},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "chunks": {
+      "type": "array",
+      "maxItems": 104857,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["blob", "byte_size"],
+        "properties": {
+          "blob": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "byte_size": {"type": "integer", "minimum": 1, "maximum": 16777216}
+        }
+      }
+    }
+  }
+}

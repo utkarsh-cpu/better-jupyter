@@ -1,0 +1,373 @@
+[
+    {
+        "name":  "KernelLedger",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "30,30,2560,1700"
+    },
+    {
+        "name":  "Select Folder",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "0,0,2880,1800"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "13,149,2854,1450"
+    },
+    {
+        "name":  "Command Module",
+        "role":  "ControlType.ToolBar",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "13,149,2854,62"
+    },
+    {
+        "name":  "\u0026Help",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2793,153,56,52"
+    },
+    {
+        "name":  "Details",
+        "role":  "ControlType.SplitButton",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2680,153,97,52"
+    },
+    {
+        "name":  "View Slider",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2734,153,23,52"
+    },
+    {
+        "name":  "Organize",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "19,153,171,52"
+    },
+    {
+        "name":  "New folder",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "190,153,178,52"
+    },
+    {
+        "name":  "Control Host",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "17,211,308,1388"
+    },
+    {
+        "name":  "Navigation Pane",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "17,211,308,1388"
+    },
+    {
+        "name":  "Shell Folder View",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "333,211,2534,1388"
+    },
+    {
+        "name":  "Items View",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "333,211,2534,1388"
+    },
+    {
+        "name":  "Header",
+        "role":  "ControlType.Header",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "333,211,2534,52"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.SplitButton",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "333,211,612,52"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "913,211,30,52"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.SplitButton",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "945,211,324,52"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1237,211,30,52"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.SplitButton",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1269,211,270,52"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1507,211,30,52"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.SplitButton",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1539,211,180,52"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1687,211,30,52"
+    },
+    {
+        "name":  "No items match your search.",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "333,275,2534,68"
+    },
+    {
+        "name":  "Application Controls",
+        "role":  "ControlType.Tree",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "Empty"
+    },
+    {
+        "name":  "Folder:",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "255,1651,72,32"
+    },
+    {
+        "name":  "sample",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "337,1643,2496,48"
+    },
+    {
+        "name":  "Choose a directory to initialize as a notebook",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2079,1701,554,52"
+    },
+    {
+        "name":  "Cancel",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2657,1701,176,52"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2833,1753,34,34"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "13,58,2854,91"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "13,58,2854,91"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "13,68,200,68"
+    },
+    {
+        "name":  "Navigation buttons",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "21,72,192,64"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "213,66,72,72"
+    },
+    {
+        "name":  "Up band",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "213,72,72,72"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "285,58,2153,88"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "287,68,2149,70"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "287,68,2017,70"
+    },
+    {
+        "name":  "Address: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\uiux-fresh-2026-10-08\\sample",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "299,68,2005,70"
+    },
+    {
+        "name":  "Address band",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2304,68,132,70"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2442,101,6,1"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2448,64,408,76"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2448,67,408,72"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2453,67,398,72"
+    },
+    {
+        "name":  "Search Box",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2455,87,332,32"
+    },
+    {
+        "name":  "Search",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2791,67,56,72"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2860,101,7,1"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2213,109,268,48"
+    },
+    {
+        "name":  "Toggle light / dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2505,109,48,48"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1142,751,336,64"
+    },
+    {
+        "name":  "Create notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "874,863,282,64"
+    },
+    {
+        "name":  "Create sample notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1172,863,392,64"
+    },
+    {
+        "name":  "Help | F1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1580,863,166,64"
+    }
+]

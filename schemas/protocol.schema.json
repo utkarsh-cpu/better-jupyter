@@ -1,0 +1,548 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger protocol schema 1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "kind": {
+      "enum": [
+        "auth",
+        "request",
+        "response",
+        "notice",
+        "blob",
+        "envelope",
+        "hello",
+        "ready",
+        "execute",
+        "stdin_reply",
+        "interrupt",
+        "checkpoint",
+        "restore",
+        "shutdown",
+        "stdout",
+        "stderr",
+        "display",
+        "display_update",
+        "result",
+        "error",
+        "clear",
+        "stdin_request",
+        "status",
+        "checkpoint_offer",
+        "restore_result"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "kind"
+  ],
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "auth"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "request"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "notice"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "blob"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "sha256",
+          "byte_size"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483648
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "envelope"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "blob"
+        ],
+        "properties": {
+          "blob": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "hello"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "token",
+          "python",
+          "implementation",
+          "executable",
+          "platform",
+          "cwd"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "python": {
+            "type": "string"
+          },
+          "implementation": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "execute"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "exec_id",
+          "cell_id",
+          "source_sha256",
+          "source"
+        ],
+        "properties": {
+          "exec_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cell_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "restore"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "manifest"
+        ],
+        "properties": {
+          "manifest": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "display"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "bundle"
+        ],
+        "properties": {
+          "bundle": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "display_update"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "bundle",
+          "display_id"
+        ],
+        "properties": {
+          "bundle": {
+            "type": "object"
+          },
+          "display_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "result"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "bundle"
+        ],
+        "properties": {
+          "bundle": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "error"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "ename",
+          "evalue",
+          "traceback"
+        ],
+        "properties": {
+          "ename": {
+            "type": "string"
+          },
+          "evalue": {
+            "type": "string"
+          },
+          "traceback": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "clear"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "wait"
+        ],
+        "properties": {
+          "wait": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "stdin_request"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "prompt",
+          "password"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string"
+          },
+          "password": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "status"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "running",
+              "idle"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "restore_result"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "installed",
+          "excluded",
+          "notes"
+        ],
+        "properties": {
+          "installed": {
+            "type": "array"
+          },
+          "excluded": {
+            "type": "array"
+          },
+          "notes": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "response"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "stdin_reply"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "required": [
+              "text"
+            ]
+          },
+          {
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "checkpoint_offer"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "required": [
+              "manifest"
+            ]
+          },
+          {
+            "required": [
+              "refused"
+            ]
+          },
+          {
+            "required": [
+              "failed"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "stdout"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "required": [
+              "text"
+            ]
+          },
+          {
+            "required": [
+              "blob"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "stderr"
+          }
+        }
+      },
+      "then": {
+        "oneOf": [
+          {
+            "required": [
+              "text"
+            ]
+          },
+          {
+            "required": [
+              "blob"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

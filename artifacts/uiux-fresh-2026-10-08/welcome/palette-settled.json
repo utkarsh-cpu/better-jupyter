@@ -1,0 +1,240 @@
+[
+    {
+        "name":  "KernelLedger - C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\uiux-fresh-2026-10-08\\sample",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "30,30,2560,1700"
+    },
+    {
+        "name":  "sample",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "367,109,158,48"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2213,109,268,48"
+    },
+    {
+        "name":  "Toggle light / dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2505,109,48,48"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "67,197,152,48"
+    },
+    {
+        "name":  "Run above",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "227,197,200,48"
+    },
+    {
+        "name":  "Run below",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "435,197,200,48"
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "669,197,178,48"
+    },
+    {
+        "name":  "Terminate worker",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "855,197,286,48"
+    },
+    {
+        "name":  "Checkpoint",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1175,197,208,48"
+    },
+    {
+        "name":  "Training checkpoint",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1391,197,312,48"
+    },
+    {
+        "name":  "Restart empty",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1711,197,242,48"
+    },
+    {
+        "name":  "More...",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1961,197,118,48"
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2293,280,180,48"
+    },
+    {
+        "name":  "Dismiss",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2497,280,48,48"
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,362,262,48"
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,418,262,48"
+    },
+    {
+        "name":  "History, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,474,262,48"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,530,262,48"
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,586,262,48"
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,642,262,48"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,698,262,48"
+    },
+    {
+        "name":  "Search notebook cells only",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,425,488,48"
+    },
+    {
+        "name":  "Code",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,1601,135,48"
+    },
+    {
+        "name":  "Markdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "490,1601,202,48"
+    },
+    {
+        "name":  "Raw",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "700,1601,135,48"
+    },
+    {
+        "name":  "Back | Alt+Left",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "915,549,1598,64"
+    },
+    {
+        "name":  "Search history | cell:... outcome:error session:... from:YYYY-MM-DD to:YYYY-MM-DD",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "915,661,1598,64"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2467,681,24,24"
+    },
+    {
+        "name":  "Search executions",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "915,773,298,64"
+    },
+    {
+        "name":  "Clear all filters",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1229,773,240,64"
+    },
+    {
+        "name":  "division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "915,1306,1598,450"
+    },
+    {
+        "name":  "Raw details",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "915,1804,1598,64"
+    },
+    {
+        "name":  "Type a command",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "768,282,1084,64"
+    }
+]

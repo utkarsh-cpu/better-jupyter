@@ -1,0 +1,149 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T18:25:50.389662+00:00",
+  "target_alias": "Ubuntu-24.04",
+  "target_kind": "wsl",
+  "qualified": false,
+  "inspection_only": false,
+  "environment": {
+    "user": "utkarsh_kaushik",
+    "distribution": "Ubuntu 24.04.5 LTS",
+    "wsl_version": 2,
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.12.3",
+    "python_environment": "/home/utkarsh_kaushik/.venvs/kernelledger-gpu/bin/python",
+    "rocdxg": "1.2.1",
+    "gpu": "AMD Radeon 8060S",
+    "architecture": "gfx1151",
+    "windows_driver": "32.0.31041.1004",
+    "windows_driver_release": "26.10.41.01-260811a-203304C-AMD-Software-Adrenalin-Edition"
+  },
+  "packages": {
+    "Jinja2": "3.1.6",
+    "MarkupSafe": "3.0.4",
+    "Pygments": "2.21.0",
+    "amd-torch-device-gfx11": "2.12.0+rocm7.14.0",
+    "amd-torch-device-gfx1151": "2.12.0+rocm7.14.0",
+    "attrs": "26.1.0",
+    "contourpy": "1.4.0",
+    "cycler": "0.12.1",
+    "filelock": "4.0.12",
+    "fonttools": "4.66.1",
+    "fsspec": "2026.9.0",
+    "hypothesis": "6.168.5",
+    "iniconfig": "2.3.1",
+    "jsonschema": "4.26.0",
+    "jsonschema-specifications": "2025.9.1",
+    "kernelledger": "0.1.0",
+    "kiwisolver": "1.5.1",
+    "matplotlib": "3.11.2",
+    "mpmath": "1.3.0",
+    "networkx": "3.7",
+    "numpy": "2.5.2",
+    "packaging": "26.3",
+    "pandas": "3.0.6",
+    "pillow": "12.3.0",
+    "pip": "26.2.1",
+    "pluggy": "1.6.0",
+    "pyarrow": "25.0.1",
+    "pyparsing": "3.3.3",
+    "pytest": "9.1.1",
+    "python-dateutil": "2.9.0.post0",
+    "referencing": "0.37.0",
+    "rocm": "7.14.0",
+    "rocm-bootstrap": "0.3.0",
+    "rocm-sdk-core": "7.14.0",
+    "rocm-sdk-device-gfx1151": "7.14.0",
+    "rocm-sdk-libraries": "7.14.0",
+    "rpds-py": "2026.9.1",
+    "ruff": "0.16.10",
+    "setuptools": "81.0.0",
+    "six": "1.17.0",
+    "sortedcontainers": "2.4.0",
+    "sympy": "1.14.0",
+    "torch": "2.12.0+rocm7.14.0",
+    "triton": "3.7.1+git0263a6a6.rocm7.14.0",
+    "typing_extensions": "4.16.0"
+  },
+  "portable_gpu": {
+    "cuda": null,
+    "device": "cuda:0",
+    "evidence": "8ae8c02a2c335d09701e7dbb1f2d2c0a16fffb56142d6955e61c609985e6985b",
+    "hardware": {
+      "architecture": [
+        11,
+        5
+      ],
+      "name": "AMD Radeon(TM) 8060S Graphics",
+      "total_memory": 116334676377,
+      "uuid": "66666666-6666-6666-6666-666666666666"
+    },
+    "hip": "7.14.60850",
+    "native_qualified": false,
+    "python": "3.12.3",
+    "reason": "disposable portable tensor/view probe passed",
+    "snapshot": "cdc9292655ead81becaa276374374f769e2a24184f582c778b61d43d929336ec",
+    "status": "experimental",
+    "torch": "2.12.0+rocm7.14.0"
+  },
+  "training": {
+    "snapshot": "bf53f2aecd6349665c92b1acc811038d2ffd6907fbcb1835974078509a618e9c",
+    "donor_exited": true,
+    "mode": "portable",
+    "training_continuation_equal": true,
+    "loss": 0.5261186957359314,
+    "capture_seconds": 5.983098033000033,
+    "restore_seconds": 4.6245887850000145,
+    "stored_bytes": 38358,
+    "native_qualified": false,
+    "device": "cuda:0",
+    "torch": "2.12.0+rocm7.14.0",
+    "hip": "7.14.60850"
+  },
+  "matrix_multiplication": {
+    "shape": [
+      1024,
+      1024
+    ],
+    "device": "cuda:0",
+    "finite_result": true
+  },
+  "feature_results": {
+    "gpu_computation": "passed",
+    "portable_tensor_views": "passed",
+    "portable_training_donor_exit": "passed",
+    "native_process": "unsupported",
+    "warm_cache": "unavailable"
+  },
+  "tests": {
+    "targeted_gpu_suite": "40 passed in 6.04s",
+    "pip_check": "No broken requirements found",
+    "full_regression": "110 passed in 43.13s",
+    "bash_syntax": "setup-wsl-gpu.sh and test-wsl-gpu.sh passed bash -n"
+  },
+  "commands": [
+    "scripts/setup-wsl-gpu.sh system (root)",
+    "scripts/setup-wsl-gpu.sh environment (normal Ubuntu user)",
+    "scripts/test-wsl-gpu.sh artifacts/wsl-8060s-donor-exit"
+  ],
+  "export_directory": "artifacts/wsl-8060s-donor-exit/export",
+  "documentation": [
+    "https://rocm.docs.amd.com/en/docs-7.14.0/install/rocm.html#install-rocdxg-and-amd-smi-for-wsl",
+    "https://github.com/ROCm/librocdxg#user-content-wsl-compatibility-matrix"
+  ],
+  "configuration_changes": [
+    "Installed Ubuntu Python/venv, ROCm runtime dependencies and libnuma-dev",
+    "Installed AMD ROCDXG 1.2.1",
+    "Installed matching PyTorch/ROCm host and gfx1151 kernel wheels in user-owned venv",
+    "Changed Ubuntu mirror URLs from HTTP to HTTPS; original saved under /var/backups",
+    "No Windows driver or Linux kernel changes"
+  ],
+  "limits": [
+    "Experimental portable checkpoints only; no full v5 release qualification",
+    "Single AMD iGPU and small stochastic model only; no distributed or multi-GiB qualification",
+    "GPU memory is runtime-reported, not measured available allocation capacity",
+    "GPU UUID is a placeholder; not suitable for hardware authentication",
+    "Captured source coherence remains unverified",
+    "No WSL native KFD/CRIU process restoration"
+  ]
+}

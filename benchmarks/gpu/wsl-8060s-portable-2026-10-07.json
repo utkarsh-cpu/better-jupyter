@@ -1,0 +1,14 @@
+{
+  "snapshot": "bf53f2aecd6349665c92b1acc811038d2ffd6907fbcb1835974078509a618e9c",
+  "donor_exited": true,
+  "mode": "portable",
+  "training_continuation_equal": true,
+  "loss": 0.5261186957359314,
+  "capture_seconds": 5.983098033000033,
+  "restore_seconds": 4.6245887850000145,
+  "stored_bytes": 38358,
+  "native_qualified": false,
+  "device": "cuda:0",
+  "torch": "2.12.0+rocm7.14.0",
+  "hip": "7.14.60850"
+}

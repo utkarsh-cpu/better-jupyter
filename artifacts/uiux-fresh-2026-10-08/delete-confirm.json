@@ -1,0 +1,310 @@
+[
+    {
+        "name":  "KernelLedger - C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\uiux-fresh-2026-10-08\\notebook",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "30,30,2560,1700"
+    },
+    {
+        "name":  "notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "367,109,188,48"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2213,109,268,48"
+    },
+    {
+        "name":  "Toggle light / dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2505,109,48,48"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "67,197,152,48"
+    },
+    {
+        "name":  "Run above",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "227,197,200,48"
+    },
+    {
+        "name":  "Run below",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "435,197,200,48"
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "669,197,178,48"
+    },
+    {
+        "name":  "Terminate worker",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "855,197,286,48"
+    },
+    {
+        "name":  "Checkpoint",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1175,197,208,48"
+    },
+    {
+        "name":  "Training checkpoint",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1391,197,312,48"
+    },
+    {
+        "name":  "Restart empty",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1711,197,242,48"
+    },
+    {
+        "name":  "More...",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1961,197,118,48"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,280,262,48"
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,336,262,48"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,392,262,48"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,448,262,48"
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,504,262,48"
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,560,262,48"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,616,262,48"
+    },
+    {
+        "name":  "Search notebook cells only",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,343,1151,48"
+    },
+    {
+        "name":  "Code",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,1601,378,48"
+    },
+    {
+        "name":  "Markdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "733,1601,379,48"
+    },
+    {
+        "name":  "Raw",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1120,1601,378,48"
+    },
+    {
+        "name":  "Run # Sales exploration",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "2299,317,48,48"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2351,317,48,48"
+    },
+    {
+        "name":  "Duplicate # Sales exploration",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2403,317,48,48"
+    },
+    {
+        "name":  "Delete # Sales exploration",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2455,317,48,48"
+    },
+    {
+        "name":  "Run sales = [120, 180, 95, 240]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2299,613,48,48"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2351,613,48,48"
+    },
+    {
+        "name":  "Duplicate sales = [120, 180, 95, 240]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2403,613,48,48"
+    },
+    {
+        "name":  "Delete sales = [120, 180, 95, 240]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2455,613,48,48"
+    },
+    {
+        "name":  "code cell sales",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1572,682,947,224"
+    },
+    {
+        "name":  "Total sales: 635\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1596,940,899,132"
+    },
+    {
+        "name":  "Run 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2299,1135,48,48"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2351,1135,48,48"
+    },
+    {
+        "name":  "Duplicate 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2403,1135,48,48"
+    },
+    {
+        "name":  "Delete 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2455,1135,48,48"
+    },
+    {
+        "name":  "code cell error",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1572,1204,947,144"
+    },
+    {
+        "name":  "division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "1596,1382,899,528"
+    },
+    {
+        "name":  "Delete",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "830,632,960,541"
+    },
+    {
+        "name":  "Cancel",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1410,1067,134,64"
+    },
+    {
+        "name":  "Cancel",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1410,1067,134,64"
+    },
+    {
+        "name":  "Delete cell",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1560,1067,188,64"
+    }
+]

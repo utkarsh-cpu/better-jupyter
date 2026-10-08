@@ -1,0 +1,12 @@
+{
+  "api": "kernelledger.desktop",
+  "version": 1,
+  "frames": [
+    {"kind":"hello","api":"kernelledger.desktop","versions":[1],"client_id":"00000000-0000-4000-8000-000000000001","client_name":"Fixture","role":"control"},
+    {"kind":"response","request_id":"fixture","result":{"kind":"accepted","operation_id":"00000000-0000-4000-8000-000000000002"}},
+    {"kind":"error","error":{"code":"source_conflict","message":"source changed on disk","retryable":false,"details":{}}},
+    {"kind":"change","change_seq":1,"ref":{"exec_id":"fixture","status":"ok"}},
+    {"kind":"event","exec_id":"fixture","event":{"kind":"stdout","seq":1,"text":"hello\n"}},
+    {"kind":"resync_required","after_change_seq":10}
+  ]
+}

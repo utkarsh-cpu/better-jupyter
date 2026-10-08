@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "fc5b806a-4df6-4782-9011-7a8b1daf4286",
+  "metadata": {},
+  "cells": [
+    {"id": "welcome", "type": "markdown"},
+    {"id": "sales", "type": "code"},
+    {"id": "summary", "type": "code"},
+    {"id": "error", "type": "code"},
+    {"id": "notes", "type": "raw"},
+    {"id": "rich", "type": "code"}
+  ]
+}

@@ -1,0 +1,65 @@
+category,category_weight,criterion,score_0_to_5,evidence,note
+Visual hierarchy and consistency,8,"Hierarchy, grouping and primary actions",4,01-notebook-initial,"Clear app header, navigation rail, outline, cell cards and primary Run all action."
+Visual hierarchy and consistency,8,"Typography, spacing and alignment",4,27-notebook-reset,Readable code and comfortable card spacing; secondary labels are small.
+Visual hierarchy and consistency,8,Theme and component consistency,4,19-settings-top,Light and dark themes share a coherent component vocabulary.
+Visual hierarchy and consistency,8,Information density and restraint,3,08-history,Notebook is balanced; repeated operation records and JSON clutter supporting screens.
+Navigation and information architecture,7,Primary destinations and current location,4,15-diagnostics,Six clearly labeled destinations and visible active selection.
+Navigation and information architecture,7,"Cell outline, selection and filtering",3,22-filter-empty,Filtering and no-match feedback work; filtering affects only the outline and selection can remain offscreen.
+Navigation and information architecture,7,History drill-down and return path,2,10-execution-detail,"Sessions to executions to detail works, but no visible breadcrumb or dedicated back action."
+Navigation and information architecture,7,Context isolation across screens,2,18-settings-dark,Settings retains doctor JSON and a prior panel's scroll position; source confirms one shared inspection value.
+Onboarding and first use,5,Initial value proposition and first action,4,39-startup,"Clear welcome text, Open notebook CTA and statement that opening starts no worker."
+Onboarding and first use,5,Create-notebook journey,2,39-startup,Startup only offers opening a directory; creating a notebook requires CLI knowledge.
+Onboarding and first use,5,Recent work and example discoverability,2,39-startup,"No visible recent notebook list, guided example or sample notebook action."
+Onboarding and first use,5,Shortcut introduction and mental model,3,39-startup,"Shortcut list is helpful, but run shortcut behavior depends on focus in ways the list does not explain."
+Editing and cell authoring,10,Code readability and editing affordances,4,40-rich-before,"Python syntax highlighting, line numbers and labeled cell editors are present."
+Editing and cell authoring,10,Persistence and stale-source awareness,4,03-edit-keyboard-run,An edit was saved to cells/sales.py; stale output badge and outline marker appeared.
+Editing and cell authoring,10,Add-cell focus and placement,2,28-add-cell,Adding succeeds but keeps the old viewport and selection rather than placing the new editor in view.
+Editing and cell authoring,10,Structural editing and undo,2,34-delete-undo,Add/delete work; delete is immediate and Ctrl+Z did not restore the cell. Structural undo is documented as unfinished.
+Execution and runtime control,9,Single-cell and batch execution,4,06-run-all-error,Mouse run and Run all executed code and retained output; batch error was visible.
+Execution and runtime control,9,Running state and interruption,4,32-interrupt,"A 30-second sleep showed Running, then Interrupted and Idle after Interrupt."
+Execution and runtime control,9,Runtime lifecycle and offline inspection,2,43-final-offline,Open was offline and first execution started a worker. Final Stop shut down the runtime but left a Disconnected chip and OS error 10053; reopening is needed for a clean offline state.
+Execution and runtime control,9,Capability gating and action scope,2,15-diagnostics,Global execution controls remain on inspection/settings screens; idle interrupt and destructive controls have little state-specific guidance.
+Feedback and state communication,6,Execution result and global status,4,31-running,"Runtime chip, cell status and execution ordinal make completion and running state visible."
+Feedback and state communication,6,"Save, stale and empty-result feedback",4,22-filter-empty,"Stale output, outline markers and No cells match provide useful feedback."
+Feedback and state communication,6,Operation identity and progress meaning,1,46-final-review,"Operations show UUID/state without task names or timestamps; after Stop, a running operation label remained despite runtime shutdown."
+Feedback and state communication,6,Session versus worker state terminology,2,08-history,History session says running while the worker chip says Idle; this distinction is not explained.
+Output readability and scientific content,6,"Text, expressions and Python errors",4,30-bottom-cell,Text/result separation and a prominent traceback preserve useful detail.
+Output readability and scientific content,6,Tables and image rendering,4,42-rich-output-finished,A four-row pandas table and matplotlib PNG rendered correctly in the native UI.
+Output readability and scientific content,6,Markdown and source/output relationship,3,01-notebook-initial,"Markdown renders with emphasis and headings, but source and preview occupy space simultaneously."
+Output readability and scientific content,6,Output tooling and rich-content coverage,1,docs/desktop/coverage.md,"MIME chooser/export, output search, full attachment preview and bounded large-output paging remain unfinished; not all MIME types were exercised."
+History and provenance usability,6,Human-readable record summaries,2,09-executions,"Execution rows primarily contain UUIDs; cell names, time and duration are missing from the list."
+History and provenance usability,6,Detail presentation and source comparison,2,10-execution-detail,Data is available as raw JSON; source comparison and a formatted execution detail view are missing.
+History and provenance usability,6,"Find, filter and sort recorded work",2,08-history,No visible history search or time/status filtering; the left search is cell filtering.
+History and provenance usability,6,Runtime identity and actionable discovery,1,14-runtimes,Runtime rows show IDs and verified badges rather than useful path/interpreter/activity summaries.
+"Checkpoints, diagnostics and recovery",7,Checkpoint creation and restoration,4,12-restore-confirm,A complete checkpoint was created and restored; ledger records a new session linked to it.
+"Checkpoints, diagnostics and recovery",7,Diagnostics and reconnect tools,2,45-reconnected,"Doctor/reconnect tools exist but use raw JSON. Reconnect/reload was clicked after Stop; the Disconnected chip and error remained in the follow-up capture, although later history inspection worked."
+"Checkpoints, diagnostics and recovery",7,Recovery guidance and preflight clarity,2,12-restore-confirm,Trust/mismatch options and warning exist; no concise summary of restored bindings or typed recovery guidance.
+"Checkpoints, diagnostics and recovery",7,"Crash, conflict and draft recovery",NT,docs/desktop/coverage.md,"Draft/conflict/recovery features are documented but crashes, simultaneous edits and draft replay were not induced. Stop-related disconnect behavior is rated in the lifecycle/diagnostics criteria."
+"Safety, prevention and user control",7,Deletion protection and recovery,1,34-delete-undo,"One click removes the source cell from the notebook immediately; no confirmation, Undo action or working structural Ctrl+Z observed. This does not claim execution history or all possible CLI recovery paths are erased."
+"Safety, prevention and user control",7,Namespace-changing action confirmation,3,12-restore-confirm,Restore and Stop ask for confirmation; Escape dismisses and trust/mismatch are explicit.
+"Safety, prevention and user control",7,Action-specific warning and button copy,2,37-stop-confirm,"Stop reuses a warning about executing saved code, target is {}, and the action label is generic Proceed."
+"Safety, prevention and user control",7,"Trust, attachment and close semantics",3,43-final-offline,"Trust options and closing-detaches message are visible. This is a UX assessment, not a security audit."
+Keyboard efficiency and focus,7,Run shortcuts from editor focus,1,04-ctrl-enter,Shift+Enter and Ctrl+Enter inserted newlines in editor focus; Escape followed by Shift+Enter executed the selected cell.
+Keyboard efficiency and focus,7,Command-palette keyboard activation,1,21-palette-keyboard,"Filtering checkpoint worked, but Arrow Down + Enter did not select or execute it; implementation has click handlers only."
+Keyboard efficiency and focus,7,Escape and mode visibility,3,13-dialog-escape,Escape dismisses confirmations and returns to command mode; status bar distinguishes edit/command mode.
+Keyboard efficiency and focus,7,Complete tab journey and modal focus containment,NT,accessibility-tree.json,"Focusable controls exist, but a full Tab/Shift+Tab journey, focus restoration and modal trap were not tested."
+Accessibility and inclusive interaction,7,Native semantics and accessible labels,3,accessibility-tree.json,UI Automation exposes 29 descendants including named buttons/inputs/editors. Navigation destinations and rendered outputs were absent from this snapshot.
+Accessibility and inclusive interaction,7,Window and contextual accessible identity,1,accessibility-tree.json,Native window has an empty title/name and repeated Run/Delete labels lack a cell name in the exposed tree.
+Accessibility and inclusive interaction,7,"Measured text, nontext and focus contrast",NT,19-settings-top,Visual inspection alone cannot certify contrast. No pixel/token contrast calculation was performed.
+Accessibility and inclusive interaction,7,"Screen reader, high contrast, IME and text scaling",NT,docs/desktop/platforms.md,"NVDA, system high contrast, IME, mixed DPI and enlarged text remain qualification work; no conformance claim."
+Adaptive layout and window sizing,6,Standard-width containment,2,11-checkpoints,"Notebook is usable at about 1280 logical pixels, but checkpoint row actions already clip on the right."
+Adaptive layout and window sizing,6,Compact-window controls,1,26-notebook-800,"At 800 logical pixels, runtime state and cell-add actions are clipped; no adaptive toolbar overflow was visible."
+Adaptive layout and window sizing,6,Dialog wrapping and inspection reflow,1,12-restore-confirm,Confirmation description paints past the right edge; checkpoint actions clip at 1024 and 800.
+Adaptive layout and window sizing,6,"Mixed DPI, secondary monitor and extreme sizing",NT,docs/desktop/platforms.md,Observed on one Windows display at 200% scaling; other DPI configurations and monitors were not tested.
+Perceived performance and scale,4,Small-notebook responsiveness,4,42-rich-output-finished,Observed interactions completed and app stayed responsive while code ran; no app crash during completed workflows.
+Perceived performance and scale,4,Measured startup and interaction latency,NT,docs/desktop/platforms.md,No repeatable timing harness was run. Screenshot-tool time is not an application latency measurement.
+Perceived performance and scale,4,"Large notebooks, history and output",NT,docs/desktop/coverage.md,"Six-cell fixture only; no large history, 100 MiB output, image-cache or long-session stress test."
+Perceived performance and scale,4,Resource use and rendering stability,NT,docs/desktop/platforms.md,"Memory, frame times, GPU fallback and long-running resource behavior were not measured."
+Preferences and personalization,3,Theme discoverability and operation,4,19-settings-top,Header and Settings theme switches work.
+Preferences and personalization,3,Interpreter clarity,2,19-settings-top,"Choose project interpreter exists, but current selected path/version is not summarized in Settings; picker was not exercised."
+Preferences and personalization,3,Preference persistence and system integration,1,39-startup,Dark theme returned to light on relaunch; source initializes apply_theme(false) and dark:false.
+Preferences and personalization,3,Customization depth,1,docs/desktop/coverage.md,"System/high-contrast preference, key rebinding and full config fields remain unfinished."
+"Help, terminology and platform polish",2,Contextual help and documentation access,2,39-startup,"Startup shortcuts and tooltips help, but no visible in-app help, glossary or documentation entry point."
+"Help, terminology and platform polish",2,Language and domain concepts,2,37-stop-confirm,"Ordinary notebook labels are clear; namespace, runtime, interpreter and Continue/Restore need explanation."
+"Help, terminology and platform polish",2,Native shell identity and release information,1,accessibility-tree.json,"Window title is empty and version/About is not visible. Installer, signing and update UX were not tested."
+"Help, terminology and platform polish",2,Discovery of incomplete workflows,2,docs/desktop/coverage.md,"Coverage is honestly documented in the repo, but UI offers little guidance about unimplemented exchange/publish workflows."

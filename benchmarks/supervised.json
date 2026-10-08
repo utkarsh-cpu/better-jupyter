@@ -1,0 +1,13 @@
+{
+  "mode": "supervised",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "array_mib": 256,
+  "checkpoint_seconds": 3.507517200006987,
+  "walk_seconds": 0.6743652000004658,
+  "restore_seconds": 4.5000519000022905,
+  "first_blob_bytes": 402673049,
+  "unchanged_checkpoint_seconds": 4.6822531999932835,
+  "unchanged_new_blob_bytes": 0,
+  "excluded": []
+}

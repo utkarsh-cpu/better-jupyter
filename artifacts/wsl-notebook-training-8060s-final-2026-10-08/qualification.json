@@ -1,0 +1,19 @@
+{
+  "schema": "kernelledger.notebook-training-qualification/1",
+  "device": "cuda:0",
+  "snapshot": "e46b01e0fb109766defaf7649f7e111de1da9fce98223fc0c1cd0cf57b1fa074",
+  "capture_seconds": 1.323723545,
+  "restore_seconds": 7.246652026000001,
+  "fresh_worker": true,
+  "exact_next_step": true,
+  "coverage": {
+    "data_loader": "caller-supplied-cursor",
+    "namespace": "not-captured",
+    "native": "not-captured",
+    "required": "complete"
+  },
+  "native_qualified": false,
+  "recipe_sha256": "6bf0dee23afbf9195633f679c935427fcab822abb74c5a8ba0873aca1f7d151b",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "stored_bytes": 34805
+}

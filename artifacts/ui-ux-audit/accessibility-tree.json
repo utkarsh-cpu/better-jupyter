@@ -1,0 +1,147 @@
+[
+    {
+        "Name":  "notebook",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Open notebook",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Toggle light / dark",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run all",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run above",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run below",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Interrupt",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Terminate worker",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Checkpoint",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Restart empty",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Filter cells",
+        "Type":  "ControlType.Edit",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Code",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Markdown",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Raw",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run",
+        "Type":  "ControlType.Button",
+        "Focusable":  false
+    },
+    {
+        "Name":  "Hide output",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Duplicate",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Delete",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "markdown cell welcome",
+        "Type":  "ControlType.Edit",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Hide output",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Duplicate",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Delete",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "code cell sales",
+        "Type":  "ControlType.Edit",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Run",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Hide output",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Duplicate",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "Delete",
+        "Type":  "ControlType.Button",
+        "Focusable":  true
+    },
+    {
+        "Name":  "code cell summary",
+        "Type":  "ControlType.Edit",
+        "Focusable":  true
+    }
+]

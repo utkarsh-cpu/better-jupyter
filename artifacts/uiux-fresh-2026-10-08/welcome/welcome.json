@@ -1,0 +1,51 @@
+[
+    {
+        "name":  "KernelLedger",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "30,30,2560,1700"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2213,109,268,48"
+    },
+    {
+        "name":  "Toggle light / dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "2505,109,48,48"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1142,751,336,64"
+    },
+    {
+        "name":  "Create notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "874,863,282,64"
+    },
+    {
+        "name":  "Create sample notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1172,863,392,64"
+    },
+    {
+        "name":  "Help | F1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1580,863,166,64"
+    }
+]

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger notebook schema 1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          },
+          "type": {
+            "enum": [
+              "code",
+              "markdown",
+              "raw"
+            ]
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "attachments": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[^/\\\\:]+$"
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "metadata",
+    "cells"
+  ],
+  "additionalProperties": true
+}

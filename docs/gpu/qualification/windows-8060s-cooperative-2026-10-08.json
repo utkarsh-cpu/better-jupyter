@@ -1,0 +1,75 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T19:11:36.226103+00:00",
+  "target_alias": "local-windows-ryzen-ai-max-395",
+  "feature": "cooperative-pytorch-plugin",
+  "qualified": false,
+  "feature_checks": "passed on the recorded stack",
+  "hardware": {
+    "cpu": "Ryzen AI Max+ 395",
+    "gpu": "AMD Radeon 8060S",
+    "architecture": "gfx1151",
+    "os_build": "10.0.26200",
+    "driver": "32.0.31041.1004"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "torch": "2.12.0+rocm7.14.0",
+    "hip": "7.14.60850",
+    "numpy": "2.5.2",
+    "python_path": ".venv-gpu-qualification/Scripts/python.exe"
+  },
+  "plugin_entry_point": "kernelledger.checkpoint_plugins:pytorch",
+  "training": {
+    "plugin": "kernelledger.gpu.cooperative",
+    "mode": "portable",
+    "device": "cuda:0",
+    "torch": "2.12.0+rocm7.14.0",
+    "hip": "7.14.60850",
+    "snapshot": "d6cda4c8b8a5c9e1aee9538915e4c213c7a6dfd24e976d17526968249a38ed01",
+    "donor_exited": true,
+    "queued_safe_point": true,
+    "busy_capture_refused": true,
+    "gradients_equal": true,
+    "training_continuation_equal": true,
+    "independent_clone": true,
+    "step": 2,
+    "cursor": {
+      "batch": 2
+    },
+    "loss": 0.03333012014627457,
+    "capture_seconds": 0.6109117000014521,
+    "restore_seconds": 1.9435977999819443,
+    "stored_bytes": 44757,
+    "native_qualified": false
+  },
+  "source_hashes": {
+    "src/kernelledger/gpu/cooperative.py": "eac55da70ef41c39e3fef4681fe02d644aaadb99756f0d20f8e8a98391b494fa",
+    "src/kernelledger/experiments.py": "ec05a7c60dd989e1a6f204ef8aa399c9c2b1c05e893ae469574a1884d8ce83ad",
+    "src/kernelledger/gpu/portable.py": "7568e4ff63bdc8c61242a907274f114c020dd59002ea794635bd3abdcba89f97",
+    "src/kernelledger/artifacts.py": "3f15c44e0475b2f2fadc772c584aa81a6a567372e8ff1b56fd64ed83cdbefc49",
+    "examples/gpu/cooperative_training.py": "41034606b7271c7be683d686f43724695b31adf03ff019b8ced175bbb352395f"
+  },
+  "tests": {
+    "windows_targeted": "54 passed in 10.01s (includes 14 cooperative tests)",
+    "windows_full_before_two_additional_interrupt_cases": "122 passed in 166.08s",
+    "wsl_full_final": "124 passed in 41.25s",
+    "ruff": "src, tests, GPU examples and native feasibility script passed",
+    "pyright": "cooperative.py strict: 0 errors",
+    "package": "wheel includes plugin module and entry point; installed discovery imports no torch or numpy",
+    "uv_lock": "check passed"
+  },
+  "commands": [
+    ".venv-gpu-qualification/Scripts/python.exe examples/gpu/cooperative_training.py --device cuda:0 --out artifacts/windows-cooperative-8060s-final-2026-10-08",
+    ".venv-gpu-qualification/Scripts/python.exe -m pytest tests/test_gpu_cooperative.py tests/test_gpu_portable.py tests/test_gpu_artifacts.py tests/test_gpu_capabilities.py -q"
+  ],
+  "limits": [
+    "Cooperative registered training state only; mutations outside the plugin cannot be intercepted",
+    "Process-global RNG/settings require separate processes for independent runtimes",
+    "independent_clone result checks model/storage independence, not independent RNG in one process",
+    "Source coherence remains unverified; factory trust is explicit",
+    "No native GPU/process image, arbitrary namespace, external-service or loader-process restoration",
+    "Small single-GPU AMD Windows model only; no multi-GiB, NVIDIA or distributed qualification",
+    "No v4 notebook worker, ledger or desktop integration; full v5 gates remain incomplete"
+  ]
+}

@@ -1,0 +1,177 @@
+[
+    {
+        "name":  "KernelLedger - C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\uiux-fresh-2026-10-08\\notebook",
+        "role":  "ControlType.Window",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "30,30,1800,1400"
+    },
+    {
+        "name":  "notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "367,109,188,48"
+    },
+    {
+        "name":  "Open notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1453,109,268,48"
+    },
+    {
+        "name":  "Toggle light / dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1745,109,48,48"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "67,197,152,48"
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  false,
+        "rect":  "253,197,178,48"
+    },
+    {
+        "name":  "More...",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "439,197,118,48"
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,280,262,48"
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,336,262,48"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,392,262,48"
+    },
+    {
+        "name":  "Checkpoints, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,448,262,48"
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,504,262,48"
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,560,262,48"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "55,616,262,48"
+    },
+    {
+        "name":  "Search notebook cells only",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,343,903,48"
+    },
+    {
+        "name":  "Code",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "347,1301,296,48"
+    },
+    {
+        "name":  "Markdown",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "651,1301,295,48"
+    },
+    {
+        "name":  "Raw",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "954,1301,296,48"
+    },
+    {
+        "name":  "Back | Alt+Left",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1330,467,711,64"
+    },
+    {
+        "name":  "Namespace checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1330,579,382,64"
+    },
+    {
+        "name":  "Training snapshots",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1728,579,306,64"
+    },
+    {
+        "name":  "Report",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1721,768,116,48"
+    },
+    {
+        "name":  "Continue",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1861,768,146,48"
+    },
+    {
+        "name":  "Restore",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1364,840,130,48"
+    },
+    {
+        "name":  "Raw details",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focusable":  true,
+        "rect":  "1330,960,711,64"
+    }
+]

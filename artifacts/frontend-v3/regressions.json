@@ -1,0 +1,22 @@
+{
+  "frontend_plan": 3,
+  "date": "2026-10-05",
+  "python_suite": {
+    "passed": 69
+  },
+  "rust_workspace": {
+    "passed": 19,
+    "ui_tests": 9
+  },
+  "clippy": "passed with -D warnings",
+  "locked_windows_build": "passed",
+  "lifecycle": [
+    "sample_creation",
+    "stop_idle",
+    "stop_busy",
+    "stop_other_client",
+    "offline_history",
+    "run_restarts"
+  ],
+  "qualification": "pending: NVDA, actual IME, mixed DPI, visual clipping, performance and participant studies"
+}

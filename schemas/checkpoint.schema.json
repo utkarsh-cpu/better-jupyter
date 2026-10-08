@@ -1,0 +1,1031 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger checkpoint schema 1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "python": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "codecs": {
+      "type": "object"
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/value"
+      }
+    },
+    "objects": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "k"
+        ],
+        "properties": {
+          "k": {
+            "enum": [
+              "list",
+              "tuple",
+              "dict",
+              "set",
+              "frozenset",
+              "bytearray",
+              "module",
+              "import",
+              "function",
+              "class",
+              "instance",
+              "ndarray",
+              "table",
+              "numpy_generator"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "list"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "tuple"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "set"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "frozenset"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "dict"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/value"
+                      },
+                      {
+                        "$ref": "#/$defs/value"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "bytearray"
+                }
+              }
+            },
+            "then": {
+              "required": [],
+              "properties": {}
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "module"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "module"
+              ],
+              "properties": {
+                "module": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "import"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "module",
+                "qualname"
+              ],
+              "properties": {
+                "module": {
+                  "type": "string"
+                },
+                "qualname": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "function"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "source",
+                "ordinal",
+                "line",
+                "name",
+                "qualname",
+                "closure",
+                "defaults",
+                "kwdefaults",
+                "attrs"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "ordinal": {
+                  "type": "integer"
+                },
+                "line": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "qualname": {
+                  "type": "string"
+                },
+                "closure": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "empty": {
+                        "type": "boolean"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/value"
+                      }
+                    }
+                  }
+                },
+                "defaults": {
+                  "$ref": "#/$defs/value"
+                },
+                "kwdefaults": {
+                  "$ref": "#/$defs/value"
+                },
+                "attrs": {
+                  "$ref": "#/$defs/value"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "class"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "source",
+                "ordinal",
+                "line",
+                "name"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "ordinal": {
+                  "type": "integer"
+                },
+                "line": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "instance"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "class",
+                "attrs"
+              ],
+              "properties": {
+                "class": {
+                  "$ref": "#/$defs/value"
+                },
+                "attrs": {
+                  "$ref": "#/$defs/value"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "ndarray"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "blob",
+                "dtype",
+                "shape"
+              ],
+              "properties": {
+                "blob": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "dtype": {
+                  "type": "string"
+                },
+                "shape": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "table"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "blob",
+                "codec",
+                "series",
+                "name"
+              ],
+              "properties": {
+                "blob": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "codec": {
+                  "const": "arrow"
+                },
+                "series": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "$ref": "#/$defs/value"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "numpy_generator"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "class",
+                "state"
+              ],
+              "properties": {
+                "class": {
+                  "type": "string"
+                },
+                "state": {
+                  "$ref": "#/$defs/value"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "bytearray"
+                }
+              }
+            },
+            "then": {
+              "oneOf": [
+                {
+                  "required": [
+                    "b64"
+                  ],
+                  "not": {
+                    "required": [
+                      "blob"
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "blob"
+                  ],
+                  "not": {
+                    "required": [
+                      "b64"
+                    ]
+                  }
+                }
+              ],
+              "properties": {
+                "b64": {
+                  "type": "string"
+                },
+                "blob": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "path",
+          "reason"
+        ]
+      }
+    },
+    "notes": {
+      "type": "array"
+    },
+    "imports_reimported": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema",
+    "python",
+    "platform",
+    "codecs",
+    "bindings",
+    "objects",
+    "excluded",
+    "notes",
+    "imports_reimported"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "value": {
+      "oneOf": [
+        {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "k"
+          ],
+          "properties": {
+            "k": {
+              "enum": [
+                "ref",
+                "int",
+                "float",
+                "complex",
+                "str",
+                "bytes",
+                "date",
+                "time",
+                "datetime",
+                "timedelta",
+                "Decimal",
+                "Fraction",
+                "UUID",
+                "range",
+                "path",
+                "enum"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "ref"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "int"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "float"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v"
+                ],
+                "properties": {
+                  "v": {
+                    "oneOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "enum": [
+                          "nan",
+                          "inf",
+                          "-inf"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "complex"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "re",
+                  "im"
+                ],
+                "properties": {
+                  "re": {
+                    "$ref": "#/$defs/value"
+                  },
+                  "im": {
+                    "$ref": "#/$defs/value"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "str"
+                  }
+                }
+              },
+              "then": {
+                "required": [],
+                "properties": {}
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "bytes"
+                  }
+                }
+              },
+              "then": {
+                "required": [],
+                "properties": {}
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "date"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v",
+                  "tz",
+                  "fold"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string"
+                  },
+                  "tz": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "fold": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "time"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v",
+                  "tz",
+                  "fold"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string"
+                  },
+                  "tz": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "fold": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "datetime"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v",
+                  "tz",
+                  "fold"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string"
+                  },
+                  "tz": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "fold": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "timedelta"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "days",
+                  "seconds",
+                  "microseconds"
+                ],
+                "properties": {
+                  "days": {
+                    "type": "integer"
+                  },
+                  "seconds": {
+                    "type": "integer"
+                  },
+                  "microseconds": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "Decimal"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "Fraction"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "num",
+                  "den"
+                ],
+                "properties": {
+                  "num": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  },
+                  "den": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "UUID"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "v"
+                ],
+                "properties": {
+                  "v": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "range"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "start",
+                  "stop",
+                  "step"
+                ],
+                "properties": {
+                  "start": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  },
+                  "stop": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  },
+                  "step": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+$"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "path"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "class",
+                  "v"
+                ],
+                "properties": {
+                  "class": {
+                    "enum": [
+                      "PosixPath",
+                      "WindowsPath",
+                      "PurePosixPath",
+                      "PureWindowsPath"
+                    ]
+                  },
+                  "v": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "enum"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "class",
+                  "name"
+                ],
+                "properties": {
+                  "class": {
+                    "$ref": "#/$defs/value"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "bytes"
+                  }
+                }
+              },
+              "then": {
+                "oneOf": [
+                  {
+                    "required": [
+                      "b64"
+                    ],
+                    "not": {
+                      "required": [
+                        "blob"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "blob"
+                    ],
+                    "not": {
+                      "required": [
+                        "b64"
+                      ]
+                    }
+                  }
+                ],
+                "properties": {
+                  "b64": {
+                    "type": "string"
+                  },
+                  "blob": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "k": {
+                    "const": "str"
+                  }
+                }
+              },
+              "then": {
+                "oneOf": [
+                  {
+                    "required": [
+                      "v"
+                    ],
+                    "properties": {
+                      "v": {
+                        "type": "string"
+                      }
+                    },
+                    "not": {
+                      "required": [
+                        "blob"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "blob"
+                    ],
+                    "properties": {
+                      "blob": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "not": {
+                      "required": [
+                        "v"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

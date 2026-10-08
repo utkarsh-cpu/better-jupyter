@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger experimental v5 portable values (not checkpoint schema 2)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "endianness", "storages", "objects", "value"],
+  "properties": {
+    "schema": {"const": "kernelledger.experimental.state/1"},
+    "kind": {"const": "portable-values"},
+    "endianness": {"enum": ["little", "big"]},
+    "value": {"$ref": "#/$defs/value"},
+    "storages": {
+      "type": "object", "maxProperties": 100000, "additionalProperties": false,
+      "patternProperties": {
+        "^s[0-9]+$": {
+          "type": "object", "additionalProperties": false, "required": ["blob", "byte_size"],
+          "properties": {
+            "blob": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "byte_size": {"type": "integer", "minimum": 0, "maximum": 68719476736}
+          }
+        }
+      }
+    },
+    "objects": {
+      "type": "object", "maxProperties": 100000, "additionalProperties": false,
+      "patternProperties": {
+        "^o[0-9]+$": {"oneOf": [
+          {"$ref": "#/$defs/tensor"}, {"$ref": "#/$defs/sequence"}, {"$ref": "#/$defs/dictionary"}
+        ]}
+      }
+    }
+  },
+  "$defs": {
+    "value": {
+      "oneOf": [
+        {"type": ["null", "boolean", "number", "string"]},
+        {"type": "object", "additionalProperties": false, "required": ["ref"],
+         "properties": {"ref": {"type": "string", "pattern": "^o[0-9]+$"}}}
+      ]
+    },
+    "dimensions": {
+      "type": "array", "maxItems": 32,
+      "items": {"type": "integer", "minimum": 0, "maximum": 68719476736}
+    },
+    "tensor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "storage", "dtype", "shape", "stride", "offset", "device", "requires_grad", "parameter", "gradient"],
+      "properties": {
+        "kind": {"const": "tensor"},
+        "storage": {"type": "string", "pattern": "^s[0-9]+$"},
+        "dtype": {"enum": ["bool", "uint8", "int8", "int16", "int32", "int64", "float16", "bfloat16", "float32", "float64", "complex64", "complex128"]},
+        "shape": {"$ref": "#/$defs/dimensions"},
+        "stride": {"$ref": "#/$defs/dimensions"},
+        "offset": {"type": "integer", "minimum": 0, "maximum": 68719476736},
+        "device": {"type": "string", "pattern": "^(cpu|cuda:[0-9]+)$"},
+        "requires_grad": {"type": "boolean"}, "parameter": {"type": "boolean"}, "gradient": {"type": "boolean"}
+      }
+    },
+    "sequence": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "items"],
+      "properties": {
+        "kind": {"enum": ["list", "tuple"]},
+        "items": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/value"}}
+      }
+    },
+    "dictionary": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "items"],
+      "properties": {
+        "kind": {"const": "dict"},
+        "items": {"type": "array", "maxItems": 100000, "items": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "prefixItems": [{"$ref": "#/$defs/value"}, {"$ref": "#/$defs/value"}]
+        }}
+      }
+    }
+  }
+}

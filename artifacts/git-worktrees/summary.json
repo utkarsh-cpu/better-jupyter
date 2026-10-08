@@ -1,0 +1,20 @@
+{
+  "output": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\git-worktrees",
+  "worktrees": {
+    "baseline": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\git-worktrees\\baseline",
+    "learning-rate": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\git-worktrees\\learning-rate",
+    "dataset": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\git-worktrees\\dataset"
+  },
+  "checkpoints": {
+    "baseline": "6ee6de61-74b6-4eee-9d9a-057bb7c9fa9c",
+    "learning-rate": "5ec5859d-09b2-4616-aea3-5682be25e3f7",
+    "dataset": "5504db25-2d2c-4fef-b537-0fda08cac866"
+  },
+  "verified": [
+    "kernel isolation",
+    "complete checkpoints",
+    "fresh clone restore",
+    "resumed training"
+  ],
+  "restored_clone": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\git-worktrees\\restored-clone"
+}

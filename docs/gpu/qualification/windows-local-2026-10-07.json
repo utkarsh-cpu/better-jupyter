@@ -1,0 +1,85 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T17:41:28.572472+00:00",
+  "target_alias": "local-windows-test",
+  "qualified": false,
+  "inventory": {
+    "schema": "kernelledger.experimental.capabilities/1",
+    "target": {
+      "kind": "local-windows",
+      "os": "Windows",
+      "architecture": "AMD64",
+      "kernel": "11",
+      "distribution": null
+    },
+    "python": "3.12.10",
+    "os_build": "10.0.26200",
+    "frameworks": {
+      "torch": "2.12.0+rocm7.14.0",
+      "numpy": "2.5.2"
+    },
+    "tools": {
+      "criu": false,
+      "cuda-checkpoint": false,
+      "wsl": true,
+      "ssh": true
+    },
+    "features": {
+      "portable-pytorch": {
+        "status": "experimental",
+        "reason": "active device/round-trip probe required",
+        "evidence": null
+      },
+      "native-nvidia": {
+        "status": "unsupported",
+        "reason": "NVIDIA native checkpoint APIs require Linux",
+        "evidence": null
+      },
+      "native-amd": {
+        "status": "unsupported",
+        "reason": "amdgpu/KFD CRIU snapshots require native Linux",
+        "evidence": null
+      },
+      "warm-cache": {
+        "status": "unavailable",
+        "reason": "v4 worker has no authenticated snapshot generation cache",
+        "evidence": null
+      }
+    },
+    "inspection_only": true
+  },
+  "portable_cpu": {
+    "cuda": null,
+    "device": "cpu",
+    "evidence": "3755843f132a016c78f975caf35b69e21ee694a0e253006cfdc0d5f408ef25cf",
+    "hip": "7.14.60850",
+    "native_qualified": false,
+    "python": "3.12.10",
+    "reason": "disposable portable tensor/view probe passed",
+    "snapshot": "3cf29eb49747200ab785a4159f8bfeee47320ba5659232361a9dbfd7333abfb8",
+    "status": "experimental",
+    "torch": "2.12.0+rocm7.14.0"
+  },
+  "portable_gpu": {
+    "device": "cuda:0",
+    "error_type": "AcceleratorError",
+    "evidence": "7a107ce7e483c2dacf12e7561acdbc116bc32d3977f1d352137d0b11f865e55f",
+    "native_qualified": false,
+    "os_build": "10.0.26200",
+    "python": "3.12.10",
+    "reason": "CUDA error: device kernel image is invalid\nSearch for `hipErrorInvalidImage' in https://rocm.docs.amd.com/projects/HIP/en/latest/index.html for more information.\nCUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.\nFor debugging consider passing AMD_SERIALIZE_KERNEL=3\nDevice-side assertion tracking was not enabled by user.",
+    "status": "unavailable"
+  },
+  "commands": [
+    "kl experimental-gpu inventory",
+    "kl experimental-gpu probe --device cpu",
+    "kl experimental-gpu probe --device cuda:0"
+  ],
+  "limits": [
+    "No native capture/resume tested",
+    "No Linux or WSL qualification",
+    "No driver installation or host changes"
+  ],
+  "superseded_by_for_local_amd_portable_checks": "windows-8060s-2026-10-07.json",
+  "historical_result": true
+}

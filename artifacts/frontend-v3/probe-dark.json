@@ -1,0 +1,18 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe",
+  "theme": "dark",
+  "dpi": 192,
+  "minimum_outer_logical": [
+    813.0,
+    635.5
+  ],
+  "time_to_visible_window_ms": 899.98,
+  "window_title": "KernelLedger - C:\\Users\\UTKARS~1\\AppData\\Local\\Temp\\kl-ui-probe-7yo21ooj\\notebook",
+  "uia_nodes": 29,
+  "native_identity": "passed",
+  "output_semantics": "passed",
+  "screenshot": "Not captured: GPU PrintWindow unavailable; desktop capture can include another window",
+  "measurement_limit": "Time to visible window only, not editor-ready latency. No NVDA/IME/mixed-DPI qualification."
+}

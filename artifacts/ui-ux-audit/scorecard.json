@@ -1,0 +1,658 @@
+{
+  "project": "KernelLedger",
+  "date": "2026-10-04",
+  "scale": "0-5",
+  "overall": 51.72,
+  "weighted_coverage": 88.5,
+  "rated_criteria": 56,
+  "total_criteria": 64,
+  "categories": [
+    {
+      "name": "Visual hierarchy and consistency",
+      "weight": 8,
+      "criteria": [
+        {
+          "name": "Hierarchy, grouping and primary actions",
+          "score": 4,
+          "evidence": "01-notebook-initial",
+          "note": "Clear app header, navigation rail, outline, cell cards and primary Run all action."
+        },
+        {
+          "name": "Typography, spacing and alignment",
+          "score": 4,
+          "evidence": "27-notebook-reset",
+          "note": "Readable code and comfortable card spacing; secondary labels are small."
+        },
+        {
+          "name": "Theme and component consistency",
+          "score": 4,
+          "evidence": "19-settings-top",
+          "note": "Light and dark themes share a coherent component vocabulary."
+        },
+        {
+          "name": "Information density and restraint",
+          "score": 3,
+          "evidence": "08-history",
+          "note": "Notebook is balanced; repeated operation records and JSON clutter supporting screens."
+        }
+      ],
+      "rating": 3.75,
+      "coverage": 1.0,
+      "points": 6.0
+    },
+    {
+      "name": "Navigation and information architecture",
+      "weight": 7,
+      "criteria": [
+        {
+          "name": "Primary destinations and current location",
+          "score": 4,
+          "evidence": "15-diagnostics",
+          "note": "Six clearly labeled destinations and visible active selection."
+        },
+        {
+          "name": "Cell outline, selection and filtering",
+          "score": 3,
+          "evidence": "22-filter-empty",
+          "note": "Filtering and no-match feedback work; filtering affects only the outline and selection can remain offscreen."
+        },
+        {
+          "name": "History drill-down and return path",
+          "score": 2,
+          "evidence": "10-execution-detail",
+          "note": "Sessions to executions to detail works, but no visible breadcrumb or dedicated back action."
+        },
+        {
+          "name": "Context isolation across screens",
+          "score": 2,
+          "evidence": "18-settings-dark",
+          "note": "Settings retains doctor JSON and a prior panel's scroll position; source confirms one shared inspection value."
+        }
+      ],
+      "rating": 2.75,
+      "coverage": 1.0,
+      "points": 3.85
+    },
+    {
+      "name": "Onboarding and first use",
+      "weight": 5,
+      "criteria": [
+        {
+          "name": "Initial value proposition and first action",
+          "score": 4,
+          "evidence": "39-startup",
+          "note": "Clear welcome text, Open notebook CTA and statement that opening starts no worker."
+        },
+        {
+          "name": "Create-notebook journey",
+          "score": 2,
+          "evidence": "39-startup",
+          "note": "Startup only offers opening a directory; creating a notebook requires CLI knowledge."
+        },
+        {
+          "name": "Recent work and example discoverability",
+          "score": 2,
+          "evidence": "39-startup",
+          "note": "No visible recent notebook list, guided example or sample notebook action."
+        },
+        {
+          "name": "Shortcut introduction and mental model",
+          "score": 3,
+          "evidence": "39-startup",
+          "note": "Shortcut list is helpful, but run shortcut behavior depends on focus in ways the list does not explain."
+        }
+      ],
+      "rating": 2.75,
+      "coverage": 1.0,
+      "points": 2.75
+    },
+    {
+      "name": "Editing and cell authoring",
+      "weight": 10,
+      "criteria": [
+        {
+          "name": "Code readability and editing affordances",
+          "score": 4,
+          "evidence": "40-rich-before",
+          "note": "Python syntax highlighting, line numbers and labeled cell editors are present."
+        },
+        {
+          "name": "Persistence and stale-source awareness",
+          "score": 4,
+          "evidence": "03-edit-keyboard-run",
+          "note": "An edit was saved to cells/sales.py; stale output badge and outline marker appeared."
+        },
+        {
+          "name": "Add-cell focus and placement",
+          "score": 2,
+          "evidence": "28-add-cell",
+          "note": "Adding succeeds but keeps the old viewport and selection rather than placing the new editor in view."
+        },
+        {
+          "name": "Structural editing and undo",
+          "score": 2,
+          "evidence": "34-delete-undo",
+          "note": "Add/delete work; delete is immediate and Ctrl+Z did not restore the cell. Structural undo is documented as unfinished."
+        }
+      ],
+      "rating": 3.0,
+      "coverage": 1.0,
+      "points": 6.0
+    },
+    {
+      "name": "Execution and runtime control",
+      "weight": 9,
+      "criteria": [
+        {
+          "name": "Single-cell and batch execution",
+          "score": 4,
+          "evidence": "06-run-all-error",
+          "note": "Mouse run and Run all executed code and retained output; batch error was visible."
+        },
+        {
+          "name": "Running state and interruption",
+          "score": 4,
+          "evidence": "32-interrupt",
+          "note": "A 30-second sleep showed Running, then Interrupted and Idle after Interrupt."
+        },
+        {
+          "name": "Runtime lifecycle and offline inspection",
+          "score": 2,
+          "evidence": "43-final-offline",
+          "note": "Open was offline and first execution started a worker. Final Stop shut down the runtime but left a Disconnected chip and OS error 10053; reopening is needed for a clean offline state."
+        },
+        {
+          "name": "Capability gating and action scope",
+          "score": 2,
+          "evidence": "15-diagnostics",
+          "note": "Global execution controls remain on inspection/settings screens; idle interrupt and destructive controls have little state-specific guidance."
+        }
+      ],
+      "rating": 3.0,
+      "coverage": 1.0,
+      "points": 5.4
+    },
+    {
+      "name": "Feedback and state communication",
+      "weight": 6,
+      "criteria": [
+        {
+          "name": "Execution result and global status",
+          "score": 4,
+          "evidence": "31-running",
+          "note": "Runtime chip, cell status and execution ordinal make completion and running state visible."
+        },
+        {
+          "name": "Save, stale and empty-result feedback",
+          "score": 4,
+          "evidence": "22-filter-empty",
+          "note": "Stale output, outline markers and No cells match provide useful feedback."
+        },
+        {
+          "name": "Operation identity and progress meaning",
+          "score": 1,
+          "evidence": "46-final-review",
+          "note": "Operations show UUID/state without task names or timestamps; after Stop, a running operation label remained despite runtime shutdown."
+        },
+        {
+          "name": "Session versus worker state terminology",
+          "score": 2,
+          "evidence": "08-history",
+          "note": "History session says running while the worker chip says Idle; this distinction is not explained."
+        }
+      ],
+      "rating": 2.75,
+      "coverage": 1.0,
+      "points": 3.3
+    },
+    {
+      "name": "Output readability and scientific content",
+      "weight": 6,
+      "criteria": [
+        {
+          "name": "Text, expressions and Python errors",
+          "score": 4,
+          "evidence": "30-bottom-cell",
+          "note": "Text/result separation and a prominent traceback preserve useful detail."
+        },
+        {
+          "name": "Tables and image rendering",
+          "score": 4,
+          "evidence": "42-rich-output-finished",
+          "note": "A four-row pandas table and matplotlib PNG rendered correctly in the native UI."
+        },
+        {
+          "name": "Markdown and source/output relationship",
+          "score": 3,
+          "evidence": "01-notebook-initial",
+          "note": "Markdown renders with emphasis and headings, but source and preview occupy space simultaneously."
+        },
+        {
+          "name": "Output tooling and rich-content coverage",
+          "score": 1,
+          "evidence": "docs/desktop/coverage.md",
+          "note": "MIME chooser/export, output search, full attachment preview and bounded large-output paging remain unfinished; not all MIME types were exercised."
+        }
+      ],
+      "rating": 3.0,
+      "coverage": 1.0,
+      "points": 3.6
+    },
+    {
+      "name": "History and provenance usability",
+      "weight": 6,
+      "criteria": [
+        {
+          "name": "Human-readable record summaries",
+          "score": 2,
+          "evidence": "09-executions",
+          "note": "Execution rows primarily contain UUIDs; cell names, time and duration are missing from the list."
+        },
+        {
+          "name": "Detail presentation and source comparison",
+          "score": 2,
+          "evidence": "10-execution-detail",
+          "note": "Data is available as raw JSON; source comparison and a formatted execution detail view are missing."
+        },
+        {
+          "name": "Find, filter and sort recorded work",
+          "score": 2,
+          "evidence": "08-history",
+          "note": "No visible history search or time/status filtering; the left search is cell filtering."
+        },
+        {
+          "name": "Runtime identity and actionable discovery",
+          "score": 1,
+          "evidence": "14-runtimes",
+          "note": "Runtime rows show IDs and verified badges rather than useful path/interpreter/activity summaries."
+        }
+      ],
+      "rating": 1.75,
+      "coverage": 1.0,
+      "points": 2.1
+    },
+    {
+      "name": "Checkpoints, diagnostics and recovery",
+      "weight": 7,
+      "criteria": [
+        {
+          "name": "Checkpoint creation and restoration",
+          "score": 4,
+          "evidence": "12-restore-confirm",
+          "note": "A complete checkpoint was created and restored; ledger records a new session linked to it."
+        },
+        {
+          "name": "Diagnostics and reconnect tools",
+          "score": 2,
+          "evidence": "45-reconnected",
+          "note": "Doctor/reconnect tools exist but use raw JSON. Reconnect/reload was clicked after Stop; the Disconnected chip and error remained in the follow-up capture, although later history inspection worked."
+        },
+        {
+          "name": "Recovery guidance and preflight clarity",
+          "score": 2,
+          "evidence": "12-restore-confirm",
+          "note": "Trust/mismatch options and warning exist; no concise summary of restored bindings or typed recovery guidance."
+        },
+        {
+          "name": "Crash, conflict and draft recovery",
+          "score": null,
+          "evidence": "docs/desktop/coverage.md",
+          "note": "Draft/conflict/recovery features are documented but crashes, simultaneous edits and draft replay were not induced. Stop-related disconnect behavior is rated in the lifecycle/diagnostics criteria."
+        }
+      ],
+      "rating": 2.6666666666666665,
+      "coverage": 0.75,
+      "points": 3.733333333333333
+    },
+    {
+      "name": "Safety, prevention and user control",
+      "weight": 7,
+      "criteria": [
+        {
+          "name": "Deletion protection and recovery",
+          "score": 1,
+          "evidence": "34-delete-undo",
+          "note": "One click removes the source cell from the notebook immediately; no confirmation, Undo action or working structural Ctrl+Z observed. This does not claim execution history or all possible CLI recovery paths are erased."
+        },
+        {
+          "name": "Namespace-changing action confirmation",
+          "score": 3,
+          "evidence": "12-restore-confirm",
+          "note": "Restore and Stop ask for confirmation; Escape dismisses and trust/mismatch are explicit."
+        },
+        {
+          "name": "Action-specific warning and button copy",
+          "score": 2,
+          "evidence": "37-stop-confirm",
+          "note": "Stop reuses a warning about executing saved code, target is {}, and the action label is generic Proceed."
+        },
+        {
+          "name": "Trust, attachment and close semantics",
+          "score": 3,
+          "evidence": "43-final-offline",
+          "note": "Trust options and closing-detaches message are visible. This is a UX assessment, not a security audit."
+        }
+      ],
+      "rating": 2.25,
+      "coverage": 1.0,
+      "points": 3.15
+    },
+    {
+      "name": "Keyboard efficiency and focus",
+      "weight": 7,
+      "criteria": [
+        {
+          "name": "Run shortcuts from editor focus",
+          "score": 1,
+          "evidence": "04-ctrl-enter",
+          "note": "Shift+Enter and Ctrl+Enter inserted newlines in editor focus; Escape followed by Shift+Enter executed the selected cell."
+        },
+        {
+          "name": "Command-palette keyboard activation",
+          "score": 1,
+          "evidence": "21-palette-keyboard",
+          "note": "Filtering checkpoint worked, but Arrow Down + Enter did not select or execute it; implementation has click handlers only."
+        },
+        {
+          "name": "Escape and mode visibility",
+          "score": 3,
+          "evidence": "13-dialog-escape",
+          "note": "Escape dismisses confirmations and returns to command mode; status bar distinguishes edit/command mode."
+        },
+        {
+          "name": "Complete tab journey and modal focus containment",
+          "score": null,
+          "evidence": "accessibility-tree.json",
+          "note": "Focusable controls exist, but a full Tab/Shift+Tab journey, focus restoration and modal trap were not tested."
+        }
+      ],
+      "rating": 1.6666666666666667,
+      "coverage": 0.75,
+      "points": 2.3333333333333335
+    },
+    {
+      "name": "Accessibility and inclusive interaction",
+      "weight": 7,
+      "criteria": [
+        {
+          "name": "Native semantics and accessible labels",
+          "score": 3,
+          "evidence": "accessibility-tree.json",
+          "note": "UI Automation exposes 29 descendants including named buttons/inputs/editors. Navigation destinations and rendered outputs were absent from this snapshot."
+        },
+        {
+          "name": "Window and contextual accessible identity",
+          "score": 1,
+          "evidence": "accessibility-tree.json",
+          "note": "Native window has an empty title/name and repeated Run/Delete labels lack a cell name in the exposed tree."
+        },
+        {
+          "name": "Measured text, nontext and focus contrast",
+          "score": null,
+          "evidence": "19-settings-top",
+          "note": "Visual inspection alone cannot certify contrast. No pixel/token contrast calculation was performed."
+        },
+        {
+          "name": "Screen reader, high contrast, IME and text scaling",
+          "score": null,
+          "evidence": "docs/desktop/platforms.md",
+          "note": "NVDA, system high contrast, IME, mixed DPI and enlarged text remain qualification work; no conformance claim."
+        }
+      ],
+      "rating": 2.0,
+      "coverage": 0.5,
+      "points": 2.8
+    },
+    {
+      "name": "Adaptive layout and window sizing",
+      "weight": 6,
+      "criteria": [
+        {
+          "name": "Standard-width containment",
+          "score": 2,
+          "evidence": "11-checkpoints",
+          "note": "Notebook is usable at about 1280 logical pixels, but checkpoint row actions already clip on the right."
+        },
+        {
+          "name": "Compact-window controls",
+          "score": 1,
+          "evidence": "26-notebook-800",
+          "note": "At 800 logical pixels, runtime state and cell-add actions are clipped; no adaptive toolbar overflow was visible."
+        },
+        {
+          "name": "Dialog wrapping and inspection reflow",
+          "score": 1,
+          "evidence": "12-restore-confirm",
+          "note": "Confirmation description paints past the right edge; checkpoint actions clip at 1024 and 800."
+        },
+        {
+          "name": "Mixed DPI, secondary monitor and extreme sizing",
+          "score": null,
+          "evidence": "docs/desktop/platforms.md",
+          "note": "Observed on one Windows display at 200% scaling; other DPI configurations and monitors were not tested."
+        }
+      ],
+      "rating": 1.3333333333333333,
+      "coverage": 0.75,
+      "points": 1.6
+    },
+    {
+      "name": "Perceived performance and scale",
+      "weight": 4,
+      "criteria": [
+        {
+          "name": "Small-notebook responsiveness",
+          "score": 4,
+          "evidence": "42-rich-output-finished",
+          "note": "Observed interactions completed and app stayed responsive while code ran; no app crash during completed workflows."
+        },
+        {
+          "name": "Measured startup and interaction latency",
+          "score": null,
+          "evidence": "docs/desktop/platforms.md",
+          "note": "No repeatable timing harness was run. Screenshot-tool time is not an application latency measurement."
+        },
+        {
+          "name": "Large notebooks, history and output",
+          "score": null,
+          "evidence": "docs/desktop/coverage.md",
+          "note": "Six-cell fixture only; no large history, 100 MiB output, image-cache or long-session stress test."
+        },
+        {
+          "name": "Resource use and rendering stability",
+          "score": null,
+          "evidence": "docs/desktop/platforms.md",
+          "note": "Memory, frame times, GPU fallback and long-running resource behavior were not measured."
+        }
+      ],
+      "rating": 4.0,
+      "coverage": 0.25,
+      "points": 3.2
+    },
+    {
+      "name": "Preferences and personalization",
+      "weight": 3,
+      "criteria": [
+        {
+          "name": "Theme discoverability and operation",
+          "score": 4,
+          "evidence": "19-settings-top",
+          "note": "Header and Settings theme switches work."
+        },
+        {
+          "name": "Interpreter clarity",
+          "score": 2,
+          "evidence": "19-settings-top",
+          "note": "Choose project interpreter exists, but current selected path/version is not summarized in Settings; picker was not exercised."
+        },
+        {
+          "name": "Preference persistence and system integration",
+          "score": 1,
+          "evidence": "39-startup",
+          "note": "Dark theme returned to light on relaunch; source initializes apply_theme(false) and dark:false."
+        },
+        {
+          "name": "Customization depth",
+          "score": 1,
+          "evidence": "docs/desktop/coverage.md",
+          "note": "System/high-contrast preference, key rebinding and full config fields remain unfinished."
+        }
+      ],
+      "rating": 2.0,
+      "coverage": 1.0,
+      "points": 1.2
+    },
+    {
+      "name": "Help, terminology and platform polish",
+      "weight": 2,
+      "criteria": [
+        {
+          "name": "Contextual help and documentation access",
+          "score": 2,
+          "evidence": "39-startup",
+          "note": "Startup shortcuts and tooltips help, but no visible in-app help, glossary or documentation entry point."
+        },
+        {
+          "name": "Language and domain concepts",
+          "score": 2,
+          "evidence": "37-stop-confirm",
+          "note": "Ordinary notebook labels are clear; namespace, runtime, interpreter and Continue/Restore need explanation."
+        },
+        {
+          "name": "Native shell identity and release information",
+          "score": 1,
+          "evidence": "accessibility-tree.json",
+          "note": "Window title is empty and version/About is not visible. Installer, signing and update UX were not tested."
+        },
+        {
+          "name": "Discovery of incomplete workflows",
+          "score": 2,
+          "evidence": "docs/desktop/coverage.md",
+          "note": "Coverage is honestly documented in the repo, but UI offers little guidance about unimplemented exchange/publish workflows."
+        }
+      ],
+      "rating": 1.75,
+      "coverage": 1.0,
+      "points": 0.7
+    }
+  ],
+  "findings": [
+    {
+      "id": "F01",
+      "priority": "P1",
+      "title": "Run shortcuts are swallowed by the editor",
+      "evidence": "03-edit-keyboard-run",
+      "reproduction": "Focus code editor; press Shift+Enter or Ctrl+Enter. A newline is inserted. Escape, then Shift+Enter runs.",
+      "recommendation": "Route notebook run bindings before editor newline handlers; keep focus behavior explicit and consistent.",
+      "acceptance": "Both shortcuts execute once from editor and command mode without changing source; define Shift+Enter run-next behavior."
+    },
+    {
+      "id": "F02",
+      "priority": "P1",
+      "title": "Command palette cannot activate results with keys",
+      "evidence": "21-palette-keyboard",
+      "reproduction": "Open palette, type checkpoint, press Arrow Down and Enter. The palette remains and no operation starts.",
+      "recommendation": "Maintain active result index, support arrows/Enter, visible selection and focus restoration.",
+      "acceptance": "Open, filter, select and execute each command entirely by keyboard; Escape dismisses."
+    },
+    {
+      "id": "F03",
+      "priority": "P1",
+      "title": "Cell deletion has no immediate recovery",
+      "evidence": "34-delete-undo",
+      "reproduction": "Delete a saved cell. It disappears immediately. Ctrl+Z does not bring it back.",
+      "recommendation": "Add structural undo and an Undo notification; use a clear confirmation until reliable undo exists.",
+      "acceptance": "Undo restores the exact cell source, kind, position and identity; failed delete preserves source."
+    },
+    {
+      "id": "F04",
+      "priority": "P1",
+      "title": "Important controls clip in normal and compact windows",
+      "evidence": "24-checkpoints-1024",
+      "reproduction": "Open Checkpoints at 1280, 1024 and 800 logical pixels. Restore/status rows clip; small notebook windows clip add-cell/runtime controls.",
+      "recommendation": "Make inspection rows shrink/wrap; add toolbar overflow and a collapsible outline; set and communicate minimum supported dimensions.",
+      "acceptance": "All primary actions and status are reachable at documented minimum size in both themes."
+    },
+    {
+      "id": "F05",
+      "priority": "P1",
+      "title": "Critical dialog text overflows and uses generic wording",
+      "evidence": "37-stop-confirm",
+      "reproduction": "Open Restore or Stop confirmation; description extends outside the dialog. Stop warns about running saved code and shows {}.",
+      "recommendation": "Wrap description; use action-specific consequences and button names; show a useful target summary.",
+      "acceptance": "Every confirmation stays contained at minimum size; Stop says Stop runtime and Restore identifies its checkpoint."
+    },
+    {
+      "id": "F06",
+      "priority": "P1",
+      "title": "Native accessibility identity is incomplete",
+      "evidence": "accessibility-tree.json",
+      "reproduction": "UI Automation shows an unnamed app window and named controls, but no six navigation destinations or output semantics in the captured tree.",
+      "recommendation": "Expose native navigation roles/names/current state, contextual control names and accessible output content; set app/notebook window title.",
+      "acceptance": "NVDA can identify the window, navigate all destinations, read source/output/status and operate dialogs without a mouse."
+    },
+    {
+      "id": "F13",
+      "priority": "P1",
+      "title": "Normal runtime stop is displayed as a connection failure",
+      "evidence": "43-final-offline",
+      "reproduction": "After rich-output execution, Stop shut down the runtime, confirmed by CLI status, but UI showed Disconnected and raw OS error 10053. Reconnect/reload did not clear that state in the follow-up capture; a running operation label remained.",
+      "recommendation": "Handle intentional shutdown as an expected lifecycle event; reconcile operation completion and refresh connection state; distinguish runtime stopped from transport failure.",
+      "acceptance": "Repeated Stop from idle/busy states gives a stopped/offline state without an OS error; history stays readable and no completed operation remains running."
+    },
+    {
+      "id": "F07",
+      "priority": "P2",
+      "title": "Recorded work is presented as identifiers and JSON",
+      "evidence": "09-executions",
+      "reproduction": "History and Runtimes list UUIDs; execution detail and doctor results are raw JSON.",
+      "recommendation": "Show cell name/source preview, local timestamp, duration, interpreter/path and status; place raw JSON in an optional details disclosure.",
+      "acceptance": "A user can locate a failed cell or current runtime without reading UUIDs/JSON."
+    },
+    {
+      "id": "F08",
+      "priority": "P2",
+      "title": "Settings inherits unrelated diagnostic state",
+      "evidence": "18-settings-dark",
+      "reproduction": "Scroll Doctor results down, switch to Settings. Old scroll position and doctor JSON remain.",
+      "recommendation": "Scope inspection data and scroll position per destination; reset new-view scroll or restore only its own prior state.",
+      "acceptance": "Settings opens on preferences and does not display results from Doctor or another destination."
+    },
+    {
+      "id": "F09",
+      "priority": "P2",
+      "title": "Adding/selecting a cell does not reliably reveal its editor",
+      "evidence": "29-added-selected",
+      "reproduction": "Add code cell at bottom; existing selection and viewport remain. Select new outline entry; editor still requires extra scrolling.",
+      "recommendation": "Select, reveal and focus newly added cell after mutation acknowledgement; scroll using measured card bounds.",
+      "acceptance": "One add action yields a visible focused editor without extra navigation, including after large output."
+    },
+    {
+      "id": "F10",
+      "priority": "P2",
+      "title": "Theme preference resets on relaunch",
+      "evidence": "39-startup",
+      "reproduction": "Switch to dark, close and relaunch. Startup returns to light; source hardcodes initial light theme.",
+      "recommendation": "Persist appearance selection and offer Follow system with accessible high-contrast support.",
+      "acceptance": "Relaunch restores selection and system mode follows OS preference."
+    },
+    {
+      "id": "F11",
+      "priority": "P2",
+      "title": "First use assumes an initialized notebook directory",
+      "evidence": "39-startup",
+      "reproduction": "Launch without a path. Only Open notebook is offered.",
+      "recommendation": "Offer Create notebook, recent notebooks and a small sample; explain invalid/uninitialized directory recovery.",
+      "acceptance": "A new user can create, edit, run and save a first notebook through the UI."
+    },
+    {
+      "id": "F12",
+      "priority": "P3",
+      "title": "Session and worker states can look contradictory",
+      "evidence": "08-history",
+      "reproduction": "History labels the open session running while runtime chip reads Idle.",
+      "recommendation": "Use Active session for session lifecycle and reserve Running for computation; add a short state explanation.",
+      "acceptance": "Idle worker plus active session has clearly distinct labels and contextual help."
+    }
+  ]
+}

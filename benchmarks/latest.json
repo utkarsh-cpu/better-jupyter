@@ -1,0 +1,12 @@
+{
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "array_mib": 256,
+  "walk_seconds": 0.975226600014139,
+  "checkpoint_seconds": 0.975226600014139,
+  "restore_seconds": 0.3279846999939764,
+  "first_blob_bytes": 402654280,
+  "unchanged_walk_seconds": 0.6296074999991106,
+  "unchanged_new_blob_bytes": 0,
+  "excluded": []
+}

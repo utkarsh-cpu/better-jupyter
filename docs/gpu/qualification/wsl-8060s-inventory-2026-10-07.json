@@ -1,0 +1,58 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T18:15:31.515971+00:00",
+  "target_alias": "Ubuntu-24.04",
+  "target_kind": "wsl",
+  "qualified": false,
+  "inspection_only": true,
+  "user": {
+    "name": "utkarsh_kaushik",
+    "uid": 1000,
+    "sudo_group": true
+  },
+  "environment": {
+    "distribution": "Ubuntu 24.04.5 LTS",
+    "wsl_version": 2,
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "python": "3.12.3",
+    "gpu": "AMD Radeon 8060S",
+    "architecture": "gfx1151",
+    "windows_driver": "32.0.31041.1004",
+    "windows_driver_release": "26.10.41.01-260811a-203304C-AMD-Software-Adrenalin-Edition"
+  },
+  "checks": {
+    "dxg_present": true,
+    "dxg_readable_by_user": true,
+    "dxg_writable_by_user": true,
+    "dxcore_library_loads": true,
+    "torch_installed": false,
+    "numpy_installed": false,
+    "rocm_tools_installed": false,
+    "rocm_system_install_present": false
+  },
+  "documentation": {
+    "supported_hardware_route": "AMD ROCDXG compatibility table includes Ryzen AI Max+ 395 and Ubuntu 24.04; version 1.2.1 aligns with ROCm 7.14",
+    "urls": [
+      "https://github.com/ROCm/librocdxg#user-content-wsl-compatibility-matrix",
+      "https://rocm.docs.amd.com/en/docs-7.14.0/install/rocm.html#install-rocdxg-and-amd-smi-for-wsl"
+    ]
+  },
+  "features": {
+    "portable_pytorch": {
+      "status": "unavailable",
+      "reason": "WSL ROCm/ROCDXG/PyTorch stack not installed; no computation test yet"
+    },
+    "native_amdgpu_criu": {
+      "status": "unsupported",
+      "reason": "WSL DXG route is not a qualified native Linux KFD/CRIU target"
+    }
+  },
+  "limits": [
+    "Documentation eligibility and device access do not verify GPU computation",
+    "Exact installed Windows driver has not been qualified for WSL computation",
+    "Windows portable GPU results do not qualify WSL",
+    "No password read or recorded; user identity and group membership checked only"
+  ],
+  "historical_result": true,
+  "superseded_by_for_portable_checks": "wsl-8060s-portable-2026-10-07.json"
+}

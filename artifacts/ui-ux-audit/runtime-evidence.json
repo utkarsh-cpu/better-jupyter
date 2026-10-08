@@ -1,0 +1,123 @@
+{
+  "sessions": [
+    {
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "notebook_id": "fc5b806a-4df6-4782-9011-7a8b1daf4286",
+      "parent_session_id": null,
+      "restored_checkpoint_id": null,
+      "state": "closed",
+      "start": "2026-10-04T17:14:11.303379Z",
+      "end": "2026-10-04T17:16:19.885061Z",
+      "environment_json": "{\"python\": \"3.12.10\", \"implementation\": \"cpython\", \"executable\": \"C:\\\\Users\\\\UTKARSH KAUSHIK\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\", \"platform\": \"Windows-11-10.0.26200-SP0\", \"cwd\": \"\\\\\\\\?\\\\C:\\\\Users\\\\UTKARSH KAUSHIK\\\\Documents\\\\Projects\\\\KernelLedger\\\\artifacts\\\\ui-ux-audit\\\\notebook\", \"interpreter_choice\": \"supervisor\", \"env\": {}, \"allow_python_mismatch\": false}",
+      "supervisor_json": "{\"kernelledger\": \"0.1.0\", \"python\": \"3.12.10\"}",
+      "origin": "local"
+    },
+    {
+      "session_id": "d9dbd78a-a111-4a1d-9e3a-07339b41e796",
+      "notebook_id": "fc5b806a-4df6-4782-9011-7a8b1daf4286",
+      "parent_session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "restored_checkpoint_id": "950ccb3e-69ee-4cf1-a101-a709949924cf",
+      "state": "closed",
+      "start": "2026-10-04T17:16:20.249687Z",
+      "end": "2026-10-04T17:21:04.998000Z",
+      "environment_json": "{\"python\": \"3.12.10\", \"implementation\": \"cpython\", \"executable\": \"C:\\\\Users\\\\UTKARSH KAUSHIK\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\", \"platform\": \"Windows-11-10.0.26200-SP0\", \"cwd\": \"\\\\\\\\?\\\\C:\\\\Users\\\\UTKARSH KAUSHIK\\\\Documents\\\\Projects\\\\KernelLedger\\\\artifacts\\\\ui-ux-audit\\\\notebook\", \"interpreter_choice\": \"supervisor\", \"env\": {}, \"allow_python_mismatch\": false}",
+      "supervisor_json": "{\"kernelledger\": \"0.1.0\", \"python\": \"3.12.10\"}",
+      "origin": "local"
+    },
+    {
+      "session_id": "5cbb38af-7fd4-4da9-87d5-8880a9043756",
+      "notebook_id": "fc5b806a-4df6-4782-9011-7a8b1daf4286",
+      "parent_session_id": null,
+      "restored_checkpoint_id": null,
+      "state": "running",
+      "start": "2026-10-04T17:22:49.131858Z",
+      "end": null,
+      "environment_json": "{\"python\": \"3.12.10\", \"implementation\": \"cpython\", \"executable\": \"C:\\\\Users\\\\UTKARSH KAUSHIK\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\", \"platform\": \"Windows-11-10.0.26200-SP0\", \"cwd\": \"\\\\\\\\?\\\\C:\\\\Users\\\\UTKARSH KAUSHIK\\\\Documents\\\\Projects\\\\KernelLedger\\\\artifacts\\\\ui-ux-audit\\\\notebook\", \"interpreter_choice\": \"supervisor\", \"env\": {}, \"allow_python_mismatch\": false}",
+      "supervisor_json": "{\"kernelledger\": \"0.1.0\", \"python\": \"3.12.10\"}",
+      "origin": "local"
+    }
+  ],
+  "executions": [
+    {
+      "exec_id": "36df9f56-b705-4ad9-bef1-7cf4c132e6f5",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "ordinal": 1,
+      "cell_id": "sales",
+      "source_sha256": "9f8594e56ed72ff99b4fd8d04f27f81ca7dcc8eccb9c6aaa2ae7215281460503",
+      "status": "ok",
+      "start": "2026-10-04T17:14:11.307517Z",
+      "end": "2026-10-04T17:14:11.338004Z"
+    },
+    {
+      "exec_id": "e0e689f6-f9a5-430c-8783-1ca0960afc0c",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "ordinal": 2,
+      "cell_id": "sales",
+      "source_sha256": "0a43ee27e6fd6ae733be5e0420b7994eda194229f37255218b19e59aa0049c07",
+      "status": "ok",
+      "start": "2026-10-04T17:14:45.162540Z",
+      "end": "2026-10-04T17:14:45.186796Z"
+    },
+    {
+      "exec_id": "3dcecbba-bb64-4e82-b4e0-d8c307dcd29c",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "ordinal": 3,
+      "cell_id": "sales",
+      "source_sha256": "0a43ee27e6fd6ae733be5e0420b7994eda194229f37255218b19e59aa0049c07",
+      "status": "ok",
+      "start": "2026-10-04T17:14:58.277467Z",
+      "end": "2026-10-04T17:14:58.284875Z"
+    },
+    {
+      "exec_id": "7a04b7d0-72bb-4172-b206-35822d33a11f",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "ordinal": 4,
+      "cell_id": "summary",
+      "source_sha256": "ac284be07e6f845a2ddc87f15fd33edcd2cb96cd8942891810a53da2b4d3b1c9",
+      "status": "ok",
+      "start": "2026-10-04T17:14:58.279468Z",
+      "end": "2026-10-04T17:14:58.312924Z"
+    },
+    {
+      "exec_id": "868512d5-0ffe-4646-8fd3-6e104cdff3c5",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "ordinal": 5,
+      "cell_id": "error",
+      "source_sha256": "95baf036f1aa2733423c14f202dbee17b0d6c29230f6484fd711c678cd64635a",
+      "status": "error",
+      "start": "2026-10-04T17:14:58.281469Z",
+      "end": "2026-10-04T17:14:58.344915Z"
+    },
+    {
+      "exec_id": "f6eab1be-9f17-470a-bc9a-47b0a4369821",
+      "session_id": "5cbb38af-7fd4-4da9-87d5-8880a9043756",
+      "ordinal": 1,
+      "cell_id": "rich",
+      "source_sha256": "984a8814767d250bd757237f1d41a56e02495ff0214f542529145af6c7421560",
+      "status": "ok",
+      "start": "2026-10-04T17:22:49.137100Z",
+      "end": "2026-10-04T17:22:51.596755Z"
+    },
+    {
+      "exec_id": "56778d8a-6dfe-423b-9b85-00285ac4da03",
+      "session_id": "d9dbd78a-a111-4a1d-9e3a-07339b41e796",
+      "ordinal": 1,
+      "cell_id": "42fb5c367f72",
+      "source_sha256": "92a1825dd7748fa5edf4c515a2a8325e6c81d6f9f3b3d5a88141b2de03d248e2",
+      "status": "interrupted",
+      "start": "2026-10-04T17:19:30.017006Z",
+      "end": "2026-10-04T17:19:32.966495Z"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "950ccb3e-69ee-4cf1-a101-a709949924cf",
+      "session_id": "5b4c9cd7-3969-41ac-b611-3907386c1add",
+      "boundary_exec_id": "868512d5-0ffe-4646-8fd3-6e104cdff3c5",
+      "status": "complete",
+      "manifest_sha256": "b41ba71de73d82064a2779e1b541fbe51ef9fb4e7d03ad414138395a02642a05",
+      "timestamp": "2026-10-04T17:15:40.278449Z",
+      "origin": "local"
+    }
+  ]
+}

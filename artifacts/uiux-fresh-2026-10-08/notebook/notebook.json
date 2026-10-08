@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "id": "69181ff7-b3f2-4420-8a47-da774a2ecd1c",
+  "metadata": {},
+  "cells": [
+    {"id": "intro", "type": "markdown"},
+    {"id": "sales", "type": "code"},
+    {"id": "error", "type": "code"}
+  ]
+}

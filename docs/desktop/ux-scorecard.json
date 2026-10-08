@@ -1,0 +1,1240 @@
+{
+  "version": 1,
+  "frontend_plan": 3,
+  "phase": "development, qualification pending",
+  "fixture": "artifacts/ui-ux-audit/notebook",
+  "build": {
+    "application_version": "0.1.0",
+    "kind": "development debug",
+    "rust_toolchain": "1.99.0",
+    "cargo_lock_sha256": "31395f9cd9f8c07f00e40d13ac5a1ae19a5eb613bfa9e0b9c8c5d803dde94802",
+    "revision": "workspace snapshot; no Git metadata"
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "native_probe_dpi": 192,
+    "graphics_and_driver": "not qualified",
+    "probe_reports": "artifacts/frontend-v3/probe-{theme}.json"
+  },
+  "release_gate": {
+    "score": 80,
+    "coverage_percent": 90,
+    "open_p1": 0,
+    "required_journeys": [
+      "keyboard-only",
+      "screen-reader",
+      "recovery"
+    ]
+  },
+  "categories": [
+    {
+      "name": "Visual hierarchy and consistency",
+      "weight": 7.2,
+      "criteria": [
+        {
+          "id": "UX-01-01",
+          "name": "Hierarchy, grouping and primary actions",
+          "requirements": [
+            "F-UX-01",
+            "F-UX-02"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-01-02",
+          "name": "Typography, spacing and alignment",
+          "requirements": [
+            "F-UX-01",
+            "F-UX-02"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-01-03",
+          "name": "Theme and component consistency",
+          "requirements": [
+            "F-UX-01",
+            "F-UX-02"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-01-04",
+          "name": "Information density and restraint",
+          "requirements": [
+            "F-UX-01",
+            "F-UX-02"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Navigation and information architecture",
+      "weight": 6.3,
+      "criteria": [
+        {
+          "id": "UX-02-01",
+          "name": "Primary destinations and current location",
+          "requirements": [
+            "F-IA-23",
+            "F-IA-25"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-02-02",
+          "name": "Cell outline, selection and filtering",
+          "requirements": [
+            "F-IA-23",
+            "F-IA-25"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-02-03",
+          "name": "History drill-down and return path",
+          "requirements": [
+            "F-IA-23",
+            "F-IA-25"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-02-04",
+          "name": "Context isolation across screens",
+          "requirements": [
+            "F-IA-23",
+            "F-IA-25"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Onboarding and first use",
+      "weight": 4.5,
+      "criteria": [
+        {
+          "id": "UX-03-01",
+          "name": "Initial value proposition and first action",
+          "requirements": [
+            "F-IA-26",
+            "F-IO-01"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-03-02",
+          "name": "Create-notebook journey",
+          "requirements": [
+            "F-IA-26",
+            "F-IO-01"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-03-03",
+          "name": "Recent work and example discoverability",
+          "requirements": [
+            "F-IA-26",
+            "F-IO-01"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-03-04",
+          "name": "Shortcut introduction and mental model",
+          "requirements": [
+            "F-IA-26",
+            "F-IO-01"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Editing and cell authoring",
+      "weight": 9.0,
+      "criteria": [
+        {
+          "id": "UX-04-01",
+          "name": "Code readability and editing affordances",
+          "requirements": [
+            "F-ED-08",
+            "F-ED-09",
+            "F-UX-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-04-02",
+          "name": "Persistence and stale-source awareness",
+          "requirements": [
+            "F-ED-08",
+            "F-ED-09",
+            "F-UX-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-04-03",
+          "name": "Add-cell focus and placement",
+          "requirements": [
+            "F-ED-08",
+            "F-ED-09",
+            "F-UX-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-04-04",
+          "name": "Structural editing and undo",
+          "requirements": [
+            "F-ED-08",
+            "F-ED-09",
+            "F-UX-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Execution and runtime control",
+      "weight": 8.1,
+      "criteria": [
+        {
+          "id": "UX-05-01",
+          "name": "Single-cell and batch execution",
+          "requirements": [
+            "F-RT-13",
+            "F-RT-24"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-05-02",
+          "name": "Running state and interruption",
+          "requirements": [
+            "F-RT-13",
+            "F-RT-24"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-05-03",
+          "name": "Runtime lifecycle and offline inspection",
+          "requirements": [
+            "F-RT-13",
+            "F-RT-24"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-05-04",
+          "name": "Capability gating and action scope",
+          "requirements": [
+            "F-RT-13",
+            "F-RT-24"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Feedback and state communication",
+      "weight": 5.4,
+      "criteria": [
+        {
+          "id": "UX-06-01",
+          "name": "Execution result and global status",
+          "requirements": [
+            "F-UX-07",
+            "F-UX-10"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-06-02",
+          "name": "Save, stale and empty-result feedback",
+          "requirements": [
+            "F-UX-07",
+            "F-UX-10"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-06-03",
+          "name": "Operation identity and progress meaning",
+          "requirements": [
+            "F-UX-07",
+            "F-UX-10"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-06-04",
+          "name": "Session versus worker state terminology",
+          "requirements": [
+            "F-UX-07",
+            "F-UX-10"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Output readability and scientific content",
+      "weight": 5.4,
+      "criteria": [
+        {
+          "id": "UX-07-01",
+          "name": "Text, expressions and Python errors",
+          "requirements": [
+            "F-OUT-21",
+            "F-OUT-20"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-07-02",
+          "name": "Tables and image rendering",
+          "requirements": [
+            "F-OUT-21",
+            "F-OUT-20"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-07-03",
+          "name": "Markdown and source/output relationship",
+          "requirements": [
+            "F-OUT-21",
+            "F-OUT-20"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-07-04",
+          "name": "Output tooling and rich-content coverage",
+          "requirements": [
+            "F-OUT-21",
+            "F-OUT-20"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "History and provenance usability",
+      "weight": 5.4,
+      "criteria": [
+        {
+          "id": "UX-08-01",
+          "name": "Human-readable record summaries",
+          "requirements": [
+            "F-IA-24",
+            "F-UX-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-08-02",
+          "name": "Detail presentation and source comparison",
+          "requirements": [
+            "F-IA-24",
+            "F-UX-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-08-03",
+          "name": "Find, filter and sort recorded work",
+          "requirements": [
+            "F-IA-24",
+            "F-UX-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-08-04",
+          "name": "Runtime identity and actionable discovery",
+          "requirements": [
+            "F-IA-24",
+            "F-UX-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Checkpoints, diagnostics and recovery",
+      "weight": 6.3,
+      "criteria": [
+        {
+          "id": "UX-09-01",
+          "name": "Checkpoint creation and restoration",
+          "requirements": [
+            "F-CK-01",
+            "F-UX-04"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-09-02",
+          "name": "Diagnostics and reconnect tools",
+          "requirements": [
+            "F-CK-01",
+            "F-UX-04"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-09-03",
+          "name": "Recovery guidance and preflight clarity",
+          "requirements": [
+            "F-CK-01",
+            "F-UX-04"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-09-04",
+          "name": "Crash, conflict and draft recovery",
+          "requirements": [
+            "F-CK-01",
+            "F-UX-04"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Safety, prevention and user control",
+      "weight": 6.3,
+      "criteria": [
+        {
+          "id": "UX-10-01",
+          "name": "Deletion protection and recovery",
+          "requirements": [
+            "F-UX-06",
+            "F-ED-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-10-02",
+          "name": "Namespace-changing action confirmation",
+          "requirements": [
+            "F-UX-06",
+            "F-ED-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-10-03",
+          "name": "Action-specific warning and button copy",
+          "requirements": [
+            "F-UX-06",
+            "F-ED-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-10-04",
+          "name": "Trust, attachment and close semantics",
+          "requirements": [
+            "F-UX-06",
+            "F-ED-08"
+          ],
+          "journeys": [
+            "J2",
+            "J3",
+            "J4",
+            "J6"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Keyboard efficiency and focus",
+      "weight": 6.3,
+      "criteria": [
+        {
+          "id": "UX-11-01",
+          "name": "Run shortcuts from editor focus",
+          "requirements": [
+            "F-KEY-05",
+            "F-KEY-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-11-02",
+          "name": "Command-palette keyboard activation",
+          "requirements": [
+            "F-KEY-05",
+            "F-KEY-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-11-03",
+          "name": "Escape and mode visibility",
+          "requirements": [
+            "F-KEY-05",
+            "F-KEY-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-11-04",
+          "name": "Complete tab journey and modal focus containment",
+          "requirements": [
+            "F-KEY-05",
+            "F-KEY-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Accessibility and inclusive interaction",
+      "weight": 6.3,
+      "criteria": [
+        {
+          "id": "UX-12-01",
+          "name": "Native semantics and accessible labels",
+          "requirements": [
+            "F-A11Y-07",
+            "F-A11Y-08",
+            "F-A11Y-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-12-02",
+          "name": "Window and contextual accessible identity",
+          "requirements": [
+            "F-A11Y-07",
+            "F-A11Y-08",
+            "F-A11Y-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-12-03",
+          "name": "Measured text, nontext and focus contrast",
+          "requirements": [
+            "F-A11Y-07",
+            "F-A11Y-08",
+            "F-A11Y-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-12-04",
+          "name": "Screen reader, high contrast, IME and text scaling",
+          "requirements": [
+            "F-A11Y-07",
+            "F-A11Y-08",
+            "F-A11Y-09"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Adaptive layout and window sizing",
+      "weight": 5.4,
+      "criteria": [
+        {
+          "id": "UX-13-01",
+          "name": "Standard-width containment",
+          "requirements": [
+            "F-LAY-01",
+            "F-LAY-02",
+            "F-LAY-03",
+            "F-LAY-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-13-02",
+          "name": "Compact-window controls",
+          "requirements": [
+            "F-LAY-01",
+            "F-LAY-02",
+            "F-LAY-03",
+            "F-LAY-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-13-03",
+          "name": "Dialog wrapping and inspection reflow",
+          "requirements": [
+            "F-LAY-01",
+            "F-LAY-02",
+            "F-LAY-03",
+            "F-LAY-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-13-04",
+          "name": "Mixed DPI, secondary monitor and extreme sizing",
+          "requirements": [
+            "F-LAY-01",
+            "F-LAY-02",
+            "F-LAY-03",
+            "F-LAY-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Perceived performance and scale",
+      "weight": 3.6,
+      "criteria": [
+        {
+          "id": "UX-14-01",
+          "name": "Small-notebook responsiveness",
+          "requirements": [
+            "F-PERF-23"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-14-02",
+          "name": "Measured startup and interaction latency",
+          "requirements": [
+            "F-PERF-23"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-14-03",
+          "name": "Large notebooks, history and output",
+          "requirements": [
+            "F-PERF-23"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-14-04",
+          "name": "Resource use and rendering stability",
+          "requirements": [
+            "F-PERF-23"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Preferences and personalization",
+      "weight": 2.7,
+      "criteria": [
+        {
+          "id": "UX-15-01",
+          "name": "Theme discoverability and operation",
+          "requirements": [
+            "F-SET-05",
+            "F-SET-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-15-02",
+          "name": "Interpreter clarity",
+          "requirements": [
+            "F-SET-05",
+            "F-SET-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-15-03",
+          "name": "Preference persistence and system integration",
+          "requirements": [
+            "F-SET-05",
+            "F-SET-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-15-04",
+          "name": "Customization depth",
+          "requirements": [
+            "F-SET-05",
+            "F-SET-06"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Help, terminology and platform polish",
+      "weight": 1.8,
+      "criteria": [
+        {
+          "id": "UX-16-01",
+          "name": "Contextual help and documentation access",
+          "requirements": [
+            "F-HELP-01",
+            "F-HELP-02",
+            "F-HELP-03",
+            "F-HELP-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-16-02",
+          "name": "Language and domain concepts",
+          "requirements": [
+            "F-HELP-01",
+            "F-HELP-02",
+            "F-HELP-03",
+            "F-HELP-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-16-03",
+          "name": "Native shell identity and release information",
+          "requirements": [
+            "F-HELP-01",
+            "F-HELP-02",
+            "F-HELP-03",
+            "F-HELP-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        },
+        {
+          "id": "UX-16-04",
+          "name": "Discovery of incomplete workflows",
+          "requirements": [
+            "F-HELP-01",
+            "F-HELP-02",
+            "F-HELP-03",
+            "F-HELP-04"
+          ],
+          "journeys": [
+            "J1"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not rescored. The original 2026-10-04 audit remains preserved in artifacts/ui-ux-audit."
+        }
+      ]
+    },
+    {
+      "name": "Interchange and Git",
+      "weight": 5,
+      "criteria": [
+        {
+          "id": "UX-17-01",
+          "name": "Inspect foreign bundle without execution",
+          "requirements": [
+            "F-IO-07",
+            "F-IO-08",
+            "F-GIT-02",
+            "F-GIT-03",
+            "F-GIT-04"
+          ],
+          "journeys": [
+            "J5",
+            "J7"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-17-02",
+          "name": "Trust and import provenance",
+          "requirements": [
+            "F-IO-07",
+            "F-IO-08",
+            "F-GIT-02",
+            "F-GIT-03",
+            "F-GIT-04"
+          ],
+          "journeys": [
+            "J5",
+            "J7"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-17-03",
+          "name": "Export round trip and destination preservation",
+          "requirements": [
+            "F-IO-07",
+            "F-IO-08",
+            "F-GIT-02",
+            "F-GIT-03",
+            "F-GIT-04"
+          ],
+          "journeys": [
+            "J5",
+            "J7"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-17-04",
+          "name": "Git branch changes and source conflicts",
+          "requirements": [
+            "F-IO-07",
+            "F-IO-08",
+            "F-GIT-02",
+            "F-GIT-03",
+            "F-GIT-04"
+          ],
+          "journeys": [
+            "J5",
+            "J7"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        }
+      ]
+    },
+    {
+      "name": "Input and multiple runtimes",
+      "weight": 5,
+      "criteria": [
+        {
+          "id": "UX-18-01",
+          "name": "Recorded input notice and ownership",
+          "requirements": [
+            "F-RT-30",
+            "F-RT-31",
+            "F-RT-32",
+            "F-RT-33",
+            "F-RT-40",
+            "F-IA-20"
+          ],
+          "journeys": [
+            "J1",
+            "J8"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-18-02",
+          "name": "Secret input and replay refusal",
+          "requirements": [
+            "F-RT-30",
+            "F-RT-31",
+            "F-RT-32",
+            "F-RT-33",
+            "F-RT-40",
+            "F-IA-20"
+          ],
+          "journeys": [
+            "J1",
+            "J8"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-18-03",
+          "name": "Runtime registry and targeted Stop",
+          "requirements": [
+            "F-RT-30",
+            "F-RT-31",
+            "F-RT-32",
+            "F-RT-33",
+            "F-RT-40",
+            "F-IA-20"
+          ],
+          "journeys": [
+            "J1",
+            "J8"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        },
+        {
+          "id": "UX-18-04",
+          "name": "Tabs, detach, and notebook identity",
+          "requirements": [
+            "F-RT-30",
+            "F-RT-31",
+            "F-RT-32",
+            "F-RT-33",
+            "F-RT-40",
+            "F-IA-20"
+          ],
+          "journeys": [
+            "J1",
+            "J8"
+          ],
+          "score": null,
+          "evidence": [],
+          "note": "Not tested"
+        }
+      ]
+    }
+  ]
+}

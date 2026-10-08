@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger descriptor schema 1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "blob_hashes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "uniqueItems": true
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial"
+      ]
+    },
+    "excluded": {
+      "type": "array"
+    },
+    "notes": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "checkpoint_id",
+    "manifest_sha256",
+    "blob_hashes",
+    "status",
+    "excluded",
+    "notes"
+  ],
+  "additionalProperties": true
+}

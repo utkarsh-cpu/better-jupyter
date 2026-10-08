@@ -1,0 +1,575 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 2
+    },
+    "tables": {
+      "additionalProperties": false,
+      "properties": {
+        "batches": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "batch_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "exec_ids_json": {
+                "type": [
+                  "string"
+                ]
+              },
+              "on_error": {
+                "type": [
+                  "string"
+                ]
+              },
+              "operation_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "batch_id",
+              "operation_id",
+              "session_id",
+              "on_error",
+              "exec_ids_json"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "blobs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "byte_size": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "media_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sha256": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "sha256",
+              "byte_size",
+              "media_type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "changes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "change_seq": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "kind": {
+                "type": [
+                  "string"
+                ]
+              },
+              "ref_json": {
+                "type": [
+                  "string"
+                ]
+              },
+              "timestamp": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "change_seq",
+              "kind",
+              "ref_json",
+              "timestamp"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "checkpoints": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "boundary_exec_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "checkpoint_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "manifest_sha256": {
+                "type": [
+                  "string"
+                ]
+              },
+              "origin": {
+                "type": [
+                  "string"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "status": {
+                "type": [
+                  "string"
+                ]
+              },
+              "timestamp": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "checkpoint_id",
+              "session_id",
+              "boundary_exec_id",
+              "status",
+              "manifest_sha256",
+              "timestamp",
+              "origin"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "blob_sha256": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "exec_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "kind": {
+                "type": [
+                  "string"
+                ]
+              },
+              "payload_json": {
+                "type": [
+                  "string"
+                ]
+              },
+              "seq": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "timestamp": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "exec_id",
+              "seq",
+              "kind",
+              "timestamp",
+              "payload_json",
+              "blob_sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "executions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "cell_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "exec_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "ordinal": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "source_sha256": {
+                "type": [
+                  "string"
+                ]
+              },
+              "start": {
+                "type": [
+                  "string"
+                ]
+              },
+              "status": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "exec_id",
+              "session_id",
+              "ordinal",
+              "cell_id",
+              "source_sha256",
+              "status",
+              "start",
+              "end"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "input_requests": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "client_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created": {
+                "type": [
+                  "string"
+                ]
+              },
+              "exec_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "input_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "password": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "seq": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "state": {
+                "type": [
+                  "string"
+                ]
+              },
+              "updated": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "input_id",
+              "exec_id",
+              "seq",
+              "password",
+              "state",
+              "client_name",
+              "created",
+              "updated"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "operations": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "accepted": {
+                "type": [
+                  "string"
+                ]
+              },
+              "client_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "client_request_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "finished": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "type": [
+                  "string"
+                ]
+              },
+              "operation_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "request_sha256": {
+                "type": [
+                  "string"
+                ]
+              },
+              "result_json": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "started": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "operation_id",
+              "client_id",
+              "client_request_id",
+              "kind",
+              "request_sha256",
+              "state",
+              "result_json",
+              "accepted",
+              "started",
+              "finished"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "pins": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "checkpoint_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "checkpoint_id"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "session_events": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": [
+                  "string"
+                ]
+              },
+              "payload_json": {
+                "type": [
+                  "string"
+                ]
+              },
+              "seq": {
+                "type": [
+                  "integer"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "timestamp": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "session_id",
+              "seq",
+              "kind",
+              "timestamp",
+              "payload_json"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "sessions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "environment_json": {
+                "type": [
+                  "string"
+                ]
+              },
+              "notebook_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "origin": {
+                "type": [
+                  "string"
+                ]
+              },
+              "parent_session_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "restored_checkpoint_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "session_id": {
+                "type": [
+                  "string"
+                ]
+              },
+              "start": {
+                "type": [
+                  "string"
+                ]
+              },
+              "state": {
+                "type": [
+                  "string"
+                ]
+              },
+              "supervisor_json": {
+                "type": [
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "session_id",
+              "notebook_id",
+              "parent_session_id",
+              "restored_checkpoint_id",
+              "state",
+              "start",
+              "end",
+              "environment_json",
+              "supervisor_json",
+              "origin"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "batches",
+        "blobs",
+        "changes",
+        "checkpoints",
+        "events",
+        "executions",
+        "input_requests",
+        "operations",
+        "pins",
+        "session_events",
+        "sessions"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "tables"
+  ],
+  "title": "KernelLedger ledger schema 2 inspection",
+  "type": "object"
+}

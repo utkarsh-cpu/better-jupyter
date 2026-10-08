@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "cf6f809e-a2bb-4fb6-b23d-13f968c7c8ff",
+  "metadata": {},
+  "cells": [
+    {"id": "register-training", "type": "code"},
+    {"id": "next-step", "type": "code"}
+  ]
+}

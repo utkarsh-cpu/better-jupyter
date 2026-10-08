@@ -1,0 +1,392 @@
+use super::*;
+
+impl Workspace {
+    pub(super) fn palette_overlay(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let theme = cx.theme();
+        let (border, popover, popover_fg, muted_fg, hover_bg, overlay, radius) = (
+            theme.border,
+            theme.popover,
+            theme.popover_foreground,
+            theme.muted_foreground,
+            theme.list_hover,
+            theme.overlay,
+            theme.radius_lg,
+        );
+        let query = self.palette_query.read(cx).value().to_lowercase();
+        let mut items = v_flex()
+            .id("command-results")
+            .track_scroll(&self.palette_scroll)
+            .max_h(px(300.))
+            .overflow_y_scroll()
+            .p_1()
+            .gap_px();
+        let mut shown = 0;
+        for (method, label, description, glyph) in COMMANDS {
+            if !query.is_empty()
+                && !label.to_lowercase().contains(&query)
+                && !description.to_lowercase().contains(&query)
+            {
+                continue;
+            }
+            shown += 1;
+            let reason = self.command_reason(method);
+            let available = reason.is_none();
+            let description = reason.unwrap_or(description);
+            items = items.child(
+                h_flex()
+                    .id(SharedString::from(format!("cmd-{method}")))
+                    .role(Role::Button)
+                    .aria_selected(shown - 1 == self.palette_active)
+                    .aria_label(format!(
+                        "{label}{}{}",
+                        if shown - 1 == self.palette_active {
+                            ", selected"
+                        } else {
+                            ""
+                        },
+                        if available { "" } else { ", unavailable" }
+                    ))
+                    .gap_3()
+                    .px_3()
+                    .py_2()
+                    .items_center()
+                    .rounded(px(6.))
+                    .cursor_pointer()
+                    .when(shown - 1 == self.palette_active, |d| d.bg(hover_bg))
+                    .hover(move |s| s.bg(hover_bg))
+                    .child(div().text_color(muted_fg).child(Icon::new(glyph)))
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(label))
+                            .child(div().text_xs().text_color(muted_fg).child(description)),
+                    )
+                    .on_click(
+                        cx.listener(move |v, _, window, cx| v.run_command(method, window, cx)),
+                    ),
+            );
+        }
+        if shown == 0 {
+            items = items.child(
+                div()
+                    .px_3()
+                    .py_6()
+                    .text_center()
+                    .text_sm()
+                    .text_color(muted_fg)
+                    .child("No matching commands"),
+            );
+        }
+        div()
+            .id("palette-backdrop")
+            .occlude()
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .flex()
+            .justify_center()
+            .pt(px(88.))
+            .bg(overlay)
+            .on_click(cx.listener(|v, _, window, cx| {
+                v.palette = false;
+                v.focus.focus(window, cx);
+                cx.notify();
+            }))
+            .child(
+                v_flex()
+                    .id("palette")
+                    .role(Role::Dialog)
+                    .aria_label("Commands")
+                    .occlude()
+                    .w(px(560.))
+                    .h_auto()
+                    .max_h(px(440.))
+                    .rounded(radius)
+                    .border_1()
+                    .border_color(border)
+                    .bg(popover)
+                    .text_color(popover_fg)
+                    .shadow_xl()
+                    .overflow_hidden()
+                    .child(
+                        div().p_2().border_b_1().border_color(border).child(
+                            Input::new(&self.palette_query)
+                                .prefix(Icon::new(Glyph::Search).small().text_color(muted_fg))
+                                .appearance(false),
+                        ),
+                    )
+                    .child(items)
+                    .child(
+                        h_flex()
+                            .px_3()
+                            .py_1p5()
+                            .gap_1p5()
+                            .items_center()
+                            .border_t_1()
+                            .border_color(border)
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .children(kbd("escape"))
+                            .child("to close"),
+                    ),
+            )
+    }
+    pub(super) fn confirm_overlay(
+        &self,
+        method: String,
+        fields: Value,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Stateful<Div> {
+        let theme = cx.theme();
+        let (border, popover, popover_fg, muted, muted_fg, overlay, warning, radius) = (
+            theme.border,
+            theme.popover,
+            theme.popover_foreground,
+            theme.muted,
+            theme.muted_foreground,
+            theme.overlay,
+            theme.warning,
+            theme.radius_lg,
+        );
+        let mono = theme.mono_font_family.clone();
+        let clients = self
+            .tabs
+            .get(self.active)
+            .map(|t| t.runtime["attached_client_count"].clone())
+            .unwrap_or(Value::Null);
+        if method == "about" {
+            return div()
+                .id("about-backdrop")
+                .occlude()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(overlay)
+                .child(
+                    v_flex()
+                        .id("about-dialog")
+                        .role(Role::Dialog)
+                        .aria_label("About KernelLedger")
+                        .track_focus(&self.dialog_focus)
+                        .w(px(480.))
+                        .max_w_full()
+                        .min_w_0()
+                        .whitespace_normal()
+                        .p_5()
+                        .gap_3()
+                        .bg(popover)
+                        .text_color(popover_fg)
+                        .rounded(radius)
+                        .child(div().text_lg().child("About KernelLedger"))
+                        .child(self.support_info())
+                        .child(
+                            Button::new("about-copy")
+                                .outline()
+                                .label("Copy support information")
+                                .on_click(cx.listener(|v, _, _, cx| {
+                                    cx.write_to_clipboard(ClipboardItem::new_string(
+                                        v.support_info(),
+                                    ))
+                                })),
+                        )
+                        .child(
+                            div()
+                                .id("about-close-focus")
+                                .role(Role::Button)
+                                .aria_label("Close About")
+                                .track_focus(&self.confirm_focus)
+                                .child(
+                                    Button::new("about-close")
+                                        .primary()
+                                        .label("Close")
+                                        .on_click(cx.listener(|v, _, _, cx| {
+                                            v.confirmation = None;
+                                            cx.notify();
+                                        })),
+                                ),
+                        ),
+                );
+        }
+        let (title, consequence, verb) = confirmation_copy(&method);
+        let target = self.target_summary(&fields);
+
+        let mut content = v_flex()
+            .gap_3()
+            .child(
+                h_flex()
+                    .gap_3()
+                    .items_start()
+                    .child(
+                        div()
+                            .flex_none()
+                            .size(px(36.))
+                            .rounded_full()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .bg(warning.opacity(0.12))
+                            .text_color(warning)
+                            .child(Icon::new(Glyph::TriangleAlert)),
+                    )
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .gap_1()
+                            .min_w_0()
+                            .whitespace_normal()
+                            .child(
+                                div()
+                                    .text_base()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(format!("{title} {target}?")),
+                            )
+                            .child(div().text_sm().text_color(muted_fg).child(consequence)),
+                    ),
+            )
+            .child(
+                v_flex()
+                    .gap_1()
+                    .p_3()
+                    .rounded(px(6.))
+                    .bg(muted.opacity(0.5))
+                    .text_xs()
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .w(px(110.))
+                                    .text_color(muted_fg)
+                                    .child("Attached clients"),
+                            )
+                            .child(div().font_family(mono.clone()).child(clients.to_string())),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(div().w(px(110.)).text_color(muted_fg).child("Target"))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .font_family(mono.clone())
+                                    .whitespace_normal()
+                                    .child(target),
+                            ),
+                    ),
+            );
+        if matches!(
+            method.as_str(),
+            "restore" | "continue" | "replay" | "training-restore"
+        ) {
+            content = content.child(
+                Checkbox::new("artifact-trust")
+                    .label("Trust imported saved code")
+                    .checked(fields["trust"] == true)
+                    .on_click(cx.listener(|v, checked: &bool, _, cx| {
+                        if let Some((_, fields)) = &mut v.confirmation {
+                            fields["trust"] = json!(*checked);
+                        }
+                        cx.notify();
+                    })),
+            );
+        }
+        if matches!(method.as_str(), "restore" | "continue") {
+            content = content
+                .child(
+                    Checkbox::new("python-mismatch")
+                        .label("Override a Python version mismatch")
+                        .checked(fields["allow_python_mismatch"] == true)
+                        .on_click(cx.listener(|v, checked: &bool, _, cx| {
+                            if let Some((_, fields)) = &mut v.confirmation {
+                                fields["allow_python_mismatch"] = json!(*checked);
+                            }
+                            cx.notify();
+                        })),
+                )
+                .child(div().text_xs().text_color(muted_fg).child(
+                    "Review the checkpoint report before overriding a Python version mismatch.",
+                ));
+        }
+        let destructive = matches!(method.as_str(), "restart" | "stop" | "migrate" | "restore");
+        let proceed = Button::new("proceed")
+            .label(verb)
+            .disabled(method == "training-restore" && fields["trust"] != true);
+        let proceed = if destructive {
+            proceed.danger()
+        } else {
+            proceed.primary()
+        };
+        let actions = h_flex()
+                .pt_2()
+                .gap_2()
+                .justify_end()
+                .child(
+                    div()
+                        .id("safe-cancel")
+                        .role(Role::Button)
+                        .aria_label("Cancel")
+                        .track_focus(&self.confirm_focus)
+                        .child(Button::new("cancel").ghost().label("Cancel").on_click(
+                            cx.listener(|v, _, _, cx| {
+                                v.confirmation = None;
+                                cx.notify();
+                            }),
+                        )),
+                )
+                .child(proceed.on_click(cx.listener(move |v, _, _, cx| {
+                    if method == "delete" {
+                        v.mutate(json!({"action":"delete","cell_id":fields["cell_id"]}));
+                    } else {
+                        v.runtime(&method, fields.clone());
+                    }
+                    v.confirmation = None;
+                    cx.notify();
+                })));
+        content = v_flex().gap_3()
+            .child(div().id("confirmation-body").max_h((window.viewport_size().height - px(180.)).max(px(120.)))
+                .overflow_y_scroll().child(content))
+            .child(actions);
+        div()
+            .id("confirm-backdrop")
+            .occlude()
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(overlay)
+            .on_click(cx.listener(|v, _, _, cx| {
+                v.confirmation = None;
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .id("confirm")
+                    .role(Role::Dialog)
+                    .aria_label(title)
+                    .track_focus(&self.dialog_focus)
+                    .occlude()
+                    .w(px(480.))
+                    .max_w_full()
+                    .min_w_0()
+                    .whitespace_normal()
+                    .p_5()
+                    .rounded(radius)
+                    .border_1()
+                    .border_color(border)
+                    .bg(popover)
+                    .text_color(popover_fg)
+                    .shadow_xl()
+                    .child(content),
+            )
+    }
+}

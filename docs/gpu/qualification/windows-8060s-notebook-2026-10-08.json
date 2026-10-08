@@ -1,0 +1,67 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T19:54:45.677843+00:00",
+  "target_alias": "local-windows-ryzen-ai-max-395",
+  "feature": "notebook-portable-training",
+  "qualified": false,
+  "native_qualified": false,
+  "hardware": {
+    "cpu": "Ryzen AI Max+ 395",
+    "gpu": "AMD Radeon 8060S",
+    "architecture": "gfx1151",
+    "os_build": "10.0.26200",
+    "driver": "32.0.31041.1004"
+  },
+  "measurement": {
+    "schema": "kernelledger.notebook-training-qualification/1",
+    "device": "cuda:0",
+    "snapshot": "c827c7abe62f173b2a083d72a9daff158c6d6f5effd79c047550a6fbf3dd686e",
+    "capture_seconds": 0.8097810000181198,
+    "restore_seconds": 4.762480799981859,
+    "fresh_worker": true,
+    "exact_next_step": true,
+    "coverage": {
+      "data_loader": "caller-supplied-cursor",
+      "namespace": "not-captured",
+      "native": "not-captured",
+      "required": "complete"
+    },
+    "native_qualified": false,
+    "recipe_sha256": "6bf0dee23afbf9195633f679c935427fcab822abb74c5a8ba0873aca1f7d151b",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "stored_bytes": 34775
+  },
+  "benchmark_path": "artifacts/windows-notebook-training-8060s-final-2026-10-08/qualification.json",
+  "source_hashes_for_final_checks": {
+    "src/kernelledger/gpu/notebook.py": "7ba08e079e4456e7f562079e8f04ca3db942d754681d7143aff5905b236a6e7a",
+    "src/kernelledger/supervisor/__init__.py": "d77019c12913c170ee5b75c3e43cb4059497d83ec739ca435b5eed5b48771c09",
+    "src/kernelledger/worker.py": "e6c216f4c003242f85022f8cd1f82aa4eee993fc750312803d02361650a41668",
+    "src/kernelledger/desktop/helper.py": "26b8b7d40ddc8d937e6e672491ca4d2217616cb26cf7b38e276602de28ba3c9d",
+    "src/kernelledger/desktop/server.py": "26aabc3c815f92bae4f0265431887eef007d4ebc6dfa00d13c88f4c6ecad7b4b",
+    "src/kernelledger/desktop/contracts.py": "9755cc2154c0c6b4b62ce394321affa550e100bc21c13f30abe485b3410fc9b1",
+    "desktop/crates/client/src/service.rs": "7164b1c2a80be75225accb400b69cf4b05fe8b43404e8b3b1c0652d6f65b867e",
+    "desktop/crates/ui/src/lib.rs": "7334631d7c2e25dbb56a9d312d4bc8be32a3195d00f794d29854fd05a6e4ae4a",
+    "tests/test_gpu_notebook.py": "bead28f5bb0cda2c2b9ede58fe6c0c0a545ce9ed069a0da76244cdd9c1201b86",
+    "tests/test_gpu_desktop.py": "dfba9620d87a607473dc80bfe256b46fa84f1959b3d98e177f0e553eaf805ae3"
+  },
+  "tests": {
+    "windows_full_before_final_factory_guards": "127 passed in 206.34s",
+    "windows_final_notebook_checks": "3 passed; 1 symlink privilege skip in 40.63s",
+    "desktop_protocol_training": "passed, including retry identity and explicit trust",
+    "wsl_full": "129 passed in 75.51s",
+    "wsl_final_captured_input_checks": "4 passed in 28.88s",
+    "rust_workspace": "19 passed; locked workspace build passed",
+    "ruff": "passed",
+    "pyright": "notebook.py strict: 0 errors",
+    "wheel": "notebook plugin and cooperative entry point included"
+  },
+  "limits": [
+    "Portable registered application training state; no native process or GPU driver context",
+    "Source coherence unverified; factory execution requires explicit trust",
+    "Data-loader drain and cursor remain caller responsibilities",
+    "Small single-device AMD test; no large-model/NVIDIA/distributed qualification",
+    "CPU GC and bundles exclude separately rooted training artifacts",
+    "Supervisor crash orphan cleanup and full failure matrix remain unqualified",
+    "Example timing records precede the final relative-input factory guard; final targeted tests verify captured input isolation"
+  ]
+}

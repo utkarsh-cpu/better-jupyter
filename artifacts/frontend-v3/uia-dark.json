@@ -1,0 +1,147 @@
+[
+  {
+    "name": "KernelLedger - C:\\Users\\UTKARS~1\\AppData\\Local\\Temp\\kl-ui-probe-7yo21ooj\\notebook",
+    "role": "ControlType.Window",
+    "id": ""
+  },
+  {
+    "name": "notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Open notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Toggle light / dark",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run all",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Interrupt",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "More...",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Notebook, current destination",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Help",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "History",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Checkpoints",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Runtimes",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Diagnostics",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Settings",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Duplicate # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Delete # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Duplicate print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Delete print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell hello",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Hello, KernelLedger\n",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Run 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Duplicate 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Delete 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell error",
+    "role": "ControlType.Edit",
+    "id": ""
+  }
+]

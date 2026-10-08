@@ -1,0 +1,20 @@
+{
+  "output": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\worktree-example-complete",
+  "worktrees": {
+    "baseline": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\worktree-example-complete\\baseline",
+    "learning-rate": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\worktree-example-complete\\learning-rate",
+    "dataset": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\worktree-example-complete\\dataset"
+  },
+  "checkpoints": {
+    "baseline": "cdb82dfb-86ad-43f2-bbf3-58abb0398f4d",
+    "learning-rate": "3f845671-7f70-4f21-96c4-faf3165d7931",
+    "dataset": "5150c0fc-32a5-4429-8924-fd27b6bb67d0"
+  },
+  "verified": [
+    "kernel isolation",
+    "complete checkpoints",
+    "fresh clone restore",
+    "resumed training"
+  ],
+  "restored_clone": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\worktree-example-complete\\restored-clone"
+}

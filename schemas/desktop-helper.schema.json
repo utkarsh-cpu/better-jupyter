@@ -1,0 +1,670 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger desktop helper 1",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "training.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "snapshot"
+      ],
+      "properties": {
+        "method": {
+          "const": "training.inspect"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "snapshot": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "native.status"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "source.read"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "action",
+        "manifest_revision"
+      ],
+      "properties": {
+        "method": {
+          "const": "source.mutate"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "action": {
+          "type": "string"
+        },
+        "manifest_revision": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "source.recover"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "source.watch"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "sessions.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "executions.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "exec_id"
+      ],
+      "properties": {
+        "method": {
+          "const": "execution.get"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exec_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "exec_id"
+      ],
+      "properties": {
+        "method": {
+          "const": "events.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exec_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "exec_id"
+      ],
+      "properties": {
+        "method": {
+          "const": "fold.get"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exec_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "checkpoints.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "checkpoint_id"
+      ],
+      "properties": {
+        "method": {
+          "const": "checkpoint.get"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "checkpoint_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path"
+      ],
+      "properties": {
+        "method": {
+          "const": "bundle.inspect"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path"
+      ],
+      "properties": {
+        "method": {
+          "const": "descriptor.inspect"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path"
+      ],
+      "properties": {
+        "method": {
+          "const": "export_ipynb"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path"
+      ],
+      "properties": {
+        "method": {
+          "const": "bundle_export"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "doctor"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "interpreter.candidates"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path"
+      ],
+      "properties": {
+        "method": {
+          "const": "interpreter.validate"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "sha256"
+      ],
+      "properties": {
+        "method": {
+          "const": "blob.read"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "ping"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "api",
+        "versions",
+        "client_id",
+        "client_name",
+        "role"
+      ],
+      "properties": {
+        "kind": {
+          "const": "hello"
+        },
+        "api": {
+          "const": "kernelledger.desktop"
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "client_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "client_name": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "role": {
+          "enum": [
+            "control",
+            "subscription",
+            "blob"
+          ]
+        },
+        "token": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "version",
+        "identity",
+        "capabilities"
+      ],
+      "properties": {
+        "kind": {
+          "const": "welcome"
+        },
+        "version": {
+          "const": 1
+        },
+        "identity": {
+          "type": "object"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "result"
+      ],
+      "properties": {
+        "kind": {
+          "const": "response"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "error"
+      ],
+      "properties": {
+        "kind": {
+          "const": "error"
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "retryable",
+            "details"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "details": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "change_seq",
+        "runtime"
+      ],
+      "properties": {
+        "kind": {
+          "const": "snapshot"
+        },
+        "change_seq": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "change_seq",
+        "ref"
+      ],
+      "properties": {
+        "kind": {
+          "const": "change"
+        },
+        "change_seq": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "exec_id",
+        "event"
+      ],
+      "properties": {
+        "kind": {
+          "const": "event"
+        },
+        "event": {
+          "type": "object",
+          "required": [
+            "seq",
+            "kind"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "after_change_seq"
+      ],
+      "properties": {
+        "kind": {
+          "const": "resync_required"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind",
+        "sha256",
+        "offset",
+        "byte_size",
+        "total_size",
+        "verified"
+      ],
+      "properties": {
+        "kind": {
+          "const": "blob"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "byte_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "ping",
+            "pong"
+          ]
+        }
+      }
+    }
+  ]
+}

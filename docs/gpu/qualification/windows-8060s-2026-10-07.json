@@ -1,0 +1,97 @@
+{
+  "schema": "kernelledger.experimental.qualification/1",
+  "recorded_at": "2026-10-07T18:08:03.984331+00:00",
+  "target_alias": "local-windows-ryzen-ai-max-395",
+  "qualified": false,
+  "feature_results": {
+    "portable_tensor_views": "passed",
+    "portable_training_donor_exit": "passed",
+    "native_process": "unsupported",
+    "warm_cache": "unavailable"
+  },
+  "hardware": {
+    "cpu": "AMD RYZEN AI MAX+ 395",
+    "gpu": "AMD Radeon 8060S",
+    "architecture": "gfx1151",
+    "gpu_addressable_memory_bytes": 95980617728,
+    "os": "Windows 11 Home Single Language",
+    "os_build": "10.0.26200",
+    "driver_version": "32.0.31041.1004"
+  },
+  "python_environment": ".venv-gpu-qualification",
+  "packages": {
+    "torch": "2.12.0+rocm7.14.0",
+    "numpy": "2.5.2",
+    "rocm": "7.14.0",
+    "rocm-sdk-core": "7.14.0",
+    "rocm-sdk-libraries": "7.14.0",
+    "rocm-sdk-device-gfx1151": "7.14.0",
+    "amd-torch-device-gfx1151": "2.12.0+rocm7.14.0",
+    "amd-torch-device-gfx11": "2.12.0+rocm7.14.0"
+  },
+  "configuration_fix": "Install matching host and gfx1151 device packages together in isolated environment; split device wheels are colocated with torch and ROCm host libraries.",
+  "portable_gpu": {
+    "cuda": null,
+    "device": "cuda:0",
+    "evidence": "d18d0f45dff6eab542eb251a391fc249db28aed0f116fd5025e3d218231f6298",
+    "hardware": {
+      "architecture": [
+        11,
+        5
+      ],
+      "name": "AMD Radeon(TM) 8060S Graphics",
+      "total_memory": 95980617728,
+      "uuid": "30303030-3031-3936-3030-303030303030"
+    },
+    "hip": "7.14.60850",
+    "native_qualified": false,
+    "python": "3.12.10",
+    "reason": "disposable portable tensor/view probe passed",
+    "snapshot": "cdc9292655ead81becaa276374374f769e2a24184f582c778b61d43d929336ec",
+    "status": "experimental",
+    "torch": "2.12.0+rocm7.14.0"
+  },
+  "training": {
+    "snapshot": "1e1a35794aefb25139b5f3efe9c3931870d3ad8dfff7dc2679e68775e71b2077",
+    "donor_exited": true,
+    "mode": "portable",
+    "training_continuation_equal": true,
+    "loss": 0.5382923483848572,
+    "capture_seconds": 0.5992491999641061,
+    "restore_seconds": 1.2698674999992363,
+    "stored_bytes": 38360,
+    "native_qualified": false,
+    "device": "cuda:0",
+    "torch": "2.12.0+rocm7.14.0",
+    "hip": "7.14.60850"
+  },
+  "matrix_multiplication": {
+    "shape": [
+      1024,
+      1024
+    ],
+    "finite_result": true,
+    "device": "cuda:0"
+  },
+  "tests": {
+    "gpu_suite": "40 passed",
+    "full_regression": "110 passed in 161.65s",
+    "ruff": "check and format passed for changed example"
+  },
+  "commands": [
+    ".venv-gpu-qualification/Scripts/python.exe -I src/kernelledger/gpu/backends/probe.py cuda:0",
+    ".venv-gpu-qualification/Scripts/python.exe examples/gpu/portable_training.py --device cuda:0 --out artifacts/gpu-8060s-donor-exit",
+    ".venv-gpu-qualification/Scripts/python.exe -m pytest tests/test_gpu_artifacts.py tests/test_gpu_portable.py tests/test_gpu_capabilities.py -q"
+  ],
+  "other_targets": {
+    "ssh_aliases": [],
+    "wsl_distributions": []
+  },
+  "limits": [
+    "Single AMD Windows iGPU only",
+    "Small model with Adam, StepLR, dropout and gradients; no multi-GiB performance qualification",
+    "No native Linux process continuation, distributed, WSL, NVIDIA or cross-vendor qualification",
+    "System Python and driver were unchanged; original global environment still lacks device packages",
+    "Successful portable checks do not close all v5 delivery gates"
+  ]
+}

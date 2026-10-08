@@ -1,0 +1,44 @@
+{
+  "schema": "kernelledger.experimental.native-feasibility/1",
+  "recorded_at": "2026-10-07T18:37:25.314057+00:00",
+  "target_alias": "Ubuntu-24.04",
+  "target_kind": "wsl",
+  "kernel": "6.18.33.2-microsoft-standard-WSL2",
+  "python": "3.12.3",
+  "torch": "2.12.0+rocm7.14.0",
+  "hip": "7.14.60850",
+  "gpu": "AMD Radeon(TM) 8060S Graphics",
+  "architecture": "gfx1151",
+  "checks": {
+    "gpu_computation": "passed",
+    "dxg_present": true,
+    "kfd_present": false,
+    "amdgpu_kernel_module_present": false,
+    "kfd_topology_present": false,
+    "live_gpu_process_device_handles": [
+      "/dev/dxg"
+    ],
+    "criu_binary": null,
+    "criu_apt_candidate": "(none)",
+    "kernel_config_readable": true,
+    "kernel_checkpoint_config": [
+      "CONFIG_CHECKPOINT_RESTORE=y"
+    ]
+  },
+  "native_process_status": "unsupported",
+  "native_qualified": false,
+  "native_image_created": false,
+  "native_resume_tested": false,
+  "reasons": [
+    "No /dev/kfd: the AMD CRIU plugin cannot reach its required KFD interface",
+    "No loaded amdgpu kernel driver; computation uses Windows GPU state via DXG",
+    "CRIU is not installed; apt candidate: (none)"
+  ],
+  "portable_fallback_evidence": "wsl-8060s-portable-2026-10-07.json",
+  "sources": [
+    "https://github.com/checkpoint-restore/criu/blob/criu-dev/Documentation/criu-amdgpu-plugin.txt",
+    "https://github.com/checkpoint-restore/criu/blob/criu-dev/plugins/amdgpu/README.md",
+    "https://github.com/ROCm/rocm-cli/blob/main/docs/wsl.md"
+  ],
+  "evidence": "d4b167686042de3be00f50f08d110c0b4248a04c7481e52d0fc589c8eb5469b1"
+}
