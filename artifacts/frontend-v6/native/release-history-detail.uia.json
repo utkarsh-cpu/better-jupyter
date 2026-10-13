@@ -1,0 +1,184 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2586,
+                       1671
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       37,
+                       71,
+                       412,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       499,
+                       58,
+                       158,
+                       60
+                   ]
+    },
+    {
+        "name":  "History, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       673,
+                       58,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       809,
+                       58,
+                       184,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2103,
+                       58,
+                       174,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2293,
+                       71,
+                       136,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2445,
+                       71,
+                       104,
+                       60
+                   ]
+    },
+    {
+        "name":  "Back to list",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       178,
+                       166,
+                       60
+                   ]
+    },
+    {
+        "name":  "Compare source",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       447,
+                       638,
+                       236,
+                       60
+                   ]
+    },
+    {
+        "name":  "Return to cell",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       722,
+                       202,
+                       60
+                   ]
+    },
+    {
+        "name":  "Recorded output: Mean: 16.5\n",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       806,
+                       2432,
+                       90
+                   ]
+    },
+    {
+        "name":  "Output tools: Recorded execution 4 output 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2283,
+                       806,
+                       226,
+                       60
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       920,
+                       236,
+                       60
+                   ]
+    }
+]

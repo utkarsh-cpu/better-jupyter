@@ -1,0 +1,249 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2586,
+                       1671
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       37,
+                       71,
+                       412,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       499,
+                       58,
+                       158,
+                       60
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       673,
+                       58,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       809,
+                       58,
+                       184,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2103,
+                       58,
+                       174,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2293,
+                       71,
+                       136,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2445,
+                       71,
+                       104,
+                       60
+                   ]
+    },
+    {
+        "name":  "Restored in a new session: 024ac0e2-fd4e-476f-8aaa-cfc800b153b4",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       146,
+                       2560,
+                       76
+                   ]
+    },
+    {
+        "name":  "Return to notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       603,
+                       154,
+                       280,
+                       60
+                   ]
+    },
+    {
+        "name":  "Copy session identifier",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       899,
+                       154,
+                       312,
+                       60
+                   ]
+    },
+    {
+        "name":  "Dismiss restored session notice",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1227,
+                       154,
+                       418,
+                       60
+                   ]
+    },
+    {
+        "name":  "Create checkpoint",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2217,
+                       254,
+                       292,
+                       60
+                   ]
+    },
+    {
+        "name":  "Back to list",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       346,
+                       166,
+                       60
+                   ]
+    },
+    {
+        "name":  "Restore checkpoint...",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1194,
+                       292,
+                       60
+                   ]
+    },
+    {
+        "name":  "Continue in new session...",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       385,
+                       1194,
+                       354,
+                       60
+                   ]
+    },
+    {
+        "name":  "Copy checkpoint identifier",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1278,
+                       358,
+                       60
+                   ]
+    },
+    {
+        "name":  "Advanced checkpoint types",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1370,
+                       408,
+                       60
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1462,
+                       236,
+                       60
+                   ]
+    }
+]

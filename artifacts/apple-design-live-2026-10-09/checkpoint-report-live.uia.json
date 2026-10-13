@@ -1,0 +1,223 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2860,
+                       1750
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       34,
+                       71,
+                       280,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       358,
+                       71,
+                       138,
+                       60
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       510,
+                       71,
+                       106,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       630,
+                       71,
+                       162,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2434,
+                       71,
+                       152,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2600,
+                       71,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2734,
+                       71,
+                       92,
+                       60
+                   ]
+    },
+    {
+        "name":  "Back",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       296,
+                       200,
+                       60
+                   ]
+    },
+    {
+        "name":  "Create checkpoint",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       384,
+                       2778,
+                       60
+                   ]
+    },
+    {
+        "name":  "Namespace checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       472,
+                       334,
+                       60
+                   ]
+    },
+    {
+        "name":  "Training snapshots",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       389,
+                       472,
+                       266,
+                       60
+                   ]
+    },
+    {
+        "name":  "Create training checkpoint (Experimental)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       560,
+                       2778,
+                       60
+                   ]
+    },
+    {
+        "name":  "Restore…",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       1148,
+                       154,
+                       60
+                   ]
+    },
+    {
+        "name":  "Continue in new session…",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       209,
+                       1148,
+                       358,
+                       60
+                   ]
+    },
+    {
+        "name":  "Copy checkpoint identifier",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       1222,
+                       2778,
+                       60
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       1310,
+                       340,
+                       60
+                   ]
+    }
+]

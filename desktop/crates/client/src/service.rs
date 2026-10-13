@@ -484,12 +484,16 @@ impl Session {
                     if let Some(fields) = fields.as_object_mut() {
                         fields.remove("search_all");
                     }
+                    let page_request = fields.clone();
                     let mut value = if search_all && method == "executions.list" {
                         let items = all_pages(|page| self.helper.request(&method, page))?;
                         json!({"items":items,"cursor":null})
                     } else {
                         self.helper.request(&method, fields)?
                     };
+                    if method.ends_with(".list") {
+                        value["_page_request"] = page_request;
+                    }
                     if method == "executions.list"
                         && let Some(items) = value["items"].as_array_mut()
                     {

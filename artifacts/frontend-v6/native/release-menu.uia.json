@@ -1,0 +1,600 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2586,
+                       1671
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       37,
+                       71,
+                       412,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       499,
+                       58,
+                       158,
+                       60
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       673,
+                       58,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       809,
+                       58,
+                       184,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2103,
+                       58,
+                       174,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2293,
+                       71,
+                       136,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2445,
+                       71,
+                       104,
+                       60
+                   ]
+    },
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       37,
+                       146,
+                       124,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run selected",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  false,
+        "offscreen":  false,
+        "bounds":  [
+                       177,
+                       146,
+                       226,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       419,
+                       146,
+                       116,
+                       60
+                   ]
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  false,
+        "offscreen":  false,
+        "bounds":  [
+                       551,
+                       146,
+                       142,
+                       60
+                   ]
+    },
+    {
+        "name":  "Add cell",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2341,
+                       155,
+                       208,
+                       60
+                   ]
+    },
+    {
+        "name":  "Search notebook cells only",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       305,
+                       408,
+                       48
+                   ]
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       369,
+                       440,
+                       1237
+                   ]
+    },
+    {
+        "name":  "Cell 1: # Forecast analysis",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       369,
+                       408,
+                       103
+                   ]
+    },
+    {
+        "name":  "Cell 2: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       474,
+                       408,
+                       103
+                   ]
+    },
+    {
+        "name":  "Cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       579,
+                       408,
+                       103
+                   ]
+    },
+    {
+        "name":  "Cell 4: ## Next experiment",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       684,
+                       408,
+                       103
+                   ]
+    },
+    {
+        "name":  "Cell 5: for day, value in enumerate(observations, 1):",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       29,
+                       789,
+                       408,
+                       103
+                   ]
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2295,
+                       250,
+                       80,
+                       60
+                   ]
+    },
+    {
+        "name":  "More actions for # Forecast analysis",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2383,
+                       250,
+                       134,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       485,
+                       490,
+                       186,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2461,
+                       550,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "code cell baseline",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       501,
+                       624,
+                       2028,
+                       192
+                   ]
+    },
+    {
+        "name":  "Recorded output: Mean: 16.5\n",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       521,
+                       846,
+                       1988,
+                       90
+                   ]
+    },
+    {
+        "name":  "Output tools: Output 1 for cell 2: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2283,
+                       846,
+                       226,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       485,
+                       952,
+                       186,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2461,
+                       1012,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "code cell forecast",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       501,
+                       1086,
+                       2028,
+                       108
+                   ]
+    },
+    {
+        "name":  "Recorded output: Preparing forecast...\n",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       521,
+                       1224,
+                       1988,
+                       90
+                   ]
+    },
+    {
+        "name":  "Output tools: Output 1 for cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2283,
+                       1224,
+                       226,
+                       60
+                   ]
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: float division by zero",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       521,
+                       1322,
+                       1988,
+                       60
+                   ]
+    },
+    {
+        "name":  "Output tools: Output 2 for cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2283,
+                       1322,
+                       226,
+                       60
+                   ]
+    },
+    {
+        "name":  "Show full traceback for Output 2 for cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1023,
+                       1322,
+                       272,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert cell after cell 3",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       485,
+                       1398,
+                       186,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert cell after cell 4",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       485,
+                       1673,
+                       186,
+                       60
+                   ]
+    },
+    {
+        "name":  "Workspace menu",
+        "role":  "ControlType.Menu",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1949,
+                       139,
+                       600,
+                       676
+                   ]
+    },
+    {
+        "name":  "Open notebook…",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       165,
+                       288,
+                       64
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       245,
+                       202,
+                       64
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       325,
+                       160,
+                       64
+                   ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       405,
+                       154,
+                       64
+                   ]
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       485,
+                       108,
+                       64
+                   ]
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       565,
+                       204,
+                       64
+                   ]
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       645,
+                       172,
+                       64
+                   ]
+    },
+    {
+        "name":  "Close menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       725,
+                       206,
+                       64
+                   ]
+    }
+]

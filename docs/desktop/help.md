@@ -51,8 +51,30 @@ limits; Windows and the local AMD WSL target have no supported native backend.
 
 ## About this build
 
-KernelLedger desktop 0.1.0. Runtime plan 4; frontend plan 3; desktop protocol v1. This development build uses the configured Python environment rather than a bundled private distribution.
+KernelLedger desktop 0.1.0. Runtime plan 5; frontend plan 4 baseline with the frontend v6 draft implementation under development; desktop protocol v1. This development build uses the configured Python environment rather than a bundled private distribution.
 
-Structural undo, key rebinding, detached windows, import/export dialogs, publish/pin are not available in this build. Use `kl import`, `kl export`, and `kl bundle` for interchange workflows. See the shipped keyboard guide, desktop README and platform qualification document in docs/desktop.
+Structural undo, multiple-cell selection, key rebinding, detached windows, import review dialogs, and publish/pin are not available in this build. Use `kl import` and `kl bundle` for import workflows. See the shipped keyboard guide, desktop README and platform qualification document in docs/desktop.
 
-Minimum window: 800 x 600 logical pixels. Below 1,024 pixels the sidebar collapses; More > Toggle notebook sidebar restores it. Runtime state and Interrupt stay in the toolbar.
+Minimum window: 800 x 600 logical pixels. Below 1,024 pixels the notebook outline becomes a drawer. The Outline button opens it. A manually collapsed outline stays collapsed when resizing. Settings offers interface sizes from 100% to 200%, independent editor text size, Compact or Comfortable spacing, outline width, and System, Light, Dark or High contrast appearance. Larger interface sizes also enlarge controls and spacing; scroll supporting pages to reach later settings.
+
+## Navigate the workbench
+
+Use Notebook, History, and Checkpoints in the header. Select the notebook name to switch open notebooks. Menu contains Settings, Help, Diagnostics, and all runtimes. At compact widths, Commands and Runtime move into Menu. Runtime shows the current interpreter and relevant runtime actions. Commands searches common and advanced actions and explains unavailable commands.
+
+## Edit cell structure
+
+Add cell in the toolbar offers Code, Markdown, or Raw. Each boundary has one insertion control, visible on hover or keyboard focus; the selected boundary and Comfortable spacing keep it visible. Select a cell and open More for Duplicate, Delete, Move up, and Move down. Commands also offers these actions, Split cell at cursor, and Merge with next cell. These require saved source with no unresolved conflicts; deletion and merge require confirmation, and merge requires matching cell types. Structural undo is not yet available. Recorded executions remain separate from current source. Markdown has Edit/Preview controls and no Run action.
+
+## Inspect results and history
+
+Output tools reveals Copy, Find, Hide output, and display-size controls. Copy and Find operate on loaded output; viewer limits do not remove recorded data. Copy briefly acknowledges success. Show traceback appears beside the exception summary. Images offer fit and actual size, and tables offer a plain-text fallback. Arbitrary HTML and scripts are not executed.
+
+History provides text search, outcome buttons, and Cell, Session, From, and Through fields. Dates use YYYY-MM-DD; Apply stays unavailable for invalid dates or a reversed range. Advanced cell:, session:, after:YYYY-MM-DD, and before:YYYY-MM-DD queries remain supported. Filters apply to loaded records; Search executions loads all recorded executions, which is not yet bounded for large histories. Next page follows the recorded list cursor; Back restores the previous page or list. Details show recorded source once. Changed source reveals a comparison; unchanged source can be compared on request. Return to cell returns to the notebook editor. Filters and list scroll belong to each notebook.
+
+## Save and restore a checkpoint
+
+Choose Create checkpoint on Checkpoints when the runtime is ready. After completion, View checkpoint opens the coverage report. Review exclusions before Restore or Continue. Missing saved-value counts and creation context are reported as unknown. These actions change live state and require confirmation. Coverage is not proof of complete process recovery or environment compatibility. Trust remains an explicit decision; a Python version override appears only after a reported mismatch for that checkpoint. Successful restore identifies the new session and offers Return to notebook. Technical details retain the raw report and identifiers. Advanced checkpoint types contains experimental training actions.
+
+## Export and diagnose
+
+Commands offers Export notebook and Export bundle, each with a native save dialog. Source is saved through the notebook service before export. Bundles require recorded history. The result appears in Diagnostics for the originating notebook. Run health check refreshes findings; Copy redacted diagnostics excludes source text, paths, environment values, and raw errors.

@@ -1,0 +1,379 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       1626,
+                       1271
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       58,
+                       384,
+                       120
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       543,
+                       58,
+                       314,
+                       120
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       889,
+                       58,
+                       240,
+                       120
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1161,
+                       58,
+                       368,
+                       120
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       210,
+                       208,
+                       120
+                   ]
+    },
+    {
+        "name":  "System",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       -108,
+                       246,
+                       120
+                   ]
+    },
+    {
+        "name":  "Light",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       355,
+                       -108,
+                       192,
+                       120
+                   ]
+    },
+    {
+        "name":  "Dark",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       579,
+                       -108,
+                       184,
+                       120
+                   ]
+    },
+    {
+        "name":  "High contrast",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       795,
+                       -108,
+                       402,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interface size 100 percent",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       325,
+                       206,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interface size 125 percent",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       315,
+                       325,
+                       206,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interface size 150 percent",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       553,
+                       325,
+                       206,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interface size 200 percent",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       791,
+                       325,
+                       206,
+                       120
+                   ]
+    },
+    {
+        "name":  "12 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "14 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       309,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "16 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       541,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "18 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       773,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "20 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1005,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "24 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1237,
+                       600,
+                       200,
+                       120
+                   ]
+    },
+    {
+        "name":  "Compact",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1033,
+                       290,
+                       120
+                   ]
+    },
+    {
+        "name":  "Comfortable",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       399,
+                       1033,
+                       378,
+                       120
+                   ]
+    },
+    {
+        "name":  "180 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1308,
+                       230,
+                       120
+                   ]
+    },
+    {
+        "name":  "220 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       339,
+                       1308,
+                       230,
+                       120
+                   ]
+    },
+    {
+        "name":  "260 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       601,
+                       1308,
+                       230,
+                       120
+                   ]
+    },
+    {
+        "name":  "300 px",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       863,
+                       1308,
+                       230,
+                       120
+                   ]
+    },
+    {
+        "name":  "Reduce motion",
+        "role":  "ControlType.CheckBox",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1618,
+                       1472,
+                       80
+                   ]
+    },
+    {
+        "name":  "Choose project interpreter...",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       2011,
+                       756,
+                       120
+                   ]
+    },
+    {
+        "name":  "Show path",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       2163,
+                       328,
+                       120
+                   ]
+    }
+]

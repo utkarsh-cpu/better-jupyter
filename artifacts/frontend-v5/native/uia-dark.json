@@ -1,0 +1,217 @@
+[
+  {
+    "name": "KernelLedger - notebook",
+    "role": "ControlType.Window",
+    "id": ""
+  },
+  {
+    "name": "Notebook switcher: notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Notebook, current destination",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "History",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Checkpoints",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Commands",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Runtime",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Menu",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Outline",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run all",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Interrupt",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "+ Code",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "+ Markdown",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "+ Raw",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Duplicate # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Delete # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Move cell up: # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Move cell down: # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert code after cell 1",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert markdown after cell 1",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert raw after cell 1",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell hello",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded output: Hello, KernelLedger\n",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Copy recorded output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Find",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert code after cell 2",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert markdown after cell 2",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert raw after cell 2",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell error",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded execution error: ZeroDivisionError: division by zero",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Copy recorded output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Find",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Show full traceback",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert code after cell 3",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert markdown after cell 3",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert raw after cell 3",
+    "role": "ControlType.Button",
+    "id": ""
+  }
+]

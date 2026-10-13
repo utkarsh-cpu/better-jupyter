@@ -1,0 +1,9 @@
+{
+  "pid": 63020,
+  "session_id": "d696c363-050e-4143-b738-3b7c99497001",
+  "worker_python": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe",
+  "in_flight": null,
+  "worker_start_stage": "ready",
+  "instance_id": "856e347a-6909-4a40-9b69-4a85c42d7d02",
+  "attached_client_count": 1
+}

@@ -1,0 +1,756 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2860,
+                       1750
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       34,
+                       71,
+                       280,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       358,
+                       71,
+                       138,
+                       60
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       510,
+                       71,
+                       106,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       630,
+                       71,
+                       162,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2434,
+                       71,
+                       152,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2600,
+                       71,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2734,
+                       71,
+                       92,
+                       60
+                   ]
+    },
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       34,
+                       155,
+                       108,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       156,
+                       155,
+                       103,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       273,
+                       155,
+                       102,
+                       60
+                   ]
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       389,
+                       155,
+                       124,
+                       60
+                   ]
+    },
+    {
+        "name":  "+ Code",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2422,
+                       155,
+                       110,
+                       60
+                   ]
+    },
+    {
+        "name":  "+ Markdown",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2546,
+                       155,
+                       168,
+                       60
+                   ]
+    },
+    {
+        "name":  "+ Raw",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2728,
+                       155,
+                       98,
+                       60
+                   ]
+    },
+    {
+        "name":  "Search notebook cells only",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       297,
+                       412,
+                       42
+                   ]
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       353,
+                       440,
+                       1242
+                   ]
+    },
+    {
+        "name":  "Cell 1: # Forecast analysis",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       353,
+                       412,
+                       94
+                   ]
+    },
+    {
+        "name":  "Cell 2: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       449,
+                       412,
+                       94
+                   ]
+    },
+    {
+        "name":  "Cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       545,
+                       412,
+                       94
+                   ]
+    },
+    {
+        "name":  "Cell 4: ## Next experiment",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       641,
+                       412,
+                       94
+                   ]
+    },
+    {
+        "name":  "Cell 5: for day, value in enumerate(observations, 1):",
+        "role":  "ControlType.ListItem",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       737,
+                       412,
+                       94
+                   ]
+    },
+    {
+        "name":  "Code",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       27,
+                       1611,
+                       133,
+                       60
+                   ]
+    },
+    {
+        "name":  "Markdown",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       167,
+                       1611,
+                       132,
+                       60
+                   ]
+    },
+    {
+        "name":  "Raw",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       306,
+                       1611,
+                       133,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run # Forecast analysis",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2742,
+                       271,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert code after cell 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       481,
+                       537,
+                       110,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert markdown after cell 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       598,
+                       537,
+                       168,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert raw after cell 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       773,
+                       537,
+                       98,
+                       60
+                   ]
+    },
+    {
+        "name":  "Compare",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       928,
+                       626,
+                       128,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2447,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2506,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Duplicate observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2565,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Delete observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2624,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Move cell up: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2683,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Move cell down: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2742,
+                       626,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "code cell baseline",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       496,
+                       704,
+                       2312,
+                       192
+                   ]
+    },
+    {
+        "name":  "Recorded output: Mean: 16.5\n",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       930,
+                       2278,
+                       151
+                   ]
+    },
+    {
+        "name":  "Copy recorded output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       930,
+                       84,
+                       60
+                   ]
+    },
+    {
+        "name":  "Find",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       604,
+                       930,
+                       76,
+                       60
+                   ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       687,
+                       930,
+                       160,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert code after cell 2",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       481,
+                       1116,
+                       110,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert markdown after cell 2",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       598,
+                       1116,
+                       168,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert raw after cell 2",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       773,
+                       1116,
+                       98,
+                       60
+                   ]
+    },
+    {
+        "name":  "Run print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2742,
+                       1205,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "code cell forecast",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       496,
+                       1283,
+                       2312,
+                       150
+                   ]
+    },
+    {
+        "name":  "Recorded output: Preparing forecast...\n",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       1467,
+                       2278,
+                       151
+                   ]
+    },
+    {
+        "name":  "Copy recorded output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       1467,
+                       84,
+                       60
+                   ]
+    },
+    {
+        "name":  "Find",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       604,
+                       1467,
+                       76,
+                       60
+                   ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       687,
+                       1467,
+                       160,
+                       60
+                   ]
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: float division by zero",
+        "role":  "ControlType.Group",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       1632,
+                       2278,
+                       176
+                   ]
+    },
+    {
+        "name":  "Copy recorded output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       1632,
+                       84,
+                       60
+                   ]
+    },
+    {
+        "name":  "Find",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       604,
+                       1632,
+                       76,
+                       60
+                   ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       687,
+                       1632,
+                       160,
+                       60
+                   ]
+    },
+    {
+        "name":  "Show full traceback",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       513,
+                       1748,
+                       2278,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert code after cell 3",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       481,
+                       1843,
+                       110,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert markdown after cell 3",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       598,
+                       1843,
+                       168,
+                       60
+                   ]
+    },
+    {
+        "name":  "Insert raw after cell 3",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       773,
+                       1843,
+                       98,
+                       60
+                   ]
+    }
+]

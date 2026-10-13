@@ -1,0 +1,171 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2586,
+                       1671
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       85,
+                       286,
+                       120
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       413,
+                       58,
+                       314,
+                       120
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       743,
+                       58,
+                       240,
+                       120
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       999,
+                       58,
+                       368,
+                       120
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2317,
+                       85,
+                       208,
+                       120
+                   ]
+    },
+    {
+        "name":  "Run doctor",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1082,
+                       416,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interpreter candidates",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       525,
+                       1082,
+                       686,
+                       120
+                   ]
+    },
+    {
+        "name":  "Reconnect / reload",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1243,
+                       1082,
+                       610,
+                       120
+                   ]
+    },
+    {
+        "name":  "Migrate ledger with backup",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1234,
+                       822,
+                       120
+                   ]
+    },
+    {
+        "name":  "Run health check",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1774,
+                       564,
+                       128
+                   ]
+    },
+    {
+        "name":  "Copy redacted diagnostics",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       673,
+                       1774,
+                       828,
+                       128
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       2302,
+                       340,
+                       120
+                   ]
+    }
+]

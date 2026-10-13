@@ -16,7 +16,7 @@ impl Workspace {
         let mut items = v_flex()
             .id("command-results")
             .track_scroll(&self.palette_scroll)
-            .max_h(px(300.))
+            .max_h(rems(12.))
             .overflow_y_scroll()
             .p_1()
             .gap_px();
@@ -37,6 +37,11 @@ impl Workspace {
                     .id(SharedString::from(format!("cmd-{method}")))
                     .role(Role::Button)
                     .aria_selected(shown - 1 == self.palette_active)
+                    .a11y_synthetic_children(move |tree| {
+                        if !available {
+                            tree.parent_node().set_disabled();
+                        }
+                    })
                     .aria_label(format!(
                         "{label}{}{}",
                         if shown - 1 == self.palette_active {
@@ -86,7 +91,8 @@ impl Workspace {
             .size_full()
             .flex()
             .justify_center()
-            .pt(px(88.))
+            .pt(rems(2.))
+            .px_3()
             .bg(overlay)
             .on_click(cx.listener(|v, _, window, cx| {
                 v.palette = false;
@@ -99,9 +105,12 @@ impl Workspace {
                     .role(Role::Dialog)
                     .aria_label("Commands")
                     .occlude()
-                    .w(px(560.))
+                    .w(rems(35.))
+                    .max_w_full()
                     .h_auto()
-                    .max_h(px(440.))
+                    .flex_none()
+                    .self_start()
+                    .max_h(rems(24.))
                     .rounded(radius)
                     .border_1()
                     .border_color(border)
@@ -186,13 +195,11 @@ impl Workspace {
                         .child(div().text_lg().child("About KernelLedger"))
                         .child(self.support_info())
                         .child(
-                            Button::new("about-copy")
+                            action_button("about-copy")
                                 .outline()
                                 .label("Copy support information")
                                 .on_click(cx.listener(|v, _, _, cx| {
-                                    cx.write_to_clipboard(ClipboardItem::new_string(
-                                        v.support_info(),
-                                    ))
+                                    copy_acknowledged(v.support_info(), cx)
                                 })),
                         )
                         .child(
@@ -202,7 +209,8 @@ impl Workspace {
                                 .aria_label("Close About")
                                 .track_focus(&self.confirm_focus)
                                 .child(
-                                    Button::new("about-close")
+                                    action_button("about-close")
+                                        .semantics_in_parent()
                                         .primary()
                                         .label("Close")
                                         .on_click(cx.listener(|v, _, _, cx| {
@@ -287,7 +295,7 @@ impl Workspace {
         ) {
             content = content.child(
                 Checkbox::new("artifact-trust")
-                    .label("Trust imported saved code")
+                    .label("Allow saved Python code to run")
                     .checked(fields["trust"] == true)
                     .on_click(cx.listener(|v, checked: &bool, _, cx| {
                         if let Some((_, fields)) = &mut v.confirmation {
@@ -297,7 +305,29 @@ impl Workspace {
                     })),
             );
         }
-        if matches!(method.as_str(), "restore" | "continue") {
+        if matches!(method.as_str(), "restore" | "continue")
+            && let Some(tab) = self.tabs.get(self.active)
+        {
+            let notebook = tab
+                .model
+                .project
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            content=content.child(section("Affected notebook",cx).child(div().text_sm().whitespace_normal().child(notebook))
+                .child(div().text_sm().whitespace_normal().child(if method=="restore"{"The live namespace is replaced in a new session. Excluded values remain absent."}else{"A new session starts from saved values and runs later recorded code; side effects can occur."}))
+                .child(div().text_xs().text_color(muted_fg).whitespace_normal().child("Source and environment compatibility have not been established. Review the checkpoint coverage before proceeding.")));
+        }
+        let known_mismatch = self.tabs.get(self.active).is_some_and(|tab| {
+            tab.operations.values().any(|operation| {
+                operation["state"] == "failed"
+                    && operation["result"]["error"]["code"] == "python_mismatch"
+                    && operation["request"]["checkpoint_id"].is_string()
+                    && operation["request"]["checkpoint_id"] == fields["checkpoint_id"]
+            })
+        });
+        if matches!(method.as_str(), "restore" | "continue") && known_mismatch {
             content = content
                 .child(
                     Checkbox::new("python-mismatch")
@@ -314,16 +344,23 @@ impl Workspace {
                     "Review the checkpoint report before overriding a Python version mismatch.",
                 ));
         }
-        let destructive = matches!(method.as_str(), "restart" | "stop" | "migrate" | "restore");
-        let proceed = Button::new("proceed")
-            .label(verb)
-            .disabled(method == "training-restore" && fields["trust"] != true);
+        let destructive = matches!(
+            method.as_str(),
+            "restart" | "stop" | "interrupt_kill" | "migrate" | "restore"
+        );
+        let proceed = action_button("proceed").label(verb).unavailable(
+            matches!(
+                method.as_str(),
+                "restore" | "continue" | "replay" | "training-restore"
+            ) && fields["trust"] != true,
+        );
         let proceed = if destructive {
             proceed.danger()
         } else {
             proceed.primary()
         };
-        let actions = h_flex()
+        let actions =
+            h_flex()
                 .pt_2()
                 .gap_2()
                 .justify_end()
@@ -333,7 +370,7 @@ impl Workspace {
                         .role(Role::Button)
                         .aria_label("Cancel")
                         .track_focus(&self.confirm_focus)
-                        .child(Button::new("cancel").ghost().label("Cancel").on_click(
+                        .child(action_button("cancel").semantics_in_parent().ghost().label("Cancel").on_click(
                             cx.listener(|v, _, _, cx| {
                                 v.confirmation = None;
                                 cx.notify();
@@ -341,17 +378,23 @@ impl Workspace {
                         )),
                 )
                 .child(proceed.on_click(cx.listener(move |v, _, _, cx| {
-                    if method == "delete" {
-                        v.mutate(json!({"action":"delete","cell_id":fields["cell_id"]}));
+                    if matches!(method.as_str(), "delete" | "merge") {
+                        v.mutate(json!({"action":method,"cell_id":fields["cell_id"],"other_id":fields["other_id"]}));
                     } else {
                         v.runtime(&method, fields.clone());
                     }
                     v.confirmation = None;
                     cx.notify();
                 })));
-        content = v_flex().gap_3()
-            .child(div().id("confirmation-body").max_h((window.viewport_size().height - px(180.)).max(px(120.)))
-                .overflow_y_scroll().child(content))
+        content = v_flex()
+            .gap_3()
+            .child(
+                div()
+                    .id("confirmation-body")
+                    .max_h((window.viewport_size().height - px(180.)).max(px(120.)))
+                    .overflow_y_scroll()
+                    .child(content),
+            )
             .child(actions);
         div()
             .id("confirm-backdrop")

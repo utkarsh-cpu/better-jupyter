@@ -1,7 +1,31 @@
 use super::*;
 
 impl Workspace {
-    pub(super) fn panel(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn panel(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let value = self.tabs[self.active]
+            .inspections
+            .get(&self.surface)
+            .cloned()
+            .unwrap_or(Value::Null);
+        if self.surface == "Settings" {
+            return self.settings_page(&value, cx);
+        }
+        if self.surface == "History" {
+            return self.history_page(&value, window, cx);
+        }
+        if self.surface == "Checkpoints"
+            && value.get("snapshot").is_none()
+            && !self.tabs[self.active]
+                .inspection_method
+                .get("Checkpoints")
+                .is_some_and(|m| m.starts_with("training.") || m.starts_with("native."))
+        {
+            return self.checkpoint_page(&value, cx);
+        }
+        self.supporting_panel(window, cx)
+    }
+
+    fn supporting_panel(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let value = self.tabs[self.active]
             .inspections
             .get(&self.surface)
@@ -15,24 +39,38 @@ impl Workspace {
             .find(|(name, ..)| *name == self.surface)
             .map(|(_, glyph, description)| (*glyph, *description))
             .unwrap_or((Glyph::Info, ""));
-        let mut body = v_flex().w_full().min_w_0().gap_4().child(
-            h_flex().gap_3().items_center().child(
-                v_flex()
-                    .gap_0p5()
-                    .child(
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(self.surface.clone()),
-                    )
-                    .child(div().text_sm().text_color(muted_fg).child(
-                        description.to_string(),
-                    )),
-            ),
-        );
+        let mut body = v_flex()
+            .w_full()
+            .max_w(rems(
+                if self.surface == "Settings" || self.surface == "Help" {
+                    52.
+                } else {
+                    76.
+                },
+            ))
+            .min_w_0()
+            .gap_4()
+            .child(
+                h_flex().gap_3().items_center().child(
+                    v_flex()
+                        .gap_0p5()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(self.surface.clone()),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(muted_fg)
+                                .child(description.to_string()),
+                        ),
+                ),
+            );
         if self.surface == "Help" {
             body = body.child(
-                Button::new("about")
+                action_button("about")
                     .outline()
                     .label("About KernelLedger")
                     .on_click(cx.listener(|v, _, _, cx| {
@@ -42,11 +80,11 @@ impl Workspace {
             );
             body = body.child(self.help_content(cx));
             body = body.child(
-                Button::new("copy-about")
+                action_button("copy-about")
                     .outline()
                     .label("Copy build information")
                     .on_click(cx.listener(|v, _, _, cx| {
-                        cx.write_to_clipboard(ClipboardItem::new_string(v.support_info()));
+                        copy_acknowledged(v.support_info(), cx);
                     })),
             );
         }
@@ -54,9 +92,12 @@ impl Workspace {
             && !self.tabs[self.active].parents.is_empty()
         {
             body = body.child(
-                Button::new("back")
-                    .outline()
-                    .label("Back | Alt+Left")
+                action_button("back")
+                    .ghost()
+                    .small()
+                    .w(px(100.))
+                    .label("Back")
+                    .hint("Back to the list · Alt+Left")
                     .on_click(cx.listener(|v, _, _, cx| {
                         v.back();
                         cx.notify();
@@ -70,15 +111,34 @@ impl Workspace {
                 .cloned()
         {
             body = body.child(
-                Button::new("technical-details")
+                action_button("technical-details")
                     .ghost()
                     .label("Copy technical details")
                     .on_click(cx.listener(move |_, _, _, cx| {
-                        cx.write_to_clipboard(ClipboardItem::new_string(detail.to_string()));
+                        copy_acknowledged(detail.to_string(), cx);
                     })),
             );
         }
         if self.surface == "Diagnostics" {
+            if let Some(path) = self.tabs[self.active]
+                .inspections
+                .get("Export result")
+                .and_then(|value| value["path"].as_str())
+                .map(str::to_owned)
+            {
+                body = body.child(
+                    section("Export completed", cx)
+                        .child("The exported file is saved.")
+                        .child(
+                            action_button("copy-export-location")
+                                .ghost()
+                                .label("Copy export location")
+                                .on_click(cx.listener(move |_, _, _, cx| {
+                                    copy_acknowledged(path.clone(), cx)
+                                })),
+                        ),
+                );
+            }
             let operations = self.tabs[self.active].runtime["active_operations"]
                 .as_array()
                 .cloned()
@@ -120,11 +180,11 @@ impl Workspace {
                                     ),
                             )
                             .child(
-                                Button::new(("cancel-operation", index))
+                                action_button(("cancel-operation", index))
                                     .small()
                                     .outline()
                                     .label("Cancel operation")
-                                    .disabled(!cancelable)
+                                    .unavailable(!cancelable)
                                     .on_click(cx.listener(move |v, _, _, _| {
                                         v.runtime("operation.cancel", json!({"operation_id":oid}));
                                     })),
@@ -141,7 +201,7 @@ impl Workspace {
                 ),
             ] {
                 tools = tools.child(
-                    Button::new(method)
+                    action_button(method)
                         .small()
                         .outline()
                         .icon(glyph)
@@ -151,7 +211,7 @@ impl Workspace {
             }
             tools = tools
                 .child(
-                    Button::new("refresh")
+                    action_button("refresh")
                         .small()
                         .outline()
                         .icon(Glyph::RefreshCw)
@@ -159,7 +219,7 @@ impl Workspace {
                         .on_click(cx.listener(|v, _, _, _| v.send(Command::Refresh))),
                 )
                 .child(
-                    Button::new("migrate")
+                    action_button("migrate")
                         .small()
                         .outline()
                         .icon(Glyph::Database)
@@ -173,122 +233,15 @@ impl Workspace {
                 .child(section("Active operations", cx).child(rows))
                 .child(section("Tools", cx).child(tools));
         }
-        if self.surface == "Settings" {
-            body = body.child(self.settings_controls(cx));
-            let dark = self.dark;
-            body = body.child(
-                section("Preferences", cx).child(
-                    card(cx)
-                        .child(
-                            row(cx)
-                                .child(setting_label(
-                                    "Appearance",
-                                    if self.high_contrast {
-                                        "High contrast theme"
-                                    } else if dark {
-                                        "Dark theme"
-                                    } else {
-                                        "Light theme"
-                                    },
-                                    cx,
-                                ))
-                                .child(
-                                    Button::new("theme")
-                                        .small()
-                                        .outline()
-                                        .icon(if dark { Glyph::Sun } else { Glyph::Moon })
-                                        .label("Toggle light / dark")
-                                        .on_click(cx.listener(|v, _, window, cx| {
-                                            v.toggle_theme(window, cx)
-                                        })),
-                                ),
-                        )
-                        .child(
-                            row(cx)
-                                .child(setting_label(
-                                    "Project interpreter",
-                                    "CPython 3.11 or newer runs this notebook's worker",
-                                    cx,
-                                ))
-                                .child(
-                                    Button::new("interpreter")
-                                        .small()
-                                        .outline()
-                                        .icon(Glyph::FolderOpen)
-                                        .label("Choose project interpreter")
-                                        .on_click(cx.listener(|v, _, window, cx| {
-                                            v.choose_interpreter(window, cx)
-                                        })),
-                                ),
-                        ),
-                ),
-            );
-        }
-        if self.surface == "Settings" {
-            body = body.child(
-                Button::new("high-contrast")
-                    .outline()
-                    .label("High contrast")
-                    .on_click(cx.listener(|v, _, window, cx| {
-                        v.follow_system = false;
-                        v.high_contrast = true;
-                        persist_appearance("contrast", cx);
-                        apply_theme(v.dark, true, window, cx);
-                        cx.notify();
-                    })),
-            );
-        }
-        if self.surface == "Settings" {
-            body = body.child(
-                Checkbox::new("system-theme")
-                    .label("Follow system appearance")
-                    .checked(self.follow_system)
-                    .on_click(cx.listener(|v, checked: &bool, window, cx| {
-                        v.follow_system = *checked;
-                        v.high_contrast = *checked && system_high_contrast();
-                        if *checked {
-                            v.dark = matches!(
-                                window.appearance(),
-                                WindowAppearance::Dark | WindowAppearance::VibrantDark
-                            );
-                        }
-                        persist_appearance(
-                            if *checked {
-                                "system"
-                            } else if v.dark {
-                                "dark"
-                            } else {
-                                "light"
-                            },
-                            cx,
-                        );
-                        apply_theme(v.dark, v.high_contrast, window, cx);
-                        cx.notify();
-                    })),
-            );
-            let interpreter = &self.tabs[self.active].runtime["interpreter"];
-            let summary = format!(
-                "Interpreter: {} | {}",
-                interpreter["executable"]
-                    .as_str()
-                    .or(interpreter["python"].as_str())
-                    .or(value["path"].as_str())
-                    .unwrap_or("Not selected; choose a project interpreter"),
-                interpreter["version"]
-                    .as_str()
-                    .unwrap_or("version available after start")
-            );
-            body = body.child(div().whitespace_normal().child(summary));
-        }
         if self.surface == "Checkpoints" {
             body = body.child(
-                Button::new("create-checkpoint")
+                action_button("create-checkpoint")
                     .outline()
                     .label("Create checkpoint")
-                    .disabled(
+                    .unavailable(
                         action_reason("checkpoint", &self.tabs[self.active].runtime).is_some(),
                     )
-                    .tooltip(
+                    .hint(
                         action_reason("checkpoint", &self.tabs[self.active].runtime)
                             .unwrap_or("Save supported values from the live namespace"),
                     )
@@ -297,9 +250,26 @@ impl Workspace {
                     ),
             );
             body = body.child(h_flex().gap_2()
-                .child(Button::new("namespace-list").ghost().label("Namespace checkpoints").on_click(cx.listener(|v, _, _, _| v.inspect("checkpoints.list", json!({})))))
-                .child(Button::new("training-list").ghost().label("Training snapshots").on_click(cx.listener(|v, _, _, _| v.inspect("training.list", json!({})))))
+                .child(action_button("namespace-list").ghost().label("Namespace checkpoints").on_click(cx.listener(|v, _, _, _| v.inspect("checkpoints.list", json!({})))))
+                .child(action_button("training-list").ghost().label("Training snapshots").on_click(cx.listener(|v, _, _, _| v.inspect("training.list", json!({})))))
                 .child(div().whitespace_normal().child("Training snapshots save registered model/optimizer state. Namespace and native process state are excluded.")));
+            if self.tabs[self.active].runtime["capabilities"]
+                .as_array()
+                .is_some_and(|caps| caps.iter().any(|cap| cap == "portable_training"))
+            {
+                body = body.child(
+                    action_button("create-training-checkpoint")
+                        .ghost()
+                        .label("Create training checkpoint (Experimental)")
+                        .unavailable(self.command_reason("training-checkpoint").is_some())
+                        .hint(self.command_reason("training-checkpoint").unwrap_or(
+                            "Save explicitly registered model, optimizer and cursor state",
+                        ))
+                        .on_click(cx.listener(|v, _, window, cx| {
+                            v.run_command("training-checkpoint", window, cx)
+                        })),
+                );
+            }
         }
         if value.get("snapshot").is_some() {
             let snapshot = value["snapshot"].as_str().unwrap_or_default().to_owned();
@@ -321,7 +291,7 @@ impl Workspace {
                         value["source_coherence"].as_str().unwrap_or("unverified")
                     )))
                     .child(
-                        Button::new("restore-training")
+                        action_button("restore-training")
                             .outline()
                             .label("Restore training in fresh worker")
                             .on_click(cx.listener(move |v, _, _, cx| {
@@ -350,7 +320,7 @@ impl Workspace {
                     .gap_2()
                     .flex_wrap()
                     .child(
-                        Button::new("search-executions")
+                        action_button("search-executions")
                             .outline()
                             .label("Search executions")
                             .on_click(cx.listener(|v, _, _, _| {
@@ -358,7 +328,7 @@ impl Workspace {
                             })),
                     )
                     .child(
-                        Button::new("clear-history-filters")
+                        action_button("clear-history-filters")
                             .ghost()
                             .label("Clear all filters")
                             .on_click(cx.listener(|v, _, window, cx| {
@@ -383,7 +353,7 @@ impl Workspace {
                 })
                 .collect::<Vec<_>>();
             if items.is_empty() && !history_filter.is_empty() {
-                rows = rows.child(empty_row("No executions match these filters. Clear filters to see all recorded executions.", cx));
+                rows = rows.child(empty_row("No records on this page match these filters. Clear filters or inspect another page.", cx));
             }
             self.record_active = self.record_active.min(items.len().saturating_sub(1));
             for (i, item) in items.into_iter().enumerate() {
@@ -410,7 +380,7 @@ impl Workspace {
                             cx,
                         )
                         .child(
-                            Button::new(("training-inspect", i))
+                            action_button(("training-inspect", i))
                                 .small()
                                 .label("Inspect")
                                 .on_click(cx.listener(move |v, _, _, _| {
@@ -429,7 +399,7 @@ impl Workspace {
                         )
                         .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
                         .child(
-                            Button::new(("execution", i))
+                            action_button(("execution", i))
                                 .small()
                                 .ghost()
                                 .label("View")
@@ -449,7 +419,7 @@ impl Workspace {
                         )
                         .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
                         .child(
-                            Button::new(("report", i))
+                            action_button(("report", i))
                                 .small()
                                 .ghost()
                                 .label("Report")
@@ -461,7 +431,7 @@ impl Workspace {
                                 })),
                         )
                         .child(
-                            Button::new(("continue", i))
+                            action_button(("continue", i))
                                 .small()
                                 .ghost()
                                 .label("Continue")
@@ -475,7 +445,7 @@ impl Workspace {
                                 })),
                         )
                         .child(
-                            Button::new(("restore", i))
+                            action_button(("restore", i))
                                 .small()
                                 .outline()
                                 .label("Restore")
@@ -497,7 +467,7 @@ impl Workspace {
                         )
                         .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
                         .child(
-                            Button::new(("session", i))
+                            action_button(("session", i))
                                 .small()
                                 .ghost()
                                 .label("Executions")
@@ -509,7 +479,7 @@ impl Workspace {
                                 })),
                         )
                         .child(
-                            Button::new(("replay", i))
+                            action_button(("replay", i))
                                 .small()
                                 .outline()
                                 .label("Replay session")
@@ -536,7 +506,7 @@ impl Workspace {
                                     .child(label),
                             )
                             .child(
-                                Button::new(("python", i))
+                                action_button(("python", i))
                                     .small()
                                     .outline()
                                     .label("Use")
@@ -555,10 +525,10 @@ impl Workspace {
                     let path = item["project_path"].as_str().map(PathBuf::from);
                     rows = rows.child(
                         row(cx).child(
-                            Button::new(("runtime-stop", i))
+                            action_button(("runtime-stop", i))
                                 .outline()
                                 .label("Stop runtime")
-                                .disabled(status != "verified")
+                                .unavailable(status != "verified")
                                 .on_click(cx.listener(move |v, _, _, cx| {
                                     if let Some(path) = path.clone() {
                                         v.open(path, cx);
@@ -578,10 +548,10 @@ impl Workspace {
                         )
                         .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
                         .child(
-                            Button::new(("runtime-open", i))
+                            action_button(("runtime-open", i))
                                 .outline()
                                 .label("Open notebook")
-                                .disabled(item["project_path"].as_str().is_none())
+                                .unavailable(item["project_path"].as_str().is_none())
                                 .on_click(cx.listener({
                                     let path = item["project_path"].as_str().map(PathBuf::from);
                                     move |v, _, _, cx| {
@@ -596,6 +566,28 @@ impl Workspace {
                 }
             }
             body = body.child(rows);
+            if !value["cursor"].is_null()
+                && matches!(self.surface.as_str(), "History" | "Checkpoints")
+            {
+                let method = self.tabs[self.active]
+                    .inspection_method
+                    .get(&self.surface)
+                    .cloned()
+                    .unwrap_or_default();
+                let mut fields = value["_page_request"]
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default();
+                fields.insert("cursor".into(), value["cursor"].clone());
+                body = body.child(
+                    action_button("next-record-page")
+                        .ghost()
+                        .label("Next page")
+                        .on_click(cx.listener(move |v, _, _, _| {
+                            v.inspect(&method, Value::Object(fields.clone()))
+                        })),
+                );
+            }
         }
         if self.surface == "Checkpoints" && value.get("checkpoint_id").is_some() {
             body = body.child(self.checkpoint_report(&value, cx));
@@ -662,14 +654,8 @@ impl Workspace {
                 }
             }
         }
-        if self.surface == "Diagnostics" && !value.is_null() {
-            body = body.child(section("Doctor findings", cx).child(
-                div().whitespace_normal().child(format!(
-                    "Source: {} | {} findings",
-                    value["source"]["state"].as_str().unwrap_or("unknown"),
-                    value["issues"].as_array().map(Vec::len).unwrap_or(0)
-                )),
-            ));
+        if self.surface == "Diagnostics" {
+            body = body.child(self.diagnostic_findings(&value, cx));
         }
         let operations = &self.tabs[self.active].operations;
         if self.surface == "Diagnostics" && !operations.is_empty() {
@@ -694,20 +680,39 @@ impl Workspace {
         }
         if !value.is_null() {
             body = body.child(
-                Button::new("raw-details")
+                action_button("raw-details")
                     .ghost()
-                    .label(if self.tabs[self.active].raw_details {
-                        "Hide raw details"
-                    } else {
-                        "Raw details"
-                    })
+                    .small()
+                    .w(px(170.))
+                    .label(
+                        if self.tabs[self.active]
+                            .raw_details
+                            .get(&self.surface)
+                            .copied()
+                            .unwrap_or(false)
+                        {
+                            "Hide details"
+                        } else {
+                            "Technical details"
+                        },
+                    )
                     .on_click(cx.listener(|v, _, _, cx| {
-                        v.tabs[v.active].raw_details = !v.tabs[v.active].raw_details;
+                        let expanded = v.tabs[v.active]
+                            .raw_details
+                            .entry(v.surface.clone())
+                            .or_default();
+                        *expanded = !*expanded;
                         cx.notify();
                     })),
             );
         }
-        if !value.is_null() && self.tabs[self.active].raw_details {
+        if !value.is_null()
+            && self.tabs[self.active]
+                .raw_details
+                .get(&self.surface)
+                .copied()
+                .unwrap_or(false)
+        {
             body = body.child(
                 section("Details", cx).child(
                     card(cx).child(

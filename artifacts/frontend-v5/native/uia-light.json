@@ -1,11 +1,11 @@
 [
   {
-    "name": "KernelLedger - C:\\Users\\UTKARS~1\\AppData\\Local\\Temp\\kl-ui-probe-qms7tb8d\\notebook",
+    "name": "KernelLedger - notebook",
     "role": "ControlType.Window",
     "id": ""
   },
   {
-    "name": "notebook",
+    "name": "Notebook switcher: notebook",
     "role": "ControlType.Button",
     "id": ""
   },
@@ -95,6 +95,16 @@
     "id": ""
   },
   {
+    "name": "Move cell up: # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Move cell down: # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
     "name": "Insert code after cell 1",
     "role": "ControlType.Button",
     "id": ""
@@ -115,28 +125,28 @@
     "id": ""
   },
   {
-    "name": "Hide output",
-    "role": "ControlType.Button",
-    "id": ""
-  },
-  {
-    "name": "Duplicate print('Hello, KernelLedger')",
-    "role": "ControlType.Button",
-    "id": ""
-  },
-  {
-    "name": "Delete print('Hello, KernelLedger')",
-    "role": "ControlType.Button",
-    "id": ""
-  },
-  {
     "name": "code cell hello",
     "role": "ControlType.Edit",
     "id": ""
   },
   {
-    "name": "Hello, KernelLedger\n",
+    "name": "Recorded output: Hello, KernelLedger\n",
     "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Copy recorded output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Find",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
     "id": ""
   },
   {
@@ -160,23 +170,33 @@
     "id": ""
   },
   {
+    "name": "code cell error",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded execution error: ZeroDivisionError: division by zero",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Copy recorded output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Find",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
     "name": "Hide output",
     "role": "ControlType.Button",
     "id": ""
   },
   {
-    "name": "Duplicate 1 / 0",
+    "name": "Show full traceback",
     "role": "ControlType.Button",
-    "id": ""
-  },
-  {
-    "name": "Delete 1 / 0",
-    "role": "ControlType.Button",
-    "id": ""
-  },
-  {
-    "name": "code cell error",
-    "role": "ControlType.Edit",
     "id": ""
   },
   {

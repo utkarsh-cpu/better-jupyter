@@ -1,0 +1,1120 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2586,
+                       1671
+                   ]
+    },
+    {
+        "name":  "Select Folder",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2880,
+                       1800
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       149,
+                       2854,
+                       1450
+                   ]
+    },
+    {
+        "name":  "Command Module",
+        "role":  "ControlType.ToolBar",
+        "id":  "FolderBandModuleInner",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       149,
+                       2854,
+                       62
+                   ]
+    },
+    {
+        "name":  "\u0026Help",
+        "role":  "ControlType.Button",
+        "id":  "HelpButton",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2793,
+                       153,
+                       56,
+                       52
+                   ]
+    },
+    {
+        "name":  "Details",
+        "role":  "ControlType.SplitButton",
+        "id":  "ViewControl",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2680,
+                       153,
+                       97,
+                       52
+                   ]
+    },
+    {
+        "name":  "View Slider",
+        "role":  "ControlType.Button",
+        "id":  "SplitMenuButton",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2734,
+                       153,
+                       23,
+                       52
+                   ]
+    },
+    {
+        "name":  "Organize",
+        "role":  "ControlType.Button",
+        "id":  "{7DDC1264-7E4D-4F74-BBC0-D191987C8D0F}",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       19,
+                       153,
+                       171,
+                       52
+                   ]
+    },
+    {
+        "name":  "New folder",
+        "role":  "ControlType.Button",
+        "id":  "{E44616AD-6DF1-4B94-85A4-E465AE8A19DB}",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       190,
+                       153,
+                       178,
+                       52
+                   ]
+    },
+    {
+        "name":  "Control Host",
+        "role":  "ControlType.Pane",
+        "id":  "ProperTreeHost",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       17,
+                       211,
+                       308,
+                       1388
+                   ]
+    },
+    {
+        "name":  "Navigation Pane",
+        "role":  "ControlType.Pane",
+        "id":  "100",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       17,
+                       211,
+                       308,
+                       1388
+                   ]
+    },
+    {
+        "name":  "Shell Folder View",
+        "role":  "ControlType.Pane",
+        "id":  "listview",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       333,
+                       211,
+                       2534,
+                       1388
+                   ]
+    },
+    {
+        "name":  "Items View",
+        "role":  "ControlType.List",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       333,
+                       211,
+                       2534,
+                       1388
+                   ]
+    },
+    {
+        "name":  "Header",
+        "role":  "ControlType.Header",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       333,
+                       211,
+                       2534,
+                       52
+                   ]
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.ItemNameDisplay",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       333,
+                       211,
+                       612,
+                       52
+                   ]
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       913,
+                       211,
+                       30,
+                       52
+                   ]
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.DateModified",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       945,
+                       211,
+                       324,
+                       52
+                   ]
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1237,
+                       211,
+                       30,
+                       52
+                   ]
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.ItemTypeText",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1269,
+                       211,
+                       270,
+                       52
+                   ]
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1507,
+                       211,
+                       30,
+                       52
+                   ]
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.Size",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1539,
+                       211,
+                       180,
+                       52
+                   ]
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1687,
+                       211,
+                       30,
+                       52
+                   ]
+    },
+    {
+        "name":  ".kl",
+        "role":  "ControlType.ListItem",
+        "id":  "0",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       361,
+                       275,
+                       1350,
+                       48
+                   ]
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       405,
+                       281,
+                       540,
+                       38
+                   ]
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       945,
+                       281,
+                       324,
+                       38
+                   ]
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1269,
+                       281,
+                       270,
+                       38
+                   ]
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1539,
+                       281,
+                       180,
+                       38
+                   ]
+    },
+    {
+        "name":  "attachments",
+        "role":  "ControlType.ListItem",
+        "id":  "1",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       361,
+                       331,
+                       1350,
+                       48
+                   ]
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       405,
+                       337,
+                       540,
+                       38
+                   ]
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       945,
+                       337,
+                       324,
+                       38
+                   ]
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1269,
+                       337,
+                       270,
+                       38
+                   ]
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1539,
+                       337,
+                       180,
+                       38
+                   ]
+    },
+    {
+        "name":  "cells",
+        "role":  "ControlType.ListItem",
+        "id":  "2",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       361,
+                       387,
+                       1350,
+                       48
+                   ]
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       405,
+                       393,
+                       540,
+                       38
+                   ]
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       945,
+                       393,
+                       324,
+                       38
+                   ]
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1269,
+                       393,
+                       270,
+                       38
+                   ]
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1539,
+                       393,
+                       180,
+                       38
+                   ]
+    },
+    {
+        "name":  "checkpoints",
+        "role":  "ControlType.ListItem",
+        "id":  "3",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       361,
+                       443,
+                       1350,
+                       48
+                   ]
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       405,
+                       449,
+                       540,
+                       38
+                   ]
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       945,
+                       449,
+                       324,
+                       38
+                   ]
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1269,
+                       449,
+                       270,
+                       38
+                   ]
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1539,
+                       449,
+                       180,
+                       38
+                   ]
+    },
+    {
+        "name":  "Application Controls",
+        "role":  "ControlType.Tree",
+        "id":  "AppControlsModuleInner",
+        "enabled":  true,
+        "offscreen":  true,
+        "bounds":  [
+                       Infinity,
+                       Infinity,
+                       -Infinity,
+                       -Infinity
+                   ]
+    },
+    {
+        "name":  "Folder:",
+        "role":  "ControlType.Pane",
+        "id":  "1090",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       255,
+                       1651,
+                       72,
+                       32
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "1152",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       337,
+                       1643,
+                       2496,
+                       48
+                   ]
+    },
+    {
+        "name":  "Open notebook directory",
+        "role":  "ControlType.Pane",
+        "id":  "1",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2291,
+                       1701,
+                       342,
+                       52
+                   ]
+    },
+    {
+        "name":  "Cancel",
+        "role":  "ControlType.Pane",
+        "id":  "2",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2657,
+                       1701,
+                       176,
+                       52
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2833,
+                       1753,
+                       34,
+                       34
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       58,
+                       2854,
+                       91
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "40965",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       58,
+                       2854,
+                       91
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       68,
+                       200,
+                       68
+                   ]
+    },
+    {
+        "name":  "Navigation buttons",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       21,
+                       72,
+                       192,
+                       64
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       213,
+                       66,
+                       72,
+                       72
+                   ]
+    },
+    {
+        "name":  "Up band",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       213,
+                       72,
+                       72,
+                       72
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "41477",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       285,
+                       58,
+                       2153,
+                       88
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       287,
+                       68,
+                       2149,
+                       70
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       287,
+                       68,
+                       2017,
+                       70
+                   ]
+    },
+    {
+        "name":  "Address: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\uiux-fresh-2026-10-08\\sample",
+        "role":  "ControlType.Pane",
+        "id":  "1001",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       299,
+                       68,
+                       2005,
+                       70
+                   ]
+    },
+    {
+        "name":  "Address band",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2304,
+                       68,
+                       132,
+                       70
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2442,
+                       101,
+                       6,
+                       1
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2448,
+                       64,
+                       408,
+                       76
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2448,
+                       67,
+                       408,
+                       72
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2453,
+                       67,
+                       398,
+                       72
+                   ]
+    },
+    {
+        "name":  "Search Box",
+        "role":  "ControlType.Edit",
+        "id":  "SearchEditBox",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2455,
+                       87,
+                       332,
+                       32
+                   ]
+    },
+    {
+        "name":  "Search",
+        "role":  "ControlType.Button",
+        "id":  "SearchBoxSearchButton",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2791,
+                       67,
+                       56,
+                       72
+                   ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2860,
+                       101,
+                       7,
+                       1
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       37,
+                       71,
+                       412,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       499,
+                       58,
+                       158,
+                       60
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       673,
+                       58,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       809,
+                       58,
+                       184,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2103,
+                       58,
+                       174,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2293,
+                       71,
+                       136,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2445,
+                       71,
+                       104,
+                       60
+                   ]
+    },
+    {
+        "name":  "About KernelLedger",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       461,
+                       317,
+                       328,
+                       64
+                   ]
+    },
+    {
+        "name":  "Search Help",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       461,
+                       413,
+                       1520,
+                       64
+                   ]
+    },
+    {
+        "name":  "Copy build information",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       461,
+                       5268,
+                       372,
+                       64
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       461,
+                       5364,
+                       340,
+                       60
+                   ]
+    },
+    {
+        "name":  "Workspace menu",
+        "role":  "ControlType.Menu",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1949,
+                       139,
+                       600,
+                       676
+                   ]
+    },
+    {
+        "name":  "Open notebook…",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       165,
+                       288,
+                       64
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       245,
+                       202,
+                       64
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       325,
+                       160,
+                       64
+                   ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       405,
+                       154,
+                       64
+                   ]
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       485,
+                       108,
+                       64
+                   ]
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       565,
+                       204,
+                       64
+                   ]
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       645,
+                       172,
+                       64
+                   ]
+    },
+    {
+        "name":  "Close menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1975,
+                       725,
+                       206,
+                       64
+                   ]
+    }
+]

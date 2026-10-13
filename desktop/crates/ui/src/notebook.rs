@@ -70,12 +70,13 @@ impl Workspace {
             return div().into_any_element();
         };
         let editor = self.editor(self.active, &id, window, cx);
+        let editor_focused = editor.read(cx).focus_handle(cx).is_focused(window);
         let tab = &self.tabs[self.active];
         let cell = tab.model.cells[&id].clone();
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (border, muted, muted_fg, primary, background, _radius) = (
+        let (_border, _muted, muted_fg, primary, background, _radius) = (
             theme.border,
             theme.muted,
             theme.muted_foreground,
@@ -92,17 +93,22 @@ impl Workspace {
             SaveState::Conflict => Some(("Conflict", danger)),
             SaveState::Failed => Some(("Save failed", danger)),
         };
-        let mut actions = h_flex()
-            .flex_none()
-            .gap_0p5()
-            .child(
-                Button::new(("run", index))
+        let group: SharedString = format!("cell-{id}").into();
+        let tools_owner: SharedString = format!("notebook-{}-{id}", self.active).into();
+        let tools_state = outputs::cell_tools(tools_owner.clone(), window, cx);
+        let mut actions = h_flex().flex_none().gap_1().items_center();
+        let run_action = if cell.disk.kind == "code" {
+            Some(
+                action_button(("run", index))
                     .ghost()
                     .small()
+                    .rounded(px(15.))
+                    .bg(primary.opacity(0.10))
+                    .text_color(primary)
                     .icon(Glyph::Play)
-                    .tooltip("Run cell · Shift+Enter")
+                    .hint("Run cell - Ctrl+Enter")
                     .accessibility_label(format!("Run {}", cell_title(&cell.text, &cell.disk.kind)))
-                    .disabled(cell.disk.kind != "code" || cell.save == SaveState::Conflict)
+                    .unavailable(cell.save == SaveState::Conflict)
                     .on_click(cx.listener({
                         let id = id.clone();
                         move |v, _, _, _| {
@@ -113,8 +119,46 @@ impl Workspace {
                         }
                     })),
             )
-            .child(
-                Button::new(("collapse", index))
+        } else {
+            None
+        };
+        if cell.disk.kind == "markdown" {
+            actions = actions.child(
+                action_button(("edit-markdown", index))
+                    .ghost()
+                    .small()
+                    .label(if tab.model.mode == Mode::Edit {
+                        "Preview"
+                    } else {
+                        "Edit"
+                    })
+                    .on_click(cx.listener({
+                        let id = id.clone();
+                        move |v, _, window, cx| {
+                            let t = &mut v.tabs[v.active];
+                            if t.model.mode == Mode::Edit {
+                                t.model.mode = Mode::Command;
+                                v.focus.focus(window, cx);
+                            } else {
+                                t.model.mode = Mode::Edit;
+                                let e = v.editor(v.active, &id, window, cx);
+                                e.update(cx, |e, cx| e.focus(window, cx));
+                            }
+                            cx.notify();
+                        }
+                    })),
+            );
+        }
+        if !cell.output.is_empty() {
+            actions = actions.child(outputs::OutputTools {
+                owner: tools_owner.clone(),
+                state: tools_state.clone(),
+                context: cell_title(&cell.text, &cell.disk.kind).into(),
+                group: group.clone(),
+                always: selected || self.preferences.comfortable,
+            });
+            actions = actions.child(
+                action_button(("collapse", index))
                     .ghost()
                     .small()
                     .icon(if cell.collapsed {
@@ -122,12 +166,12 @@ impl Workspace {
                     } else {
                         Glyph::EyeOff
                     })
-                    .tooltip(if cell.collapsed {
+                    .accessibility_label(if cell.collapsed {
                         "Show output"
                     } else {
                         "Hide output"
                     })
-                    .accessibility_label(if cell.collapsed {
+                    .hint(if cell.collapsed {
                         "Show output"
                     } else {
                         "Hide output"
@@ -143,89 +187,70 @@ impl Workspace {
                             cx.notify();
                         }
                     })),
-            )
-            .child(
-                Button::new(("duplicate", index))
+            );
+        }
+        let key = format!("cell-more-{id}");
+        actions = actions.child(
+            self.anchored(
+                key.clone(),
+                action_button(("cell-more", index))
                     .ghost()
                     .small()
-                    .icon(Glyph::Copy)
-                    .tooltip("Duplicate")
+                    .icon(Glyph::Ellipsis)
+                    .contextual(group.clone(), selected || self.preferences.comfortable)
+                    .hint("Cell actions")
                     .accessibility_label(format!(
-                        "Duplicate {}",
-                        cell_title(&cell.text, &cell.disk.kind)
-                    ))
-                    .on_click(cx.listener({
-                        let id = id.clone();
-                        move |v, _, _, _| v.mutate(json!({"action":"duplicate","cell_id":id}))
-                    })),
-            )
-            .child(
-                Button::new(("delete", index))
-                    .ghost()
-                    .small()
-                    .icon(Glyph::Trash)
-                    .tooltip("Delete")
-                    .accessibility_label(format!(
-                        "Delete {}",
+                        "More actions for {}",
                         cell_title(&cell.text, &cell.disk.kind)
                     ))
                     .on_click(cx.listener({
                         let id = id.clone();
                         move |v, _, window, cx| {
-                            v.confirmation = Some(("delete".into(), json!({"cell_id":id})));
+                            v.close_menu(window, cx);
                             v.return_focus = window.focused(cx);
-                            v.focus.focus(window, cx);
+                            v.cell_menu = Some((id.clone(), index));
+                            v.menu_anchor = key.clone();
+                            v.dialog_focus.focus(window, cx);
                             cx.notify();
                         }
                     })),
-            );
-        if selected {
-            for (delta, label, glyph) in [
-                (-1isize, "Move cell up", Glyph::ChevronsUp),
-                (1, "Move cell down", Glyph::ChevronsDown),
-            ] {
-                let id = id.clone();
-                actions = actions.child(Button::new((SharedString::from(label), index)).ghost().small().icon(glyph)
-                    .accessibility_label(format!("{label}: {}", cell_title(&cell.text, &cell.disk.kind)))
-                    .tooltip(label).disabled((delta < 0 && index == 0) || (delta > 0 && last))
-                    .on_click(cx.listener(move |v, _, _, _| {
-                        v.mutate(json!({"action":"move","cell_id":id,"index":index.saturating_add_signed(delta)}));
-                    })));
-            }
-        }
+                cx,
+            ),
+        );
         let header = h_flex()
-            .h(px(36.))
+            .min_h(rems(if self.preferences.comfortable {
+                2.75
+            } else {
+                1.875
+            }))
             .px_3()
             .gap_2()
             .items_center()
-            .bg(background)
+            .bg(cx.theme().popover)
+            .flex_wrap()
+            .py_1()
+            .when_some(run_action, |d, button| d.child(button))
             .border_b_1()
-            .border_color(border)
-            .child(
-                div()
-                    .flex_none()
-                    .font_family(mono.clone())
-                    .text_xs()
-                    .text_color(if selected { primary } else { muted_fg })
-                    .child(
-                        cell.ordinal
-                            .map(|n| format!("[{n}]"))
-                            .unwrap_or_else(|| "[ ]".into()),
-                    ),
-            )
+            .border_color(divider(cx))
+            .when(cell.disk.kind == "code", |d| {
+                d.when_some(cell.ordinal, |d, ordinal| {
+                    d.child(
+                        div()
+                            .flex_none()
+                            .font_family(mono.clone())
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .child(ordinal.to_string()),
+                    )
+                })
+            })
             .child(badge(kind_label(&cell.disk.kind), muted_fg))
-            .child(
-                div()
-                    .min_w_0()
-                    .truncate()
-                    .font_family(mono.clone())
-                    .text_xs()
-                    .text_color(muted_fg)
-                    .child(cell_title(&cell.text, &cell.disk.kind)),
-            )
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
             .when(!cell.outcome.is_empty(), |d| {
-                d.child(badge(cell.outcome.clone(), tone(&cell.outcome, cx)))
+                d.child(badge(
+                    outcome_label(&cell.outcome).to_string(),
+                    tone(&cell.outcome, cx),
+                ))
             })
             .when(cell.stale(), |d| {
                 d.child(badge("Edited since run", warning))
@@ -233,7 +258,7 @@ impl Workspace {
             .when(cell.stale() && cell.exec_id.is_some(), |d| {
                 let exec_id = cell.exec_id.clone().unwrap_or_default();
                 d.child(
-                    Button::new(("compare", index))
+                    action_button(("compare", index))
                         .ghost()
                         .small()
                         .label("Compare")
@@ -248,9 +273,11 @@ impl Workspace {
         let mut card = v_flex()
             .id(SharedString::from(id.clone()))
             .w_full()
-            .border_l_2()
-            .border_color(if selected { primary } else { background })
-            .bg(background)
+            .group(group)
+            .border_1()
+            .rounded(px(10.))
+            .border_color(if selected { primary } else { divider(cx) })
+            .bg(cx.theme().popover)
             .overflow_hidden()
             .on_mouse_down(
                 MouseButton::Left,
@@ -270,16 +297,29 @@ impl Workspace {
                 cell.disk.kind != "markdown" || (selected && tab.model.mode == Mode::Edit),
                 |d| {
                     d.child(
-                        div().px_1().py_1().child(
-                            Editor::new(&editor)
-                                .text_size(px(self.preferences.editor_size))
-                                .aria_label(format!("{} cell {id}", cell.disk.kind))
-                                .h(px(editor_lines(&cell.text) as f32
-                                    * self.preferences.editor_size
-                                    * 1.5
-                                    + 12.))
-                                .bordered(false),
-                        ),
+                        div()
+                            .debug_selector({
+                                let id = id.clone();
+                                move || format!("cell-source-{id}")
+                            })
+                            .w_full()
+                            .max_w(rems(64.))
+                            .mx_auto()
+                            .px_1()
+                            .py_1()
+                            .border_2()
+                            .border_color(if editor_focused { primary } else { background })
+                            .child(
+                                Editor::new(&editor)
+                                    .text_size(px(self.preferences.editor_size))
+                                    .line_height(px(self.preferences.editor_size * 1.5))
+                                    .aria_label(format!("{} cell {id}", cell.disk.kind))
+                                    .h(px(editor_lines(&cell.text) as f32
+                                        * self.preferences.editor_size
+                                        * 1.5
+                                        + 12.))
+                                    .bordered(false),
+                            ),
                     )
                 },
             );
@@ -308,7 +348,7 @@ impl Workspace {
                             .rounded(px(6.))
                             .bg(background)
                             .border_1()
-                            .border_color(border)
+                            .border_color(divider(cx))
                             .font_family(mono.clone())
                             .text_xs()
                             .child(bounded(&cell.disk.source, 4096)),
@@ -317,7 +357,7 @@ impl Workspace {
                         h_flex()
                             .gap_2()
                             .child(
-                                Button::new(("disk", index))
+                                action_button(("disk", index))
                                     .small()
                                     .outline()
                                     .label("Take disk")
@@ -344,7 +384,7 @@ impl Workspace {
                                     })),
                             )
                             .child(
-                                Button::new(("mine", index))
+                                action_button(("mine", index))
                                     .small()
                                     .primary()
                                     .label("Take mine")
@@ -364,7 +404,7 @@ impl Workspace {
         }
         if cell.disk.kind == "markdown" && !(selected && tab.model.mode == Mode::Edit) {
             card = card.child(
-                div().px_4().py_3().border_t_1().border_color(border).child(
+                div().px_3().py_2().max_w(rems(52.)).child(
                     TextView::markdown(("preview", index), safe_markdown(&cell.text))
                         .on_link_click(safe_link),
                 ),
@@ -377,7 +417,7 @@ impl Workspace {
                     .py_2()
                     .gap_2()
                     .border_t_1()
-                    .border_color(border)
+                    .border_color(divider(cx))
                     .text_xs()
                     .text_color(muted_fg)
                     .child(Icon::new(Glyph::EyeOff).xsmall())
@@ -389,46 +429,89 @@ impl Workspace {
             } else {
                 v_flex()
                     .px_4()
-                    .py_3()
-                    .gap_2()
+                    .py_2()
+                    .gap_1()
                     .border_t_1()
-                    .border_color(border)
-                    .bg(muted.opacity(0.25))
-                    .children(
-                        cell.output
-                            .iter()
-                            .enumerate()
-                            .map(|(i, e)| output(e, format!("{id}-{i}"), cx)),
-                    )
+                    .border_color(divider(cx))
+                    .bg(cx.theme().muted)
+                    .children(cell.output.iter().enumerate().map(|(i, e)| {
+                        outputs::OutputBlock {
+                            tools_state: Some(tools_state.clone()),
+                            id: format!("{id}-{i}").into(),
+                            event: e.clone(),
+                            context: format!(
+                                "Output {} for cell {}: {}",
+                                i + 1,
+                                index + 1,
+                                cell_title(&cell.text, &cell.disk.kind)
+                            )
+                            .into(),
+                        }
+                        .into_any_element()
+                    }))
             });
         }
         div()
+            .debug_selector({
+                let id = id.clone();
+                move || format!("cell-frame-{id}")
+            })
             .w_full()
             .flex()
             .flex_col()
+            // Tables and plots may use the wider canvas; source stays readable.
+            .max_w(rems(if cell.output.iter().any(outputs::is_wide_output) {
+                80.
+            } else {
+                64.
+            }))
+            .mx_auto()
             .px_4()
-            .pt(px(if index == 0 { 20. } else { 6. }))
-            .pb(px(if last { 32. } else { 6. }))
+            .pt(px(if index == 0 { 12. } else { 0. }))
+            .pb(px(if last { 20. } else { 0. }))
             .child(card)
             .child(
-                h_flex().gap_1().pt_2().children(
-                    [
-                        ("code", "+ Code"),
-                        ("markdown", "+ Markdown"),
-                        ("raw", "+ Raw"),
-                    ]
-                    .into_iter()
-                    .map(|(kind, label)| {
-                        Button::new((SharedString::from(format!("insert-{kind}")), index))
-                            .ghost()
-                            .small()
-                            .label(label)
-                            .accessibility_label(format!("Insert {kind} after cell {}", index + 1))
-                            .on_click(cx.listener(move |v, _, _, _| {
-                                v.mutate(json!({"action":"add","type":kind,"index":index + 1}))
-                            }))
-                    }),
-                ),
+                h_flex()
+                    .group(SharedString::from(format!("boundary-{id}")))
+                    .h(rems(if self.preferences.comfortable {
+                        2.75
+                    } else {
+                        1.875
+                    }))
+                    .items_center()
+                    .justify_center()
+                    .child(
+                        self.anchored(
+                            format!("insert-{id}"),
+                            action_button(("insert-cell", index))
+                                .ghost()
+                                .small()
+                                .icon(Glyph::Plus)
+                                .label(if last { "Add cell" } else { "Insert cell" })
+                                .text_color(muted_fg)
+                                .contextual(
+                                    SharedString::from(format!("boundary-{id}")),
+                                    last || self.preferences.comfortable || selected,
+                                )
+                                .accessibility_label(if last {
+                                    "Add cell at end of notebook".to_string()
+                                } else {
+                                    format!("Insert cell after cell {}", index + 1)
+                                })
+                                .on_click(cx.listener({
+                                    let key = format!("insert-{id}");
+                                    move |v, _, window, cx| {
+                                        v.close_menu(window, cx);
+                                        v.return_focus = window.focused(cx);
+                                        v.insert_menu = Some(index + 1);
+                                        v.menu_anchor = key.clone();
+                                        v.dialog_focus.focus(window, cx);
+                                        cx.notify();
+                                    }
+                                })),
+                            cx,
+                        ),
+                    ),
             )
             .into_any_element()
     }

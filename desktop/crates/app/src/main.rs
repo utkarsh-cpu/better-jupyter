@@ -1,5 +1,9 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
-use gpui_kit::{assets::Assets, component::Root, *};
+use gpui_kit::{
+    assets::Assets,
+    component::{Root, TitleBar},
+    *,
+};
 use kernelledger_ui::Workspace;
 use std::borrow::Cow;
 
@@ -19,6 +23,7 @@ gpui_kit::assets::icon_assets!(
         Database,
         Eye,
         EyeOff,
+        Ellipsis,
         FileText,
         Flag,
         FolderOpen,
@@ -26,6 +31,7 @@ gpui_kit::assets::icon_assets!(
         Moon,
         NotebookPen,
         OctagonX,
+        PanelLeft,
         Play,
         Plus,
         Power,
@@ -81,7 +87,7 @@ fn main() {
                 WindowOptions {
                     window_min_size: Some(size(px(800.), px(600.))),
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    ..Default::default()
+                    ..TitleBar::window_options()
                 },
                 |window, cx| {
                     let view =

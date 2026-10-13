@@ -4,6 +4,9 @@ This is a native Rust GPUI Kit development application over runtime plan 4 and
 frontend plan 3. Opening source/history uses an offline helper and starts no worker.
 The application closes by detaching; Stop runtime is a separate action.
 
+The [bars and buttons polish](frontend-bars-polish.md) documents the unified
+title bar, contextual cell controls, and native alignment verification.
+
 ```powershell
 python -m pip install -e ".[dev]"
 cd desktop

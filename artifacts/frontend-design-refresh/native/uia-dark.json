@@ -1,0 +1,127 @@
+[
+  {
+    "name": "KernelLedger - notebook",
+    "role": "ControlType.Window",
+    "id": ""
+  },
+  {
+    "name": "Notebook switcher: notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Notebook, current destination",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "History",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Checkpoints",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Menu",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Outline",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run all",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Interrupt",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Add cell",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Edit",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "More actions for # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert cell after cell 1",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell hello",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded output: Hello, KernelLedger\n",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Output tools: Output 1 for cell 2: print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert cell after cell 2",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell error",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded execution error: ZeroDivisionError: division by zero",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Output tools: Output 1 for cell 3: 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Show full traceback for Output 1 for cell 3: 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert cell after cell 3",
+    "role": "ControlType.Button",
+    "id": ""
+  }
+]

@@ -1,0 +1,77 @@
+
+running 8 tests
+test output::tests::truncation_is_unicode_safe ... ok
+test preferences::tests::old_partial_preferences_receive_defaults_and_stale_dimensions_are_clamped ... ok
+test output::tests::table_discards_active_content ... ok
+test tests::rejects_length_before_allocating ... ok
+test tests::structured_errors_survive_transport ... ok
+test tests::shared_fixture_frames ... ok
+test preferences::tests::schema_one_migrates_without_losing_layout_and_scale_is_normalized ... ok
+test preferences::tests::save_replaces_own_file_and_preserves_other_preferences_and_future_schema ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test presentation::tests::snapshots_require_idle_and_training_requires_capability ... ok
+test tests::reconnect_retains_operation_key_and_unknown_is_final ... ok
+test tests::run_waits_for_acknowledged_content ... ok
+test tests::typing_during_save_remains_dirty ... ok
+test tests::conflict_preserves_both_versions ... ok
+test tests::replayed_feed_deduplicates ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 18 tests
+test tests::surface_results_and_runtime_actions_are_scoped ... ok
+test tests::filters_combine_cell_outcome_session_and_time ... ok
+test tests::checkpoint_commands_work_from_checkpoint_page_and_reject_unknown_runtime ... ok
+test tests::theme_text_and_focus_tokens_meet_contrast_thresholds ... ok
+test tests::comfortable_actions_have_a_full_touch_target ... ok
+test tests::contextual_commands_preserve_ids_and_reject_irrelevant_or_unsaved_actions ... ok
+test tests::structural_commands_respect_saved_source_and_require_merge_confirmation ... ok
+test tests::palette_filters_navigates_and_restores_focus ... ok
+test tests::menu_blocks_background_execution_and_escape_returns_focus ... ok
+test tests::command_mode_run_bindings_preserve_source ... ok
+test tests::ime_composition_suppresses_run_shortcuts ... ok
+test tests::history_cursor_keeps_session_scope_and_return_to_cell_restores_editor ... ok
+test tests::delete_requires_confirmation_and_escape_preserves_source ... ok
+test tests::history_filters_validate_dates_and_keep_existing_text_and_outcome ... ok
+test tests::run_keys_precede_editor_newline_and_submit_once ... ok
+test tests::dialog_starts_on_cancel_and_traps_keyboard_focus ... ok
+test tests::scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width ... ok
+test tests::outline_is_contextual_and_collapse_survives_ten_resize_cycles ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.71s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling kernelledger-ui v0.1.0 (C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\desktop\crates\ui)
+   Compiling kernelledger-desktop v0.1.0 (C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\desktop\crates\app)
+    Finished `test` profile [unoptimized] target(s) in 4.75s
+     Running unittests src\lib.rs (target\debug\deps\kernelledger_client-9c8a2eec36e78163.exe)
+     Running unittests src\main.rs (target\debug\deps\kernelledger_desktop-b2cf49a7d4f8f4e4.exe)
+     Running unittests src\lib.rs (target\debug\deps\kernelledger_models-e7b5024ec0df7108.exe)
+     Running unittests src\lib.rs (target\debug\deps\kernelledger_ui-0915a726ab4cc4f3.exe)
+   Doc-tests kernelledger_client
+   Doc-tests kernelledger_models
+   Doc-tests kernelledger_ui

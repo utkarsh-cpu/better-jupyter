@@ -1,0 +1,10 @@
+[package]
+name = "kl-window-capture"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+windows-capture = "=1.5.0"
+
+[profile.dev]
+debug = 0

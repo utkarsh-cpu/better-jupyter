@@ -4,7 +4,7 @@
 | --- | --- |
 | Version | Frontend 5 proposal |
 | Date | 2026-10-08 |
-| Status | Draft design and delivery plan. Implementation has not started. |
+| Status | Implementation in progress. See the [implementation and qualification ledger](../docs/desktop/frontend-v5.md). Not release-qualified. |
 | Baseline | [Current frontend v4](../FRONTEND_PLAN.md), [runtime v5](../PLAN.md) |
 | Evidence | [Fresh native UI/UX review](../artifacts/uiux-fresh-2026-10-08/REVIEW.md) and the user's explicit rejection of the current visual design |
 | Direction | A restrained scientific workbench: precise, quiet, content-first, native to the desktop |

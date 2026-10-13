@@ -1,0 +1,275 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       1626,
+                       1271
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       58,
+                       384,
+                       120
+                   ]
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       543,
+                       58,
+                       314,
+                       120
+                   ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       889,
+                       58,
+                       240,
+                       120
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       1161,
+                       58,
+                       368,
+                       120
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       210,
+                       208,
+                       120
+                   ]
+    },
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       332,
+                       246,
+                       120
+                   ]
+    },
+    {
+        "name":  "Run",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       339,
+                       332,
+                       234,
+                       120
+                   ]
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       605,
+                       332,
+                       232,
+                       120
+                   ]
+    },
+    {
+        "name":  "Interrupt",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  false,
+        "offscreen":  false,
+        "bounds":  [
+                       869,
+                       332,
+                       282,
+                       120
+                   ]
+    },
+    {
+        "name":  "Add cell",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       61,
+                       484,
+                       412,
+                       120
+                   ]
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       77,
+                       1106,
+                       372,
+                       120
+                   ]
+    },
+    {
+        "name":  "Workspace menu",
+        "role":  "ControlType.Menu",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       13,
+                       58,
+                       1600,
+                       1200
+                   ]
+    },
+    {
+        "name":  "Open notebook…",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       388,
+                       574,
+                       128
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       548,
+                       402,
+                       128
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       708,
+                       318,
+                       128
+                   ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       868,
+                       308,
+                       128
+                   ]
+    },
+    {
+        "name":  "Help",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       1028,
+                       214,
+                       128
+                   ]
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       1188,
+                       406,
+                       128
+                   ]
+    },
+    {
+        "name":  "Runtimes",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       1348,
+                       344,
+                       128
+                   ]
+    },
+    {
+        "name":  "Close menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       111,
+                       1508,
+                       412,
+                       128
+                   ]
+    }
+]

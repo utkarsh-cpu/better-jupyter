@@ -41,3 +41,6 @@ with tempfile.TemporaryDirectory(prefix="kl-rust-smoke-") as directory:
             if not (project / ".kl/supervisor.json").exists():
                 break
             time.sleep(0.02)
+        # Registry removal precedes process exit. Let inherited Windows log
+        # handles close before TemporaryDirectory attempts to remove them.
+        time.sleep(0.5)

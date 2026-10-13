@@ -1,0 +1,27 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe",
+  "theme": "contrast",
+  "dpi": 192,
+  "minimum_outer_logical": [
+    813.0,
+    635.5
+  ],
+  "time_to_visible_window_ms": 546.12,
+  "window_title": "KernelLedger - notebook",
+  "uia_nodes": 25,
+  "native_identity": "passed",
+  "output_semantics": "passed",
+  "screenshot": [
+    "notebook-contrast-800x600.png",
+    "notebook-contrast-1024x768.png",
+    "notebook-contrast-1280x850.png",
+    "notebook-contrast-1440x900.png",
+    "settings-contrast.png"
+  ],
+  "measurement_limit": "Time to visible window only, not editor-ready latency. No NVDA/IME/mixed-DPI qualification.",
+  "resize_cycles": 10,
+  "native_menu_and_destinations": "passed",
+  "capture_limit": "Desktop capture cropped to owned window; verify occlusion and physical monitor bounds visually. Resize calls alone do not prove control reachability."
+}

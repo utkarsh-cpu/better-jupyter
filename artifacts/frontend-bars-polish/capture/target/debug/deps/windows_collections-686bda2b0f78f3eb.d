@@ -1,0 +1,9 @@
+C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\artifacts/frontend-bars-polish/capture/target\debug\deps\windows_collections-686bda2b0f78f3eb.d: C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
+
+C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\artifacts/frontend-bars-polish/capture/target\debug\deps\libwindows_collections-686bda2b0f78f3eb.rlib: C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
+
+C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\artifacts/frontend-bars-polish/capture/target\debug\deps\libwindows_collections-686bda2b0f78f3eb.rmeta: C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md
+
+C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\lib.rs:
+C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\bindings.rs:
+C:\Users\UTKARSH\ KAUSHIK\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-collections-0.2.0\src\../readme.md:

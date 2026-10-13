@@ -1,0 +1,176 @@
+﻿[
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "37,23,176,176"
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "237,23,176,176"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "419,23,176,176"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "601,23,176,176"
+    },
+    {
+        "name":  "Runtime: Python · Ready",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1943,23,176,176"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2135,23,176,176"
+    },
+    {
+        "name":  "System",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "151,684,252,176"
+    },
+    {
+        "name":  "Light",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "409,684,198,176"
+    },
+    {
+        "name":  "Dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "613,684,188,176"
+    },
+    {
+        "name":  "High contrast",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "807,684,414,176"
+    },
+    {
+        "name":  "Interface size 100 percent",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "151,1359,200,176"
+    },
+    {
+        "name":  "Interface size 125 percent",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "357,1359,200,176"
+    },
+    {
+        "name":  "Interface size 150 percent",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "563,1359,200,176"
+    },
+    {
+        "name":  "Interface size 200 percent",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "769,1359,210,176"
+    },
+    {
+        "name":  "12 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "151,1744,200,176"
+    },
+    {
+        "name":  "14 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "357,1744,200,176"
+    },
+    {
+        "name":  "16 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "563,1744,200,176"
+    },
+    {
+        "name":  "18 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "769,1744,200,176"
+    },
+    {
+        "name":  "20 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "975,1744,208,176"
+    },
+    {
+        "name":  "24 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1189,1744,210,176"
+    },
+    {
+        "name":  "Compact",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "151,2419,296,176"
+    },
+    {
+        "name":  "Comfortable",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "453,2419,388,176"
+    },
+    {
+        "name":  "180 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "151,2804,230,176"
+    },
+    {
+        "name":  "220 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "387,2804,240,176"
+    },
+    {
+        "name":  "260 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "633,2804,240,176"
+    },
+    {
+        "name":  "300 px",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "879,2804,240,176"
+    },
+    {
+        "name":  "Reduce motion",
+        "role":  "ControlType.CheckBox",
+        "enabled":  true,
+        "bounds":  "143,3326,2274,80"
+    },
+    {
+        "name":  "Choose project interpreter...",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "143,3883,2274,176"
+    },
+    {
+        "name":  "Show path",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "143,4107,2274,176"
+    }
+]

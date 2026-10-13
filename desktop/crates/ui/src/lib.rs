@@ -1,11 +1,13 @@
-mod outputs;
-mod interchange;
 mod accessibility;
 mod checkpoints;
 mod components;
-mod history;
+mod diagnostics;
 mod help;
+mod history;
+mod interchange;
 mod notebook;
+mod outputs;
+mod runtime;
 mod settings;
 mod shell;
 mod surfaces;
@@ -72,9 +74,7 @@ const SURFACES: [(&str, Glyph, &str); 7] = [
         "Appearance and interpreter preferences",
     ),
 ];
-const COMMANDS: [(&str, &str, &str, Glyph); 20] = [
-    ("export-ipynb", "Export notebook…", "Save current source as a Jupyter notebook", Glyph::FileText),
-    ("export-bundle", "Export bundle…", "Save source and recorded history in a portable bundle", Glyph::Database),
+const COMMANDS: [(&str, &str, &str, Glyph); 31] = [
     (
         "open",
         "Open notebook…",
@@ -98,6 +98,18 @@ const COMMANDS: [(&str, &str, &str, Glyph); 20] = [
         "Run below",
         "Run code cells below the selection",
         Glyph::ChevronsDown,
+    ),
+    (
+        "split-cell",
+        "Split cell at cursor",
+        "Split saved source at the editor cursor",
+        Glyph::FileText,
+    ),
+    (
+        "merge-cell",
+        "Merge with next cell",
+        "Combine adjacent cells of the same type",
+        Glyph::FileText,
     ),
     (
         "checkpoint",
@@ -148,6 +160,18 @@ const COMMANDS: [(&str, &str, &str, Glyph); 20] = [
         Glyph::Stethoscope,
     ),
     (
+        "export-ipynb",
+        "Export notebook…",
+        "Save current source as a Jupyter notebook",
+        Glyph::FileText,
+    ),
+    (
+        "export-bundle",
+        "Export bundle…",
+        "Save source and recorded history in a portable bundle",
+        Glyph::Database,
+    ),
+    (
         "restart",
         "Restart empty",
         "Discard the live namespace",
@@ -158,6 +182,12 @@ const COMMANDS: [(&str, &str, &str, Glyph); 20] = [
         "Stop runtime",
         "Stop computation and shut the worker down",
         Glyph::Power,
+    ),
+    (
+        "interrupt_kill",
+        "Terminate worker…",
+        "Force-stop an unresponsive worker; live variables are lost",
+        Glyph::OctagonX,
     ),
     (
         "training-checkpoint",
@@ -183,6 +213,54 @@ const COMMANDS: [(&str, &str, &str, Glyph); 20] = [
         "Dry run; nothing is deleted",
         Glyph::Trash,
     ),
+    (
+        "run-selected",
+        "Run selected cell",
+        "Execute the selected code cell",
+        Glyph::Play,
+    ),
+    (
+        "add-code",
+        "Add code cell",
+        "Insert code after the selection",
+        Glyph::Plus,
+    ),
+    (
+        "add-markdown",
+        "Add Markdown cell",
+        "Insert prose after the selection",
+        Glyph::Plus,
+    ),
+    (
+        "add-raw",
+        "Add Raw cell",
+        "Insert plain source after the selection",
+        Glyph::Plus,
+    ),
+    (
+        "duplicate-cell",
+        "Duplicate cell",
+        "Copy the selected cell",
+        Glyph::FileText,
+    ),
+    (
+        "delete-cell",
+        "Delete cell...",
+        "Confirm removal of the selected cell",
+        Glyph::Trash,
+    ),
+    (
+        "move-up",
+        "Move cell up",
+        "Move the selected cell one place earlier",
+        Glyph::ChevronsUp,
+    ),
+    (
+        "move-down",
+        "Move cell down",
+        "Move the selected cell one place later",
+        Glyph::ChevronsDown,
+    ),
 ];
 
 struct Tab {
@@ -197,7 +275,7 @@ struct Tab {
     inspection_method: BTreeMap<String, String>,
     scrolls: BTreeMap<String, ScrollHandle>,
     parents: Vec<(String, String, Value, ScrollHandle, usize)>,
-    raw_details: bool,
+    raw_details: BTreeMap<String, bool>,
     reveal: Option<String>,
     uninitialized: bool,
     selections: BTreeMap<String, usize>,
@@ -226,7 +304,13 @@ pub struct Workspace {
     return_focus: Option<FocusHandle>,
     sidebar_visible: bool,
     app_menu: bool,
+    notebook_menu: bool,
+    history_owner: Option<usize>,
     runtime_menu: bool,
+    cell_menu: Option<(String, usize)>,
+    insert_menu: Option<usize>,
+    menu_anchor: String,
+    menu_bounds: BTreeMap<String, Bounds<Pixels>>,
     preferences: kernelledger_client::preferences::Preferences,
     preference_status: Option<String>,
     preference_saving: bool,
@@ -234,6 +318,9 @@ pub struct Workspace {
     outline_drawer: bool,
     follow_system: bool,
     history_query: Entity<InputState>,
+    history_controls: BTreeMap<String, Entity<InputState>>,
+    history_field_subscriptions: Vec<Subscription>,
+    history_fields_key: String,
     help_query: Entity<InputState>,
     record_active: usize,
     sidebar_focus: FocusHandle,
@@ -302,7 +389,13 @@ impl Workspace {
             return_focus: None,
             sidebar_visible: preferences.outline_visible,
             app_menu: false,
+            notebook_menu: false,
+            history_owner: None,
             runtime_menu: false,
+            cell_menu: None,
+            insert_menu: None,
+            menu_anchor: String::new(),
+            menu_bounds: BTreeMap::new(),
             preferences,
             preference_status,
             preference_saving: false,
@@ -311,9 +404,12 @@ impl Workspace {
             follow_system,
             history_query: cx.new(|cx| {
                 InputState::new(window, cx).placeholder(
-                    "Search history | cell:... outcome:error session:... from:YYYY-MM-DD to:YYYY-MM-DD",
+                    "Search recorded source; advanced filters: cell:, session:, after:, before:",
                 )
             }),
+            history_controls: BTreeMap::new(),
+            history_field_subscriptions: Vec::new(),
+            history_fields_key: String::new(),
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
@@ -376,7 +472,7 @@ impl Workspace {
             inspection_method: BTreeMap::new(),
             scrolls: BTreeMap::new(),
             parents: vec![],
-            raw_details: false,
+            raw_details: BTreeMap::new(),
             reveal: None,
             uninitialized: false,
             selections: BTreeMap::new(),
@@ -536,11 +632,31 @@ impl Workspace {
                         tab.runtime = value;
                     }
                     Event::Operation(value) => {
-                        if value["state"] == "completed" {
-                            if let Some(id) = value["result"]["checkpoint_id"].as_str() {
-                                tab.checkpoint_notice = Some(id.to_owned());
-                                let _ = tab.service.commands.send(Command::Inspect { method: "checkpoints.list".into(), fields: json!({}) });
-                            }
+                        if value["state"] == "completed"
+                            && matches!(
+                                value["kind"].as_str().or(value["method"].as_str()),
+                                Some("restore" | "continue" | "replay" | "training-restore")
+                            )
+                            && value["result"]["session_id"].is_string()
+                        {
+                            tab.inspections
+                                .insert("Restoration result".into(), value.clone());
+                        }
+                        if value["state"] == "failed" {
+                            let error = &value["result"]["error"];
+                            let code = error["code"].as_str().unwrap_or("operation_failed");
+                            tab.error = Some(error_message(code).into());
+                            tab.inspections
+                                .insert("Technical error".into(), error.clone());
+                        }
+                        if value["state"] == "completed"
+                            && let Some(id) = value["result"]["checkpoint_id"].as_str()
+                        {
+                            tab.checkpoint_notice = Some(id.to_owned());
+                            let _ = tab.service.commands.send(Command::Inspect {
+                                method: "checkpoints.list".into(),
+                                fields: json!({}),
+                            });
                         }
                         tab.operations.insert(
                             value["operation_id"].as_str().unwrap_or("pending").into(),
@@ -563,14 +679,21 @@ impl Workspace {
                         }
                     }
                     Event::Inspection { method, value } => {
+                        if matches!(method.as_str(), "export_ipynb" | "bundle_export") {
+                            tab.inspections
+                                .insert("Export result".into(), value.clone());
+                            continue;
+                        }
                         let surface = inspection_surface(&method).to_string();
-                        if matches!(
+                        if (matches!(
                             method.as_str(),
                             "executions.list"
                                 | "execution.get"
                                 | "checkpoint.get"
                                 | "training.inspect"
-                        ) && let Some(previous) = tab.inspections.get(&surface)
+                        ) || (matches!(surface.as_str(), "History" | "Checkpoints")
+                            && !value["_page_request"]["cursor"].is_null()))
+                            && let Some(previous) = tab.inspections.get(&surface)
                         {
                             let scroll = tab.scrolls.get(&surface).cloned().unwrap_or_default();
                             tab.parents.push((
@@ -586,8 +709,8 @@ impl Workspace {
                             tab.scrolls.insert(surface.clone(), ScrollHandle::new());
                         }
                         tab.inspection_method.insert(surface.clone(), method);
-                        tab.inspections.insert(surface, value);
-                        tab.raw_details = false;
+                        tab.inspections.insert(surface.clone(), value);
+                        tab.raw_details.insert(surface, false);
                     }
                     Event::Draft(value) => tab.drafts.push(value),
                     Event::Error { code, message } => {
@@ -631,7 +754,7 @@ impl Workspace {
             tab.inspections.insert(self.surface.clone(), value);
             tab.inspection_method.insert(self.surface.clone(), method);
             tab.scrolls.insert(self.surface.clone(), scroll);
-            tab.raw_details = false;
+            tab.raw_details.insert(self.surface.clone(), false);
         }
     }
     fn target_summary(&self, fields: &Value) -> String {
@@ -703,7 +826,12 @@ impl Workspace {
         }
         let key = event.keystroke.key.as_str();
         let m = event.keystroke.modifiers;
-        if self.app_menu || self.runtime_menu {
+        if self.app_menu
+            || self.runtime_menu
+            || self.notebook_menu
+            || self.cell_menu.is_some()
+            || self.insert_menu.is_some()
+        {
             if key == "escape" {
                 self.close_menu(window, cx);
             } else if key == "tab" {
@@ -1043,14 +1171,6 @@ impl Workspace {
             self.send(Command::Mutate(request));
         }
     }
-    fn toggle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.follow_system = false;
-        self.high_contrast = false;
-        self.dark = !self.dark;
-        persist_appearance(if self.dark { "dark" } else { "light" }, cx);
-        apply_theme(self.dark, self.high_contrast, window, cx);
-        cx.notify();
-    }
     fn select_surface(&mut self, surface: &str, cx: &mut Context<Self>) {
         if let Some(tab) = self.tabs.get_mut(self.active) {
             tab.selections
@@ -1067,7 +1187,7 @@ impl Workspace {
             return;
         }
         match surface {
-            "History" => self.inspect("sessions.list", json!({})),
+            "History" => self.inspect("executions.list", json!({"search_all":true})),
             "Checkpoints" => self.inspect("checkpoints.list", json!({})),
             "Diagnostics" => self.inspect("doctor", json!({})),
             "Runtimes" => self.inspect("runtimes.list", json!({})),
@@ -1076,7 +1196,9 @@ impl Workspace {
         cx.notify();
     }
     fn run_command(&mut self, method: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if self.command_reason(method).is_some() { return; }
+        if self.command_reason(method).is_some() {
+            return;
+        }
         if matches!(
             method,
             "stop" | "interrupt" | "restart" | "checkpoint" | "training-checkpoint"
@@ -1091,9 +1213,52 @@ impl Workspace {
             return;
         }
         match method {
+            "run-selected" => self.run(&RunCell, window, cx),
+            "add-code" | "add-markdown" | "add-raw" => {
+                let tab = &self.tabs[self.active];
+                let index = tab
+                    .model
+                    .selected
+                    .as_ref()
+                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
+                    .map_or(tab.model.order.len(), |i| i + 1);
+                self.mutate(json!({"action":"add","type":method.strip_prefix("add-").unwrap(),"index":index}));
+            }
+            "duplicate-cell" | "delete-cell" | "move-up" | "move-down" => {
+                let tab = &self.tabs[self.active];
+                let id = tab.model.selected.clone().unwrap();
+                let index = tab.model.order.iter().position(|c| *c == id).unwrap();
+                match method {
+                    "duplicate-cell" => self.mutate(json!({"action":"duplicate","cell_id":id})),
+                    "delete-cell" => self.confirmation=Some(("delete".into(),json!({"cell_id":id}))),
+                    _ => self.mutate(json!({"action":"move","cell_id":id,"index":if method=="move-up"{index-1}else{index+1}})),
+                }
+            }
+            "split-cell" => {
+                let tab = &self.tabs[self.active];
+                let id = tab.model.selected.clone().unwrap();
+                if let Some(editor) = tab.editors.get(&id) {
+                    let text = &tab.model.cells[&id].text;
+                    let offset = text[..editor.read(cx).cursor().min(text.len())]
+                        .chars()
+                        .count();
+                    self.mutate(json!({"action":"split","cell_id":id,"offset":offset}));
+                }
+            }
+            "merge-cell" => {
+                let tab = &self.tabs[self.active];
+                let id = tab.model.selected.clone().unwrap();
+                let index = tab.model.order.iter().position(|c| *c == id).unwrap();
+                self.confirmation = Some((
+                    "merge".into(),
+                    json!({"cell_id":id,"other_id":tab.model.order[index + 1]}),
+                ));
+            }
             "export-ipynb" => self.export_dialog(false, window, cx),
             "export-bundle" => self.export_dialog(true, window, cx),
-            "stop" | "restart" => self.confirmation = Some((method.into(), json!({}))),
+            "stop" | "restart" | "interrupt_kill" => {
+                self.confirmation = Some((method.into(), json!({})))
+            }
             "run-all" => self.batch("all"),
             "above" | "below" => self.batch(method),
             "settings" => self.select_surface("Settings", cx),
@@ -1105,7 +1270,9 @@ impl Workspace {
                 if self.compact {
                     self.outline_drawer = !self.outline_drawer;
                     self.palette = false;
-                    if let Some(focus) = self.return_focus.take() { focus.focus(window, cx); }
+                    if let Some(focus) = self.return_focus.take() {
+                        focus.focus(window, cx);
+                    }
                     cx.notify();
                     return;
                 }
@@ -1132,9 +1299,110 @@ impl Workspace {
         cx.notify();
     }
     fn command_reason(&self, method: &str) -> Option<&'static str> {
-        if matches!(method, "open" | "help") { return None; }
-        let Some(tab) = self.tabs.get(self.active) else { return Some("Open a notebook to use this action"); };
-        if method == "outline" && self.surface != "Notebook" { return Some("Outline is available in Notebook"); }
+        if matches!(method, "open" | "help") {
+            return None;
+        }
+        let Some(tab) = self.tabs.get(self.active) else {
+            return Some("Open a notebook to use this action");
+        };
+        if method == "outline" && self.surface != "Notebook" {
+            return Some("Outline is available in Notebook");
+        }
+        if method == "run-all" {
+            if !tab.model.cells.values().any(|c| c.disk.kind == "code") {
+                return Some("Add a code cell first");
+            }
+            if tab.runtime["connection_lost"] == true {
+                return Some("Reconnect before running code");
+            }
+            if tab.model.cells.values().any(|c| {
+                c.disk.kind == "code" && matches!(c.save, SaveState::Conflict | SaveState::Failed)
+            }) {
+                return Some("Resolve source conflicts before running");
+            }
+        }
+        if method == "run-selected" {
+            if self.surface != "Notebook" {
+                return Some("Select a code cell in Notebook");
+            }
+            let Some(cell) = tab
+                .model
+                .selected
+                .as_ref()
+                .and_then(|id| tab.model.cells.get(id))
+            else {
+                return Some("Select a code cell first");
+            };
+            if cell.disk.kind != "code" {
+                return Some("Only code cells can run");
+            }
+            if matches!(cell.save, SaveState::Conflict | SaveState::Failed) {
+                return Some("Resolve the source conflict before running");
+            }
+        }
+        if matches!(
+            method,
+            "add-code"
+                | "add-markdown"
+                | "add-raw"
+                | "duplicate-cell"
+                | "delete-cell"
+                | "move-up"
+                | "move-down"
+        ) {
+            if self.surface != "Notebook" {
+                return Some("Select a cell in Notebook");
+            }
+            if tab.model.cells.values().any(|c| c.save != SaveState::Saved) {
+                return Some("Save source and resolve conflicts before changing cell structure");
+            }
+            if !method.starts_with("add-") {
+                let Some(index) = tab
+                    .model
+                    .selected
+                    .as_ref()
+                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
+                else {
+                    return Some("Select a cell first");
+                };
+                if method == "move-up" && index == 0 {
+                    return Some("This cell is already first");
+                }
+                if method == "move-down" && index + 1 == tab.model.order.len() {
+                    return Some("This cell is already last");
+                }
+            }
+        }
+        if matches!(method, "split-cell" | "merge-cell") {
+            if self.surface != "Notebook" {
+                return Some("Select a cell in Notebook");
+            }
+            let Some(id) = &tab.model.selected else {
+                return Some("Select a cell first");
+            };
+            if tab.model.cells.values().any(|c| c.save != SaveState::Saved) {
+                return Some(
+                    "Save all source and resolve conflicts before changing cell structure",
+                );
+            }
+            if method == "split-cell" && !tab.editors.contains_key(id) {
+                return Some("Open the cell editor and place the cursor first");
+            }
+            if method == "merge-cell" {
+                let next = tab
+                    .model
+                    .order
+                    .iter()
+                    .position(|c| c == id)
+                    .and_then(|i| tab.model.order.get(i + 1));
+                let Some(next) = next else {
+                    return Some("There is no following cell");
+                };
+                if tab.model.cells[id].disk.kind != tab.model.cells[next].disk.kind {
+                    return Some("Merge requires adjacent cells of the same type");
+                }
+            }
+        }
         action_reason(method, &tab.runtime)
     }
     fn choose_interpreter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1160,7 +1428,7 @@ impl Workspace {
     }
     fn sidebar(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = cx.theme();
-        let (border, bar, muted_fg, primary, active_bg, hover_bg, radius, warning, danger, info) = (
+        let (_border, bar, muted_fg, primary, active_bg, hover_bg, radius, warning, danger, info) = (
             theme.sidebar_border,
             theme.sidebar,
             theme.muted_foreground,
@@ -1177,6 +1445,8 @@ impl Workspace {
         let query = self.query.read(cx).value().to_lowercase();
         let mut list = v_flex()
             .id("cell-list")
+            .role(Role::ListBox)
+            .aria_label("Notebook cells")
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
@@ -1253,10 +1523,10 @@ impl Workspace {
                                 div()
                                     .truncate()
                                     .font_family(mono.clone())
-                                    .text_size(px(10.5))
+                                    .text_size(rems(0.65625))
                                     .text_color(muted_fg)
                                     .child(format!(
-                                        "{} ? {}",
+                                        "{} · {}",
                                         kind_label(&cell.disk.kind),
                                         cell.ordinal
                                             .map(|n| format!("Run {n}"))
@@ -1291,28 +1561,6 @@ impl Workspace {
                     }),
             );
         }
-        let mut add = h_flex()
-            .flex_wrap()
-            .flex_none()
-            .gap_1()
-            .p_2()
-            .border_t_1()
-            .border_color(border);
-        for (kind, label) in [("code", "Code"), ("markdown", "Markdown"), ("raw", "Raw")] {
-            add =
-                add.child(
-                    Button::new(kind)
-                        .small()
-                        .ghost()
-                        .icon(Glyph::Plus)
-                        .label(label)
-                        .tooltip(format!("Add {kind} cell"))
-                        .flex_1()
-                        .on_click(cx.listener(move |v, _, _, _| {
-                            v.mutate(json!({"action":"add","type":kind}))
-                        })),
-                );
-        }
         v_flex()
             .id("sidebar")
             .debug_selector(|| "notebook-outline".into())
@@ -1345,7 +1593,6 @@ impl Workspace {
                 ),
             )
             .child(list)
-            .child(add)
     }
     fn empty_notebook(&self, cx: &mut Context<Self>) -> AnyElement {
         let muted_fg = cx.theme().muted_foreground;
@@ -1376,7 +1623,7 @@ impl Workspace {
                 h_flex()
                     .gap_2()
                     .child(
-                        Button::new("empty-code")
+                        action_button("empty-code")
                             .primary()
                             .icon(Glyph::Code)
                             .label("Add code cell")
@@ -1385,7 +1632,7 @@ impl Workspace {
                             })),
                     )
                     .child(
-                        Button::new("empty-markdown")
+                        action_button("empty-markdown")
                             .outline()
                             .icon(Glyph::Type)
                             .label("Add markdown cell")
@@ -1428,7 +1675,7 @@ impl Workspace {
         }
         let recent = self.recent.iter().take(5).enumerate().map(|(i, path)| {
             let path = path.clone();
-            Button::new(("recent", i))
+            action_button(("recent", i))
                 .ghost()
                 .label(
                     path.file_name()
@@ -1436,7 +1683,7 @@ impl Workspace {
                         .to_string_lossy()
                         .to_string(),
                 )
-                .tooltip(path.display().to_string())
+                .hint(path.display().to_string())
                 .on_click(cx.listener(move |v, _, _, cx| v.open(path.clone(), cx)))
         });
         v_flex()
@@ -1462,7 +1709,7 @@ impl Workspace {
                     ),
             )
             .child(
-                Button::new("welcome-open")
+                action_button("welcome-open")
                     .primary()
                     .large()
                     .icon(Glyph::FolderOpen)
@@ -1476,19 +1723,19 @@ impl Workspace {
                     .gap_2()
                     .flex_wrap()
                     .child(
-                        Button::new("create")
+                        action_button("create")
                             .outline()
                             .label("Create notebook")
                             .on_click(cx.listener(|v, _, w, cx| v.create_dialog(false, w, cx))),
                     )
                     .child(
-                        Button::new("sample")
+                        action_button("sample")
                             .outline()
                             .label("Create sample notebook")
                             .on_click(cx.listener(|v, _, w, cx| v.create_dialog(true, w, cx))),
                     )
                     .child(
-                        Button::new("welcome-help")
+                        action_button("welcome-help")
                             .ghost()
                             .label("Help | F1")
                             .on_click(cx.listener(|v, _, _, cx| {
@@ -1499,236 +1746,6 @@ impl Workspace {
             )
             .child(h_flex().gap_2().flex_wrap().children(recent))
             .child(shortcuts)
-    }
-    fn banners(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
-        let theme = cx.theme();
-        let (danger, warning, info, muted_fg) = (
-            theme.danger,
-            theme.warning,
-            theme.info,
-            theme.muted_foreground,
-        );
-        let mut banners = v_flex().flex_none();
-        if let Some(id) = self.tabs[self.active].checkpoint_notice.clone() {
-            banners = banners.child(h_flex().px_3().py_1().gap_2().items_center()
-                .child("Checkpoint saved")
-                .child(Button::new("view-saved-checkpoint").ghost().small().label("View checkpoint")
-                    .on_click(cx.listener(move |v, _, _, cx| {
-                        v.select_surface("Checkpoints", cx);
-                        v.inspect("checkpoint.get", json!({"checkpoint_id":id}));
-                        v.tabs[v.active].checkpoint_notice = None;
-                    })))
-                .child(Button::new("dismiss-checkpoint-notice").ghost().small().label("Dismiss")
-                    .on_click(cx.listener(|v, _, _, cx| { v.tabs[v.active].checkpoint_notice = None; cx.notify(); }))));
-        }
-        if let Some(error) = self.tabs[self.active].error.clone() {
-            banners = banners.child(
-                banner(danger, Glyph::CircleAlert)
-                    .child(div().flex_1().min_w_0().text_sm().child(error))
-                    .child(
-                        Button::new("diagnostics")
-                            .small()
-                            .outline()
-                            .label("Diagnostics")
-                            .on_click(
-                                cx.listener(|v, _, _, cx| v.select_surface("Diagnostics", cx)),
-                            ),
-                    )
-                    .child(
-                        Button::new("dismiss-error")
-                            .small()
-                            .ghost()
-                            .icon(Glyph::X)
-                            .tooltip("Dismiss")
-                            .accessibility_label("Dismiss")
-                            .on_click(cx.listener(|v, _, _, cx| {
-                                v.tabs[v.active].error = None;
-                                cx.notify();
-                            })),
-                    ),
-            );
-        }
-        let source_state = self.tabs[self.active].model.source_state.clone();
-        if self.tabs[self.active].uninitialized {
-            banners = banners.child(banner(warning, Glyph::Info).flex_wrap()
-                .child(div().min_w_0().flex_1().whitespace_normal().child("This directory is not an initialized notebook. Initialize it to add cells, or choose another directory."))
-                .child(Button::new("initialize").outline().label("Initialize as notebook").on_click(cx.listener(|v, _, _, _| v.send(Command::Initialize { sample: false }))))
-                .child(Button::new("choose-another").ghost().label("Choose another").on_click(cx.listener(|v, _, w, cx| v.open_dialog(&OpenNotebook, w, cx)))));
-        } else if source_state != "ok" {
-            banners = banners.child(banner(warning, Glyph::TriangleAlert).child(
-                div().text_sm().child(format!(
-                    "Source state: {source_state} — history remains available"
-                )),
-            ));
-        }
-        let drafts = self.tabs[self.active].drafts.clone();
-        for (index, draft) in drafts.iter().enumerate() {
-            let id = draft["cell_id"].as_str().unwrap_or("unknown").to_owned();
-            banners = banners.child(
-                banner(warning, Glyph::FileText)
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .text_sm()
-                            .child(format!("Recovered an unsaved draft for {id}")),
-                    )
-                    .child(
-                        Button::new(("restore-draft", index))
-                            .small()
-                            .primary()
-                            .label("Restore")
-                            .on_click(cx.listener({
-                                let draft = draft.clone();
-                                move |v, _, _, cx| {
-                                    v.send(Command::RestoreDraft(draft.clone()));
-                                    cx.notify();
-                                }
-                            })),
-                    )
-                    .child(
-                        Button::new(("compare-draft", index))
-                            .small()
-                            .outline()
-                            .label("Compare")
-                            .on_click(cx.listener({
-                                let draft = draft.clone();
-                                move |v, _, _, cx| {
-                                    v.tabs[v.active]
-                                        .inspections
-                                        .insert("Diagnostics".into(), draft.clone());
-                                    v.surface = "History".into();
-                                    cx.notify();
-                                }
-                            })),
-                    )
-                    .child(
-                        Button::new(("discard-draft", index))
-                            .small()
-                            .ghost()
-                            .label("Discard")
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                v.send(Command::DiscardDraft(id.clone()));
-                                v.tabs[v.active].drafts.retain(|d| d["cell_id"] != id);
-                                cx.notify();
-                            })),
-                    ),
-            );
-        }
-        let inputs = self.tabs[self.active].runtime["pending_inputs"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        for input in inputs {
-            let iid = input["input_id"].as_str().unwrap_or_default().to_string();
-            let password = input["password"] == true;
-            let state = self
-                .prompts
-                .entry(iid.clone())
-                .or_insert_with(|| cx.new(|cx| InputState::new(window, cx).masked(password)))
-                .clone();
-            let notice =
-                if password && self.tabs[self.active].runtime["record_secret_input"] != true {
-                    "Not recorded"
-                } else {
-                    "Your reply is recorded in history and included in bundles"
-                };
-            banners = banners.child(
-                banner(info, Glyph::Terminal)
-                    .child(
-                        v_flex()
-                            .flex_none()
-                            .max_w(px(320.))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .truncate()
-                                    .child(input["prompt"].as_str().unwrap_or("Input").to_string()),
-                            )
-                            .child(div().text_xs().text_color(muted_fg).child(notice)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(160.))
-                            .child(Input::new(&state).small()),
-                    )
-                    .child(
-                        Button::new(SharedString::from(format!("claim-{iid}")))
-                            .small()
-                            .ghost()
-                            .label("Claim")
-                            .on_click(cx.listener({
-                                let iid = iid.clone();
-                                move |v, _, _, _| v.runtime("input.claim", json!({"input_id":iid}))
-                            })),
-                    )
-                    .child(
-                        Button::new(SharedString::from(format!("reply-{iid}")))
-                            .small()
-                            .primary()
-                            .label("Reply")
-                            .on_click(cx.listener(move |v, _, window, cx| {
-                                let text = state.read(cx).value().to_string();
-                                v.runtime("input.reply", json!({"input_id":iid,"text":text}));
-                                state.update(cx, |s, cx| s.set_value("", window, cx));
-                            })),
-                    ),
-            );
-        }
-        banners
-    }
-    fn status_bar(&self, cx: &mut Context<Self>) -> Div {
-        let theme = cx.theme();
-        let (border, bar, muted_fg, primary) = (
-            theme.status_bar_border,
-            theme.status_bar,
-            theme.muted_foreground,
-            theme.primary,
-        );
-        let tab = &self.tabs[self.active];
-        let state = tab.runtime["worker_state"].as_str();
-        let state_color = state.map(|s| tone(s, cx)).unwrap_or(muted_fg);
-        let edit = tab.model.mode == Mode::Edit;
-        h_flex()
-            .flex_none()
-            .h(px(26.))
-            .px_3()
-            .gap_4()
-            .items_center()
-            .bg(bar)
-            .border_t_1()
-            .border_color(border)
-            .text_xs()
-            .text_color(muted_fg)
-            .child(badge(
-                format!("{:?} mode", tab.model.mode).to_uppercase(),
-                if edit { primary } else { muted_fg },
-            ))
-            .child(format!(
-                "{} cell{}",
-                tab.model.order.len(),
-                if tab.model.order.len() == 1 { "" } else { "s" }
-            ))
-            .child(
-                h_flex()
-                    .gap_1p5()
-                    .items_center()
-                    .child(dot(state_color))
-                    .child(if tab.runtime["connection_lost"] == true { "Connection lost — execution state unknown".into() } else { worker_label(state) }),
-            )
-            .child(if tab.model.cells.values().any(|c| matches!(c.save, SaveState::Failed | SaveState::Conflict)) {
-                "Edits retained — save needs attention"
-            } else if tab.model.cells.values().any(|c| c.save != SaveState::Saved) { "Saving…" } else { "Saved" })
-            .child(div().flex_1())
-            .child(
-                h_flex()
-                    .gap_1p5()
-                    .items_center()
-                    .child(Icon::new(Glyph::Info).xsmall())
-                    .child(if self.compact { "Closing detaches" } else { "Closing detaches; computations continue" }),
-            )
     }
 }
 impl Render for Workspace {
@@ -1743,11 +1760,46 @@ impl Render for Workspace {
                 focus.focus(window, cx);
             }
         }
-        self.compact = window.viewport_size().width < px(1024.);
+        if self.history_owner != Some(self.active) && !self.tabs.is_empty() {
+            if let Some(old) = self
+                .history_owner
+                .and_then(|index| self.tabs.get_mut(index))
+            {
+                old.history_filter = self.history_query.read(cx).value().to_string();
+            }
+            let query = self.tabs[self.active].history_filter.clone();
+            self.history_query
+                .update(cx, |state, cx| state.set_value(query, window, cx));
+            self.history_owner = Some(self.active);
+            self.history_controls.clear();
+            self.history_field_subscriptions.clear();
+            self.history_fields_key.clear();
+        }
+        cx.set_global(WorkbenchPresentation {
+            comfortable: self.preferences.comfortable,
+        });
+        window.set_rem_size(px(16. * self.preferences.ui_scale));
+        let font_size = px(14. * self.preferences.ui_scale);
+        if cx.theme().font_size != font_size {
+            let theme = Theme::global_mut(cx);
+            theme.font_size = font_size;
+            theme.mono_font_size = font_size;
+            Theme::sync_base(cx);
+        }
+        self.compact = window.viewport_size().width < px(1024. * self.preferences.ui_scale);
         let title = self
             .tabs
             .get(self.active)
-            .map(|t| format!("KernelLedger - {}", t.model.project.display()))
+            .map(|t| {
+                format!(
+                    "KernelLedger - {}",
+                    t.model
+                        .project
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                )
+            })
             .unwrap_or_else(|| "KernelLedger".into());
         window.set_window_title(&title);
         self.palette_scroll.scroll_to_item(self.palette_active);
@@ -1764,10 +1816,10 @@ impl Render for Workspace {
             .size_full()
             .bg(cx.theme().background)
             .text_color(cx.theme().foreground)
-            .text_size(px(if self.preferences.comfortable {
-                15.
+            .text_size(rems(if self.preferences.comfortable {
+                0.9375
             } else {
-                13.
+                0.875
             }))
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::run))
@@ -1775,7 +1827,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::palette))
             .on_action(cx.listener(Self::open_dialog))
             .on_action(cx.listener(Self::command_mode))
-            .child(self.header(cx));
+            .child(self.header(window, cx));
         if self.tabs.is_empty() {
             if self.surface == "Help" {
                 root = root.child(
@@ -1784,22 +1836,23 @@ impl Render for Workspace {
                         .flex_1()
                         .overflow_y_scroll()
                         .p_6()
+                        .child(self.help_content(cx))
                         .child(
-                            self.help_content(cx),
-                        )
-                        .child(Button::new("back-welcome").ghost().label("Back").on_click(
-                            cx.listener(|v, _, _, cx| {
-                                v.surface = "Notebook".into();
-                                cx.notify();
-                            }),
-                        )),
+                            action_button("back-welcome")
+                                .ghost()
+                                .label("Back")
+                                .on_click(cx.listener(|v, _, _, cx| {
+                                    v.surface = "Notebook".into();
+                                    cx.notify();
+                                })),
+                        ),
                 );
             } else {
                 root = root.child(self.welcome(cx));
             }
         } else {
             let center = if self.surface != "Notebook" {
-                self.panel(cx)
+                self.panel(window, cx)
             } else if self.tabs[self.active].model.order.is_empty() {
                 self.empty_notebook(cx)
             } else {
@@ -1812,7 +1865,6 @@ impl Render for Workspace {
                 .into_any_element()
             };
             root = root
-                .when(self.surface == "Notebook", |d| d.child(self.toolbar(cx)))
                 .child(self.banners(window, cx))
                 .child(
                     h_flex()
@@ -1822,7 +1874,9 @@ impl Render for Workspace {
                         .child(
                             h_resizable(SharedString::from(format!(
                                 "notebook-layout-v5-{}-{}-{}",
-                                self.preferences.outline_width, self.surface, self.sidebar_visible && !self.compact
+                                self.preferences.outline_width,
+                                self.surface,
+                                self.sidebar_visible && !self.compact
                             )))
                             .when(
                                 self.surface == "Notebook" && !self.compact && self.sidebar_visible,
@@ -1841,12 +1895,14 @@ impl Render for Workspace {
                                  state: &Entity<gpui_kit::component::resizable::ResizableState>,
                                  _,
                                  cx| {
-                                    if v.surface == "Notebook" && !v.compact && v.sidebar_visible {
-                                        if let Some(width) = state.read(cx).sizes().first() {
-                                            v.preferences.outline_width =
-                                                f32::from(*width).clamp(180., 300.);
-                                            v.save_preferences(cx);
-                                        }
+                                    if v.surface == "Notebook"
+                                        && !v.compact
+                                        && v.sidebar_visible
+                                        && let Some(width) = state.read(cx).sizes().first()
+                                    {
+                                        v.preferences.outline_width =
+                                            f32::from(*width).clamp(180., 300.);
+                                        v.save_preferences(cx);
                                     }
                                 },
                             )),
@@ -1860,7 +1916,8 @@ impl Render for Workspace {
                                         .left_0()
                                         .top_0()
                                         .bottom_0()
-                                        .w(px(220.))
+                                        .w(px(220. * self.preferences.ui_scale))
+                                        .max_w_full()
                                         .border_r_1()
                                         .border_color(cx.theme().border)
                                         .child(self.sidebar(cx)),
@@ -1870,14 +1927,38 @@ impl Render for Workspace {
                 )
                 .child(self.status_bar(cx));
         }
-        if self.app_menu || self.runtime_menu {
-            root = root.child(self.menu_overlay(cx));
+        if self.app_menu
+            || self.runtime_menu
+            || self.notebook_menu
+            || self.cell_menu.is_some()
+            || self.insert_menu.is_some()
+        {
+            root = root.child(self.menu_overlay(window, cx));
         }
         if self.palette {
             root = root.child(self.palette_overlay(cx));
         }
         if let Some((method, fields)) = self.confirmation.clone() {
             root = root.child(self.confirm_overlay(method, fields, window, cx));
+        }
+        if cx.try_global::<CopyNotice>().is_some_and(|n| n.visible) {
+            root = root.child(
+                div()
+                    .id("copy-notice")
+                    .role(Role::Status)
+                    .aria_label("Copied to clipboard")
+                    .absolute()
+                    .bottom(rems(2.25))
+                    .right(rems(0.75))
+                    .px_3()
+                    .py_2()
+                    .rounded(px(6.))
+                    .bg(cx.theme().popover)
+                    .border_1()
+                    .border_color(divider(cx))
+                    .text_sm()
+                    .child("Copied to clipboard"),
+            );
         }
         root.into_any_element()
     }
@@ -1897,7 +1978,7 @@ fn kind_icon(kind: &str) -> Glyph {
     }
 }
 fn editor_lines(text: &str) -> usize {
-    text.split('\n').count().clamp(3, 30)
+    text.split('\n').count().clamp(1, 30)
 }
 fn tone(status: &str, cx: &App) -> Hsla {
     let theme = cx.theme();
@@ -1935,7 +2016,13 @@ fn safe_link(url: &SharedString, _: &ClickEvent, _: &mut Window, cx: &mut App) {
     }
 }
 fn output(event: &Value, id: String, _cx: &App) -> AnyElement {
-    outputs::OutputBlock { id: id.into(), event: event.clone() }.into_any_element()
+    outputs::OutputBlock {
+        tools_state: None,
+        context: id.clone().into(),
+        id: id.into(),
+        event: event.clone(),
+    }
+    .into_any_element()
 }
 
 fn inspection_surface(method: &str) -> &'static str {
@@ -1960,10 +2047,20 @@ fn cell_title(source: &str, kind: &str) -> String {
 }
 fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str) {
     match method {
+        "interrupt_kill" => (
+            "Terminate worker for",
+            "Forcibly stops the worker process. Live variables and in-progress computation are lost; recorded history and saved source remain available.",
+            "Terminate worker",
+        ),
         "training-restore" => (
             "Restore training for",
             "Executes the captured reconstruction factory in a fresh worker. After success it replaces your live namespace. Registered training state is restored; notebook variables and native process state are excluded. Failed reconstruction preserves the current worker.",
             "Trust and restore training",
+        ),
+        "merge" => (
+            "Merge cells",
+            "The next cell is appended to this cell and removed from the source document. Recorded history is retained. Structural undo is not available.",
+            "Merge",
         ),
         "delete" => (
             "Delete",
@@ -2009,6 +2106,12 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
 }
 fn error_message(code: &str) -> &'static str {
     match code {
+        "transport" => {
+            "Connection lost — execution state unknown. Your edits are retained. Reconnect in Diagnostics to reconcile the operation."
+        }
+        "python_mismatch" => {
+            "The checkpoint uses a different Python version. Choose a compatible interpreter, or review the mismatch override when retrying this checkpoint."
+        }
         "source_conflict" | "conflict" => {
             "The source changed on disk. Your draft is retained; resolve the cell conflict before running."
         }

@@ -1,0 +1,236 @@
+﻿[
+    {
+        "name":  "KernelLedger - Forecast analysis - October experiment",
+        "role":  "ControlType.Window",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       0,
+                       0,
+                       2860,
+                       1750
+                   ]
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       34,
+                       71,
+                       280,
+                       60
+                   ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       358,
+                       71,
+                       138,
+                       60
+                   ]
+    },
+    {
+        "name":  "History, current destination",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       510,
+                       71,
+                       106,
+                       60
+                   ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       630,
+                       71,
+                       162,
+                       60
+                   ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2434,
+                       71,
+                       152,
+                       60
+                   ]
+    },
+    {
+        "name":  "Runtime",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2600,
+                       71,
+                       120,
+                       60
+                   ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2734,
+                       71,
+                       92,
+                       60
+                   ]
+    },
+    {
+        "name":  "All",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       163,
+                       296,
+                       56,
+                       60
+                   ]
+    },
+    {
+        "name":  "Succeeded",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       233,
+                       296,
+                       146,
+                       60
+                   ]
+    },
+    {
+        "name":  "Failed",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       393,
+                       296,
+                       92,
+                       60
+                   ]
+    },
+    {
+        "name":  "Interrupted",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       499,
+                       296,
+                       152,
+                       60
+                   ]
+    },
+    {
+        "name":  "Search history | cell:... outcome:error session:... from:YYYY-MM-DD to:YYYY-MM-DD",
+        "role":  "ControlType.Edit",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       432,
+                       2778,
+                       56
+                   ]
+    },
+    {
+        "name":  "Search executions",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       516,
+                       260,
+                       60
+                   ]
+    },
+    {
+        "name":  "Clear all filters",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       315,
+                       516,
+                       208,
+                       60
+                   ]
+    },
+    {
+        "name":  "Executions",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2436,
+                       623,
+                       144,
+                       60
+                   ]
+    },
+    {
+        "name":  "Replay session",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       2601,
+                       623,
+                       190,
+                       60
+                   ]
+    },
+    {
+        "name":  "Technical details",
+        "role":  "ControlType.Button",
+        "id":  "",
+        "enabled":  true,
+        "offscreen":  false,
+        "bounds":  [
+                       41,
+                       730,
+                       340,
+                       60
+                   ]
+    }
+]

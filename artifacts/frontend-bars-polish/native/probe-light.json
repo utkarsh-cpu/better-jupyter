@@ -1,0 +1,409 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe",
+  "theme": "light",
+  "dpi": 192,
+  "minimum_outer_logical": [
+    813.0,
+    606.5
+  ],
+  "time_to_visible_window_ms": 1128.19,
+  "window_title": "KernelLedger - notebook",
+  "uia_nodes": 28,
+  "native_identity": "passed",
+  "output_semantics": "passed",
+  "screenshot": [
+    "notebook-light-800x600.png",
+    "notebook-light-1024x768.png",
+    "notebook-light-1280x850.png",
+    "notebook-light-1440x900.png",
+    "settings-light.png"
+  ],
+  "measurement_limit": "Time to visible window only, not editor-ready latency. No NVDA/IME/mixed-DPI qualification.",
+  "resize_cycles": 10,
+  "native_menu_and_destinations": "passed",
+  "bar_alignment": [
+    {
+      "logical_size": [
+        800,
+        600
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 101,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 309,
+          "y": 22,
+          "width": 166,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "History",
+          "x": 481,
+          "y": 22,
+          "width": 128,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Checkpoints",
+          "x": 615,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Commands",
+          "x": 1011,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Runtime: Python \u00b7 Ready",
+          "x": 1117,
+          "y": 22,
+          "width": 148,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Run all",
+          "x": 1273,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Menu",
+          "x": 1337,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1024,
+        768
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 101,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 309,
+          "y": 22,
+          "width": 166,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "History",
+          "x": 481,
+          "y": 22,
+          "width": 128,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Checkpoints",
+          "x": 615,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Commands",
+          "x": 1433,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Runtime: Python \u00b7 Ready",
+          "x": 1539,
+          "y": 22,
+          "width": 148,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Run all",
+          "x": 1695,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Menu",
+          "x": 1759,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1280,
+        850
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 101,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 309,
+          "y": 22,
+          "width": 166,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "History",
+          "x": 481,
+          "y": 22,
+          "width": 128,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Checkpoints",
+          "x": 615,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Commands",
+          "x": 1945,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Runtime: Python \u00b7 Ready",
+          "x": 2051,
+          "y": 22,
+          "width": 148,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Run all",
+          "x": 2207,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Menu",
+          "x": 2271,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1440,
+        900
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 109,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 325,
+          "y": 22,
+          "width": 166,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "History",
+          "x": 497,
+          "y": 22,
+          "width": 128,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Checkpoints",
+          "x": 631,
+          "y": 22,
+          "width": 192,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Commands",
+          "x": 2029,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Runtime: Python \u00b7 Ready",
+          "x": 2143,
+          "y": 22,
+          "width": 260,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Run all",
+          "x": 2419,
+          "y": 22,
+          "width": 156,
+          "height": 60,
+          "center": 52
+        },
+        {
+          "name": "Menu",
+          "x": 2591,
+          "y": 22,
+          "width": 56,
+          "height": 60,
+          "center": 52
+        }
+      ]
+    }
+  ],
+  "caption_controls": [
+    {
+      "logical_size": [
+        800,
+        600
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1024,
+        768
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1280,
+        850
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1440,
+        900
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    }
+  ],
+  "ui_scale": 1,
+  "comfortable": false,
+  "capture_limit": "Windows Graphics Capture restricted to the disposable probe HWND; no foreground or desktop capture."
+}

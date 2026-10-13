@@ -4,6 +4,14 @@ This is a development build, not an F6-qualified release. The plans remain the
 specifications. Compilation and headless tests do not prove graphics, accessibility,
 performance or clean-machine packaging gates.
 
+The [frontend v6 implementation ledger](frontend-v6.md) records the current
+clarity, scaling, History and checkpoint work, native evidence, and unresolved
+contract/platform gates. It does not qualify a release. The
+[frontend v5 implementation ledger](frontend-v5.md) records the preceding
+workbench redesign, new export/output/settings interactions, regression evidence,
+and remaining work. Older versioned verification sections below remain historical
+evidence and do not qualify the redesigned application.
+
 | Area | Implemented | Remaining work |
 | --- | --- | --- |
 | Source | Locked revisions, journal recovery, canonical files, staged CLI converters, structural service actions | Exhaustive process/power-loss crash matrix; clipboard attachment UI and structural undo |

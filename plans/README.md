@@ -24,6 +24,7 @@ Runtime archives keep their historical names (`v1.md`, `v2.md`, `v3.md`) so exis
 | Frontend | 3 | Superseded 2026-10-08 | [frontend-v3.md](frontend-v3.md) |
 | Frontend | 4 | Current, requires runtime 5 | [FRONTEND_PLAN.md](../FRONTEND_PLAN.md) |
 | Frontend | 5 | Draft 2026-10-08; complete desktop visual and interaction redesign | [frontend-v5-draft.md](frontend-v5-draft.md) |
+| Frontend | 6 | Draft 2026-10-09; clarity implementation in working tree; runtime and release gates pending | [frontend-v6-draft.md](frontend-v6-draft.md) |
 
 The [runtime version 5 draft](v5-draft.md) covers portable GPU training state,
 warm workers, NVIDIA/AMD Linux process snapshots, commit/worktree association,
