@@ -1,0 +1,77 @@
+{
+    "time":  "2026-10-18T00:45:41.4683397+05:30",
+    "processes":  [
+                      {
+                          "pid":  10820,
+                          "parent":  51168,
+                          "name":  "python.exe",
+                          "command":  "\"python\" -I -m kernelledger -C \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\frontend-design-refresh\" serve --launch desktop",
+                          "workingSet":  32563200,
+                          "privateWorkingSet":  17412096,
+                          "privateBytes":  19734528
+                      },
+                      {
+                          "pid":  48764,
+                          "parent":  10820,
+                          "name":  "conhost.exe",
+                          "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                          "workingSet":  8527872,
+                          "privateWorkingSet":  851968,
+                          "privateBytes":  1220608
+                      },
+                      {
+                          "pid":  61244,
+                          "parent":  10820,
+                          "name":  "python.exe",
+                          "command":  "\"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\frontend-design-refresh\"",
+                          "workingSet":  5574656,
+                          "privateWorkingSet":  561152,
+                          "privateBytes":  888832
+                      },
+                      {
+                          "pid":  61400,
+                          "parent":  61244,
+                          "name":  "conhost.exe",
+                          "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                          "workingSet":  8548352,
+                          "privateWorkingSet":  839680,
+                          "privateBytes":  1212416
+                      },
+                      {
+                          "pid":  3560,
+                          "parent":  61244,
+                          "name":  "python.exe",
+                          "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\frontend-design-refresh\"",
+                          "workingSet":  34361344,
+                          "privateWorkingSet":  18022400,
+                          "privateBytes":  19890176
+                      },
+                      {
+                          "pid":  24904,
+                          "parent":  63676,
+                          "name":  "kernelledger-desktop.exe",
+                          "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\frontend-design-refresh\"",
+                          "workingSet":  86110208,
+                          "privateWorkingSet":  28975104,
+                          "privateBytes":  172142592
+                      },
+                      {
+                          "pid":  5220,
+                          "parent":  24904,
+                          "name":  "python.exe",
+                          "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\frontend-design-refresh\"",
+                          "workingSet":  27918336,
+                          "privateWorkingSet":  15671296,
+                          "privateBytes":  17608704
+                      },
+                      {
+                          "pid":  62708,
+                          "parent":  5220,
+                          "name":  "conhost.exe",
+                          "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                          "workingSet":  8445952,
+                          "privateWorkingSet":  831488,
+                          "privateBytes":  1208320
+                      }
+                  ]
+}

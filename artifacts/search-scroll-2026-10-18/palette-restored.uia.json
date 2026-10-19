@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Commands",
+    "role": "ControlType.Button",
+    "x": 2184,
+    "y": 65,
+    "width": 56,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Settings",
+    "role": "ControlType.Button",
+    "x": 2256,
+    "y": 65,
+    "width": 172,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Menu",
+    "role": "ControlType.Button",
+    "x": 2444,
+    "y": 65,
+    "width": 56,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Open notebook",
+    "role": "ControlType.Button",
+    "x": 701,
+    "y": 754,
+    "width": 318,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Create notebook",
+    "role": "ControlType.Button",
+    "x": 1039,
+    "y": 754,
+    "width": 336,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Create sample notebook",
+    "role": "ControlType.Button",
+    "x": 1395,
+    "y": 754,
+    "width": 400,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Help and shortcuts",
+    "role": "ControlType.Button",
+    "x": 1815,
+    "y": 754,
+    "width": 364,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Commands",
+    "role": "ControlType.Window",
+    "x": 864,
+    "y": 124,
+    "width": 1152,
+    "height": 695,
+    "offscreen": false
+  },
+  {
+    "name": "Type a command",
+    "role": "ControlType.Edit",
+    "x": 886,
+    "y": 146,
+    "width": 1108,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Notebook, selected, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 244,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "History, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 348,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Find notebook cells, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 452,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Export notebook\u2026, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 556,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Export PDF\u2026, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 660,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  }
+]

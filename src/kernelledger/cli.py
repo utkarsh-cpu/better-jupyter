@@ -89,10 +89,10 @@ def ensure_supervisor(root: Any, python: Any = None) -> Any:
     env: dict[Any, Any]
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(__file__).parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
+    from .supervisor.platform import HIDDEN_CONSOLE
+
     kwargs: dict[str, Any] = (
-        {"creationflags": 0x00000008 | 0x00000200 | 0x08000000}
-        if os.name == "nt"
-        else {"start_new_session": True}
+        {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
     )
     with (state / "supervisor.log").open("ab") as log:
         process = subprocess.Popen(

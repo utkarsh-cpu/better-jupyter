@@ -39,6 +39,50 @@ impl Workspace {
             .find(|(name, ..)| *name == self.surface)
             .map(|(_, glyph, description)| (*glyph, *description))
             .unwrap_or((Glyph::Info, ""));
+        let mut header_row = h_flex().gap_3().flex_wrap().items_center().child(
+            v_flex()
+                .flex_1()
+                .min_w_0()
+                .gap_0p5()
+                .child(
+                    div()
+                        .text_lg()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(self.surface.clone()),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(muted_fg)
+                        .child(description.to_string()),
+                ),
+        );
+        if self.surface == "Help" {
+            header_row = header_row.child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        action_button("about")
+                            .outline()
+                            .small()
+                            .label("About KernelLedger")
+                            .on_click(cx.listener(|v, _, _, cx| {
+                                v.confirmation = Some(("about".into(), json!({})));
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        action_button("copy-about")
+                            .outline()
+                            .small()
+                            .label("Copy build information")
+                            .on_click(cx.listener(|v, _, _, cx| {
+                                copy_acknowledged(v.support_info(), cx);
+                            })),
+                    ),
+            );
+        }
         let mut body = v_flex()
             .w_full()
             .max_w(rems(
@@ -50,54 +94,20 @@ impl Workspace {
             ))
             .min_w_0()
             .gap_4()
-            .child(
-                h_flex().gap_3().items_center().child(
-                    v_flex()
-                        .gap_0p5()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child(self.surface.clone()),
-                        )
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(muted_fg)
-                                .child(description.to_string()),
-                        ),
-                ),
-            );
+            .child(header_row);
         if self.surface == "Help" {
-            body = body.child(
-                action_button("about")
-                    .outline()
-                    .label("About KernelLedger")
-                    .on_click(cx.listener(|v, _, _, cx| {
-                        v.confirmation = Some(("about".into(), json!({})));
-                        cx.notify();
-                    })),
-            );
             body = body.child(self.help_content(cx));
-            body = body.child(
-                action_button("copy-about")
-                    .outline()
-                    .label("Copy build information")
-                    .on_click(cx.listener(|v, _, _, cx| {
-                        copy_acknowledged(v.support_info(), cx);
-                    })),
-            );
         }
         if matches!(self.surface.as_str(), "History" | "Checkpoints")
             && !self.tabs[self.active].parents.is_empty()
         {
             body = body.child(
                 action_button("back")
+                    .self_start()
                     .ghost()
                     .small()
-                    .w(px(100.))
-                    .label("Back")
-                    .hint("Back to the list · Alt+Left")
+                    .label("Back to list")
+                    .hint("Back to the list (Alt+Left)")
                     .on_click(cx.listener(|v, _, _, cx| {
                         v.back();
                         cx.notify();
@@ -112,7 +122,9 @@ impl Workspace {
         {
             body = body.child(
                 action_button("technical-details")
-                    .ghost()
+                    .self_start()
+                    .outline()
+                    .small()
                     .label("Copy technical details")
                     .on_click(cx.listener(move |_, _, _, cx| {
                         copy_acknowledged(detail.to_string(), cx);
@@ -127,17 +139,26 @@ impl Workspace {
                 .map(str::to_owned)
             {
                 body = body.child(
-                    section("Export completed", cx)
-                        .child("The exported file is saved.")
-                        .child(
-                            action_button("copy-export-location")
-                                .ghost()
-                                .label("Copy export location")
-                                .on_click(cx.listener(move |_, _, _, cx| {
-                                    copy_acknowledged(path.clone(), cx)
-                                })),
-                        ),
+                    section("Export completed", cx).child(
+                        card(cx)
+                            .p_3()
+                            .gap_2()
+                            .child("The exported file is saved.")
+                            .child(
+                                action_button("copy-export-location")
+                                    .self_start()
+                                    .outline()
+                                    .small()
+                                    .label("Copy export location")
+                                    .on_click(cx.listener(move |_, _, _, cx| {
+                                        copy_acknowledged(path.clone(), cx)
+                                    })),
+                            ),
+                    ),
                 );
+            }
+            if let Some(review) = self.bundle_review(cx) {
+                body = body.child(review);
             }
             let operations = self.tabs[self.active].runtime["active_operations"]
                 .as_array()
@@ -235,31 +256,63 @@ impl Workspace {
         }
         if self.surface == "Checkpoints" {
             body = body.child(
-                action_button("create-checkpoint")
-                    .outline()
-                    .label("Create checkpoint")
-                    .unavailable(
-                        action_reason("checkpoint", &self.tabs[self.active].runtime).is_some(),
+                h_flex()
+                    .gap_2()
+                    .flex_wrap()
+                    .items_center()
+                    .child(
+                        action_button("create-checkpoint")
+                            .primary()
+                            .small()
+                            .icon(Glyph::Plus)
+                            .label("Create checkpoint")
+                            .unavailable(
+                                action_reason("checkpoint", &self.tabs[self.active].runtime)
+                                    .is_some(),
+                            )
+                            .hint(
+                                action_reason("checkpoint", &self.tabs[self.active].runtime)
+                                    .unwrap_or("Save supported values from the live namespace"),
+                            )
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.run_command("checkpoint", window, cx)
+                            })),
                     )
-                    .hint(
-                        action_reason("checkpoint", &self.tabs[self.active].runtime)
-                            .unwrap_or("Save supported values from the live namespace"),
+                    .child(
+                        action_button("namespace-list")
+                            .ghost()
+                            .small()
+                            .label("Namespace checkpoints")
+                            .on_click(
+                                cx.listener(|v, _, _, _| v.inspect("checkpoints.list", json!({}))),
+                            ),
                     )
-                    .on_click(
-                        cx.listener(|v, _, window, cx| v.run_command("checkpoint", window, cx)),
+                    .child(
+                        action_button("training-list")
+                            .ghost()
+                            .small()
+                            .label("Training snapshots")
+                            .on_click(
+                                cx.listener(|v, _, _, _| v.inspect("training.list", json!({}))),
+                            ),
                     ),
             );
-            body = body.child(h_flex().gap_2()
-                .child(action_button("namespace-list").ghost().label("Namespace checkpoints").on_click(cx.listener(|v, _, _, _| v.inspect("checkpoints.list", json!({})))))
-                .child(action_button("training-list").ghost().label("Training snapshots").on_click(cx.listener(|v, _, _, _| v.inspect("training.list", json!({})))))
-                .child(div().whitespace_normal().child("Training snapshots save registered model/optimizer state. Namespace and native process state are excluded.")));
+            body = body.child(
+                div()
+                    .text_sm()
+                    .text_color(muted_fg)
+                    .whitespace_normal()
+                    .child("Training snapshots save registered model and optimizer state. Namespace and native process state are excluded."),
+            );
             if self.tabs[self.active].runtime["capabilities"]
                 .as_array()
                 .is_some_and(|caps| caps.iter().any(|cap| cap == "portable_training"))
             {
                 body = body.child(
                     action_button("create-training-checkpoint")
-                        .ghost()
+                        .self_start()
+                        .outline()
+                        .small()
                         .label("Create training checkpoint (Experimental)")
                         .unavailable(self.command_reason("training-checkpoint").is_some())
                         .hint(self.command_reason("training-checkpoint").unwrap_or(
@@ -280,37 +333,52 @@ impl Workspace {
             }
             .to_owned();
             body = body.child(
-                section("Portable training coverage", cx)
-                    .child(
-                        div()
-                            .whitespace_normal()
-                            .child(bounded(&value["coverage"].to_string(), 4096)),
-                    )
-                    .child(div().whitespace_normal().child(format!(
-                        "Source coherence: {}",
-                        value["source_coherence"].as_str().unwrap_or("unverified")
-                    )))
-                    .child(
-                        action_button("restore-training")
-                            .outline()
-                            .label("Restore training in fresh worker")
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                v.confirmation = Some((
-                                    "training-restore".into(),
-                                    json!({"snapshot":snapshot,"device":device,"trust":false}),
-                                ));
-                                cx.notify();
-                            })),
-                    ),
+                section("Portable training coverage", cx).child(
+                    card(cx)
+                        .p_4()
+                        .gap_2()
+                        .child(
+                            div()
+                                .text_sm()
+                                .whitespace_normal()
+                                .child(bounded(&value["coverage"].to_string(), 4096)),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(muted_fg)
+                                .whitespace_normal()
+                                .child(format!(
+                                    "Source coherence: {}",
+                                    value["source_coherence"].as_str().unwrap_or("unverified")
+                                )),
+                        )
+                        .child(
+                            action_button("restore-training")
+                                .self_start()
+                                .outline()
+                                .small()
+                                .label("Restore training in fresh worker")
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    v.confirmation = Some((
+                                        "training-restore".into(),
+                                        json!({"snapshot":snapshot,"device":device,"trust":false}),
+                                    ));
+                                    cx.notify();
+                                })),
+                        ),
+                ),
             );
         }
         if value.get("native_qualified").is_some() && value.get("capabilities").is_some() {
-            body = body.child(section("Native process snapshot availability", cx).child(
-                div().whitespace_normal().child(bounded(
-                    &value["capabilities"]["features"].to_string(),
-                    8192,
+            body = body.child(
+                section("Native process snapshot availability", cx).child(card(cx).p_4().child(
+                    div().text_sm().whitespace_normal().child(bounded(
+                        &value["capabilities"]["features"].to_string(),
+                        8192,
+                    )),
                 )),
-            ));
+            );
         }
         if self.surface == "History" {
             body = body.child(self.history_filters(cx));
@@ -322,14 +390,16 @@ impl Workspace {
                     .child(
                         action_button("search-executions")
                             .outline()
+                            .small()
                             .label("Search executions")
-                            .on_click(cx.listener(|v, _, _, _| {
-                                v.inspect("executions.list", json!({"search_all":true}))
-                            })),
+                            .on_click(
+                                cx.listener(|v, _, _, _| v.inspect("executions.list", json!({}))),
+                            ),
                     )
                     .child(
                         action_button("clear-history-filters")
                             .ghost()
+                            .small()
                             .label("Clear all filters")
                             .on_click(cx.listener(|v, _, window, cx| {
                                 v.history_query
@@ -353,7 +423,10 @@ impl Workspace {
                 })
                 .collect::<Vec<_>>();
             if items.is_empty() && !history_filter.is_empty() {
-                rows = rows.child(empty_row("No records on this page match these filters. Clear filters or inspect another page.", cx));
+                rows = rows.child(empty_row(
+                    "No records on this page match these filters. Clear filters or inspect another page.",
+                    cx,
+                ));
             }
             self.record_active = self.record_active.min(items.len().saturating_sub(1));
             for (i, item) in items.into_iter().enumerate() {
@@ -382,6 +455,7 @@ impl Workspace {
                         .child(
                             action_button(("training-inspect", i))
                                 .small()
+                                .outline()
                                 .label("Inspect")
                                 .on_click(cx.listener(move |v, _, _, _| {
                                     v.inspect("training.inspect", json!({"snapshot":snapshot}))
@@ -522,23 +596,9 @@ impl Workspace {
                     .iter()
                     .find_map(|key| item[*key].as_str())
                 {
-                    let path = item["project_path"].as_str().map(PathBuf::from);
-                    rows = rows.child(
-                        row(cx).child(
-                            action_button(("runtime-stop", i))
-                                .outline()
-                                .label("Stop runtime")
-                                .unavailable(status != "verified")
-                                .on_click(cx.listener(move |v, _, _, cx| {
-                                    if let Some(path) = path.clone() {
-                                        v.open(path, cx);
-                                        v.confirmation = Some(("stop".into(), json!({})));
-                                        cx.notify();
-                                    }
-                                })),
-                        ),
-                    );
                     let _ = label;
+                    let path_for_open = item["project_path"].as_str().map(PathBuf::from);
+                    let path_for_stop = path_for_open.clone();
                     rows = rows.child(
                         record_row(
                             Glyph::Cpu,
@@ -549,16 +609,28 @@ impl Workspace {
                         .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
                         .child(
                             action_button(("runtime-open", i))
+                                .small()
                                 .outline()
                                 .label("Open notebook")
-                                .unavailable(item["project_path"].as_str().is_none())
-                                .on_click(cx.listener({
-                                    let path = item["project_path"].as_str().map(PathBuf::from);
-                                    move |v, _, _, cx| {
-                                        if let Some(path) = path.clone() {
-                                            v.open(path, cx);
-                                            v.surface = "Notebook".into();
-                                        }
+                                .unavailable(path_for_open.is_none())
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    if let Some(path) = path_for_open.clone() {
+                                        v.open(path, cx);
+                                        v.surface = "Notebook".into();
+                                    }
+                                })),
+                        )
+                        .child(
+                            action_button(("runtime-stop", i))
+                                .small()
+                                .outline()
+                                .label("Stop runtime")
+                                .unavailable(status != "verified")
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    if let Some(path) = path_for_stop.clone() {
+                                        v.open(path, cx);
+                                        v.confirmation = Some(("stop".into(), json!({})));
+                                        cx.notify();
                                     }
                                 })),
                         ),
@@ -581,7 +653,9 @@ impl Workspace {
                 fields.insert("cursor".into(), value["cursor"].clone());
                 body = body.child(
                     action_button("next-record-page")
+                        .self_start()
                         .ghost()
+                        .small()
                         .label("Next page")
                         .on_click(cx.listener(move |v, _, _, _| {
                             v.inspect(&method, Value::Object(fields.clone()))
@@ -598,6 +672,8 @@ impl Workspace {
             body = body.child(
                 div()
                     .id("recorded-time")
+                    .text_xs()
+                    .text_color(muted_fg)
                     .aria_label(format!(
                         "Recorded time: {}. Stored UTC: {time}",
                         local_time(time)
@@ -629,9 +705,9 @@ impl Workspace {
                     body = body.child(
                         section(
                             if current.text == source {
-                                "Current source — unchanged"
+                                "Current source \u{2014} unchanged"
                             } else {
-                                "Current source — edited since this execution"
+                                "Current source \u{2014} edited since this execution"
                             },
                             cx,
                         )
@@ -650,7 +726,14 @@ impl Workspace {
             }
             if let Some(outputs) = value["outputs"].as_array() {
                 for (i, event) in outputs.iter().enumerate() {
-                    body = body.child(output(event, format!("recorded-output-{i}"), cx));
+                    body = body.child(output(
+                        &self.tabs[self.active].service.commands,
+                        event,
+                        format!("recorded-output-{i}"),
+                        value["cell_id"].as_str().unwrap_or_default(),
+                        value["exec_id"].as_str().unwrap_or_default(),
+                        i,
+                    ));
                 }
             }
         }
@@ -681,9 +764,9 @@ impl Workspace {
         if !value.is_null() {
             body = body.child(
                 action_button("raw-details")
+                    .self_start()
                     .ghost()
                     .small()
-                    .w(px(170.))
                     .label(
                         if self.tabs[self.active]
                             .raw_details
@@ -749,7 +832,7 @@ impl Workspace {
                     .flex()
                     .justify_center()
                     .px_4()
-                    .py_4()
+                    .py_5()
                     .child(body),
             )
             .into_any_element()

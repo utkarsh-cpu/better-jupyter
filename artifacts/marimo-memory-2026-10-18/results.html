@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+html,body{background:transparent;color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0}
+main{width:100%;font-size:14px;line-height:1.5}table{width:100%;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+caption{text-align:left;font-weight:600;font-size:16px;padding:0 0 12px}th,td{padding:12px 8px;border-bottom:1px solid var(--border);text-align:right;vertical-align:middle}th{font-size:12px;color:var(--muted-foreground);font-weight:500}th:first-child,td:first-child{text-align:left;padding-left:0;width:32%}th:last-child,td:last-child{padding-right:0}td{font-size:16px;font-weight:600}td:first-child{font-size:14px}small{display:block;color:var(--muted-foreground);font-size:12px;font-weight:400}p{color:var(--muted-foreground);font-size:12px;margin:12px 0 0}.split{font-size:13px;color:var(--foreground)}
+@media(max-width:430px){th,td{padding:10px 4px}td{font-size:14px}td:first-child{font-size:13px}th:first-child,td:first-child{width:29%}}
+</style></head><body><main>
+<table><caption>Measured idle memory · MiB</caption><thead><tr><th scope="col">Application</th><th scope="col">Private resident<br>RAM</th><th scope="col">Summed<br>working sets</th><th scope="col">Private<br>commit</th></tr></thead><tbody>
+<tr><td>KernelLedger<small>Debug build · UI + backend</small></td><td>74.3</td><td>191.7</td><td>216.9</td></tr>
+<tr><td>marimo 0.25.1<small>Python + browser tab</small></td><td>204.3</td><td>353.2</td><td>223.3</td></tr>
+</tbody></table>
+<p class="split">marimo private RAM: <strong>101.1 MiB Python</strong> + <strong>103.2 MiB browser tab</strong>.</p>
+<p>Windows · Python 3.12.10 · matched Markdown + arithmetic notebook · median of 3 idle samples. Shared browser infrastructure and GPU memory excluded. Summed working sets count shared pages repeatedly; commit is allocation, not resident RAM.</p>
+</main></body></html>

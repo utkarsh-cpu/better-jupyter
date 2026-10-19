@@ -1,0 +1,11 @@
+{
+  "measurement": "30 wheel events, each followed by a forced workspace notification and complete frame in the GPUI test renderer",
+  "profile": "unoptimized test build, same machine",
+  "before_ms": 713.5279,
+  "after_ms": 228.1717,
+  "change": "Replace eager layout of all 37 command rows with viewport-only uniform_list rendering",
+  "limit": "This measures test-renderer workload, not native display frame rate or end-to-end input latency",
+  "workspace_tests_passed": 42,
+  "native_checks": "palette-native-report.json",
+  "release_executable": "../../desktop/target/release/kernelledger-desktop.exe"
+}

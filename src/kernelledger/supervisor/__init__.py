@@ -15,7 +15,7 @@ from ..blobs import BlobStore, references
 from ..ledger import Ledger, now, uid
 from ..notebook import Notebook, write_json
 from ..worker import INLINE, json_bytes, validate_checkpoint
-from .platform import DirectoryLock, ProcessTree, secure_token
+from .platform import HIDDEN_CONSOLE, DirectoryLock, ProcessTree, secure_token
 
 
 async def read_message(reader: Any, blobs: Any) -> Any:
@@ -54,6 +54,40 @@ async def send_blob(writer: Any, data: Any) -> Any:
         writer.write(data[offset : offset + 1048576])
         await writer.drain()
     return digest
+
+
+def windows_venv_launch(python: str) -> tuple[str, dict[str, str]]:
+    """Launch the base interpreter for a Windows venv so the redirector stub is not a process.
+
+    ``pyvenv.cfg`` may name ``executable`` (stdlib venv) or only ``home`` (uv). ``-I`` still
+    honors ``__PYVENV_LAUNCHER__`` and keeps that venv's ``sys.prefix`` and site-packages.
+    """
+    if os.name != "nt":
+        return python, {}
+    path = Path(python)
+    cfg_path = next(
+        (
+            candidate
+            for candidate in (path.parent.parent / "pyvenv.cfg", path.parent / "pyvenv.cfg")
+            if candidate.is_file()
+        ),
+        None,
+    )
+    if cfg_path is None:
+        return python, {}
+    values: dict[str, str] = {}
+    for line in cfg_path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if separator:
+            values[key.strip().lower()] = value.strip().strip('"')
+    executable = values.get("executable") or ""
+    if not executable and values.get("home"):
+        executable = str(Path(values["home"]) / "python.exe")
+    if not executable or not Path(executable).is_file():
+        return python, {}
+    if os.path.normcase(os.path.abspath(executable)) == os.path.normcase(os.path.abspath(python)):
+        return python, {}
+    return os.path.abspath(executable), {"__PYVENV_LAUNCHER__": os.path.abspath(python)}
 
 
 def interpreter(
@@ -298,6 +332,7 @@ class Supervisor:
         )
         if not Path(worker_python).is_file():
             raise ValueError(f"worker interpreter not found: {worker_python}")
+        launch_python, launch_env = windows_venv_launch(worker_python)
         token, accepted = secrets.token_hex(32), asyncio.get_running_loop().create_future()
 
         async def accept(reader: Any, writer: Any) -> Any:
@@ -325,15 +360,14 @@ class Supervisor:
             "KL_WORKER_PORT": str(port),
             "KL_WORKER_TOKEN": token,
             "KL_TRAINING_TEMP_ROOT": self.worker_temporary.name,
+            **launch_env,
         }
         kwargs: dict[str, Any] = (
-            {"creationflags": 0x08000000 | 0x00000200}
-            if os.name == "nt"
-            else {"start_new_session": True}
+            {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
         )
         try:
             self.process = await asyncio.create_subprocess_exec(
-                worker_python,
+                launch_python,
                 "-I",
                 "-X",
                 "utf8",

@@ -1,0 +1,69 @@
+{
+    "time":  "2026-10-18T00:45:51.5678912+05:30",
+    "processes":  [
+                      {
+                          "pid":  10820,
+                          "parent":  51168,
+                          "name":  "python.exe",
+                          "workingSet":  32563200,
+                          "privateWorkingSet":  17412096,
+                          "privateBytes":  19734528
+                      },
+                      {
+                          "pid":  48764,
+                          "parent":  10820,
+                          "name":  "conhost.exe",
+                          "workingSet":  8527872,
+                          "privateWorkingSet":  851968,
+                          "privateBytes":  1220608
+                      },
+                      {
+                          "pid":  61244,
+                          "parent":  10820,
+                          "name":  "python.exe",
+                          "workingSet":  5574656,
+                          "privateWorkingSet":  561152,
+                          "privateBytes":  888832
+                      },
+                      {
+                          "pid":  61400,
+                          "parent":  61244,
+                          "name":  "conhost.exe",
+                          "workingSet":  8548352,
+                          "privateWorkingSet":  839680,
+                          "privateBytes":  1212416
+                      },
+                      {
+                          "pid":  3560,
+                          "parent":  61244,
+                          "name":  "python.exe",
+                          "workingSet":  34361344,
+                          "privateWorkingSet":  18022400,
+                          "privateBytes":  19890176
+                      },
+                      {
+                          "pid":  24904,
+                          "parent":  63676,
+                          "name":  "kernelledger-desktop.exe",
+                          "workingSet":  86118400,
+                          "privateWorkingSet":  28971008,
+                          "privateBytes":  172122112
+                      },
+                      {
+                          "pid":  5220,
+                          "parent":  24904,
+                          "name":  "python.exe",
+                          "workingSet":  27848704,
+                          "privateWorkingSet":  15601664,
+                          "privateBytes":  17489920
+                      },
+                      {
+                          "pid":  62708,
+                          "parent":  5220,
+                          "name":  "conhost.exe",
+                          "workingSet":  8445952,
+                          "privateWorkingSet":  831488,
+                          "privateBytes":  1208320
+                      }
+                  ]
+}

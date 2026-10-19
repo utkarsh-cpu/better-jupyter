@@ -1,0 +1,30 @@
+{
+  "src": {
+    "files": 30,
+    "lines": 8566
+  },
+  "tests": {
+    "files": 13,
+    "lines": 2447
+  },
+  "scripts": {
+    "files": 12,
+    "lines": 1701
+  },
+  "examples": {
+    "files": 7,
+    "lines": 725
+  },
+  "artifacts": {
+    "files": 105,
+    "lines": 2812
+  },
+  "analysis": {
+    "files": 1,
+    "lines": 0
+  },
+  "_total": {
+    "files": 168,
+    "lines": 16251
+  }
+}

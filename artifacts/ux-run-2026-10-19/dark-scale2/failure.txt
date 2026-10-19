@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger\scripts\desktop_ui_probe.py", line 195, in <module>
+    assert b["x"] >= origin.x and b["x"] + b["width"] <= origin.x + client.right - 102 * scale, (w, h, b)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (800, 600, {'name': 'Menu', 'x': 1311, 'y': 43, 'width': 112, 'height': 120, 'center': 103})
+
+--- stdout ---
+Started empty worker session ac76cb7c-9b15-44be-bba3-64271cc1984b

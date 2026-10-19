@@ -4,12 +4,15 @@ mod components;
 mod diagnostics;
 mod help;
 mod history;
+mod images;
 mod interchange;
 mod notebook;
 mod outputs;
 mod runtime;
 mod settings;
 mod shell;
+mod shortcuts;
+use shortcuts::command_shortcut;
 mod surfaces;
 use components::*;
 mod theme;
@@ -74,10 +77,46 @@ const SURFACES: [(&str, Glyph, &str); 7] = [
         "Appearance and interpreter preferences",
     ),
 ];
-const COMMANDS: [(&str, &str, &str, Glyph); 31] = [
+const COMMANDS: [(&str, &str, &str, Glyph); 38] = [
+    (
+        "notebook",
+        "Notebook",
+        "Return to notebook cells",
+        Glyph::NotebookPen,
+    ),
+    (
+        "history",
+        "History",
+        "Browse recorded executions",
+        Glyph::Clock,
+    ),
+    (
+        "find-cells",
+        "Find notebook cells",
+        "Search source in the notebook outline",
+        Glyph::Search,
+    ),
+    (
+        "export-menu",
+        "Export notebook\u{2026}",
+        "Choose PDF, Word, Jupyter, or a portable bundle",
+        Glyph::FileText,
+    ),
+    (
+        "export-pdf",
+        "Export PDF\u{2026}",
+        "Save source and recorded outputs as a paginated document",
+        Glyph::FileText,
+    ),
+    (
+        "export-docx",
+        "Export Word document\u{2026}",
+        "Save source and recorded outputs as an editable .docx document",
+        Glyph::FileText,
+    ),
     (
         "open",
-        "Open notebook…",
+        "Open notebook\u{2026}",
         "Choose a notebook directory",
         Glyph::FolderOpen,
     ),
@@ -161,14 +200,20 @@ const COMMANDS: [(&str, &str, &str, Glyph); 31] = [
     ),
     (
         "export-ipynb",
-        "Export notebook…",
+        "Export Jupyter notebook\u{2026}",
         "Save current source as a Jupyter notebook",
         Glyph::FileText,
     ),
     (
         "export-bundle",
-        "Export bundle…",
+        "Export bundle\u{2026}",
         "Save source and recorded history in a portable bundle",
+        Glyph::Database,
+    ),
+    (
+        "inspect-bundle",
+        "Inspect bundle\u{2026}",
+        "Review a portable bundle without running it or replacing source",
         Glyph::Database,
     ),
     (
@@ -185,7 +230,7 @@ const COMMANDS: [(&str, &str, &str, Glyph); 31] = [
     ),
     (
         "interrupt_kill",
-        "Terminate worker…",
+        "Terminate worker\u{2026}",
         "Force-stop an unresponsive worker; live variables are lost",
         Glyph::OctagonX,
     ),
@@ -283,6 +328,7 @@ struct Tab {
     history_filter: String,
     checkpoint_notice: Option<String>,
     error: Option<String>,
+    attachment_pages: BTreeMap<String, Value>,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
@@ -300,11 +346,12 @@ pub struct Workspace {
     confirmation: Option<(String, Value)>,
     palette_active: usize,
     palette_filter: String,
-    palette_scroll: ScrollHandle,
+    palette_scroll: UniformListScrollHandle,
     return_focus: Option<FocusHandle>,
     sidebar_visible: bool,
     app_menu: bool,
     notebook_menu: bool,
+    export_menu: bool,
     history_owner: Option<usize>,
     runtime_menu: bool,
     cell_menu: Option<(String, usize)>,
@@ -358,22 +405,29 @@ impl Workspace {
         };
         let high_contrast = appearance == "contrast" || (follow_system && system_high_contrast());
         apply_theme(dark, high_contrast, window, cx);
-        let loaded_preferences = kernelledger_client::preferences::Preferences::load(
-            &kernelledger_client::profile_path(),
-        );
+        let loaded_preferences = if cfg!(test) {
+            Ok(kernelledger_client::preferences::Preferences::default())
+        } else {
+            kernelledger_client::preferences::Preferences::load(&kernelledger_client::profile_path())
+        };
         let preference_status = loaded_preferences
             .as_ref()
             .err()
             .map(|e| format!("Preferences could not be loaded: {e}"));
-        let preferences = loaded_preferences.unwrap_or_default();
+        let mut preferences = loaded_preferences.unwrap_or_default();
+        if !cfg!(test) {
+            let profile = kernelledger_client::profile_path();
+            if saved_reduced_motion(&profile).is_none() {
+                preferences.reduced_motion = system_reduced_motion();
+            }
+        }
         let mut view = Self {
             tabs: vec![],
             active: 0,
             focus: cx.focus_handle(),
             surface: "Notebook".into(),
             palette: false,
-            query: cx
-                .new(|cx| InputState::new(window, cx).placeholder("Search notebook cells only")),
+            query: cx.new(|cx| InputState::new(window, cx).placeholder("Filter cells")),
             palette_query: cx.new(|cx| InputState::new(window, cx).placeholder("Type a command")),
             prompts: BTreeMap::new(),
             tick: Task::ready(()),
@@ -385,11 +439,12 @@ impl Workspace {
             confirmation: None,
             palette_active: 0,
             palette_filter: String::new(),
-            palette_scroll: ScrollHandle::default(),
+            palette_scroll: UniformListScrollHandle::default(),
             return_focus: None,
             sidebar_visible: preferences.outline_visible,
             app_menu: false,
             notebook_menu: false,
+            export_menu: false,
             history_owner: None,
             runtime_menu: false,
             cell_menu: None,
@@ -480,6 +535,7 @@ impl Workspace {
             history_filter: String::new(),
             checkpoint_notice: None,
             error: None,
+            attachment_pages: BTreeMap::new(),
         });
         self.active = self.tabs.len() - 1;
         cx.notify();
@@ -679,7 +735,28 @@ impl Workspace {
                         }
                     }
                     Event::Inspection { method, value } => {
-                        if matches!(method.as_str(), "export_ipynb" | "bundle_export") {
+                        if method == "bundle.inspect" {
+                            let path = tab
+                                .inspections
+                                .get("Bundle review")
+                                .and_then(|review| review.get("path"))
+                                .filter(|path| path.is_string())
+                                .cloned();
+                            let mut review = value;
+                            if review.get("path").is_none()
+                                && let Some(path) = path
+                            {
+                                review["path"] = path;
+                            }
+                            review["pending"] = json!(false);
+                            tab.inspections.insert("Bundle review".into(), review);
+                            self.surface = "Diagnostics".into();
+                            continue;
+                        }
+                        if matches!(
+                            method.as_str(),
+                            "export_ipynb" | "bundle_export" | "export_document"
+                        ) {
                             tab.inspections
                                 .insert("Export result".into(), value.clone());
                             continue;
@@ -712,8 +789,102 @@ impl Workspace {
                         tab.inspections.insert(surface.clone(), value);
                         tab.raw_details.insert(surface, false);
                     }
+                    Event::OutputPage {
+                        cell_id,
+                        exec_id,
+                        index,
+                        slot,
+                        text,
+                        offset,
+                        end,
+                        total,
+                    } => {
+                        if let Some(cell) = tab.model.cells.get_mut(&cell_id)
+                            && let Some(event) = cell.output.get_mut(index)
+                        {
+                            kernelledger_client::output::write_page(
+                                event, &slot, &text, offset, end, total,
+                            );
+                            if let Some(position) =
+                                tab.model.order.iter().position(|id| id == &cell_id)
+                            {
+                                tab.list.splice(position..position + 1, 1);
+                            }
+                        }
+                        if let Some(history) = tab.inspections.get_mut("History")
+                            && history["exec_id"] == exec_id
+                            && let Some(event) = history["outputs"].get_mut(index)
+                        {
+                            kernelledger_client::output::write_page(
+                                event, &slot, &text, offset, end, total,
+                            );
+                        }
+                    }
+                    Event::ImageCached {
+                        cell_id,
+                        exec_id,
+                        index,
+                        mime,
+                        path,
+                    } => {
+                        let assign = |event: &mut Value| {
+                            if event["bundle"][&mime].is_object() {
+                                event["bundle"][&mime]["local_path"] = json!(path.clone());
+                            }
+                        };
+                        if let Some(cell) = tab.model.cells.get_mut(&cell_id)
+                            && let Some(event) = cell.output.get_mut(index)
+                        {
+                            assign(event);
+                            if let Some(position) =
+                                tab.model.order.iter().position(|id| id == &cell_id)
+                            {
+                                tab.list.splice(position..position + 1, 1);
+                            }
+                        }
+                        if let Some(history) = tab.inspections.get_mut("History")
+                            && history["exec_id"] == exec_id
+                            && let Some(event) = history["outputs"].get_mut(index)
+                        {
+                            assign(event);
+                        }
+                    }
+                    Event::AttachmentPreview {
+                        cell_id,
+                        name,
+                        mime,
+                        text,
+                        path,
+                        offset,
+                        end,
+                        total,
+                        error,
+                    } => {
+                        tab.attachment_pages.insert(
+                            format!("{cell_id}/{name}"),
+                            json!({
+                                "mime": mime,
+                                "text": text,
+                                "path": path,
+                                "offset": offset,
+                                "end": end,
+                                "total": total,
+                                "error": error,
+                            }),
+                        );
+                        if let Some(position) = tab.model.order.iter().position(|id| id == &cell_id)
+                        {
+                            tab.list.splice(position..position + 1, 1);
+                        }
+                    }
                     Event::Draft(value) => tab.drafts.push(value),
                     Event::Error { code, message } => {
+                        if let Some(review) = tab.inspections.get_mut("Bundle review")
+                            && review["pending"] == true
+                        {
+                            review["pending"] = json!(false);
+                            review["error"] = json!({"code": code});
+                        }
                         if code == "transport" {
                             tab.runtime["connection_lost"] = json!(true);
                         }
@@ -765,6 +936,12 @@ impl Workspace {
             && let Some(cell) = tab.model.cells.get(id)
         {
             return cell_title(&cell.text, &cell.disk.kind);
+        }
+        if let Some(path) = fields["path"].as_str() {
+            return PathBuf::from(path)
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "the selected bundle".into());
         }
         for key in ["checkpoint_id", "session_id", "snapshot"] {
             if let Some(id) = fields[key].as_str() {
@@ -827,6 +1004,7 @@ impl Workspace {
         let key = event.keystroke.key.as_str();
         let m = event.keystroke.modifiers;
         if self.app_menu
+            || self.export_menu
             || self.runtime_menu
             || self.notebook_menu
             || self.cell_menu.is_some()
@@ -907,8 +1085,16 @@ impl Workspace {
                 }
                 _ => return,
             }
+            if matches!(key, "down" | "up" | "home" | "end") {
+                // Reveal keyboard selections without undoing manual scrolling on redraw.
+                self.palette_scroll
+                    .scroll_to_item(self.palette_active, ScrollStrategy::Nearest);
+            }
             cx.stop_propagation();
             cx.notify();
+            return;
+        }
+        if self.project_shortcut(event, window, cx) {
             return;
         }
         if key == "f1" {
@@ -1121,6 +1307,7 @@ impl Workspace {
         self.palette_active = 0;
         self.palette = !self.palette;
         if self.palette {
+            self.palette_scroll.scroll_to_item(0, ScrollStrategy::Top);
             self.palette_query.update(cx, |s, cx| {
                 s.set_value("", window, cx);
                 s.focus(window, cx);
@@ -1187,7 +1374,7 @@ impl Workspace {
             return;
         }
         match surface {
-            "History" => self.inspect("executions.list", json!({"search_all":true})),
+            "History" => self.inspect("executions.list", json!({})),
             "Checkpoints" => self.inspect("checkpoints.list", json!({})),
             "Diagnostics" => self.inspect("doctor", json!({})),
             "Runtimes" => self.inspect("runtimes.list", json!({})),
@@ -1230,8 +1417,14 @@ impl Workspace {
                 let index = tab.model.order.iter().position(|c| *c == id).unwrap();
                 match method {
                     "duplicate-cell" => self.mutate(json!({"action":"duplicate","cell_id":id})),
-                    "delete-cell" => self.confirmation=Some(("delete".into(),json!({"cell_id":id}))),
-                    _ => self.mutate(json!({"action":"move","cell_id":id,"index":if method=="move-up"{index-1}else{index+1}})),
+                    "delete-cell" => {
+                        self.confirmation = Some(("delete".into(), json!({"cell_id":id})))
+                    }
+                    _ => self.mutate(json!({
+                        "action":"move",
+                        "cell_id":id,
+                        "index":if method=="move-up"{index-1}else{index+1}
+                    })),
                 }
             }
             "split-cell" => {
@@ -1254,14 +1447,47 @@ impl Workspace {
                     json!({"cell_id":id,"other_id":tab.model.order[index + 1]}),
                 ));
             }
-            "export-ipynb" => self.export_dialog(false, window, cx),
-            "export-bundle" => self.export_dialog(true, window, cx),
+            "export-menu" => {
+                self.palette = false;
+                self.toggle_export(window, cx);
+                return;
+            }
+            "export-pdf" => self.export_dialog("pdf", window, cx),
+            "export-docx" => self.export_dialog("docx", window, cx),
+            "export-ipynb" => self.export_dialog("ipynb", window, cx),
+            "export-bundle" => self.export_dialog("zip", window, cx),
+            "inspect-bundle" => {
+                self.palette = false;
+                self.inspect_bundle_dialog(window, cx);
+                return;
+            }
             "stop" | "restart" | "interrupt_kill" => {
                 self.confirmation = Some((method.into(), json!({})))
             }
             "run-all" => self.batch("all"),
             "above" | "below" => self.batch(method),
             "settings" => self.select_surface("Settings", cx),
+            "notebook" => {
+                self.select_surface("Notebook", cx);
+                self.focus.focus(window, cx);
+            }
+            "history" => {
+                self.select_surface("History", cx);
+                self.focus.focus(window, cx);
+            }
+            "find-cells" => {
+                self.palette = false;
+                self.return_focus = None;
+                self.select_surface("Notebook", cx);
+                if self.compact {
+                    self.outline_drawer = true;
+                } else {
+                    self.sidebar_visible = true;
+                }
+                self.query.update(cx, |query, cx| query.focus(window, cx));
+                cx.notify();
+                return;
+            }
             "diagnostics" => self.select_surface("Diagnostics", cx),
             "runtimes" => self.select_surface("Runtimes", cx),
             "checkpoints" => self.select_surface("Checkpoints", cx),
@@ -1305,6 +1531,25 @@ impl Workspace {
         let Some(tab) = self.tabs.get(self.active) else {
             return Some("Open a notebook to use this action");
         };
+        if method == "inspect-bundle"
+            && tab
+                .inspections
+                .get("Bundle review")
+                .is_some_and(|review| review["pending"] == true)
+        {
+            return Some("A bundle inspection is already in progress");
+        }
+        if matches!(
+            method,
+            "export-menu" | "export-pdf" | "export-docx" | "export-ipynb" | "export-bundle"
+        ) && tab
+            .model
+            .cells
+            .values()
+            .any(|cell| matches!(cell.save, SaveState::Conflict | SaveState::Failed))
+        {
+            return Some("Resolve source conflicts before exporting");
+        }
         if method == "outline" && self.surface != "Notebook" {
             return Some("Outline is available in Notebook");
         }
@@ -1428,8 +1673,18 @@ impl Workspace {
     }
     fn sidebar(&self, cx: &mut Context<Self>) -> Stateful<Div> {
         let theme = cx.theme();
-        let (_border, bar, muted_fg, primary, active_bg, hover_bg, radius, warning, danger, info) = (
-            theme.sidebar_border,
+        let (
+            bar,
+            muted_fg,
+            primary,
+            active_bg,
+            hover_bg,
+            radius,
+            warning,
+            danger,
+            info,
+            transparent,
+        ) = (
             theme.sidebar,
             theme.muted_foreground,
             theme.primary,
@@ -1439,6 +1694,7 @@ impl Workspace {
             theme.warning,
             theme.danger,
             theme.info,
+            theme.transparent,
         );
         let mono = theme.mono_font_family.clone();
         let tab = &self.tabs[self.active];
@@ -1452,7 +1708,7 @@ impl Workspace {
             .overflow_y_scroll()
             .px_2()
             .pb_2()
-            .gap_px();
+            .gap_0p5();
         let mut shown = 0;
         for (i, id) in tab.model.order.iter().enumerate() {
             let cell = &tab.model.cells[id];
@@ -1486,17 +1742,30 @@ impl Workspace {
                 h_flex()
                     .id(("select", i))
                     .role(Role::ListBoxOption)
-                    .aria_label(format!(
-                        "Cell {}: {}",
-                        i + 1,
-                        cell_title(&cell.text, &cell.disk.kind)
-                    ))
+                    .aria_label({
+                        let status = if matches!(cell.save, SaveState::Conflict | SaveState::Failed)
+                            || matches!(cell.outcome.as_str(), "error" | "failed")
+                        {
+                            ", failed"
+                        } else if cell.stale() {
+                            ", stale"
+                        } else {
+                            ""
+                        };
+                        format!(
+                            "Cell {}: {}{status}",
+                            i + 1,
+                            cell_title(&cell.text, &cell.disk.kind)
+                        )
+                    })
                     .aria_selected(selected)
                     .gap_2()
                     .px_2()
                     .py_1p5()
                     .items_center()
                     .rounded(radius)
+                    .border_l_2()
+                    .border_color(if selected { primary } else { transparent })
                     .cursor_pointer()
                     .when(selected, |d| d.bg(active_bg))
                     .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
@@ -1510,28 +1779,34 @@ impl Workspace {
                         v_flex()
                             .flex_1()
                             .min_w_0()
+                            .gap_0p5()
                             .child(
                                 div()
                                     .truncate()
                                     .text_sm()
+                                    .when(selected, |d| d.font_weight(FontWeight::MEDIUM))
                                     .when(preview.is_none(), |d| d.italic().text_color(muted_fg))
                                     .child(preview.unwrap_or_else(|| {
                                         format!("Empty {} cell", cell.disk.kind)
                                     })),
                             )
                             .child(
-                                div()
-                                    .truncate()
-                                    .font_family(mono.clone())
-                                    .text_size(rems(0.65625))
+                                h_flex()
+                                    .justify_between()
+                                    .items_center()
+                                    .gap_1()
+                                    .text_size(rems(0.6875))
                                     .text_color(muted_fg)
-                                    .child(format!(
-                                        "{} · {}",
-                                        kind_label(&cell.disk.kind),
-                                        cell.ordinal
-                                            .map(|n| format!("Run {n}"))
-                                            .unwrap_or_else(|| "Not run".into())
-                                    )),
+                                    .child(div().truncate().child(kind_label(&cell.disk.kind)))
+                                    .when(cell.disk.kind == "code", |d| {
+                                        d.child(
+                                            div().flex_none().font_family(mono.clone()).child(
+                                                cell.ordinal
+                                                    .map(|n| format!("[{n}]"))
+                                                    .unwrap_or_else(|| "Unrun".into()),
+                                            ),
+                                        )
+                                    }),
                             ),
                     )
                     .when_some(marker, |d, color| d.child(dot(color)))
@@ -1567,6 +1842,8 @@ impl Workspace {
             .track_focus(&self.sidebar_focus)
             .size_full()
             .bg(bar)
+            .border_r_1()
+            .border_color(divider(cx))
             .child(
                 h_flex()
                     .flex_none()
@@ -1580,7 +1857,7 @@ impl Workspace {
                             .text_xs()
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
-                            .child("CELLS"),
+                            .child("Cells"),
                     )
                     .child(badge(tab.model.order.len().to_string(), muted_fg)),
             )
@@ -1600,74 +1877,95 @@ impl Workspace {
             .size_full()
             .items_center()
             .justify_center()
-            .gap_4()
-            .child(icon_tile(Glyph::NotebookPen, 48., cx))
+            .p_6()
             .child(
-                v_flex()
+                card(cx)
+                    .max_w(px(440.))
+                    .p_6()
+                    .gap_4()
                     .items_center()
-                    .gap_1()
+                    .child(icon_tile(Glyph::NotebookPen, 44., cx))
                     .child(
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("This notebook is empty"),
+                        v_flex()
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("This notebook is empty"),
+                            )
+                            .child(
+                                div().text_sm().text_center().text_color(muted_fg).child(
+                                    "Add a cell to start writing. Nothing runs until you ask.",
+                                ),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_center()
+                                    .text_color(muted_fg)
+                                    .child("Notebook Ctrl+1, History Ctrl+2, Checkpoints Ctrl+3."),
+                            ),
                     )
                     .child(
-                        div()
-                            .text_sm()
-                            .text_color(muted_fg)
-                            .child("Add a cell to start writing. Nothing runs until you ask."),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_2()
-                    .child(
-                        action_button("empty-code")
-                            .primary()
-                            .icon(Glyph::Code)
-                            .label("Add code cell")
-                            .on_click(cx.listener(|v, _, _, _| {
-                                v.mutate(json!({"action":"add","type":"code"}))
-                            })),
-                    )
-                    .child(
-                        action_button("empty-markdown")
-                            .outline()
-                            .icon(Glyph::Type)
-                            .label("Add markdown cell")
-                            .on_click(cx.listener(|v, _, _, _| {
-                                v.mutate(json!({"action":"add","type":"markdown"}))
-                            })),
+                        h_flex()
+                            .gap_2()
+                            .flex_wrap()
+                            .justify_center()
+                            .child(
+                                action_button("empty-code")
+                                    .primary()
+                                    .icon(Glyph::Code)
+                                    .label("Add code cell")
+                                    .on_click(cx.listener(|v, _, _, _| {
+                                        v.mutate(json!({"action":"add","type":"code"}))
+                                    })),
+                            )
+                            .child(
+                                action_button("empty-markdown")
+                                    .outline()
+                                    .icon(Glyph::Type)
+                                    .label("Add markdown cell")
+                                    .on_click(cx.listener(|v, _, _, _| {
+                                        v.mutate(json!({"action":"add","type":"markdown"}))
+                                    })),
+                            ),
                     ),
             )
             .into_any_element()
     }
     fn welcome(&self, cx: &mut Context<Self>) -> Div {
         let theme = cx.theme();
-        let (border, muted_fg, radius) = (theme.border, theme.muted_foreground, theme.radius_lg);
+        let (muted_fg, radius) = (theme.muted_foreground, theme.radius_lg);
+        let sep = divider(cx);
         let mut shortcuts = v_flex()
-            .w(px(340.))
+            .w(px(360.))
+            .max_w_full()
             .rounded(radius)
             .border_1()
-            .border_color(border)
+            .border_color(sep)
+            .bg(theme.popover)
             .overflow_hidden();
-        for (label, keys) in [
+        let shortcut_rows = [
             ("Open notebook", "ctrl-o"),
             ("Command palette", "ctrl-shift-p"),
             ("Run selected cell", "shift-enter"),
             ("Run all cells", "ctrl-shift-enter"),
             ("Save", "ctrl-s"),
+            ("Export PDF or Word", "ctrl-shift-e"),
             ("Command mode", "escape"),
-        ] {
+        ];
+        for (idx, (label, keys)) in shortcut_rows.into_iter().enumerate() {
             shortcuts = shortcuts.child(
                 h_flex()
-                    .px_3()
+                    .px_3p5()
                     .py_2()
                     .justify_between()
                     .items_center()
-                    .border_b_1()
-                    .border_color(border)
+                    .when(idx + 1 < shortcut_rows.len(), |d| {
+                        d.border_b_1().border_color(sep)
+                    })
                     .text_sm()
                     .child(div().text_color(muted_fg).child(label))
                     .children(kbd(keys)),
@@ -1676,7 +1974,9 @@ impl Workspace {
         let recent = self.recent.iter().take(5).enumerate().map(|(i, path)| {
             let path = path.clone();
             action_button(("recent", i))
-                .ghost()
+                .outline()
+                .small()
+                .icon(Glyph::NotebookPen)
                 .label(
                     path.file_name()
                         .unwrap_or_default()
@@ -1690,12 +1990,14 @@ impl Workspace {
             .flex_1()
             .items_center()
             .justify_center()
-            .gap_6()
-
+            .px_6()
+            .py_6()
+            .gap_5()
             .child(
                 v_flex()
                     .items_center()
-                    .gap_2()
+                    .gap_1p5()
+                    .child(icon_tile(Glyph::NotebookPen, 44., cx))
                     .child(
                         div()
                             .text_2xl()
@@ -1704,27 +2006,38 @@ impl Workspace {
                     )
                     .child(
                         div()
+                            .text_sm()
+                            .text_center()
                             .text_color(muted_fg)
-                            .child("Create or open a notebook. Your source and recorded results stay in local files."),
-                    ),
-            )
-            .child(
-                action_button("welcome-open")
-                    .primary()
-                    .large()
-                    .icon(Glyph::FolderOpen)
-                    .label("Open notebook")
-                    .on_click(
-                        cx.listener(|v, _, window, cx| v.open_dialog(&OpenNotebook, window, cx)),
+                            .child("Local-first reproducible notebooks. Source and recorded execution history stay in plain local files."),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_center()
+                            .text_color(muted_fg)
+                            .child("Open or create a notebook, then use Notebook (Ctrl+1), History (Ctrl+2), or Checkpoints (Ctrl+3)."),
                     ),
             )
             .child(
                 h_flex()
-                    .gap_2()
+                    .gap_2p5()
                     .flex_wrap()
+                    .justify_center()
+                    .items_center()
+                    .child(
+                        action_button("welcome-open")
+                            .primary()
+                            .icon(Glyph::FolderOpen)
+                            .label("Open notebook")
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.open_dialog(&OpenNotebook, window, cx)
+                            })),
+                    )
                     .child(
                         action_button("create")
                             .outline()
+                            .icon(Glyph::Plus)
                             .label("Create notebook")
                             .on_click(cx.listener(|v, _, w, cx| v.create_dialog(false, w, cx))),
                     )
@@ -1737,14 +2050,30 @@ impl Workspace {
                     .child(
                         action_button("welcome-help")
                             .ghost()
-                            .label("Help | F1")
+                            .icon(Glyph::Info)
+                            .label("Help and shortcuts")
+                            .hint("Open Help (F1)")
                             .on_click(cx.listener(|v, _, _, cx| {
                                 v.surface = "Help".into();
                                 cx.notify();
                             })),
                     ),
             )
-            .child(h_flex().gap_2().flex_wrap().children(recent))
+            .when(!self.recent.is_empty(), |d| {
+                d.child(
+                    v_flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .text_xs()
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(muted_fg)
+                                .child("Recent notebooks"),
+                        )
+                        .child(h_flex().gap_2().flex_wrap().justify_center().children(recent)),
+                )
+            })
             .child(shortcuts)
     }
 }
@@ -1792,7 +2121,7 @@ impl Render for Workspace {
             .get(self.active)
             .map(|t| {
                 format!(
-                    "KernelLedger - {}",
+                    "KernelLedger \u{2014} {}",
                     t.model
                         .project
                         .file_name()
@@ -1802,11 +2131,11 @@ impl Render for Workspace {
             })
             .unwrap_or_else(|| "KernelLedger".into());
         window.set_window_title(&title);
-        self.palette_scroll.scroll_to_item(self.palette_active);
         let filter = self.palette_query.read(cx).value().to_lowercase();
         if filter != self.palette_filter {
             self.palette_filter = filter;
             self.palette_active = 0;
+            self.palette_scroll.scroll_to_item(0, ScrollStrategy::Top);
         }
         let mut root = v_flex()
             .id("workspace")
@@ -1836,15 +2165,23 @@ impl Render for Workspace {
                         .flex_1()
                         .overflow_y_scroll()
                         .p_6()
-                        .child(self.help_content(cx))
                         .child(
-                            action_button("back-welcome")
-                                .ghost()
-                                .label("Back")
-                                .on_click(cx.listener(|v, _, _, cx| {
-                                    v.surface = "Notebook".into();
-                                    cx.notify();
-                                })),
+                            v_flex()
+                                .max_w(px(760.))
+                                .mx_auto()
+                                .gap_4()
+                                .child(
+                                    action_button("back-welcome")
+                                        .self_start()
+                                        .ghost()
+                                        .small()
+                                        .label("Back to welcome")
+                                        .on_click(cx.listener(|v, _, _, cx| {
+                                            v.surface = "Notebook".into();
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(self.help_content(cx)),
                         ),
                 );
             } else {
@@ -1919,7 +2256,8 @@ impl Render for Workspace {
                                         .w(px(220. * self.preferences.ui_scale))
                                         .max_w_full()
                                         .border_r_1()
-                                        .border_color(cx.theme().border)
+                                        .border_color(divider(cx))
+                                        .when(!self.high_contrast, |d| d.shadow_lg())
                                         .child(self.sidebar(cx)),
                                 )
                             },
@@ -1928,6 +2266,7 @@ impl Render for Workspace {
                 .child(self.status_bar(cx));
         }
         if self.app_menu
+            || self.export_menu
             || self.runtime_menu
             || self.notebook_menu
             || self.cell_menu.is_some()
@@ -1952,15 +2291,22 @@ impl Render for Workspace {
                     .right(rems(0.75))
                     .px_3()
                     .py_2()
-                    .rounded(px(6.))
+                    .rounded(px(7.))
                     .bg(cx.theme().popover)
                     .border_1()
                     .border_color(divider(cx))
+                    .when(!self.high_contrast, |d| d.shadow_md())
                     .text_sm()
                     .child("Copied to clipboard"),
             );
         }
-        root.into_any_element()
+        if let Some(notice) = self.export_notice(cx) {
+            root = root.child(notice);
+        }
+        gpui::image_cache(images::workspace_cache("workspace-images"))
+            .size_full()
+            .child(root)
+            .into_any_element()
     }
 }
 fn kind_label(kind: &str) -> &'static str {
@@ -1984,7 +2330,7 @@ fn tone(status: &str, cx: &App) -> Hsla {
     let theme = cx.theme();
     match status {
         "ok" | "success" | "succeeded" | "completed" | "complete" | "idle" | "ready"
-        | "verified" => theme.success,
+        | "verified" | "Active" => theme.success,
         "error" | "failed" | "crashed" | "conflict" | "corrupt" => theme.danger,
         "interrupted" | "cancelled" | "canceled" | "interrupting" | "partial" | "stale" => {
             theme.warning
@@ -1997,7 +2343,7 @@ fn worker_label(state: Option<&str>) -> String {
     match state {
         None | Some("absent") => "Not running".into(),
         Some("idle") => "Ready".into(),
-        Some("stopped") => "Stopped | run to start".into(),
+        Some("stopped") => "Stopped (run to start)".into(),
         Some(s) => {
             let mut chars = s.chars();
             chars
@@ -2015,12 +2361,23 @@ fn safe_link(url: &SharedString, _: &ClickEvent, _: &mut Window, cx: &mut App) {
         cx.open_url(url);
     }
 }
-fn output(event: &Value, id: String, _cx: &App) -> AnyElement {
+fn output(
+    commands: &std::sync::mpsc::Sender<Command>,
+    event: &Value,
+    id: String,
+    cell_id: &str,
+    exec_id: &str,
+    index: usize,
+) -> AnyElement {
     outputs::OutputBlock {
         tools_state: None,
         context: id.clone().into(),
         id: id.into(),
         event: event.clone(),
+        commands: Some(commands.clone()),
+        cell_id: cell_id.to_owned().into(),
+        exec_id: exec_id.to_owned().into(),
+        index,
     }
     .into_any_element()
 }
@@ -2092,6 +2449,11 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
             "Runs recorded code in a new session. File and network side effects can repeat; secret input must be supplied again.",
             "Replay session",
         ),
+        "bundle_import" => (
+            "Import recorded history from",
+            "Copies sessions, executions, and checkpoints into this notebook. Local records with the same identifiers are kept. Notebook source is not replaced, and no code runs. Saved code in the bundle can run later only if you restore or replay it.",
+            "Import recorded history",
+        ),
         "migrate" => (
             "Migrate ledger for",
             "Creates a schema 1 backup before migration. Older clients cannot open the migrated ledger.",
@@ -2107,7 +2469,7 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
 fn error_message(code: &str) -> &'static str {
     match code {
         "transport" => {
-            "Connection lost — execution state unknown. Your edits are retained. Reconnect in Diagnostics to reconcile the operation."
+            "Connection lost \u{2014} execution state unknown. Your edits are retained. Reconnect in Diagnostics to reconcile the operation."
         }
         "python_mismatch" => {
             "The checkpoint uses a different Python version. Choose a compatible interpreter, or review the mismatch override when retrying this checkpoint."
@@ -2137,11 +2499,14 @@ fn error_message(code: &str) -> &'static str {
 }
 fn build_info(version: &str) -> String {
     format!(
-        "KernelLedger desktop {}\nKernelLedger runtime: {version} (development Python environment; private bundle not packaged)\nRuntime plan: 5\nFrontend plan: 4\nDesktop protocol: kernelledger.desktop v1",
+        "KernelLedger desktop {}\nKernelLedger runtime: {version} (development Python environment; private bundle not packaged)\nRuntime plan: 5\nFrontend plan: 6\nDesktop protocol: kernelledger.desktop v1",
         env!("CARGO_PKG_VERSION")
     )
 }
 fn persist_appearance(value: &str, cx: &mut App) {
+    if cfg!(test) {
+        return;
+    }
     let path = kernelledger_client::profile_path().join("appearance.txt");
     let value = value.to_owned();
     cx.background_executor()
@@ -2166,7 +2531,7 @@ fn record_label(record: &Value, _model: &NotebookModel) -> String {
         "Checkpoint".into()
     } else if record.get("project_path").is_some() {
         format!(
-            "{} | {}",
+            "{} \u{2014} {}",
             record["project_path"].as_str().unwrap_or("Notebook"),
             record["runtime"]["interpreter"]["executable"]
                 .as_str()
@@ -2187,9 +2552,9 @@ fn record_label(record: &Value, _model: &NotebookModel) -> String {
             let end = chrono::DateTime::parse_from_rfc3339(record["end"].as_str()?).ok()?;
             Some((end - start).num_milliseconds().max(0) as f64 / 1000.)
         })
-        .map(|d| format!(" | {d:.2}s"))
+        .map(|d| format!(", {d:.2}s"))
         .unwrap_or_default();
-    format!("{title} | {time_label}{duration}")
+    format!("{title} \u{2014} {time_label}{duration}")
 }
 
 fn runtime_action_available(method: &str, runtime: &Value, _surface: &str) -> bool {
@@ -2260,6 +2625,37 @@ fn relative_time(value: &str) -> String {
     }
 }
 
+fn saved_reduced_motion(profile: &std::path::Path) -> Option<bool> {
+    let bytes = std::fs::read(profile.join("workbench.json")).ok()?;
+    serde_json::from_slice::<Value>(&bytes)
+        .ok()?
+        .get("reduced_motion")
+        .and_then(Value::as_bool)
+}
+
+#[cfg(target_os = "windows")]
+fn system_reduced_motion() -> bool {
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn SystemParametersInfoW(
+            action: u32,
+            param: u32,
+            data: *mut std::ffi::c_void,
+            flags: u32,
+        ) -> i32;
+    }
+    let mut enabled = 1i32;
+    // SPI_GETCLIENTAREAANIMATION. A zero result means the OS turned animations off.
+    let read =
+        unsafe { SystemParametersInfoW(0x1042, 0, (&mut enabled as *mut i32).cast(), 0) != 0 };
+    read && enabled == 0
+}
+
+#[cfg(not(target_os = "windows"))]
+fn system_reduced_motion() -> bool {
+    false
+}
+
 #[cfg(target_os = "windows")]
 fn system_high_contrast() -> bool {
     #[repr(C)]
@@ -2316,7 +2712,7 @@ fn operation_label(op: &Value, model: &NotebookModel) -> String {
                 .to_string()
         });
     format!(
-        "{kind} | {target} | {}",
+        "{kind} \u{2014} {target} ({})",
         op["accepted"]
             .as_str()
             .map(relative_time)

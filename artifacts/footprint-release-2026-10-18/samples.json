@@ -1,0 +1,128 @@
+[
+    {
+        "sample":  1,
+        "time":  "2026-10-18T03:16:49.6974962+05:30",
+        "processes":  [
+                          {
+                              "pid":  23688,
+                              "parent":  61132,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe\"",
+                              "workingSet":  31064064,
+                              "privateWorkingSet":  17035264,
+                              "privateBytes":  19406848
+                          },
+                          {
+                              "pid":  33236,
+                              "parent":  23688,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  30236672,
+                              "privateWorkingSet":  15433728,
+                              "privateBytes":  17113088
+                          },
+                          {
+                              "pid":  61372,
+                              "parent":  61132,
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\release\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  68915200,
+                              "privateWorkingSet":  26259456,
+                              "privateBytes":  169435136
+                          },
+                          {
+                              "pid":  53340,
+                              "parent":  61372,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  27865088,
+                              "privateWorkingSet":  15548416,
+                              "privateBytes":  17473536
+                          }
+                      ]
+    },
+    {
+        "sample":  2,
+        "time":  "2026-10-18T03:17:00.6532177+05:30",
+        "processes":  [
+                          {
+                              "pid":  23688,
+                              "parent":  61132,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe\"",
+                              "workingSet":  31068160,
+                              "privateWorkingSet":  17039360,
+                              "privateBytes":  19406848
+                          },
+                          {
+                              "pid":  33236,
+                              "parent":  23688,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  30236672,
+                              "privateWorkingSet":  15433728,
+                              "privateBytes":  17113088
+                          },
+                          {
+                              "pid":  61372,
+                              "parent":  61132,
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\release\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  69001216,
+                              "privateWorkingSet":  26341376,
+                              "privateBytes":  169533440
+                          },
+                          {
+                              "pid":  53340,
+                              "parent":  61372,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  27979776,
+                              "privateWorkingSet":  15663104,
+                              "privateBytes":  17563648
+                          }
+                      ]
+    },
+    {
+        "sample":  3,
+        "time":  "2026-10-18T03:17:11.5739227+05:30",
+        "processes":  [
+                          {
+                              "pid":  23688,
+                              "parent":  61132,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe\"",
+                              "workingSet":  31068160,
+                              "privateWorkingSet":  17039360,
+                              "privateBytes":  19406848
+                          },
+                          {
+                              "pid":  33236,
+                              "parent":  23688,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  30236672,
+                              "privateWorkingSet":  15433728,
+                              "privateBytes":  17113088
+                          },
+                          {
+                              "pid":  61372,
+                              "parent":  61132,
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\release\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  69001216,
+                              "privateWorkingSet":  26337280,
+                              "privateBytes":  169529344
+                          },
+                          {
+                              "pid":  53340,
+                              "parent":  61372,
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\footprint-release-2026-10-18\\notebook\"",
+                              "workingSet":  27979776,
+                              "privateWorkingSet":  15663104,
+                              "privateBytes":  17563648
+                          }
+                      ]
+    }
+]

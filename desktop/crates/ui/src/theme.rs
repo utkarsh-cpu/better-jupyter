@@ -10,9 +10,11 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         Some(window),
         cx,
     );
-    let accent: Hsla = rgb(if dark { 0x58A6FF } else { 0x006ED6 }).into();
+    // Grounded ledger palette: archival warm paper and precision cobalt in light mode,
+    // deep obsidian slate and luminous sky blue in dark mode.
+    let accent: Hsla = rgb(if dark { 0x58A6FF } else { 0x0066CC }).into();
     let on_accent = if dark {
-        hsla(232. / 360., 0.45, 0.10, 1.)
+        hsla(215. / 360., 0.50, 0.09, 1.)
     } else {
         hsla(0., 0., 1., 1.)
     };
@@ -22,23 +24,23 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     };
     let theme = Theme::global_mut(cx);
     let colors = &mut theme.colors;
-    colors.background = rgb(if dark { 0x15181B } else { 0xFAFAF8 }).into();
-    colors.foreground = rgb(if dark { 0xE6E9EB } else { 0x20262A }).into();
-    colors.muted_foreground = rgb(if dark { 0xA8B0B7 } else { 0x59636B }).into();
-    colors.muted = rgb(if dark { 0x1C2024 } else { 0xF1F2EF }).into();
-    colors.danger = rgb(if dark { 0xFF9A9A } else { 0xB42332 }).into();
-    colors.success = rgb(if dark { 0x8ED6A4 } else { 0x247044 }).into();
-    colors.warning = rgb(if dark { 0xE8C078 } else { 0x825500 }).into();
+    colors.background = rgb(if dark { 0x13161A } else { 0xF8F8F5 }).into();
+    colors.foreground = rgb(if dark { 0xEAECEF } else { 0x1B2024 }).into();
+    colors.muted_foreground = rgb(if dark { 0xA6B0B9 } else { 0x505A62 }).into();
+    colors.muted = rgb(if dark { 0x1A1E24 } else { 0xEFEFEB }).into();
+    colors.danger = rgb(if dark { 0xFF9A9A } else { 0xB4232C }).into();
+    colors.success = rgb(if dark { 0x8ED6A4 } else { 0x1E6F43 }).into();
+    colors.warning = rgb(if dark { 0xE8C078 } else { 0x7D5200 }).into();
     colors.info = accent;
     colors.sidebar = colors.muted;
     colors.sidebar_foreground = colors.foreground;
-    colors.border = rgb(if dark { 0x68757F } else { 0x849097 }).into();
+    colors.border = rgb(if dark { 0x687582 } else { 0x7E8A94 }).into();
     colors.sidebar_border = colors.border;
     colors.title_bar = colors.muted;
     colors.title_bar_border = colors.border;
     colors.status_bar = colors.muted;
     colors.status_bar_border = colors.border;
-    colors.popover = rgb(if dark { 0x23282D } else { 0xFFFFFF }).into();
+    colors.popover = rgb(if dark { 0x20252C } else { 0xFFFFFF }).into();
     colors.popover_foreground = colors.foreground;
     colors.primary = accent;
     colors.primary_hover = shade(-0.05);
@@ -52,9 +54,14 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     colors.link = accent;
     colors.list_active = accent.opacity(0.12);
     colors.list_active_border = accent;
+    colors.list_hover = if dark {
+        hsla(210. / 360., 0.18, 0.85, 0.07)
+    } else {
+        hsla(210. / 360., 0.18, 0.15, 0.05)
+    };
     colors.sidebar_primary = accent;
     colors.sidebar_primary_foreground = on_accent;
-    colors.overlay = hsla(0., 0., 0., if dark { 0.5 } else { 0.22 });
+    colors.overlay = hsla(215. / 360., 0.20, 0.04, if dark { 0.56 } else { 0.26 });
     if high_contrast {
         let black = hsla(0., 0., 0., 1.);
         let white = hsla(0., 0., 1., 1.);
@@ -85,6 +92,7 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         colors.link = yellow;
         colors.list_active = hsla(0., 0., 0.2, 1.);
         colors.list_active_border = yellow;
+        colors.list_hover = hsla(0., 0., 0.18, 1.);
         colors.danger = hsla(0., 1., 0.75, 1.);
         colors.success = rgb(0x98FFAA).into();
         colors.warning = yellow;

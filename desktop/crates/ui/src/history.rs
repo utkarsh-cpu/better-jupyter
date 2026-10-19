@@ -1,9 +1,20 @@
 use super::*;
 
+fn toggle_raw_details(v: &mut Workspace, _: &mut Window, cx: &mut Context<Workspace>) {
+    let flag = v.tabs[v.active]
+        .raw_details
+        .entry(v.surface.clone())
+        .or_default();
+    *flag = !*flag;
+    cx.notify();
+}
+
 impl Workspace {
     pub(super) fn record_page(&mut self, body: Div, _cx: &mut Context<Self>) -> AnyElement {
         div()
             .id(SharedString::from(format!("inspection-{}", self.surface)))
+            .role(Role::ScrollView)
+            .a11y_synthetic_children(|tree| tree.parent_node().set_clips_children())
             .track_scroll(
                 self.tabs[self.active]
                     .scrolls
@@ -13,7 +24,7 @@ impl Workspace {
             .size_full()
             .overflow_y_scroll()
             .child(
-                div().w_full().flex().justify_center().p_4().child(
+                div().w_full().flex().justify_center().px_4().py_5().child(
                     body.w_full()
                         .max_w(rems(
                             if self.surface == "Settings" || self.surface == "Help" {
@@ -29,33 +40,48 @@ impl Workspace {
     }
 
     pub(super) fn record_details(&self, value: &Value, cx: &mut Context<Self>) -> Div {
+        self.record_details_in(value, None, cx)
+    }
+
+    pub(super) fn record_details_in(
+        &self,
+        value: &Value,
+        reveal: Option<GroupReveal>,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let open = self.tabs[self.active]
             .raw_details
             .get(&self.surface)
             .copied()
             .unwrap_or(false);
-        v_flex()
-            .gap_2()
-            .child(
-                action_button("raw-details")
-                    .ghost()
-                    .small()
-                    .label(if open {
-                        "Hide technical details"
-                    } else {
-                        "Technical details"
-                    })
-                    .on_click(cx.listener(|v, _, _, cx| {
-                        let flag = v.tabs[v.active]
-                            .raw_details
-                            .entry(v.surface.clone())
-                            .or_default();
-                        *flag = !*flag;
-                        cx.notify();
-                    })),
-            )
-            .when(open, |d| {
-                d.child(
+        let view = cx.entity();
+        let a11y_reveal = reveal.clone();
+        let details = action_button("raw-details")
+            .self_start()
+            .ghost()
+            .small()
+            .label(if open {
+                "Hide technical details"
+            } else {
+                "Technical details"
+            })
+            .on_a11y_click(move |window, cx| {
+                let reveal = a11y_reveal.clone();
+                let _ = view.update(cx, |v, cx| match &reveal {
+                    Some(reveal) => reveal.activate(v, window, cx, toggle_raw_details),
+                    None => toggle_raw_details(v, window, cx),
+                });
+            })
+            .on_click(cx.listener({
+                let reveal = reveal.clone();
+                move |v, _, window, cx| match &reveal {
+                    Some(reveal) => reveal.activate(v, window, cx, toggle_raw_details),
+                    None => toggle_raw_details(v, window, cx),
+                }
+            }));
+        let body = v_flex().gap_2().child(details).when(open, |d| {
+            d.child(
+                card(cx).p_3().child(
                     TextView::markdown(
                         "record-raw",
                         format!(
@@ -67,12 +93,18 @@ impl Workspace {
                         ),
                     )
                     .selectable(true),
-                )
-            })
+                ),
+            )
+        });
+        match reveal {
+            Some(reveal) => reveal.track(body),
+            None => body,
+        }
     }
 
     pub(super) fn record_back(&self, cx: &mut Context<Self>) -> WorkbenchButton {
         action_button("back")
+            .self_start()
             .ghost()
             .small()
             .label("Back to list")
@@ -116,11 +148,13 @@ impl Workspace {
             if let Some(source) = value["source"].as_str() {
                 body = body.child(
                     section("Recorded source", cx).child(
-                        TextView::markdown(
-                            "history-source",
-                            format!("```python\n{}\n```", bounded(source, 65536)),
-                        )
-                        .selectable(true),
+                        card(cx).p_3().child(
+                            TextView::markdown(
+                                "history-source",
+                                format!("```python\n{}\n```", bounded(source, 65536)),
+                            )
+                            .selectable(true),
+                        ),
                     ),
                 );
                 if let Some(current) = value["cell_id"]
@@ -133,9 +167,11 @@ impl Workspace {
                         .get("source-comparison")
                         .copied()
                         .unwrap_or(false);
+                    let id = current.disk.id.clone();
                     body = body.child(
                         h_flex()
                             .gap_2()
+                            .flex_wrap()
                             .items_center()
                             .child(
                                 div()
@@ -164,41 +200,50 @@ impl Workspace {
                                         *flag = !*flag;
                                         cx.notify();
                                     })),
+                            )
+                            .child(
+                                action_button("return-to-cell")
+                                    .outline()
+                                    .small()
+                                    .label("Return to cell")
+                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                        v.select_surface("Notebook", cx);
+                                        let tab = &mut v.tabs[v.active];
+                                        tab.model.selected = Some(id.clone());
+                                        tab.model.mode = Mode::Edit;
+                                        tab.reveal = Some(id.clone());
+                                        if let Some(editor) = tab.editors.get(&id) {
+                                            editor.update(cx, |e, cx| e.focus(window, cx));
+                                        } else {
+                                            v.focus.focus(window, cx);
+                                        }
+                                        cx.notify();
+                                    })),
                             ),
                     );
                     if changed || comparing {
                         body = body.child(
                             section("Current source", cx).child(
-                                TextView::markdown(
-                                    "history-current-source",
-                                    format!("```python\n{}\n```", bounded(&current.text, 65536)),
-                                )
-                                .selectable(true),
+                                card(cx).p_3().child(
+                                    TextView::markdown(
+                                        "history-current-source",
+                                        format!(
+                                            "```python\n{}\n```",
+                                            bounded(&current.text, 65536)
+                                        ),
+                                    )
+                                    .selectable(true),
+                                ),
                             ),
                         );
                     }
-                    let id = current.disk.id.clone();
-                    body = body.child(
-                        action_button("return-to-cell")
-                            .outline()
-                            .small()
-                            .label("Return to cell")
-                            .on_click(cx.listener(move |v, _, window, cx| {
-                                v.select_surface("Notebook", cx);
-                                let tab = &mut v.tabs[v.active];
-                                tab.model.selected = Some(id.clone());
-                                tab.model.mode = Mode::Edit;
-                                tab.reveal = Some(id.clone());
-                                if let Some(editor) = tab.editors.get(&id) {
-                                    editor.update(cx, |e, cx| e.focus(window, cx));
-                                } else {
-                                    v.focus.focus(window, cx);
-                                }
-                                cx.notify();
-                            })),
-                    );
                 } else {
-                    body = body.child("This cell is no longer present in the notebook.");
+                    body = body.child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("This cell is no longer present in the notebook."),
+                    );
                 }
             }
             if let Some(outputs) = value["outputs"].as_array() {
@@ -214,44 +259,64 @@ impl Workspace {
                                 i + 1
                             )
                             .into(),
+                            commands: Some(self.tabs[self.active].service.commands.clone()),
+                            cell_id: value["cell_id"].as_str().unwrap_or_default().into(),
+                            exec_id: value["exec_id"].as_str().unwrap_or_default().into(),
+                            index: i,
                         }
                         .into_any_element(),
                     );
                 }
             }
         } else {
+            let current_method = self.tabs[self.active]
+                .inspection_method
+                .get("History")
+                .map(String::as_str)
+                .unwrap_or("executions.list");
             body = body.child(
                 h_flex()
                     .gap_3()
                     .items_center()
                     .child(
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("History"),
+                        v_flex()
+                            .gap_0p5()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("History"),
+                            )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child("Sessions and executions recorded in the ledger"),
+                            ),
                     )
                     .child(div().flex_1())
                     .child(
-                        action_button("all-executions")
-                            .ghost()
-                            .small()
-                            .label("Executions")
-                            .on_click(cx.listener(|v, _, _, _| {
-                                v.inspect("executions.list", json!({"search_all":true}))
-                            })),
-                    )
-                    .child(
-                        action_button("all-sessions")
-                            .ghost()
-                            .small()
-                            .label("Sessions")
-                            .on_click(
-                                cx.listener(|v, _, _, _| v.inspect("sessions.list", json!({}))),
+                        segmented_track(cx)
+                            .child(
+                                action_button("all-executions")
+                                    .small()
+                                    .segment(current_method != "sessions.list")
+                                    .label("Executions")
+                                    .on_click(cx.listener(|v, _, _, _| {
+                                        v.inspect("executions.list", json!({}))
+                                    })),
+                            )
+                            .child(
+                                action_button("all-sessions")
+                                    .small()
+                                    .segment(current_method == "sessions.list")
+                                    .label("Sessions")
+                                    .on_click(cx.listener(|v, _, _, _| {
+                                        v.inspect("sessions.list", json!({}))
+                                    })),
                             ),
                     ),
             );
-            body = body.child(Input::new(&self.history_query).cleanable(true).small());
-            body = body.child(self.history_filters(cx));
             let query = self.history_query.read(cx).value().to_string();
             let fields_key = query
                 .split_whitespace()
@@ -360,8 +425,13 @@ impl Workspace {
             if !from.is_empty() && !through.is_empty() && from > through {
                 valid = false;
             }
-            body =
-                body.child(fields)
+            body = body.child(
+                card(cx)
+                    .p_3()
+                    .gap_2p5()
+                    .child(Input::new(&self.history_query).cleanable(true).small())
+                    .child(self.history_filters(cx))
+                    .child(fields)
                     .when(!valid, |d| {
                         d.child(
                             div().text_color(cx.theme().danger).text_sm().child(
@@ -407,7 +477,7 @@ impl Workspace {
                                             s.set_value(parts.join(" "), window, cx)
                                         });
                                         v.record_active = 0;
-                                        v.inspect("executions.list", json!({"search_all":true}));
+                                        v.inspect("executions.list", json!({}));
                                         cx.notify();
                                     })),
                             )
@@ -425,10 +495,11 @@ impl Workspace {
                                         cx.notify();
                                     })),
                             ),
-                    );
+                    ),
+            );
             let items = value["items"].as_array().cloned().unwrap_or_default();
             let filter = self.history_query.read(cx).value().to_lowercase();
-            let mut rows = v_flex();
+            let mut rows = card(cx);
             let mut count = 0;
             for (i, item) in items
                 .iter()
@@ -496,7 +567,7 @@ impl Workspace {
                             action_button(("replay-session", i))
                                 .outline()
                                 .small()
-                                .label("Replay session...")
+                                .label("Replay session\u{2026}")
                                 .accessibility_label(format!(
                                     "Replay {}",
                                     record_label(item, &self.tabs[self.active].model)
@@ -513,7 +584,7 @@ impl Workspace {
             if count == 0 {
                 rows = rows.child(empty_row(
                     if value.is_null() {
-                        "Loading recorded history..."
+                        "Loading recorded history\u{2026}"
                     } else if items.is_empty() {
                         "No recorded history in this list. Run a code cell to create history."
                     } else {
@@ -536,7 +607,9 @@ impl Workspace {
                 fields.insert("cursor".into(), value["cursor"].clone());
                 body = body.child(
                     action_button("history-next-page")
+                        .self_start()
                         .ghost()
+                        .small()
                         .label("Next page")
                         .on_click(cx.listener(move |v, _, _, _| {
                             v.inspect(&method, Value::Object(fields.clone()))
@@ -549,7 +622,14 @@ impl Workspace {
     }
     pub(super) fn history_filters(&self, cx: &mut Context<Self>) -> Div {
         let query = self.history_query.read(cx).value().to_string();
-        let mut filters = h_flex().flex_wrap().gap_2().items_center().child("Outcome");
+        let mut filters = h_flex().flex_wrap().gap_1p5().items_center().child(
+            div()
+                .text_xs()
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(cx.theme().muted_foreground)
+                .mr_1()
+                .child("Outcome"),
+        );
         for (value, label) in [
             ("", "All"),
             ("ok", "Succeeded"),
@@ -585,7 +665,13 @@ impl Workspace {
                     })),
             );
         }
-        v_flex().gap_2().child(filters)
-            .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Search source, or combine cell:, session:, after:YYYY-MM-DD and before:YYYY-MM-DD filters."))
+        v_flex().gap_1p5().child(filters).child(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(
+                    "Search source, or combine cell:, session:, after:YYYY-MM-DD and before:YYYY-MM-DD filters.",
+                ),
+        )
     }
 }

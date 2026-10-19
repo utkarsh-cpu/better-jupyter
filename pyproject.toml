@@ -7,7 +7,7 @@ name = "kernelledger"
 version = "0.1.0"
 description = "Source notebooks, durable execution history, and typed Python checkpoints"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["markdown-it-py>=3,<5", "python-docx>=1.2,<2", "reportlab>=4.4,<5"]
 
 [project.scripts]
 kl = "kernelledger.cli:main"
@@ -23,7 +23,7 @@ gpu = [
     "numpy==2.5.2; python_version >= '3.12'",
     "numpy>=2,<2.5; python_version < '3.12'",
 ]
-dev = ["pytest", "hypothesis", "jsonschema", "ruff", "pyright"]
+dev = ["pytest", "hypothesis", "jsonschema", "ruff", "pyright", "pypdf>=5,<7"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kernelledger"]

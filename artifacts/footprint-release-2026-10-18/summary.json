@@ -1,0 +1,11 @@
+{
+  "processes": 4,
+  "conhost": 0,
+  "private_resident_mib": 71.02,
+  "working_set_mib": 150.95,
+  "private_commit_mib": 213.25,
+  "desktop": {
+    "private_resident_mib": 25.12,
+    "private_commit_mib": 161.68
+  }
+}

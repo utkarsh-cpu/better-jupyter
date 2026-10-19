@@ -108,7 +108,12 @@ $items | ForEach-Object {{ [pscustomobject]@{{ name=$_.Current.Name; role=$_.Cur
             assert any(destination in name for name in names), destination
         assert any("Run print('Hello, KernelLedger')" in name for name in names), names
         assert any("Hello, KernelLedger\n" in name for name in names), names
-        if not (args.comfortable and 800 < 560 * args.ui_scale):
+        # Comfortable overflow and compact 200% fold Runtime into Menu at 800px.
+        runtime_on_bar = not (
+            (args.comfortable and 800 < 560 * args.ui_scale)
+            or (not args.comfortable and args.ui_scale >= 2)
+        )
+        if runtime_on_bar:
             assert any(name.startswith("Runtime: Python") for name in names), names
         assert "Run all" in names, names
         assert "Run selected" not in names and "Interrupt" not in names, names

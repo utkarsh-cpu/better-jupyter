@@ -1,0 +1,350 @@
+[
+    {
+        "sample":  1,
+        "time":  "2026-10-18T01:18:30.2810414+05:30",
+        "processes":  [
+                          {
+                              "pid":  62068,
+                              "parent":  42312,
+                              "group":  "marimo tab",
+                              "name":  "T3 Code (Nightly).exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\T3 Code (Nightly).exe\" --type=renderer --user-data-dir=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Roaming\\t3code-v2\" --standard-schemes=t3code,t3code-dev,t3code --secure-schemes=t3code --cors-schemes=t3code --fetch-schemes=t3code --streaming-schemes=t3code,t3code-dev,t3code --code-cache-schemes=t3code --app-user-model-id=com.t3tools.t3code --app-path=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\resources\\app.asar\" --enable-sandbox --enable-blink-features --disable-blink-features --video-capture-use-gpu-memory-buffer --lang=en-US --device-scale-factor=2 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=8 --launch-time-ticks=546848051894 --field-trial-handle=2036,i,10934489384918406192,11201216586660501150,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1716,i,4216427052032867002,1636008373814807192,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=4760 /prefetch:1",
+                              "workingSet":  216432640,
+                              "privateWorkingSet":  101179392,
+                              "privateBytes":  114962432
+                          },
+                          {
+                              "pid":  14340,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\"",
+                              "workingSet":  31043584,
+                              "privateWorkingSet":  17002496,
+                              "privateBytes":  19415040
+                          },
+                          {
+                              "pid":  58488,
+                              "parent":  14340,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  30121984,
+                              "privateWorkingSet":  15310848,
+                              "privateBytes":  16793600
+                          },
+                          {
+                              "pid":  44708,
+                              "parent":  58488,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  847872,
+                              "privateBytes":  1241088
+                          },
+                          {
+                              "pid":  64024,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  95092736,
+                              "privateWorkingSet":  28368896,
+                              "privateBytes":  171393024
+                          },
+                          {
+                              "pid":  55372,
+                              "parent":  64024,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  27774976,
+                              "privateWorkingSet":  15532032,
+                              "privateBytes":  17416192
+                          },
+                          {
+                              "pid":  58172,
+                              "parent":  14268,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\venv\\Scripts\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  4845568,
+                              "privateWorkingSet":  450560,
+                              "privateBytes":  765952
+                          },
+                          {
+                              "pid":  57832,
+                              "parent":  55372,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  843776,
+                              "privateBytes":  1228800
+                          },
+                          {
+                              "pid":  25052,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8462336,
+                              "privateWorkingSet":  835584,
+                              "privateBytes":  1208320
+                          },
+                          {
+                              "pid":  62524,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  74706944,
+                              "privateWorkingSet":  58937344,
+                              "privateBytes":  62017536
+                          },
+                          {
+                              "pid":  37408,
+                              "parent":  62524,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"-c\" \"from multiprocessing.spawn import spawn_main; spawn_main(parent_pid=62524, pipe_handle=1152)\" \"--multiprocessing-fork\"",
+                              "workingSet":  58466304,
+                              "privateWorkingSet":  45428736,
+                              "privateBytes":  47403008
+                          }
+                      ]
+    },
+    {
+        "sample":  2,
+        "time":  "2026-10-18T01:18:41.2289236+05:30",
+        "processes":  [
+                          {
+                              "pid":  62068,
+                              "parent":  42312,
+                              "group":  "marimo tab",
+                              "name":  "T3 Code (Nightly).exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\T3 Code (Nightly).exe\" --type=renderer --user-data-dir=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Roaming\\t3code-v2\" --standard-schemes=t3code,t3code-dev,t3code --secure-schemes=t3code --cors-schemes=t3code --fetch-schemes=t3code --streaming-schemes=t3code,t3code-dev,t3code --code-cache-schemes=t3code --app-user-model-id=com.t3tools.t3code --app-path=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\resources\\app.asar\" --enable-sandbox --enable-blink-features --disable-blink-features --video-capture-use-gpu-memory-buffer --lang=en-US --device-scale-factor=2 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=8 --launch-time-ticks=546848051894 --field-trial-handle=2036,i,10934489384918406192,11201216586660501150,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1716,i,4216427052032867002,1636008373814807192,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=4760 /prefetch:1",
+                              "workingSet":  223584256,
+                              "privateWorkingSet":  108220416,
+                              "privateBytes":  122531840
+                          },
+                          {
+                              "pid":  14340,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\"",
+                              "workingSet":  31043584,
+                              "privateWorkingSet":  17002496,
+                              "privateBytes":  19415040
+                          },
+                          {
+                              "pid":  58488,
+                              "parent":  14340,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  30121984,
+                              "privateWorkingSet":  15310848,
+                              "privateBytes":  16793600
+                          },
+                          {
+                              "pid":  44708,
+                              "parent":  58488,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  847872,
+                              "privateBytes":  1241088
+                          },
+                          {
+                              "pid":  64024,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  95084544,
+                              "privateWorkingSet":  28360704,
+                              "privateBytes":  171384832
+                          },
+                          {
+                              "pid":  55372,
+                              "parent":  64024,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  27783168,
+                              "privateWorkingSet":  15540224,
+                              "privateBytes":  17416192
+                          },
+                          {
+                              "pid":  58172,
+                              "parent":  14268,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\venv\\Scripts\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  4845568,
+                              "privateWorkingSet":  450560,
+                              "privateBytes":  765952
+                          },
+                          {
+                              "pid":  57832,
+                              "parent":  55372,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  843776,
+                              "privateBytes":  1228800
+                          },
+                          {
+                              "pid":  25052,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8462336,
+                              "privateWorkingSet":  835584,
+                              "privateBytes":  1208320
+                          },
+                          {
+                              "pid":  62524,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  75038720,
+                              "privateWorkingSet":  59269120,
+                              "privateBytes":  62263296
+                          },
+                          {
+                              "pid":  37408,
+                              "parent":  62524,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"-c\" \"from multiprocessing.spawn import spawn_main; spawn_main(parent_pid=62524, pipe_handle=1152)\" \"--multiprocessing-fork\"",
+                              "workingSet":  58466304,
+                              "privateWorkingSet":  45428736,
+                              "privateBytes":  47403008
+                          }
+                      ]
+    },
+    {
+        "sample":  3,
+        "time":  "2026-10-18T01:18:52.1217245+05:30",
+        "processes":  [
+                          {
+                              "pid":  62068,
+                              "parent":  42312,
+                              "group":  "marimo tab",
+                              "name":  "T3 Code (Nightly).exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\T3 Code (Nightly).exe\" --type=renderer --user-data-dir=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Roaming\\t3code-v2\" --standard-schemes=t3code,t3code-dev,t3code --secure-schemes=t3code --cors-schemes=t3code --fetch-schemes=t3code --streaming-schemes=t3code,t3code-dev,t3code --code-cache-schemes=t3code --app-user-model-id=com.t3tools.t3code --app-path=\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\t3code\\resources\\app.asar\" --enable-sandbox --enable-blink-features --disable-blink-features --video-capture-use-gpu-memory-buffer --lang=en-US --device-scale-factor=2 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=8 --launch-time-ticks=546848051894 --field-trial-handle=2036,i,10934489384918406192,11201216586660501150,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1716,i,4216427052032867002,1636008373814807192,4 --trace-process-track-uuid=3190708993808206286 --mojo-platform-channel-handle=4760 /prefetch:1",
+                              "workingSet":  226856960,
+                              "privateWorkingSet":  111403008,
+                              "privateBytes":  125841408
+                          },
+                          {
+                              "pid":  14340,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m kernelledger --project \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\" serve --python \"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\"",
+                              "workingSet":  31043584,
+                              "privateWorkingSet":  17002496,
+                              "privateBytes":  19415040
+                          },
+                          {
+                              "pid":  58488,
+                              "parent":  14340,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -X utf8 \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\worker.py\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  30121984,
+                              "privateWorkingSet":  15310848,
+                              "privateBytes":  16793600
+                          },
+                          {
+                              "pid":  44708,
+                              "parent":  58488,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  847872,
+                              "privateBytes":  1241088
+                          },
+                          {
+                              "pid":  64024,
+                              "parent":  14268,
+                              "group":  "KernelLedger",
+                              "name":  "kernelledger-desktop.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe\" \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  95047680,
+                              "privateWorkingSet":  28323840,
+                              "privateBytes":  171347968
+                          },
+                          {
+                              "pid":  55372,
+                              "parent":  64024,
+                              "group":  "KernelLedger",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -I -m kernelledger.desktop.helper --project \"\\\\?\\C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\kernelledger-notebook\"",
+                              "workingSet":  27783168,
+                              "privateWorkingSet":  15540224,
+                              "privateBytes":  17416192
+                          },
+                          {
+                              "pid":  58172,
+                              "parent":  14268,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\venv\\Scripts\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  4845568,
+                              "privateWorkingSet":  450560,
+                              "privateBytes":  765952
+                          },
+                          {
+                              "pid":  57832,
+                              "parent":  55372,
+                              "group":  "KernelLedger",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8474624,
+                              "privateWorkingSet":  843776,
+                              "privateBytes":  1228800
+                          },
+                          {
+                              "pid":  25052,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "conhost.exe",
+                              "command":  "\\??\\C:\\Windows\\system32\\conhost.exe 0x4",
+                              "workingSet":  8462336,
+                              "privateWorkingSet":  835584,
+                              "privateBytes":  1208320
+                          },
+                          {
+                              "pid":  62524,
+                              "parent":  58172,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m marimo edit \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\artifacts\\marimo-memory-2026-10-18\\notebook.py\" --headless --no-token --host 127.0.0.1 --port 57397 --skip-update-check --no-sandbox",
+                              "workingSet":  75022336,
+                              "privateWorkingSet":  59252736,
+                              "privateBytes":  62115840
+                          },
+                          {
+                              "pid":  37408,
+                              "parent":  62524,
+                              "group":  "marimo Python",
+                              "name":  "python.exe",
+                              "command":  "\"C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" \"-c\" \"from multiprocessing.spawn import spawn_main; spawn_main(parent_pid=62524, pipe_handle=1152)\" \"--multiprocessing-fork\"",
+                              "workingSet":  58466304,
+                              "privateWorkingSet":  45428736,
+                              "privateBytes":  47403008
+                          }
+                      ]
+    }
+]

@@ -1,0 +1,174 @@
+﻿[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List"
+    },
+    {
+        "name":  "Cell 1: # Forecast analysis",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 2: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 4: ## Next experiment",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 5: for day, value in enumerate(observations, 1):",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for # Forecast analysis",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Output tools: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "code cell baseline",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Recorded output: Mean: 16.5\n",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Output tools: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "code cell forecast",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Recorded output: Preparing forecast...\n",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: float division by zero",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Show full traceback for Output 2 for cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 3",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for ## Next experiment",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 4",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export complete: Forecast analysis - October experiment.docx",
+        "role":  "ControlType.StatusBar"
+    },
+    {
+        "name":  "Open file",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Show in folder",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Dismiss",
+        "role":  "ControlType.Button"
+    }
+]

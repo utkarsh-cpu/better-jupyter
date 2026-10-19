@@ -1,4 +1,89 @@
+use std::{cell::Cell, rc::Rc};
+
 use super::*;
+
+/// Tracks one settings group against its scroll viewport.
+///
+/// Activation of a clipped group scrolls that group into view on the next
+/// frame, before the action runs. The scroll container marks itself as
+/// clipping so fully covered controls are not presented as on-screen.
+#[derive(Clone)]
+pub(crate) struct GroupReveal {
+    scroll: ScrollHandle,
+    bounds: Rc<Cell<Bounds<Pixels>>>,
+}
+
+impl GroupReveal {
+    pub(super) fn new(scroll: ScrollHandle) -> Self {
+        Self {
+            scroll,
+            bounds: Rc::new(Cell::new(Bounds::default())),
+        }
+    }
+
+    pub(super) fn track<E>(&self, group: E) -> E
+    where
+        E: ParentElement + Styled,
+    {
+        let bounds = self.bounds.clone();
+        group.relative().child(
+            canvas(move |painted, _, _| bounds.set(painted), |_, _, _, _| {})
+                .absolute()
+                .inset_0(),
+        )
+    }
+
+    fn is_clipped(&self) -> bool {
+        let viewport = self.scroll.bounds();
+        let group = self.bounds.get();
+        if viewport.size.height <= px(1.) || group.size.height <= px(1.) {
+            return false;
+        }
+        group.top() < viewport.top() - px(1.) || group.bottom() > viewport.bottom() + px(1.)
+    }
+
+    fn schedule(&self, window: &mut Window) {
+        let scroll = self.scroll.clone();
+        let bounds = self.bounds.clone();
+        window.on_next_frame(move |_, _| {
+            let viewport = scroll.bounds();
+            let group = bounds.get();
+            if viewport.size.height <= px(1.) || group.size.height <= px(1.) {
+                return;
+            }
+            let mut offset = scroll.offset();
+            if group.size.height <= viewport.size.height {
+                if group.bottom() > viewport.bottom() {
+                    offset.y -= group.bottom() - viewport.bottom();
+                }
+                if group.top() < viewport.top() {
+                    offset.y += viewport.top() - group.top();
+                }
+            } else {
+                offset.y -= group.top() - viewport.top();
+            }
+            offset.y = offset.y.clamp(-scroll.max_offset().y, px(0.));
+            scroll.set_offset(offset);
+        });
+    }
+
+    /// Runs `apply` immediately when the group is already visible.
+    /// A clipped group scrolls first; `apply` runs on the next frame.
+    pub(super) fn activate(
+        &self,
+        view: &mut Workspace,
+        window: &mut Window,
+        cx: &mut Context<Workspace>,
+        apply: impl FnOnce(&mut Workspace, &mut Window, &mut Context<Workspace>) + 'static,
+    ) {
+        if self.is_clipped() {
+            self.schedule(window);
+            cx.on_next_frame(window, apply);
+        } else {
+            apply(view, window, cx);
+        }
+    }
+}
 
 pub(super) struct WorkbenchPresentation {
     pub comfortable: bool,
@@ -17,7 +102,7 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
                 window.prevent_default();
                 cx.stop_propagation();
             })
-            .rounded(px(8.))
+            .rounded(px(7.))
             .font_weight(FontWeight::MEDIUM)
             .min_h(rems(1.875))
             .min_w(rems(1.75))
@@ -26,6 +111,7 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
         disabled: false,
         name: None,
         treatment: ButtonTreatment::Secondary,
+        a11y_click: None,
     }
 }
 
@@ -38,6 +124,7 @@ pub(super) struct WorkbenchButton {
     disabled: bool,
     name: Option<SharedString>,
     treatment: ButtonTreatment,
+    a11y_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
 }
 enum ButtonTreatment {
     Secondary,
@@ -87,6 +174,15 @@ impl WorkbenchButton {
         self.inner = self.inner.label(text);
         self
     }
+    pub fn menu_label(mut self, label: impl Into<SharedString>) -> Self {
+        let text = label.into();
+        self.name = Some(text.clone());
+        self.inner = self
+            .inner
+            .accessibility_label(text.clone())
+            .child(div().w_full().text_left().child(text));
+        self
+    }
     pub fn accessibility_label(mut self, label: impl Into<SharedString>) -> Self {
         let label = label.into();
         self.name = Some(label.clone());
@@ -99,10 +195,6 @@ impl WorkbenchButton {
     }
     pub fn outline(mut self) -> Self {
         self.inner = self.inner.outline();
-        self
-    }
-    pub fn large(mut self) -> Self {
-        self.inner = self.inner.large();
         self
     }
     pub fn small(mut self) -> Self {
@@ -151,6 +243,13 @@ impl WorkbenchButton {
         self.inner = self.inner.on_click(listener);
         self
     }
+
+    /// Handles UI Automation Invoke directly. The toolkit's default Invoke
+    /// clicks the control center, which misses when that center is clipped.
+    pub fn on_a11y_click(mut self, listener: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.a11y_click = Some(Rc::new(listener));
+        self
+    }
 }
 impl Styled for WorkbenchButton {
     fn style(&mut self) -> &mut StyleRefinement {
@@ -164,14 +263,22 @@ impl RenderOnce for WorkbenchButton {
         let high_contrast = theme.background.l == 0.;
         match self.treatment {
             ButtonTreatment::Secondary => {
-                self.inner = self.inner.custom(
-                    ButtonCustomVariant::new(cx)
-                        .color(theme.popover)
-                        .foreground(theme.foreground)
-                        .hover(theme.muted)
-                        .active(theme.list_active)
-                        .shadow(!high_contrast),
-                );
+                self.inner = self
+                    .inner
+                    .custom(
+                        ButtonCustomVariant::new(cx)
+                            .color(theme.popover)
+                            .foreground(theme.foreground)
+                            .hover(theme.muted)
+                            .active(theme.list_active)
+                            .shadow(!high_contrast),
+                    )
+                    .border_1()
+                    .border_color(if high_contrast {
+                        theme.border
+                    } else {
+                        divider(cx)
+                    });
             }
             ButtonTreatment::Segment(selected) => {
                 self.inner = self
@@ -183,7 +290,11 @@ impl RenderOnce for WorkbenchButton {
                             } else {
                                 theme.transparent
                             })
-                            .foreground(theme.foreground)
+                            .foreground(if selected {
+                                theme.foreground
+                            } else {
+                                theme.muted_foreground
+                            })
                             .hover(theme.popover)
                             .active(theme.list_active)
                             .shadow(selected && !high_contrast),
@@ -215,6 +326,9 @@ impl RenderOnce for WorkbenchButton {
         {
             self.inner = self.inner.min_h(rems(2.75)).min_w(rems(2.75));
         }
+        let a11y_click = self.a11y_click.take();
+        let a11y_name = self.name.clone();
+        let segment_selected = matches!(self.treatment, ButtonTreatment::Segment(true));
         if self.disabled {
             // Unavailable actions use neutral colors rather than looking selected.
             self.inner = self.inner.custom(
@@ -238,6 +352,30 @@ impl RenderOnce for WorkbenchButton {
                 .a11y_synthetic_children(|tree| tree.parent_node().set_disabled())
                 .child(self.inner.role(None))
                 .into_any_element()
+        } else if let Some(listener) = a11y_click {
+            // Invoke is handled here because this button type cannot register
+            // an accessibility action on its own node. The visible button keeps
+            // pointer and test identity; this node is what UI Automation invokes.
+            div()
+                .id((self.id, "invoke"))
+                .flex_none()
+                .role(Role::Button)
+                .when_some(a11y_name, |node, name| node.aria_label(name))
+                .when(
+                    matches!(self.treatment, ButtonTreatment::Segment(_)),
+                    |node| {
+                        node.aria_toggled(if segment_selected {
+                            accesskit::Toggled::True
+                        } else {
+                            accesskit::Toggled::False
+                        })
+                    },
+                )
+                .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+                    listener(window, cx);
+                })
+                .child(self.inner.role(None))
+                .into_any_element()
         } else {
             self.inner.into_any_element()
         }
@@ -246,16 +384,18 @@ impl RenderOnce for WorkbenchButton {
 pub(super) struct WorkbenchHint(pub SharedString);
 impl Render for WorkbenchHint {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let high_contrast = cx.theme().background.l == 0.;
         div()
-            .px_2()
+            .px_2p5()
             .py_1()
             .max_w(px(360.))
-            .rounded(px(4.))
+            .rounded(px(6.))
             .bg(cx.theme().popover)
             .text_color(cx.theme().popover_foreground)
             .border_1()
-            .border_color(cx.theme().border)
-            .text_sm()
+            .border_color(divider(cx))
+            .when(!high_contrast, |d| d.shadow_sm())
+            .text_xs()
             .child(self.0.clone())
     }
 }
@@ -267,7 +407,7 @@ pub(super) fn divider(cx: &App) -> Hsla {
     if cx.theme().background.l == 0. {
         color
     } else {
-        color.opacity(0.22)
+        color.opacity(0.24)
     }
 }
 
@@ -276,6 +416,9 @@ pub(super) fn outcome_label(value: &str) -> &str {
         "ok" => "Succeeded",
         "error" => "Failed",
         "complete" => "Complete",
+        "idle" => "Ready",
+        "running" => "Running",
+        "verified" => "Active",
         _ => value,
     }
 }
@@ -285,9 +428,11 @@ pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Div {
         .flex_none()
         .min_h(rems(1.125))
         .px(px(6.))
-        .py(px(2.))
+        .py(px(1.5))
         .rounded(px(5.))
-        .bg(color.opacity(0.10))
+        .bg(color.opacity(0.11))
+        .border_1()
+        .border_color(color.opacity(0.22))
         .items_center()
         .text_color(color)
         .text_size(rems(0.75))
@@ -306,7 +451,9 @@ pub(super) fn icon_tile(glyph: Glyph, size: f32, cx: &App) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .bg(primary.opacity(0.1))
+        .bg(primary.opacity(0.10))
+        .border_1()
+        .border_color(primary.opacity(0.20))
         .text_color(primary)
         .child(Icon::new(glyph).with_size(px(size / 2.)))
 }
@@ -319,7 +466,7 @@ pub(super) fn banner(color: Hsla, glyph: Glyph) -> Div {
         .items_center()
         .bg(color.opacity(0.08))
         .border_b_1()
-        .border_color(color.opacity(0.25))
+        .border_color(color.opacity(0.24))
         .child(
             div()
                 .flex_none()
@@ -330,9 +477,9 @@ pub(super) fn banner(color: Hsla, glyph: Glyph) -> Div {
 pub(super) fn section(title: &str, cx: &App) -> Div {
     v_flex().gap_2().child(
         div()
-            .text_xs()
+            .text_sm()
             .font_weight(FontWeight::SEMIBOLD)
-            .text_color(cx.theme().muted_foreground)
+            .text_color(cx.theme().foreground)
             .child(title.to_string()),
     )
 }
@@ -353,9 +500,9 @@ pub(super) fn segmented_track(cx: &App) -> Div {
         .self_start()
         .min_w_0()
         .flex_wrap()
-        .gap(px(3.))
+        .gap(px(2.))
         .p(px(3.))
-        .rounded(px(9.))
+        .rounded(px(8.))
         .bg(cx.theme().muted)
         .border_1()
         .border_color(divider(cx))
@@ -372,6 +519,42 @@ pub(super) fn settings_group(title: &str, cx: &App) -> Div {
         .border_1()
         .border_color(divider(cx))
 }
+
+pub(super) fn setting_row(
+    label: &str,
+    description: &str,
+    control: impl IntoElement,
+    cx: &App,
+) -> Div {
+    v_flex()
+        .w_full()
+        .min_w_0()
+        .gap_1p5()
+        .pt_2()
+        .border_t_1()
+        .border_color(divider(cx))
+        .child(
+            v_flex()
+                .gap_0p5()
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(cx.theme().foreground)
+                        .child(label.to_string()),
+                )
+                .when(!description.is_empty(), |d| {
+                    d.child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(description.to_string()),
+                    )
+                }),
+        )
+        .child(control)
+}
+
 pub(super) fn row(cx: &App) -> Div {
     h_flex()
         .flex_wrap()
@@ -386,7 +569,7 @@ pub(super) fn row(cx: &App) -> Div {
 pub(super) fn empty_row(text: &str, cx: &App) -> Div {
     div()
         .px_4()
-        .py_4()
+        .py_5()
         .text_sm()
         .text_color(cx.theme().muted_foreground)
         .child(text.to_string())
@@ -394,6 +577,7 @@ pub(super) fn empty_row(text: &str, cx: &App) -> Div {
 pub(super) fn record_row(glyph: Glyph, id: &str, status: &str, cx: &App) -> Div {
     let theme = cx.theme();
     row(cx)
+        .hover(move |s| s.bg(theme.list_hover))
         .child(Icon::new(glyph).small().text_color(theme.muted_foreground))
         .child(
             div()
@@ -402,9 +586,12 @@ pub(super) fn record_row(glyph: Glyph, id: &str, status: &str, cx: &App) -> Div 
                 .truncate()
                 .whitespace_normal()
                 .text_sm()
+                .font_weight(FontWeight::MEDIUM)
                 .child(id.to_string()),
         )
-        .child(badge(outcome_label(status).to_string(), tone(status, cx)))
+        .when(!status.is_empty(), |d| {
+            d.child(badge(outcome_label(status).to_string(), tone(status, cx)))
+        })
 }
 
 pub(super) struct CopyNotice {

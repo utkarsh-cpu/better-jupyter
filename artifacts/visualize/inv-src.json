@@ -1,0 +1,1390 @@
+{
+  "package": "kernelledger",
+  "root_dir": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger",
+  "total": {
+    "modules": 30,
+    "lines": 8566,
+    "classes": 26,
+    "functions": 87
+  },
+  "groups": {
+    "": {
+      "lines": 3,
+      "modules": 1,
+      "classes": 0,
+      "functions": 0
+    },
+    "__main__": {
+      "lines": 3,
+      "modules": 1,
+      "classes": 0,
+      "functions": 0
+    },
+    "artifacts": {
+      "lines": 380,
+      "modules": 1,
+      "classes": 2,
+      "functions": 3
+    },
+    "blobs": {
+      "lines": 139,
+      "modules": 1,
+      "classes": 1,
+      "functions": 2
+    },
+    "cli": {
+      "lines": 601,
+      "modules": 1,
+      "classes": 0,
+      "functions": 10
+    },
+    "desktop": {
+      "lines": 1399,
+      "modules": 5,
+      "classes": 2,
+      "functions": 11
+    },
+    "execution": {
+      "lines": 64,
+      "modules": 2,
+      "classes": 1,
+      "functions": 2
+    },
+    "experiments": {
+      "lines": 542,
+      "modules": 1,
+      "classes": 0,
+      "functions": 11
+    },
+    "git_state": {
+      "lines": 56,
+      "modules": 1,
+      "classes": 0,
+      "functions": 1
+    },
+    "gpu": {
+      "lines": 1174,
+      "modules": 8,
+      "classes": 5,
+      "functions": 13
+    },
+    "ledger": {
+      "lines": 378,
+      "modules": 1,
+      "classes": 1,
+      "functions": 3
+    },
+    "notebook": {
+      "lines": 352,
+      "modules": 1,
+      "classes": 1,
+      "functions": 5
+    },
+    "registry": {
+      "lines": 63,
+      "modules": 1,
+      "classes": 0,
+      "functions": 4
+    },
+    "sharing": {
+      "lines": 482,
+      "modules": 1,
+      "classes": 1,
+      "functions": 9
+    },
+    "source": {
+      "lines": 402,
+      "modules": 1,
+      "classes": 2,
+      "functions": 2
+    },
+    "supervisor": {
+      "lines": 1173,
+      "modules": 2,
+      "classes": 3,
+      "functions": 6
+    },
+    "worker": {
+      "lines": 1355,
+      "modules": 1,
+      "classes": 7,
+      "functions": 5
+    }
+  },
+  "modules": [
+    {
+      "name": "kernelledger",
+      "file": "src/kernelledger/__init__.py",
+      "lines": 3,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "KernelLedger's local notebook runtime.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.__main__",
+      "file": "src/kernelledger/__main__.py",
+      "lines": 3,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "",
+      "imports_internal": [
+        "kernelledger.cli"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.artifacts",
+      "file": "src/kernelledger/artifacts.py",
+      "lines": 380,
+      "classes": 2,
+      "functions": 3,
+      "public_classes": [
+        "BinaryReader",
+        "ArtifactStore"
+      ],
+      "public_functions": [
+        "canonical",
+        "integer",
+        "validate_artifact"
+      ],
+      "doc": "Experimental v5 chunk store. Independent of the v4 runtime ledger. Every published object is a root until explicitly released. Writers, transfers, and GC serialize on an OS lock; leases protect transitive closure between calls. The format i",
+      "imports_internal": [
+        "kernelledger.blobs",
+        "kernelledger.supervisor.platform"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "collections",
+        "contextlib",
+        "hashlib",
+        "io",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "tempfile",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.blobs",
+      "file": "src/kernelledger/blobs.py",
+      "lines": 139,
+      "classes": 1,
+      "functions": 2,
+      "public_classes": [
+        "BlobStore"
+      ],
+      "public_functions": [
+        "check_hash",
+        "references"
+      ],
+      "doc": "Durable immutable content-addressed payloads.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.cli",
+      "file": "src/kernelledger/cli.py",
+      "lines": 601,
+      "classes": 0,
+      "functions": 10,
+      "public_classes": [],
+      "public_functions": [
+        "connect",
+        "rpc",
+        "alive",
+        "ensure_supervisor",
+        "parser",
+        "emit",
+        "render",
+        "offline_mutation",
+        "execute_cli",
+        "main"
+      ],
+      "doc": "KernelLedger CLI. Inspection never starts a worker or supervisor.",
+      "imports_internal": [
+        "kernelledger.blobs",
+        "kernelledger.ledger",
+        "kernelledger.notebook",
+        "kernelledger.sharing",
+        "kernelledger.supervisor.platform",
+        "kernelledger.worker"
+      ],
+      "local_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.desktop.helper",
+        "kernelledger.experiments",
+        "kernelledger.git_state",
+        "kernelledger.gpu.backends.capabilities",
+        "kernelledger.gpu.portable",
+        "kernelledger.registry",
+        "kernelledger.sharing",
+        "kernelledger.source",
+        "kernelledger.supervisor"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "argparse",
+        "getpass",
+        "json",
+        "os",
+        "pathlib",
+        "socket",
+        "sqlite3",
+        "subprocess",
+        "sys",
+        "time",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.desktop",
+      "file": "src/kernelledger/desktop/__init__.py",
+      "lines": 1,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "Desktop protocol version 1; separate from the worker and legacy protocols.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.desktop.contracts",
+      "file": "src/kernelledger/desktop/contracts.py",
+      "lines": 257,
+      "classes": 0,
+      "functions": 2,
+      "public_classes": [],
+      "public_functions": [
+        "validate",
+        "schema"
+      ],
+      "doc": "Protocol request catalog used for stdlib validation and published JSON schemas.",
+      "imports_internal": [
+        "kernelledger.source"
+      ],
+      "local_internal": [
+        "kernelledger.blobs"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.desktop.helper",
+      "file": "src/kernelledger/desktop/helper.py",
+      "lines": 297,
+      "classes": 1,
+      "functions": 3,
+      "public_classes": [
+        "Helper"
+      ],
+      "public_functions": [
+        "candidates",
+        "validate_interpreter",
+        "main"
+      ],
+      "doc": "Offline desktop source and inspection server. Never launches notebook code.",
+      "imports_internal": [
+        "kernelledger.__version__",
+        "kernelledger.blobs",
+        "kernelledger.desktop.contracts",
+        "kernelledger.desktop.protocol",
+        "kernelledger.ledger",
+        "kernelledger.notebook",
+        "kernelledger.sharing",
+        "kernelledger.source"
+      ],
+      "local_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.experiments",
+        "kernelledger.gpu.backends.capabilities"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "argparse",
+        "json",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "shutil",
+        "struct",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.desktop.protocol",
+      "file": "src/kernelledger/desktop/protocol.py",
+      "lines": 102,
+      "classes": 0,
+      "functions": 6,
+      "public_classes": [],
+      "public_functions": [
+        "encode",
+        "read",
+        "send",
+        "error",
+        "hello",
+        "page"
+      ],
+      "doc": "Bounded JSON framing and shared validation for socket and stdio clients.",
+      "imports_internal": [
+        "kernelledger.source"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "base64",
+        "json",
+        "struct",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.desktop.server",
+      "file": "src/kernelledger/desktop/server.py",
+      "lines": 742,
+      "classes": 1,
+      "functions": 0,
+      "public_classes": [
+        "DesktopServer"
+      ],
+      "public_functions": [],
+      "doc": "Supervisor-owned durable desktop operations, input ownership and committed feeds.",
+      "imports_internal": [
+        "kernelledger.__version__",
+        "kernelledger.desktop.contracts",
+        "kernelledger.desktop.protocol",
+        "kernelledger.ledger",
+        "kernelledger.notebook",
+        "kernelledger.source"
+      ],
+      "local_internal": [
+        "kernelledger.sharing",
+        "kernelledger.supervisor"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "asyncio",
+        "json",
+        "os",
+        "secrets",
+        "time",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.execution",
+      "file": "src/kernelledger/execution/__init__.py",
+      "lines": 1,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "Execution target identities for the experimental v5 contracts.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.execution.targets",
+      "file": "src/kernelledger/execution/targets.py",
+      "lines": 63,
+      "classes": 1,
+      "functions": 2,
+      "public_classes": [
+        "Target"
+      ],
+      "public_functions": [
+        "local_target",
+        "runtime_identity"
+      ],
+      "doc": "Read-only target identity. Credentials and machine paths are never tracked.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "dataclasses",
+        "hashlib",
+        "os",
+        "pathlib",
+        "platform",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.experiments",
+      "file": "src/kernelledger/experiments.py",
+      "lines": 542,
+      "classes": 0,
+      "functions": 11,
+      "public_classes": [],
+      "public_functions": [
+        "inspect_experiment",
+        "materialize_source",
+        "validate_experiment_path",
+        "validate_training_parameters",
+        "capture_training",
+        "restore_training"
+      ],
+      "doc": "Experimental explicit PyTorch training snapshots, outside the v4 worker API. Factories are supplied by the caller at restore, never deserialized from bytes. The caller owns the idle training boundary and dataset cursor/drain rule.",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.blobs",
+        "kernelledger.gpu.portable"
+      ],
+      "local_internal": [],
+      "imports_external": [
+        "numpy",
+        "torch"
+      ],
+      "stdlib": [
+        "collections",
+        "os",
+        "pathlib",
+        "platform",
+        "random",
+        "re",
+        "shutil",
+        "tempfile",
+        "typing",
+        "uuid"
+      ],
+      "optional": true
+    },
+    {
+      "name": "kernelledger.git_state",
+      "file": "src/kernelledger/git_state.py",
+      "lines": 56,
+      "classes": 0,
+      "functions": 1,
+      "public_classes": [],
+      "public_functions": [
+        "experiment_status"
+      ],
+      "doc": "Read-only experimental source/state association checks. No Git hooks installed.",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.experiments"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "hashlib",
+        "pathlib",
+        "subprocess",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu",
+      "file": "src/kernelledger/gpu/__init__.py",
+      "lines": 1,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "Experimental v5 APIs. Importing this package does not import a GPU framework.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu.backends",
+      "file": "src/kernelledger/gpu/backends/__init__.py",
+      "lines": 1,
+      "classes": 0,
+      "functions": 0,
+      "public_classes": [],
+      "public_functions": [],
+      "doc": "Native backends are unqualified until recorded real hardware restore evidence.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu.backends.capabilities",
+      "file": "src/kernelledger/gpu/backends/capabilities.py",
+      "lines": 131,
+      "classes": 0,
+      "functions": 2,
+      "public_classes": [],
+      "public_functions": [
+        "inventory",
+        "probe"
+      ],
+      "doc": "Inventory never imports a framework. Active probing is a separate process.",
+      "imports_internal": [
+        "kernelledger.execution.targets"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "importlib",
+        "json",
+        "os",
+        "pathlib",
+        "platform",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu.backends.probe",
+      "file": "src/kernelledger/gpu/backends/probe.py",
+      "lines": 77,
+      "classes": 0,
+      "functions": 1,
+      "public_classes": [],
+      "public_functions": [
+        "run"
+      ],
+      "doc": "Disposable active probe. Invoked by absolute path with an isolated interpreter.",
+      "imports_internal": [],
+      "local_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.gpu.portable"
+      ],
+      "imports_external": [
+        "torch"
+      ],
+      "stdlib": [
+        "hashlib",
+        "json",
+        "pathlib",
+        "platform",
+        "sys",
+        "tempfile",
+        "typing"
+      ],
+      "optional": true
+    },
+    {
+      "name": "kernelledger.gpu.cooperative",
+      "file": "src/kernelledger/gpu/cooperative.py",
+      "lines": 388,
+      "classes": 3,
+      "functions": 1,
+      "public_classes": [
+        "CheckpointBusy",
+        "CheckpointFaulted",
+        "CooperativeCheckpointPlugin"
+      ],
+      "public_functions": [],
+      "doc": "Opt-in cooperative training checkpoints; importing this module loads no framework. All registered-object mutations must use training_step(). Background data loaders must be drained by the supplied callback. Restore belongs in a fresh proces",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.experiments"
+      ],
+      "local_internal": [],
+      "imports_external": [
+        "torch"
+      ],
+      "stdlib": [
+        "collections",
+        "concurrent",
+        "contextlib",
+        "hashlib",
+        "json",
+        "pathlib",
+        "threading",
+        "types",
+        "typing"
+      ],
+      "optional": true
+    },
+    {
+      "name": "kernelledger.gpu.manifest",
+      "file": "src/kernelledger/gpu/manifest.py",
+      "lines": 190,
+      "classes": 0,
+      "functions": 2,
+      "public_classes": [],
+      "public_functions": [
+        "validate_tensor",
+        "validate_state"
+      ],
+      "doc": "Framework-free validation of the experimental portable tensor format.",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.blobs"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "math",
+        "re",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu.notebook",
+      "file": "src/kernelledger/gpu/notebook.py",
+      "lines": 127,
+      "classes": 0,
+      "functions": 5,
+      "public_classes": [],
+      "public_functions": [
+        "register",
+        "status",
+        "capture",
+        "reconstruct"
+      ],
+      "doc": "Explicit installed plugin bridge for the standalone notebook worker. Only register() imports PyTorch. This module never writes a notebook ledger. Captured sources are retained in an owned temporary directory on reconstruction.",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.experiments",
+        "kernelledger.gpu.cooperative"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "atexit",
+        "importlib",
+        "os",
+        "pathlib",
+        "sys",
+        "tempfile",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.gpu.portable",
+      "file": "src/kernelledger/gpu/portable.py",
+      "lines": 259,
+      "classes": 2,
+      "functions": 2,
+      "public_classes": [
+        "PortableEncoder"
+      ],
+      "public_functions": [
+        "inspect_state",
+        "restore_values"
+      ],
+      "doc": "Explicit typed PyTorch values; no pickle or framework-native loaders. Call capture only at an application-owned idle boundary. This prototype does not change the standalone v4 worker's checkpoint or busy-refusal contract.",
+      "imports_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.gpu.manifest"
+      ],
+      "local_internal": [],
+      "imports_external": [
+        "torch"
+      ],
+      "stdlib": [
+        "collections",
+        "io",
+        "math",
+        "re",
+        "sys",
+        "typing",
+        "uuid"
+      ],
+      "optional": true
+    },
+    {
+      "name": "kernelledger.ledger",
+      "file": "src/kernelledger/ledger.py",
+      "lines": 378,
+      "classes": 1,
+      "functions": 3,
+      "public_classes": [
+        "Ledger"
+      ],
+      "public_functions": [
+        "now",
+        "uid",
+        "fold"
+      ],
+      "doc": "Single-writer SQLite execution history; readers never create a database.",
+      "imports_internal": [],
+      "local_internal": [
+        "kernelledger.__version__",
+        "kernelledger.source"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "contextlib",
+        "datetime",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "platform",
+        "sqlite3",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.notebook",
+      "file": "src/kernelledger/notebook.py",
+      "lines": 352,
+      "classes": 1,
+      "functions": 5,
+      "public_classes": [
+        "Notebook"
+      ],
+      "public_functions": [
+        "valid_id",
+        "filename",
+        "canonical",
+        "source_hash",
+        "write_json"
+      ],
+      "doc": "Tracked notebook source and standard-library ipynb conversion.",
+      "imports_internal": [],
+      "local_internal": [
+        "kernelledger.source"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "base64",
+        "hashlib",
+        "json",
+        "pathlib",
+        "re",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.registry",
+      "file": "src/kernelledger/registry.py",
+      "lines": 63,
+      "classes": 0,
+      "functions": 4,
+      "public_classes": [],
+      "public_functions": [
+        "directory",
+        "entry_path",
+        "publish",
+        "list_runtimes"
+      ],
+      "doc": "Runtime hints. Authentication, never a pid, establishes liveness.",
+      "imports_internal": [
+        "kernelledger.source"
+      ],
+      "local_internal": [
+        "kernelledger.worker"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "socket",
+        "struct",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.sharing",
+      "file": "src/kernelledger/sharing.py",
+      "lines": 482,
+      "classes": 1,
+      "functions": 9,
+      "public_classes": [
+        "Bundle"
+      ],
+      "public_functions": [
+        "payload",
+        "output_view",
+        "notebook_outputs",
+        "descriptor",
+        "gc",
+        "selected_rows",
+        "export_bundle",
+        "import_bundle",
+        "mutate"
+      ],
+      "doc": "Read-only output views and verified sharing artifacts.",
+      "imports_internal": [
+        "kernelledger.blobs",
+        "kernelledger.ledger",
+        "kernelledger.notebook",
+        "kernelledger.worker"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "base64",
+        "hashlib",
+        "json",
+        "pathlib",
+        "shutil",
+        "tempfile",
+        "typing",
+        "zipfile"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.source",
+      "file": "src/kernelledger/source.py",
+      "lines": 402,
+      "classes": 2,
+      "functions": 2,
+      "public_classes": [
+        "SourceError",
+        "SourceService"
+      ],
+      "public_functions": [
+        "manifest_bytes",
+        "atomic"
+      ],
+      "doc": "Revision-checked source transactions. Only this module publishes tracked source.",
+      "imports_internal": [
+        "kernelledger.notebook"
+      ],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "base64",
+        "contextlib",
+        "copy",
+        "fcntl",
+        "hashlib",
+        "json",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "shutil",
+        "tempfile",
+        "time",
+        "typing",
+        "uuid"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.supervisor",
+      "file": "src/kernelledger/supervisor/__init__.py",
+      "lines": 926,
+      "classes": 1,
+      "functions": 5,
+      "public_classes": [
+        "Supervisor"
+      ],
+      "public_functions": [
+        "read_message",
+        "send_message",
+        "send_blob",
+        "interpreter",
+        "main"
+      ],
+      "doc": "Authenticated asyncio supervisor; sole writer of runtime state.",
+      "imports_internal": [
+        "kernelledger.blobs",
+        "kernelledger.ledger",
+        "kernelledger.notebook",
+        "kernelledger.supervisor.platform",
+        "kernelledger.worker"
+      ],
+      "local_internal": [
+        "kernelledger.artifacts",
+        "kernelledger.desktop.helper",
+        "kernelledger.desktop.server",
+        "kernelledger.experiments",
+        "kernelledger.gpu.backends.capabilities",
+        "kernelledger.notebook",
+        "kernelledger.registry",
+        "kernelledger.sharing",
+        "kernelledger.source"
+      ],
+      "imports_external": [],
+      "stdlib": [
+        "asyncio",
+        "codecs",
+        "copy",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "secrets",
+        "shutil",
+        "struct",
+        "sys",
+        "tempfile",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.supervisor.platform",
+      "file": "src/kernelledger/supervisor/platform.py",
+      "lines": 247,
+      "classes": 2,
+      "functions": 1,
+      "public_classes": [
+        "DirectoryLock",
+        "ProcessTree"
+      ],
+      "public_functions": [
+        "secure_token"
+      ],
+      "doc": "OS-owned locks, child process lifetime, and token permissions.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "ctypes",
+        "fcntl",
+        "json",
+        "msvcrt",
+        "os",
+        "pathlib",
+        "re",
+        "signal",
+        "typing"
+      ],
+      "optional": false
+    },
+    {
+      "name": "kernelledger.worker",
+      "file": "src/kernelledger/worker.py",
+      "lines": 1355,
+      "classes": 7,
+      "functions": 5,
+      "public_classes": [
+        "Channel",
+        "Excluded",
+        "ExecutionIndex",
+        "GraphEncoder",
+        "GraphLoader",
+        "Stream",
+        "Worker"
+      ],
+      "public_functions": [
+        "json_bytes",
+        "recv_exact",
+        "receive",
+        "validate_checkpoint",
+        "main"
+      ],
+      "doc": "Standalone worker. Intentionally imports no KernelLedger modules.",
+      "imports_internal": [],
+      "local_internal": [],
+      "imports_external": [],
+      "stdlib": [
+        "_thread",
+        "ast",
+        "base64",
+        "builtins",
+        "datetime",
+        "decimal",
+        "enum",
+        "fractions",
+        "getpass",
+        "hashlib",
+        "importlib",
+        "io",
+        "json",
+        "linecache",
+        "math",
+        "os",
+        "pathlib",
+        "platform",
+        "queue",
+        "random",
+        "re",
+        "signal",
+        "socket",
+        "struct",
+        "sys",
+        "threading",
+        "time",
+        "traceback",
+        "types",
+        "typing",
+        "uuid",
+        "zoneinfo"
+      ],
+      "optional": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "kernelledger.__main__",
+      "to": "kernelledger.cli"
+    },
+    {
+      "from": "kernelledger.artifacts",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.artifacts",
+      "to": "kernelledger.supervisor.platform"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.supervisor.platform"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.sharing"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.ledger"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.worker"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.notebook"
+    },
+    {
+      "from": "kernelledger.desktop.contracts",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.sharing"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.ledger"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.desktop.contracts"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.desktop.protocol"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.notebook"
+    },
+    {
+      "from": "kernelledger.desktop.protocol",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.ledger"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.desktop.contracts"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.desktop.protocol"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.notebook"
+    },
+    {
+      "from": "kernelledger.experiments",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.experiments",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.experiments",
+      "to": "kernelledger.gpu.portable"
+    },
+    {
+      "from": "kernelledger.git_state",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.git_state",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.backends.capabilities",
+      "to": "kernelledger.execution.targets"
+    },
+    {
+      "from": "kernelledger.gpu.cooperative",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.gpu.cooperative",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.manifest",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.manifest",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.gpu.notebook",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.gpu.notebook",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.notebook",
+      "to": "kernelledger.gpu.cooperative"
+    },
+    {
+      "from": "kernelledger.gpu.portable",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.portable",
+      "to": "kernelledger.gpu.manifest"
+    },
+    {
+      "from": "kernelledger.registry",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.sharing",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.sharing",
+      "to": "kernelledger.notebook"
+    },
+    {
+      "from": "kernelledger.sharing",
+      "to": "kernelledger.worker"
+    },
+    {
+      "from": "kernelledger.sharing",
+      "to": "kernelledger.ledger"
+    },
+    {
+      "from": "kernelledger.source",
+      "to": "kernelledger.notebook"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.supervisor.platform"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.ledger"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.worker"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.notebook"
+    }
+  ],
+  "dashed": [
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.gpu.backends.capabilities"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.git_state"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.supervisor"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.desktop.helper"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.registry"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.cli",
+      "to": "kernelledger.gpu.portable"
+    },
+    {
+      "from": "kernelledger.desktop.contracts",
+      "to": "kernelledger.blobs"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.gpu.backends.capabilities"
+    },
+    {
+      "from": "kernelledger.desktop.helper",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.supervisor"
+    },
+    {
+      "from": "kernelledger.desktop.server",
+      "to": "kernelledger.sharing"
+    },
+    {
+      "from": "kernelledger.gpu.backends.probe",
+      "to": "kernelledger.artifacts"
+    },
+    {
+      "from": "kernelledger.gpu.backends.probe",
+      "to": "kernelledger.gpu.portable"
+    },
+    {
+      "from": "kernelledger.ledger",
+      "to": "kernelledger"
+    },
+    {
+      "from": "kernelledger.ledger",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.notebook",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.registry",
+      "to": "kernelledger.worker"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.source"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.desktop.server"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.gpu.backends.capabilities"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.experiments"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.registry"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.sharing"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.desktop.helper"
+    },
+    {
+      "from": "kernelledger.supervisor",
+      "to": "kernelledger.artifacts"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 use super::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::{Read, Seek, SeekFrom},
     sync::mpsc::{self, Receiver, Sender},
     time::Instant,
 };
@@ -36,6 +37,28 @@ pub enum Command {
     Refresh,
     DiscardDraft(String),
     RestoreDraft(Value),
+    OutputPage {
+        cell_id: String,
+        exec_id: String,
+        index: usize,
+        slot: String,
+        digest: String,
+        offset: u64,
+        length: usize,
+    },
+    ShowImage {
+        cell_id: String,
+        exec_id: String,
+        index: usize,
+        mime: String,
+        digest: String,
+    },
+    PreviewAttachment {
+        cell_id: String,
+        name: String,
+        offset: u64,
+        length: usize,
+    },
     Detach,
 }
 #[derive(Debug, Clone)]
@@ -54,6 +77,34 @@ pub enum Event {
     },
     Output(Value),
     Draft(Value),
+    OutputPage {
+        cell_id: String,
+        exec_id: String,
+        index: usize,
+        slot: String,
+        text: String,
+        offset: u64,
+        end: u64,
+        total: u64,
+    },
+    ImageCached {
+        cell_id: String,
+        exec_id: String,
+        index: usize,
+        mime: String,
+        path: String,
+    },
+    AttachmentPreview {
+        cell_id: String,
+        name: String,
+        mime: String,
+        text: String,
+        path: String,
+        offset: u64,
+        end: u64,
+        total: u64,
+        error: String,
+    },
     Error {
         code: String,
         message: String,
@@ -63,6 +114,52 @@ pub enum Event {
 struct Edit {
     request: Value,
     deadline: Instant,
+}
+
+#[derive(Default)]
+struct OutputWatch {
+    watermark: Option<Value>,
+    signatures: BTreeMap<String, String>,
+}
+impl OutputWatch {
+    fn poll(
+        &mut self,
+        mut request: impl FnMut(&str, Value) -> Result<Value>,
+    ) -> Result<Vec<Value>> {
+        let mark = request("executions.watermark", json!({}))?;
+        if self.watermark.as_ref() == Some(&mark) {
+            return Ok(Vec::new());
+        }
+        self.watermark = Some(mark);
+        let items = all_pages(|mut page| {
+            page["latest_per_cell"] = json!(true);
+            request("executions.list", page)
+        })?;
+        let mut changed = Vec::new();
+        let mut live = BTreeSet::new();
+        for row in items {
+            let Some(eid) = row["exec_id"].as_str() else {
+                continue;
+            };
+            live.insert(eid.to_string());
+            let signature = format!(
+                "{}:{}:{}",
+                row["status"].as_str().unwrap_or(""),
+                row["fold_events"].as_u64().unwrap_or(0),
+                row["fold_seq"].as_u64().unwrap_or(0)
+            );
+            if self.signatures.get(eid) == Some(&signature) {
+                continue;
+            }
+            changed.push(request("fold.get", json!({"exec_id": eid}))?);
+            self.signatures.insert(eid.to_string(), signature);
+        }
+        self.signatures.retain(|id, _| live.contains(id));
+        Ok(changed)
+    }
+}
+fn poll_outputs(watch: &mut OutputWatch, helper: &mut HelperClient) -> Result<Vec<Value>> {
+    watch.poll(|method, fields| helper.request(method, fields))
 }
 
 pub struct NotebookService {
@@ -89,6 +186,15 @@ impl Drop for NotebookService {
     }
 }
 
+struct AttachmentShown {
+    text: String,
+    path: String,
+    offset: u64,
+    end: u64,
+    total: u64,
+    error: String,
+}
+
 struct Session {
     project: PathBuf,
     python: PathBuf,
@@ -105,6 +211,7 @@ struct Session {
     last_poll: Instant,
     last_source: Instant,
     folds: BTreeMap<String, Value>,
+    output_watch: OutputWatch,
     last_status: Value,
     stopping_since: Option<Instant>,
     stopped: bool,
@@ -132,6 +239,7 @@ impl Session {
             last_poll: Instant::now(),
             last_source: Instant::now(),
             folds: BTreeMap::new(),
+            output_watch: OutputWatch::default(),
             last_status: Value::Null,
             stopping_since: None,
             stopped: false,
@@ -461,8 +569,15 @@ impl Session {
                 }
             }
             Command::Inspect { method, mut fields } => {
-                if matches!(method.as_str(), "export_ipynb" | "bundle_export") {
+                if matches!(
+                    method.as_str(),
+                    "export_ipynb" | "bundle_export" | "export_document"
+                ) {
                     self.save_all()?;
+                    ensure!(
+                        self.conflicts.is_empty(),
+                        "Resolve source conflicts before exporting"
+                    );
                 }
                 let required_capability = match method.as_str() {
                     "training.list" | "training.inspect" => Some("portable_training"),
@@ -480,31 +595,16 @@ impl Session {
                 let value = if method == "runtimes.list" {
                     super::registry::list(&self.identity)?
                 } else {
-                    let search_all = fields["search_all"] == true;
-                    if let Some(fields) = fields.as_object_mut() {
-                        fields.remove("search_all");
+                    if let Some(object) = fields.as_object_mut() {
+                        object.remove("search_all");
                     }
                     let page_request = fields.clone();
-                    let mut value = if search_all && method == "executions.list" {
-                        let items = all_pages(|page| self.helper.request(&method, page))?;
-                        json!({"items":items,"cursor":null})
-                    } else {
-                        self.helper.request(&method, fields)?
-                    };
+                    let mut value = self.helper.request(&method, fields)?;
                     if method.ends_with(".list") {
                         value["_page_request"] = page_request;
                     }
-                    if method == "executions.list"
-                        && let Some(items) = value["items"].as_array_mut()
-                    {
-                        for item in items {
-                            if let Some(id) = item["exec_id"].as_str()
-                                && let Ok(fold) =
-                                    self.helper.request("fold.get", json!({"exec_id":id}))
-                            {
-                                item["source"] = fold["source"].clone();
-                            }
-                        }
+                    if matches!(method.as_str(), "execution.get" | "fold.get") {
+                        self.resolve_outputs(&mut value);
                     }
                     value
                 };
@@ -539,8 +639,226 @@ impl Session {
                 self.runtime =
                     RuntimeClient::connect(&self.project, &self.identity, "control").ok();
             }
+            Command::OutputPage {
+                cell_id,
+                exec_id,
+                index,
+                slot,
+                digest,
+                offset,
+                length,
+            } => {
+                let page = self.helper.blob_range(
+                    &digest,
+                    offset,
+                    length.clamp(1, super::output::MAX_PAGE_BYTES),
+                )?;
+                let (text, start, end) =
+                    super::output::text_window(&page.bytes, page.offset, page.total);
+                let _ = self.events.send(Event::OutputPage {
+                    cell_id,
+                    exec_id,
+                    index,
+                    slot,
+                    text,
+                    offset: start,
+                    end,
+                    total: page.total,
+                });
+            }
+            Command::ShowImage {
+                cell_id,
+                exec_id,
+                index,
+                mime,
+                digest,
+            } => {
+                let bytes = super::output::read_limited(
+                    |hash, offset, length| self.helper.blob_range(hash, offset, length),
+                    &digest,
+                    32 * 1024 * 1024,
+                )?;
+                super::output::prepare_image(&bytes)?;
+                let path = super::output::store_cached_image(
+                    &self.profile.join("image-cache"),
+                    &digest,
+                    &bytes,
+                    super::output::IMAGE_CACHE_BUDGET,
+                )?;
+                let _ = self.events.send(Event::ImageCached {
+                    cell_id,
+                    exec_id,
+                    index,
+                    mime,
+                    path: path.to_string_lossy().into_owned(),
+                });
+            }
+            Command::PreviewAttachment {
+                cell_id,
+                name,
+                offset,
+                length,
+            } => self.preview_attachment(cell_id, name, offset, length)?,
         }
         Ok(true)
+    }
+    fn resolve_outputs(&mut self, value: &mut Value) {
+        let Some(outputs) = value["outputs"].as_array_mut() else {
+            return;
+        };
+        let cache = self.profile.join("image-cache");
+        for event in outputs {
+            if let Err(error) = super::output::resolve_event(
+                event,
+                |digest, offset, length| self.helper.blob_range(digest, offset, length),
+                &cache,
+            ) {
+                event["viewer_error"] = json!(error.to_string());
+            }
+        }
+    }
+    fn attachment_mime(snapshot: &Value, cell_id: &str, name: &str) -> String {
+        snapshot["cells"]
+            .as_array()
+            .and_then(|cells| cells.iter().find(|cell| cell["id"] == cell_id))
+            .and_then(|cell| cell["attachment_mimes"][name].as_str())
+            .unwrap_or("application/octet-stream")
+            .to_string()
+    }
+    fn emit_attachment(&self, cell_id: String, name: String, mime: String, shown: AttachmentShown) {
+        let _ = self.events.send(Event::AttachmentPreview {
+            cell_id,
+            name,
+            mime,
+            text: shown.text,
+            path: shown.path,
+            offset: shown.offset,
+            end: shown.end,
+            total: shown.total,
+            error: shown.error,
+        });
+    }
+    fn preview_attachment(
+        &mut self,
+        cell_id: String,
+        name: String,
+        offset: u64,
+        length: usize,
+    ) -> Result<()> {
+        let mime = Self::attachment_mime(&self.snapshot, &cell_id, &name);
+        let fail = |error: String, total: u64| AttachmentShown {
+            text: String::new(),
+            path: String::new(),
+            offset: 0,
+            end: 0,
+            total,
+            error,
+        };
+        if let Err(error) = super::output::validate_attachment(&cell_id, &name) {
+            self.emit_attachment(cell_id, name, mime, fail(error.to_string(), 0));
+            return Ok(());
+        }
+        let path = self.project.join("attachments").join(&cell_id).join(&name);
+        let file = match fs::File::open(&path) {
+            Ok(file) => file,
+            Err(error) => {
+                self.emit_attachment(
+                    cell_id,
+                    name,
+                    mime,
+                    fail(format!("Attachment file is missing: {error}"), 0),
+                );
+                return Ok(());
+            }
+        };
+        let root = self.project.join("attachments").join(&cell_id);
+        let canon = path.canonicalize()?;
+        let root = root.canonicalize()?;
+        ensure!(
+            canon.starts_with(&root),
+            "Attachment path escaped the notebook"
+        );
+        let total = file.metadata()?.len();
+        let image = matches!(mime.as_str(), "image/png" | "image/jpeg")
+            || name.ends_with(".png")
+            || name.ends_with(".jpg")
+            || name.ends_with(".jpeg");
+        if image {
+            if total > 32 * 1024 * 1024 {
+                self.emit_attachment(
+                    cell_id,
+                    name,
+                    mime,
+                    fail("Image exceeds 32 MiB viewer limit".into(), total),
+                );
+                return Ok(());
+            }
+            let bytes = fs::read(&canon)?;
+            if let Err(error) = super::output::prepare_image(&bytes) {
+                self.emit_attachment(cell_id, name, mime, fail(error.to_string(), total));
+                return Ok(());
+            }
+            let digest = hash(&bytes);
+            let cached = super::output::store_cached_image(
+                &self.profile.join("image-cache"),
+                &digest,
+                &bytes,
+                super::output::IMAGE_CACHE_BUDGET,
+            )?;
+            let mime = if mime.starts_with("image/") {
+                mime
+            } else if name.ends_with(".png") {
+                "image/png".into()
+            } else {
+                "image/jpeg".into()
+            };
+            self.emit_attachment(
+                cell_id,
+                name,
+                mime,
+                AttachmentShown {
+                    text: String::new(),
+                    path: cached.to_string_lossy().into_owned(),
+                    offset: 0,
+                    end: total,
+                    total,
+                    error: String::new(),
+                },
+            );
+            return Ok(());
+        }
+        let mut file = fs::File::open(&canon)?;
+        let length = length.clamp(1, super::output::MAX_PAGE_BYTES);
+        file.seek(SeekFrom::Start(offset.min(total)))?;
+        let mut bytes = vec![0; length];
+        let read = file.read(&mut bytes)?;
+        bytes.truncate(read);
+        let (text, start, end) = super::output::text_window(&bytes, offset.min(total), total);
+        let binary = mime == "application/octet-stream"
+            && !name.ends_with(".txt")
+            && !name.ends_with(".md")
+            && !name.ends_with(".json")
+            && !name.ends_with(".py")
+            && text.contains('\u{fffd}');
+        self.emit_attachment(
+            cell_id,
+            name,
+            mime,
+            AttachmentShown {
+                text: if binary { String::new() } else { text },
+                path: String::new(),
+                offset: start,
+                end,
+                total,
+                error: if binary {
+                    "Native preview is unavailable for this attachment. The file remains in the notebook."
+                        .into()
+                } else {
+                    String::new()
+                },
+            },
+        );
+        Ok(())
     }
     fn poll(&mut self) -> Result<()> {
         self.last_poll = Instant::now();
@@ -612,28 +930,25 @@ impl Session {
             }
             self.persist_operations()?;
         }
-        // Read committed events through the offline helper and reconcile with runtime fold.get.
-        let executions = all_pages(|fields| self.helper.request("executions.list", fields))?;
-        let mut latest = BTreeMap::new();
-        for row in executions {
-            if let Some(id) = row["cell_id"].as_str() {
-                latest.insert(id.to_string(), row);
-            }
-        }
-        for row in latest.values() {
-            let eid = row["exec_id"].as_str().unwrap();
-            let mut fold = self.helper.request("fold.get", json!({"exec_id":eid}))?;
+        // Skip the fold walk while the ledger watermark is unchanged.
+        let changed = poll_outputs(&mut self.output_watch, &mut self.helper)?;
+        for mut fold in changed {
             if let Some(outputs) = fold["outputs"].as_array_mut() {
                 for event in outputs {
-                    if let Err(error) =
-                        super::output::resolve_event(event, |digest| self.helper.blob(digest))
-                    {
+                    if let Err(error) = super::output::resolve_event(
+                        event,
+                        |digest, offset, length| self.helper.blob_range(digest, offset, length),
+                        &self.profile.join("image-cache"),
+                    ) {
                         event["viewer_error"] = json!(error.to_string());
                     }
                 }
             }
+            let Some(eid) = fold["exec_id"].as_str() else {
+                continue;
+            };
             if self.folds.get(eid) != Some(&fold) {
-                self.folds.insert(eid.into(), fold.clone());
+                self.folds.insert(eid.to_string(), fold.clone());
                 let _ = self.events.send(Event::Output(fold));
             }
         }
@@ -751,4 +1066,58 @@ fn report(events: &Sender<Event>, error: anyhow::Error) {
         code,
         message: error.to_string(),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::bail;
+
+    #[test]
+    fn unchanged_watermark_does_not_call_fold_get() {
+        let mark = json!({
+            "executions": 2,
+            "execution_rowid": 4,
+            "events": 3,
+            "event_rowid": 9,
+            "max_end": "2026-10-18T00:00:00Z"
+        });
+        let row = json!({
+            "exec_id": "exec-1",
+            "cell_id": "cell",
+            "status": "ok",
+            "fold_events": 1,
+            "fold_seq": 1
+        });
+        let fold = json!({"exec_id": "exec-1", "status": "ok", "outputs": []});
+        let mut calls = Vec::new();
+        let mut watch = OutputWatch::default();
+        let changed = watch
+            .poll(|method, _| {
+                calls.push(method.to_string());
+                match method {
+                    "executions.watermark" => Ok(mark.clone()),
+                    "executions.list" => Ok(json!({"items": [row.clone()], "cursor": Value::Null})),
+                    "fold.get" => Ok(fold.clone()),
+                    other => bail!("unexpected {other}"),
+                }
+            })
+            .unwrap();
+        assert_eq!(changed.len(), 1);
+        assert!(calls.iter().any(|call| call == "fold.get"));
+        calls.clear();
+        let changed = watch
+            .poll(|method, _| {
+                calls.push(method.to_string());
+                match method {
+                    "executions.watermark" => Ok(mark.clone()),
+                    "executions.list" => Ok(json!({"items": [row.clone()], "cursor": Value::Null})),
+                    "fold.get" => Ok(fold.clone()),
+                    other => bail!("unexpected {other}"),
+                }
+            })
+            .unwrap();
+        assert!(changed.is_empty());
+        assert_eq!(calls, vec!["executions.watermark".to_string()]);
+    }
 }

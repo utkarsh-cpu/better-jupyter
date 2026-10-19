@@ -195,8 +195,13 @@ impl HelperClient {
             .args(["-I", "-m", "kernelledger.desktop.helper", "--project"])
             .arg(project)
             .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit());
+            .stdout(Stdio::piped());
+        fs::create_dir_all(project.join(".kl"))?;
+        let log = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(project.join(".kl/helper.log"))?;
+        command.stderr(log);
         hide_console(&mut command);
         let mut process = command.spawn()?;
         let mut stdin = process
@@ -230,23 +235,54 @@ impl HelperClient {
     pub fn blob(&mut self, digest: &str) -> Result<Vec<u8>> {
         let mut result = Vec::new();
         loop {
-            write_frame(
-                &mut self.stdin,
-                &json!({"method":"blob.read","sha256":digest,"offset":result.len(),"length":FRAME_LIMIT}),
-            )?;
-            let header = checked_response(read_frame(&mut self.stdout)?)?;
-            ensure!(header["kind"] == "blob", "Expected blob frame");
-            let size = header["byte_size"].as_u64().unwrap_or(u64::MAX) as usize;
-            ensure!(size <= FRAME_LIMIT, "Invalid blob size");
-            let start = result.len();
-            result.resize(start + size, 0);
-            self.stdout.read_exact(&mut result[start..])?;
-            if result.len() as u64 >= header["total_size"].as_u64().unwrap_or(u64::MAX) {
-                ensure!(hash(&result) == digest, "Blob integrity check failed");
-                return Ok(result);
+            let page = self.blob_range(digest, result.len() as u64, FRAME_LIMIT)?;
+            if page.bytes.is_empty() && result.len() as u64 >= page.total {
+                break;
             }
-            ensure!(size > 0, "Empty blob chunk");
+            ensure!(!page.bytes.is_empty(), "Empty blob chunk");
+            result.extend(page.bytes);
+            if result.len() as u64 >= page.total {
+                break;
+            }
         }
+        ensure!(hash(&result) == digest, "Blob integrity check failed");
+        Ok(result)
+    }
+    pub fn blob_range(
+        &mut self,
+        digest: &str,
+        offset: u64,
+        length: usize,
+    ) -> Result<output::BlobPage> {
+        let length = length.clamp(1, FRAME_LIMIT);
+        write_frame(
+            &mut self.stdin,
+            &json!({"method":"blob.read","sha256":digest,"offset":offset,"length":length}),
+        )?;
+        let header = checked_response(read_frame(&mut self.stdout)?)?;
+        ensure!(header["kind"] == "blob", "Expected blob frame");
+        let size = header["byte_size"].as_u64().unwrap_or(u64::MAX) as usize;
+        ensure!(size <= FRAME_LIMIT, "Invalid blob size");
+        ensure!(
+            header["offset"].as_u64().unwrap_or(u64::MAX) == offset,
+            "Blob offset mismatch"
+        );
+        let mut bytes = vec![0; size];
+        if size > 0 {
+            self.stdout.read_exact(&mut bytes)?;
+        }
+        let total = header["total_size"].as_u64().unwrap_or(u64::MAX);
+        if header["verified"] == true {
+            ensure!(
+                hash(&bytes) == digest && total == bytes.len() as u64,
+                "Blob integrity check failed"
+            );
+        }
+        Ok(output::BlobPage {
+            bytes,
+            offset,
+            total,
+        })
     }
 }
 impl Drop for HelperClient {
@@ -260,7 +296,9 @@ pub fn hide_console(command: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        command.creation_flags(0x08000000);
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW.
+        // The group flag stays so job-object shutdown still owns the tree.
+        command.creation_flags(0x00000008 | 0x00000200 | 0x08000000);
     }
     #[cfg(not(windows))]
     let _ = command;

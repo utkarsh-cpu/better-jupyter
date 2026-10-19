@@ -4,7 +4,7 @@ use super::{
 };
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Entity, Focusable, ListAlignment, ListState, Point,
-    WindowBounds, WindowOptions, px, size,
+    ScrollDelta, WindowBounds, WindowOptions, px, size,
 };
 use gpui_kit::{TestAppContext, test::TestWindowExt};
 use kernelledger_client::service::{Command, NotebookService};
@@ -24,12 +24,158 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
                 view.tabs.push(Tab { model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), checkpoint_notice: None, error: None });
+                    uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new() });
                 view
             })
         }).unwrap()
     });
     (window, view, commands)
+}
+
+#[gpui_kit::test]
+fn project_shortcuts_navigate_find_and_preserve_editor_text(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.editor(0, "first", window, cx)
+                .update(cx, |s, cx| s.focus(window, cx));
+        });
+        window.render_frame(cx);
+        window.press("ctrl-2", cx);
+        assert_eq!(view.read(cx).surface, "History");
+        window.render_frame(cx);
+        window.press("ctrl-3", cx);
+        assert_eq!(view.read(cx).surface, "Checkpoints");
+        window.render_frame(cx);
+        window.press("ctrl-,", cx);
+        assert_eq!(view.read(cx).surface, "Settings");
+        window.render_frame(cx);
+        window.press("ctrl-1", cx);
+        assert_eq!(view.read(cx).surface, "Notebook");
+        window.render_frame(cx);
+        window.press("ctrl-shift-f", cx);
+        assert!(
+            view.read(cx)
+                .query
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window)
+        );
+        assert!(view.read(cx).outline_drawer);
+        assert_eq!(
+            view.read(cx).tabs[0].editors["first"]
+                .read(cx)
+                .value()
+                .as_ref(),
+            "print(42)"
+        );
+    })
+    .unwrap();
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::Mutate(_) | Command::Run { .. }))
+    );
+}
+
+#[gpui_kit::test]
+fn cell_shortcuts_reuse_source_guards_and_delete_confirmation(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.focus.focus(window, cx);
+        });
+        window.render_frame(cx);
+        window.press("ctrl-shift-n", cx);
+        window.press("ctrl-shift-m", cx);
+        window.press("ctrl-shift-d", cx);
+        window.press("ctrl-alt-down", cx);
+        window.press("ctrl-shift-delete", cx);
+        assert_eq!(view.read(cx).confirmation.as_ref().unwrap().0, "delete");
+        window.render_frame(cx);
+        window.press("ctrl-shift-n", cx); // Dialogs block background cell changes.
+        window.press("escape", cx);
+        view.update(cx, |v, _| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().save =
+                kernelledger_models::SaveState::Dirty
+        });
+        window.press("ctrl-shift-d", cx);
+    })
+    .unwrap();
+    let mutations: Vec<_> = commands
+        .try_iter()
+        .filter_map(|c| {
+            if let Command::Mutate(value) = c {
+                Some(value)
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(mutations.len(), 4);
+    assert_eq!(mutations[0]["type"], "code");
+    assert_eq!(mutations[1]["type"], "markdown");
+    assert_eq!(mutations[2]["action"], "duplicate");
+    assert_eq!(mutations[3]["index"], 1);
+}
+
+#[gpui_kit::test]
+fn export_menu_blocks_background_actions_and_escape_restores_focus(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| v.focus.focus(window, cx));
+        window.render_frame(cx);
+        window.press("ctrl-shift-e", cx);
+        assert!(view.read(cx).export_menu);
+        assert!(view.read(cx).dialog_focus.is_focused(window));
+        window.render_frame(cx);
+        window.press("ctrl-shift-n", cx);
+        window.press("ctrl-shift-enter", cx);
+        assert!(commands.try_recv().is_err());
+        window.press("escape", cx);
+        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).focus.is_focused(window));
+        view.update(cx, |v, _| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().save =
+                kernelledger_models::SaveState::Conflict
+        });
+        window.press("ctrl-shift-e", cx);
+        assert!(!view.read(cx).export_menu);
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn export_selection_sends_format_and_cancellation_sends_nothing(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update(|cx| view.update(cx, |v, _| v.tick = gpui_kit::Task::ready(())));
+    for format in ["pdf", "docx"] {
+        cx.update_window(handle, |_, window, cx| {
+            view.update(cx, |v, cx| v.focus.focus(window, cx));
+            window.render_frame(cx);
+            // At 800px the header folds Export into Menu; the shortcut stays.
+            window.press("ctrl-shift-e", cx);
+            window.render_frame(cx);
+            window.click(format!("export-{format}"), cx);
+            assert!(!view.read(cx).export_menu);
+        })
+        .unwrap();
+        assert!(cx.did_prompt_for_new_path());
+        cx.simulate_new_path_selection(|_| Some(PathBuf::from(format!("report.{format}"))));
+        cx.executor().run_until_parked();
+        assert!(
+            matches!(commands.try_recv().unwrap(), Command::Inspect { method, fields } if method == "export_document" && fields["format"] == format && fields["path"] == format!("report.{format}"))
+        );
+    }
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| v.export_dialog("pdf", window, cx));
+    })
+    .unwrap();
+    cx.simulate_new_path_selection(|_| None);
+    cx.executor().run_until_parked();
+    assert!(commands.try_recv().is_err());
 }
 
 #[gpui_kit::test]
@@ -122,6 +268,73 @@ fn run_keys_precede_editor_newline_and_submit_once(cx: &mut TestAppContext) {
                 .as_ref(),
             "print(42)"
         );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn palette_manual_scroll_survives_redraw_and_keyboard_reveals_selection(cx: &mut TestAppContext) {
+    let (window, view, _) = mount(cx);
+    cx.update_window(window, |_, window, cx| {
+        view.update(cx, |v, cx| v.palette(&Palette, window, cx));
+        window.render_frame(cx);
+        let list_scroll = view.read(cx).palette_scroll.clone();
+        let scroll = list_scroll.0.borrow().base_handle.clone();
+        assert!(scroll.bounds().size.height > px(100.));
+        assert!(scroll.max_offset().y > px(0.));
+
+        let started = std::time::Instant::now();
+        for _ in 0..30 {
+            window.dispatch_event(
+                gpui_kit::PlatformInput::ScrollWheel(gpui_kit::ScrollWheelEvent {
+                    position: scroll.bounds().center(),
+                    delta: ScrollDelta::Pixels(Point::new(px(0.), px(-240.))),
+                    ..Default::default()
+                }),
+                cx,
+            );
+            view.update(cx, |_, cx| cx.notify());
+            window.render_frame(cx);
+        }
+        eprintln!("30 palette scroll frames: {:?}", started.elapsed());
+        assert_eq!(list_scroll.is_scrolled_to_end(), Some(true));
+        let offset = scroll.offset();
+        view.update(cx, |_, cx| cx.notify());
+        window.render_frame(cx);
+        assert_eq!(scroll.offset(), offset);
+
+        window.press("down", cx);
+        window.render_frame(cx);
+        let item_size = list_scroll.0.borrow().last_item_size.unwrap();
+        let row_height = item_size.contents.height / super::COMMANDS.len() as f32;
+        assert!(row_height + scroll.offset().y >= px(0.));
+        assert!(row_height * 2. + scroll.offset().y <= item_size.item.height);
+        window.press("end", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).palette_active, super::COMMANDS.len() - 1);
+        assert_eq!(list_scroll.is_scrolled_to_end(), Some(true));
+
+        view.update(cx, |v, cx| {
+            v.palette_query
+                .update(cx, |s, cx| s.set_value("checkpoint", window, cx));
+        });
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).palette_active, 0);
+        assert!(scroll.offset().y >= px(-10.));
+
+        view.update(cx, |v, cx| {
+            v.palette_query
+                .update(cx, |s, cx| s.set_value("", window, cx));
+        });
+        window.render_frame(cx);
+        window.press("end", cx);
+        window.render_frame(cx);
+        assert!(scroll.offset().y < px(-10.));
+        window.press("escape", cx);
+        view.update(cx, |v, cx| v.palette(&Palette, window, cx));
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).palette_active, 0);
+        assert!(scroll.offset().y >= px(-10.));
     })
     .unwrap();
 }
@@ -229,6 +442,15 @@ fn surface_results_and_runtime_actions_are_scoped() {
     ));
     assert!(confirmation_copy("stop").1.contains("shuts down"));
     assert_eq!(confirmation_copy("stop").2, "Stop runtime");
+    assert!(
+        confirmation_copy("bundle_import")
+            .1
+            .contains("no code runs")
+    );
+    assert_eq!(
+        confirmation_copy("bundle_import").2,
+        "Import recorded history"
+    );
 }
 
 #[gpui_kit::test]
@@ -362,11 +584,138 @@ fn theme_text_and_focus_tokens_meet_contrast_thresholds(cx: &mut TestAppContext)
 }
 
 #[gpui_kit::test]
+fn clipped_settings_control_scrolls_into_view_before_it_runs(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(800.), px(640.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.preferences.ui_scale = 2.;
+            v.surface = "Settings".into();
+        });
+        window.refresh();
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let (viewport, observed) = cx
+        .update_window(handle, |_, window, cx| {
+            let viewport = view.read(cx).tabs[0]
+                .scrolls
+                .get("Settings")
+                .expect("Settings keeps a scroll handle")
+                .bounds();
+            let mut observed = Vec::new();
+            for id in [
+                "settings-appearance",
+                "settings-typography",
+                "settings-layout",
+                "settings-accessibility",
+                "settings-interpreter",
+                "appearance-contrast",
+                "ui-scale-2",
+                "editor-size-24",
+                "density-true",
+                "outline-width-300",
+                "reduced-motion",
+                "interpreter",
+            ] {
+                match window.try_find(id) {
+                    Some(node) => observed.push((id, node.bounds(), node.visible())),
+                    None => observed.push((id, Bounds::default(), false)),
+                }
+            }
+            (viewport, observed)
+        })
+        .unwrap();
+    let mut chosen = None;
+    for (id, bounds, visible) in &observed {
+        if !id.starts_with("settings-") && *visible {
+            let center = bounds.center();
+            if center.y <= viewport.bottom()
+                && center.y >= viewport.top()
+                && bounds.bottom() > viewport.bottom() + px(1.)
+            {
+                chosen = Some((*id, *bounds));
+                break;
+            }
+        }
+    }
+    let (id, before) = chosen.unwrap_or_else(|| {
+        panic!(
+            "a settings control must extend below the viewport {viewport:?}\n{}",
+            observed
+                .iter()
+                .map(|(id, bounds, visible)| format!("{id}: visible={visible} {bounds:?}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    });
+    let offset_before = cx
+        .update_window(handle, |_, _, cx| {
+            view.read(cx).tabs[0].scrolls["Settings"].offset()
+        })
+        .unwrap();
+    cx.update_window(handle, |_, window, cx| {
+        window.click(id, cx);
+        assert_eq!(
+            window.simulate_next_frame(cx),
+            2,
+            "scroll is scheduled before the setting runs"
+        );
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let offset_after = cx
+        .update_window(handle, |_, _, cx| {
+            view.read(cx).tabs[0].scrolls["Settings"].offset()
+        })
+        .unwrap();
+    assert!(
+        offset_after.y < offset_before.y,
+        "clipped control {id} should scroll before running: {offset_before:?} -> {offset_after:?}"
+    );
+    let after = cx
+        .update_window(handle, |_, window, _| {
+            window
+                .try_find(id)
+                .expect("control remains after scrolling")
+                .bounds()
+        })
+        .unwrap();
+    let viewport = cx
+        .update_window(handle, |_, _, cx| {
+            view.read(cx).tabs[0].scrolls["Settings"].bounds()
+        })
+        .unwrap();
+    assert!(
+        after.bottom() <= viewport.bottom() + px(1.),
+        "{id} bottom {:?} still outside viewport {:?}; before {:?}",
+        after,
+        viewport,
+        before
+    );
+    cx.update_window(handle, |_, _, cx| {
+        let view = view.read(cx);
+        match id {
+            "appearance-contrast" => assert!(view.high_contrast),
+            "ui-scale-2" => assert_eq!(view.preferences.ui_scale, 2.),
+            "editor-size-24" => assert_eq!(view.preferences.editor_size, 24.),
+            "density-true" => assert!(view.preferences.comfortable),
+            "outline-width-300" => assert_eq!(view.preferences.outline_width, 300.),
+            "reduced-motion" => assert!(view.preferences.reduced_motion),
+            _ => {}
+        }
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
 fn settings_segments_change_preferences_through_native_buttons(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
     cx.simulate_window_resize(handle, size(px(1280.), px(900.)));
     cx.update_window(handle, |_, window, cx| {
-        view.update(cx, |v, _| v.surface = "Settings".into());
+        window.render_frame(cx);
+        window.click("settings-button", cx);
+        assert_eq!(view.read(cx).surface, "Settings");
         window.render_frame(cx);
         window.click("editor-size-16", cx);
         assert_eq!(view.read(cx).preferences.editor_size, 16.);
@@ -569,7 +918,7 @@ fn history_filters_validate_dates_and_keep_existing_text_and_outcome(cx: &mut Te
     })
     .unwrap();
     assert!(
-        matches!(commands.try_recv().unwrap(),Command::Inspect{method,fields} if method=="executions.list" && fields["search_all"]==true)
+        matches!(commands.try_recv().unwrap(),Command::Inspect{method,fields} if method=="executions.list" && fields.get("search_all").is_none())
     );
 }
 
@@ -593,6 +942,21 @@ fn history_cursor_keeps_session_scope_and_return_to_cell_restores_editor(cx: &mu
     );
 }
 
+#[test]
+fn caption_gutter_collapses_export_before_settings_at_compact_200_percent() {
+    let collapse = super::shell::header_collapse(800., 2., false);
+    assert!(
+        collapse.export && collapse.runtime && !collapse.switcher && !collapse.settings,
+        "{collapse:?}"
+    );
+    assert!(super::shell::header_fits(800., 2., false, collapse));
+    let comfortable = super::shell::header_collapse(800., 2., true);
+    assert!(comfortable.switcher && comfortable.runtime && comfortable.export);
+    assert!(super::shell::header_fits(800., 2., true, comfortable));
+    assert!(super::shell::header_collapse(800., 1., false).export);
+    assert!(!super::shell::header_collapse(1440., 1., false).export);
+}
+
 #[gpui_kit::test]
 fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
     cx: &mut TestAppContext,
@@ -611,7 +975,7 @@ fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
                     window.render_frame(cx);
                 })
                 .unwrap();
-                let overflow = comfortable && width < 560. * scale;
+                let collapse = super::shell::header_collapse(width, scale, comfortable);
                 let mut actions = vec![
                     "Notebook",
                     "History",
@@ -620,19 +984,33 @@ fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
                     "run-all",
                     "outline-toggle",
                 ];
-                if !overflow {
-                    actions.extend(["runtime-menu", "notebook-switcher"]);
+                if !collapse.settings {
+                    actions.push("settings-button");
+                }
+                if !collapse.runtime {
+                    actions.push("runtime-menu");
+                }
+                if !collapse.switcher {
+                    actions.push("notebook-switcher");
+                }
+                if !collapse.export {
+                    actions.push("export-notebook");
+                }
+                let tight = width < 1280. * scale && (scale > 1. || comfortable);
+                if !tight {
+                    actions.push("palette-trigger");
                 }
                 for name in &actions {
                     let bounds = visual.debug_bounds(name).unwrap_or_else(|| {
-                        panic!("Missing {name} at scale={scale}, width={width}")
+                        panic!("Missing {name} at scale={scale}, width={width}, comfortable={comfortable}")
                     });
+                    let right = bounds.origin.x + bounds.size.width;
                     assert!(
                         bounds.origin.x >= px(0.)
                             && bounds.origin.y >= px(0.)
-                            && bounds.origin.x + bounds.size.width <= px(width)
+                            && right <= px(width - super::shell::CAPTION_GUTTER)
                             && bounds.origin.y + bounds.size.height <= px(600.),
-                        "{name}: scale={scale}, width={width}, bounds={bounds:?}"
+                        "{name}: scale={scale}, width={width}, comfortable={comfortable}, bounds={bounds:?}"
                     );
                 }
                 let header = visual.debug_bounds("workspace-header").unwrap();
@@ -765,5 +1143,180 @@ fn comfortable_actions_have_a_full_touch_target(cx: &mut TestAppContext) {
     ] {
         let bounds = visual.debug_bounds(name).unwrap();
         assert!(bounds.size.height >= px(44.) && bounds.size.width >= px(44.));
+    }
+}
+
+#[gpui_kit::test]
+fn bundle_review_inspects_without_running_and_keeps_source_conflicts(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update(|cx| view.update(cx, |v, _| v.tick = gpui_kit::Task::ready(())));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.source_state = "conflict_markers".into();
+            v.tabs[0].model.cells.get_mut("first").unwrap().save =
+                kernelledger_models::SaveState::Conflict;
+            v.run_command("inspect-bundle", window, cx);
+        });
+    })
+    .unwrap();
+    assert!(cx.did_prompt_for_paths());
+    cx.simulate_path_prompt_response(|_| Some(vec![PathBuf::from("foreign.zip")]));
+    cx.executor().run_until_parked();
+    assert!(matches!(
+        commands.try_recv().unwrap(),
+        Command::Inspect { method, fields }
+            if method == "bundle.inspect" && fields["path"] == "foreign.zip"
+    ));
+    assert!(commands.try_recv().is_err());
+    cx.update_window(handle, |_, window, cx| {
+        assert_eq!(view.read(cx).surface, "Diagnostics");
+        view.update(cx, |v, _| {
+            v.tabs[0].inspections.insert(
+                "Bundle review".into(),
+                json!({
+                    "path": "foreign.zip",
+                    "pending": false,
+                    "schema": 1,
+                    "session_ids": ["s1"],
+                    "checkpoint_ids": [],
+                    "hash_mismatches": ["ledger.jsonl"]
+                }),
+            );
+        });
+        window.render_frame(cx);
+        window.click("import-bundle-history", cx);
+        assert!(view.read(cx).confirmation.is_none());
+        view.update(cx, |v, _| {
+            v.tabs[0].inspections.insert(
+                "Bundle review".into(),
+                json!({
+                    "path": "foreign.zip",
+                    "pending": false,
+                    "schema": 1,
+                    "session_ids": ["s1"],
+                    "checkpoint_ids": ["c1"],
+                    "hash_mismatches": []
+                }),
+            );
+        });
+        window.render_frame(cx);
+        window.click("import-bundle-history", cx);
+        assert_eq!(
+            view.read(cx).confirmation.as_ref().unwrap().0,
+            "bundle_import"
+        );
+        assert_eq!(
+            view.read(cx).confirmation.as_ref().unwrap().1["trust"],
+            false
+        );
+        window.render_frame(cx);
+        window.click("proceed", cx);
+        assert!(view.read(cx).confirmation.is_some());
+        window.click("bundle-trust", cx);
+        window.click("proceed", cx);
+        assert!(view.read(cx).confirmation.is_none());
+        assert_eq!(view.read(cx).tabs[0].model.cells["first"].text, "print(42)");
+        assert!(matches!(
+            view.read(cx).tabs[0].model.cells["first"].save,
+            kernelledger_models::SaveState::Conflict
+        ));
+        assert_eq!(view.read(cx).tabs[0].model.source_state, "conflict_markers");
+    })
+    .unwrap();
+    assert!(matches!(
+        commands.try_recv().unwrap(),
+        Command::Runtime { method, fields }
+            if method == "bundle_import"
+                && fields["path"] == "foreign.zip"
+                && fields.get("trust").is_none()
+    ));
+}
+
+#[gpui_kit::test]
+fn large_output_paging_requests_the_next_recorded_window(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+            cell.exec_id = Some("exec-1".into());
+            cell.output = vec![json!({
+                "kind": "stdout",
+                "blob": "abc",
+                "text": "hello",
+                "page": {"offset": 0, "end": 5, "total": 100}
+            })];
+            v.tabs[0].list.splice(0..1, 1);
+        });
+        window.render_frame(cx);
+        window.click(
+            (
+                gpui_kit::ElementId::from(gpui_kit::SharedString::from("first-0")),
+                "output-next",
+            ),
+            cx,
+        );
+    })
+    .unwrap();
+    let page = commands
+        .try_iter()
+        .find(|command| matches!(command, Command::OutputPage { .. }));
+    match page {
+        Some(Command::OutputPage {
+            cell_id,
+            exec_id,
+            index,
+            slot,
+            digest,
+            offset,
+            length,
+        }) => {
+            assert_eq!(cell_id, "first");
+            assert_eq!(exec_id, "exec-1");
+            assert_eq!(index, 0);
+            assert!(slot.is_empty());
+            assert_eq!(digest, "abc");
+            assert_eq!(offset, 5);
+            assert_eq!(length, 5);
+        }
+        other => panic!("expected an output page request, got {other:?}"),
+    }
+}
+
+#[gpui_kit::test]
+fn attachment_preview_requests_the_first_text_window(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+            cell.disk
+                .metadata
+                .insert("attachments".into(), json!(["notes.txt"]));
+            cell.disk.metadata.insert(
+                "attachment_mimes".into(),
+                json!({"notes.txt": "text/plain"}),
+            );
+            v.tabs[0].list.splice(0..1, 1);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let previews = commands
+        .try_iter()
+        .filter(|command| matches!(command, Command::PreviewAttachment { .. }))
+        .collect::<Vec<_>>();
+    assert_eq!(previews.len(), 1);
+    match &previews[0] {
+        Command::PreviewAttachment {
+            cell_id,
+            name,
+            offset,
+            length,
+        } => {
+            assert_eq!(cell_id, "first");
+            assert_eq!(name, "notes.txt");
+            assert_eq!(*offset, 0);
+            assert_eq!(*length, kernelledger_client::output::VIEW_TEXT_LIMIT);
+        }
+        other => panic!("expected an attachment preview, got {other:?}"),
     }
 }

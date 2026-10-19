@@ -79,7 +79,7 @@ def hello(message: Any) -> None:
         raise SourceError("invalid_request", "invalid client name")
 
 
-def page(rows: Any, request: Any) -> Any:
+def page_window(request: Any) -> tuple[int, int]:
     import base64
 
     size = request.get("page_size", 100)
@@ -93,10 +93,29 @@ def page(rows: Any, request: Any) -> Any:
             raise SourceError("invalid_request", "invalid cursor") from None
         if offset < 0:
             raise SourceError("invalid_request", "invalid cursor")
-    selected = rows[offset : offset + size]
+    return size, offset
+
+
+def page(rows: Any, request: Any) -> Any:
+    import base64
+
+    size, offset = page_window(request)
     cursor = (
         base64.b64encode(str(offset + size).encode()).decode()
         if offset + size < len(rows)
         else None
     )
-    return {"items": selected, "cursor": cursor}
+    return {"items": rows[offset : offset + size], "cursor": cursor}
+
+
+def sql_page(ledger: Any, sql: str, args: Any, request: Any) -> Any:
+    """Page with SQL LIMIT/OFFSET. The cursor remains a base64 offset."""
+    import base64
+
+    size, offset = page_window(request)
+    total = ledger.db.execute(f"SELECT COUNT(*) FROM ({sql}) AS listed", args).fetchone()[0]
+    items = ledger.rows(f"{sql} LIMIT ? OFFSET ?", tuple(args) + (size, offset))
+    cursor = (
+        base64.b64encode(str(offset + size).encode()).decode() if offset + size < total else None
+    )
+    return {"items": items, "cursor": cursor}

@@ -7,10 +7,20 @@ impl Workspace {
                 .gap_3()
                 .items_center()
                 .child(
-                    div()
-                        .text_lg()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("Checkpoints"),
+                    v_flex()
+                        .gap_0p5()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Checkpoints"),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground)
+                                .child("Save supported Python values, inspect coverage, then restore or continue in a new session."),
+                        ),
                 )
                 .child(div().flex_1())
                 .child(
@@ -36,13 +46,12 @@ impl Workspace {
                 .child(self.record_back(cx))
                 .child(self.checkpoint_report(value, cx));
         } else {
-            body=body.child(div().text_sm().text_color(cx.theme().muted_foreground).child("Save supported Python values, inspect coverage, then restore or continue in a new session."));
             let items = value["items"].as_array().cloned().unwrap_or_default();
-            let mut rows = v_flex();
+            let mut rows = card(cx);
             if items.is_empty() {
                 rows = rows.child(empty_row(
                     if value.is_null() {
-                        "Loading checkpoints..."
+                        "Loading checkpoints\u{2026}"
                     } else {
                         "No checkpoints yet. Run your notebook, then create a checkpoint."
                     },
@@ -82,7 +91,9 @@ impl Workspace {
                 fields.insert("cursor".into(), value["cursor"].clone());
                 body = body.child(
                     action_button("checkpoint-next-page")
+                        .self_start()
                         .ghost()
+                        .small()
                         .label("Next page")
                         .on_click(cx.listener(move |v, _, _, _| {
                             v.inspect("checkpoints.list", Value::Object(fields.clone()))
@@ -97,6 +108,7 @@ impl Workspace {
             .unwrap_or(false);
         body = body.child(
             action_button("advanced-checkpoints")
+                .self_start()
                 .ghost()
                 .small()
                 .label(if advanced {
@@ -116,13 +128,47 @@ impl Workspace {
         );
         if advanced {
             let available = self.command_reason("training-checkpoint").is_none();
-            body=body.child(section("Portable training (Experimental)",cx)
-                .child(div().text_sm().child("Saves explicitly registered model, optimizer and cursor state. It does not capture a complete process."))
-                .child(h_flex().gap_2().flex_wrap()
-                    .child(action_button("training-list").outline().small().label("View training snapshots").on_click(cx.listener(|v,_,_,_|v.inspect("training.list",json!({})))))
-                    .child(action_button("create-training-checkpoint").ghost().small().label("Create training checkpoint").unavailable(!available)
-                        .hint(self.command_reason("training-checkpoint").unwrap_or("Save registered training state"))
-                        .on_click(cx.listener(|v,_,window,cx|v.run_command("training-checkpoint",window,cx))))));
+            body = body.child(
+                section("Portable training (Experimental)", cx).child(
+                    card(cx)
+                        .p_4()
+                        .gap_3()
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(cx.theme().muted_foreground)
+                                .child("Saves explicitly registered model, optimizer and cursor state. It does not capture a complete process."),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_2()
+                                .flex_wrap()
+                                .child(
+                                    action_button("training-list")
+                                        .outline()
+                                        .small()
+                                        .label("View training snapshots")
+                                        .on_click(cx.listener(|v, _, _, _| {
+                                            v.inspect("training.list", json!({}))
+                                        })),
+                                )
+                                .child(
+                                    action_button("create-training-checkpoint")
+                                        .ghost()
+                                        .small()
+                                        .label("Create training checkpoint")
+                                        .unavailable(!available)
+                                        .hint(
+                                            self.command_reason("training-checkpoint")
+                                                .unwrap_or("Save registered training state"),
+                                        )
+                                        .on_click(cx.listener(|v, _, window, cx| {
+                                            v.run_command("training-checkpoint", window, cx)
+                                        })),
+                                ),
+                        ),
+                ),
+            );
         }
         body = body.child(self.record_details(value, cx));
         self.record_page(body, cx)
@@ -133,27 +179,53 @@ impl Workspace {
             .as_str()
             .unwrap_or_default()
             .to_string();
-        let mut report=v_flex().gap_3()
-            .child(h_flex().gap_2().items_center().child(div().font_weight(FontWeight::SEMIBOLD).child("Namespace checkpoint"))
-                .child(badge(outcome_label(value["status"].as_str().unwrap_or("Unknown")).to_string(),tone(value["status"].as_str().unwrap_or(""),cx))))
-            .child(div().text_sm().text_color(cx.theme().muted_foreground).child("Supported Python values are saved. Processes, open files and external services are not captured."));
-        if let Some(time) = value["timestamp"].as_str() {
-            report = report.child(
-                div()
-                    .text_sm()
-                    .child(format!("Created {}", local_time(time))),
+        let mut report = card(cx)
+            .p_4()
+            .gap_4()
+            .child(
+                v_flex()
+                    .gap_1()
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_base()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Namespace checkpoint"),
+                            )
+                            .child(badge(
+                                outcome_label(value["status"].as_str().unwrap_or("Unknown"))
+                                    .to_string(),
+                                tone(value["status"].as_str().unwrap_or(""), cx),
+                            )),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Supported Python values are saved. Processes, open files and external services are not captured."),
+                    )
+                    .when_some(value["timestamp"].as_str(), |d, time| {
+                        d.child(
+                            div()
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(format!("Created {}", local_time(time))),
+                        )
+                    }),
+            )
+            .child(
+                section("Saved coverage", cx)
+                    .child(div().text_sm().child("Saved value count: Unknown"))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Creation context is not reported by this checkpoint."),
+                    ),
             );
-        }
-        report = report.child(
-            section("Saved coverage", cx)
-                .child(div().text_sm().child("Saved value count: Unknown"))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("Creation context is not reported by this checkpoint."),
-                ),
-        );
         for (field, title, empty) in [
             ("excluded", "Excluded values", "No excluded values."),
             ("notes", "Coverage notes", "No coverage notes."),
@@ -161,7 +233,12 @@ impl Workspace {
             let mut content = section(title, cx);
             match value.get(field).and_then(Value::as_array) {
                 Some(items) if items.is_empty() => {
-                    content = content.child(div().text_sm().child(empty));
+                    content = content.child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(empty),
+                    );
                 }
                 Some(items) => {
                     for (i, item) in items.iter().enumerate() {
@@ -190,19 +267,36 @@ impl Workspace {
                     }
                 }
                 None => {
-                    content =
-                        content.child(div().text_sm().child("Not reported by this checkpoint."));
+                    content = content.child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Not reported by this checkpoint."),
+                    );
                 }
             }
             report = report.child(content);
         }
-        report=report.child(section("Before restoring",cx)
-            .child(div().text_sm().whitespace_normal().child("Restore replaces the live namespace with saved supported values in a new session. Excluded values remain absent. Continue also executes later recorded code."))
-            .child(div().text_sm().text_color(cx.theme().muted_foreground).whitespace_normal().child("Artifact provenance, source compatibility and environment compatibility are not established by this report. The trust confirmation remains required.")));
-        let mut actions = h_flex().gap_2().flex_wrap();
+        report = report.child(
+            section("Before restoring", cx)
+                .child(
+                    div()
+                        .text_sm()
+                        .whitespace_normal()
+                        .child("Restore replaces the live namespace with saved supported values in a new session. Excluded values remain absent. Continue also executes later recorded code."),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(cx.theme().muted_foreground)
+                        .whitespace_normal()
+                        .child("Artifact provenance, source compatibility and environment compatibility are not established by this report. The trust confirmation remains required."),
+                ),
+        );
+        let mut actions = h_flex().gap_2().flex_wrap().items_center();
         for (method, label) in [
-            ("restore", "Restore checkpoint..."),
-            ("continue", "Continue in new session..."),
+            ("restore", "Restore checkpoint\u{2026}"),
+            ("continue", "Continue in new session\u{2026}"),
         ] {
             let id = id.clone();
             actions = actions.child(
@@ -216,12 +310,13 @@ impl Workspace {
                     })),
             );
         }
-        report.child(actions).child(
+        actions = actions.child(
             action_button("copy-checkpoint-id")
                 .ghost()
                 .small()
                 .label("Copy checkpoint identifier")
                 .on_click(cx.listener(move |_, _, _, cx| copy_acknowledged(id.clone(), cx))),
-        )
+        );
+        report.child(actions)
     }
 }

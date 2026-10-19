@@ -76,20 +76,19 @@ impl Workspace {
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (_border, _muted, muted_fg, primary, background, _radius) = (
-            theme.border,
+        let (muted, muted_fg, primary, background, transparent) = (
             theme.muted,
             theme.muted_foreground,
             theme.primary,
             theme.background,
-            theme.radius,
+            theme.transparent,
         );
         let mono = theme.mono_font_family.clone();
         let (warning, danger, info) = (theme.warning, theme.danger, theme.info);
         let save = match cell.save {
             SaveState::Saved => None,
             SaveState::Dirty => Some(("Unsaved", warning)),
-            SaveState::Saving => Some(("Saving…", info)),
+            SaveState::Saving => Some(("Saving\u{2026}", info)),
             SaveState::Conflict => Some(("Conflict", danger)),
             SaveState::Failed => Some(("Save failed", danger)),
         };
@@ -103,10 +102,10 @@ impl Workspace {
                     .ghost()
                     .small()
                     .rounded(px(15.))
-                    .bg(primary.opacity(0.10))
+                    .bg(primary.opacity(0.11))
                     .text_color(primary)
                     .icon(Glyph::Play)
-                    .hint("Run cell - Ctrl+Enter")
+                    .hint("Run cell (Ctrl+Enter)")
                     .accessibility_label(format!("Run {}", cell_title(&cell.text, &cell.disk.kind)))
                     .unavailable(cell.save == SaveState::Conflict)
                     .on_click(cx.listener({
@@ -221,28 +220,34 @@ impl Workspace {
             .min_h(rems(if self.preferences.comfortable {
                 2.75
             } else {
-                1.875
+                2.0
             }))
             .px_3()
             .gap_2()
             .items_center()
-            .bg(cx.theme().popover)
+            .bg(if self.high_contrast {
+                cx.theme().popover
+            } else {
+                muted.opacity(0.42)
+            })
             .flex_wrap()
             .py_1()
             .when_some(run_action, |d, button| d.child(button))
             .border_b_1()
             .border_color(divider(cx))
             .when(cell.disk.kind == "code", |d| {
-                d.when_some(cell.ordinal, |d, ordinal| {
-                    d.child(
-                        div()
-                            .flex_none()
-                            .font_family(mono.clone())
-                            .text_xs()
-                            .text_color(muted_fg)
-                            .child(ordinal.to_string()),
-                    )
-                })
+                d.child(
+                    div()
+                        .flex_none()
+                        .font_family(mono.clone())
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(
+                            cell.ordinal
+                                .map(|n| format!("[{n}]"))
+                                .unwrap_or_else(|| "[ ]".into()),
+                        ),
+                )
             })
             .child(badge(kind_label(&cell.disk.kind), muted_fg))
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
@@ -278,6 +283,7 @@ impl Workspace {
             .rounded(px(10.))
             .border_color(if selected { primary } else { divider(cx) })
             .bg(cx.theme().popover)
+            .when(!self.high_contrast && selected, |d| d.shadow_sm())
             .overflow_hidden()
             .on_mouse_down(
                 MouseButton::Left,
@@ -305,10 +311,10 @@ impl Workspace {
                             .w_full()
                             .max_w(rems(64.))
                             .mx_auto()
-                            .px_1()
-                            .py_1()
-                            .border_2()
-                            .border_color(if editor_focused { primary } else { background })
+                            .px_2()
+                            .py_1p5()
+                            .border_l_2()
+                            .border_color(if editor_focused { primary } else { transparent })
                             .child(
                                 Editor::new(&editor)
                                     .text_size(px(self.preferences.editor_size))
@@ -340,7 +346,7 @@ impl Workspace {
                             .font_weight(FontWeight::MEDIUM)
                             .text_color(danger)
                             .child(Icon::new(Glyph::TriangleAlert).small())
-                            .child("Conflict — both versions are preserved"),
+                            .child("Conflict \u{2014} both versions are preserved"),
                     )
                     .child(
                         div()
@@ -404,10 +410,55 @@ impl Workspace {
         }
         if cell.disk.kind == "markdown" && !(selected && tab.model.mode == Mode::Edit) {
             card = card.child(
-                div().px_3().py_2().max_w(rems(52.)).child(
+                div().px_4().py_3().max_w(rems(52.)).child(
                     TextView::markdown(("preview", index), safe_markdown(&cell.text))
                         .on_link_click(safe_link),
                 ),
+            );
+        }
+        let attachment_names = cell
+            .disk
+            .metadata
+            .get("attachments")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if !attachment_names.is_empty() {
+            let commands = self.tabs[self.active].service.commands.clone();
+            let previews = attachment_names
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|name| {
+                    let key = format!("{id}/{name}");
+                    (
+                        name.to_owned(),
+                        self.tabs[self.active].attachment_pages.get(&key).cloned(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            card = card.child(
+                v_flex()
+                    .px_4()
+                    .py_2()
+                    .gap_2()
+                    .children(previews.into_iter().map(|(name, preview)| {
+                        let mime = cell
+                            .disk
+                            .metadata
+                            .get("attachment_mimes")
+                            .and_then(|mimes| mimes.get(&name))
+                            .and_then(Value::as_str)
+                            .unwrap_or("application/octet-stream");
+                        outputs::attachment_preview(
+                            commands.clone(),
+                            id.clone().into(),
+                            name.clone().into(),
+                            mime.to_owned().into(),
+                            preview,
+                            window,
+                            cx,
+                        )
+                    })),
             );
         }
         if !cell.output.is_empty() {
@@ -416,8 +467,10 @@ impl Workspace {
                     .px_4()
                     .py_2()
                     .gap_2()
+                    .items_center()
                     .border_t_1()
                     .border_color(divider(cx))
+                    .bg(muted.opacity(0.45))
                     .text_xs()
                     .text_color(muted_fg)
                     .child(Icon::new(Glyph::EyeOff).xsmall())
@@ -429,11 +482,11 @@ impl Workspace {
             } else {
                 v_flex()
                     .px_4()
-                    .py_2()
-                    .gap_1()
+                    .py_2p5()
+                    .gap_2()
                     .border_t_1()
                     .border_color(divider(cx))
-                    .bg(cx.theme().muted)
+                    .bg(muted.opacity(0.55))
                     .children(cell.output.iter().enumerate().map(|(i, e)| {
                         outputs::OutputBlock {
                             tools_state: Some(tools_state.clone()),
@@ -446,6 +499,10 @@ impl Workspace {
                                 cell_title(&cell.text, &cell.disk.kind)
                             )
                             .into(),
+                            commands: Some(self.tabs[self.active].service.commands.clone()),
+                            cell_id: id.clone().into(),
+                            exec_id: cell.exec_id.clone().unwrap_or_default().into(),
+                            index: i,
                         }
                         .into_any_element()
                     }))
@@ -467,8 +524,8 @@ impl Workspace {
             }))
             .mx_auto()
             .px_4()
-            .pt(px(if index == 0 { 12. } else { 0. }))
-            .pb(px(if last { 20. } else { 0. }))
+            .pt(px(if index == 0 { 14. } else { 0. }))
+            .pb(px(if last { 24. } else { 0. }))
             .child(card)
             .child(
                 h_flex()

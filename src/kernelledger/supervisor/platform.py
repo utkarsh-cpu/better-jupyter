@@ -7,6 +7,13 @@ import signal
 from pathlib import Path
 from typing import Any, ClassVar
 
+# DETACHED_PROCESS keeps python.exe from allocating a console host.
+# CREATE_NEW_PROCESS_GROUP stays set so Windows job shutdown still owns the tree.
+DETACHED_PROCESS = 0x00000008
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+CREATE_NO_WINDOW = 0x08000000
+HIDDEN_CONSOLE = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+
 
 class DirectoryLock:
     def __init__(self, state: Any) -> None:

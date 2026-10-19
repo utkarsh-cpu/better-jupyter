@@ -4,12 +4,14 @@ import _thread
 import ast
 import base64
 import builtins
+import codecs
 import datetime as dt
 import decimal
 import enum
 import fractions
 import hashlib
 import importlib
+import importlib.util
 import io
 import json
 import linecache
@@ -20,12 +22,15 @@ import platform
 import queue
 import random
 import re
+import shlex
 import signal
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
+import tokenize
 import traceback
 import types
 import uuid
@@ -99,6 +104,112 @@ class Excluded(Exception):
         super().__init__(reason)
 
 
+def notebook_tree(source: str, filename: str) -> ast.Module:
+    """Translate escapes only where Python tokenization identifies executable code.
+
+    Restart after each escape so shell quotes, comments and brackets are never
+    interpreted as Python. Original source stays in the ledger and line cache.
+    """
+    lines = source.splitlines(keepends=True)
+    pattern = re.compile(
+        r"^(?P<indent>[ \t]*)(?:(?P<target>[^\W\d]\w*)\s*=\s*)?(?P<escape>!!?|%)(?P<command>.*)$"
+    )
+    while True:
+        changed = False
+        depth, logical_row = 0, None
+        try:
+            for token in tokenize.generate_tokens(io.StringIO("".join(lines)).readline):
+                if token.type in (tokenize.NEWLINE, tokenize.ENDMARKER):
+                    logical_row = None
+                elif token.type not in (
+                    tokenize.INDENT,
+                    tokenize.DEDENT,
+                    tokenize.NL,
+                    tokenize.COMMENT,
+                    tokenize.ENCODING,
+                ):
+                    if logical_row is None:
+                        logical_row = token.start[0]
+                if token.type == tokenize.OP:
+                    if token.string in ("(", "[", "{"):
+                        depth += 1
+                    elif token.string in (")", "]", "}"):
+                        depth -= 1
+                if token.string not in ("!", "%") or depth or logical_row != token.start[0]:
+                    continue
+                row, column = token.start
+                original = lines[row - 1]
+                match = pattern.match(original.rstrip("\r\n"))
+                if not match or column != match.start("escape"):
+                    continue
+                escape = match["escape"]
+                command = match["command"]
+                target = f"{match['target']} = " if match["target"] else ""
+                mode = "magic" if escape == "%" else "shell"
+                capture = bool(target) or escape == "!!"
+                ending = (
+                    "\r\n" if original.endswith("\r\n") else "\n" if original.endswith("\n") else ""
+                )
+                lines[row - 1] = (
+                    f"{match['indent']}{target}__kl_command__({command!r}, {mode!r}, {capture!r}){ending}"
+                )
+                changed = True
+                break
+        except (tokenize.TokenError, IndentationError):
+            # ast.parse supplies the usual SyntaxError for invalid Python.
+            pass
+        if not changed:
+            return ast.parse("".join(lines), filename)
+
+
+def windows_shell_path(path: str) -> str:
+    """cmd.exe needs DOS/UNC spelling rather than Win32 extended namespaces."""
+    if path.upper().startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    if path.startswith("\\\\?\\") and len(path) > 6 and path[5] == ":":
+        return path[4:]
+    return path
+
+
+def stop_shell(process: Any) -> None:
+    """Stop this shell's descendants without stopping the notebook worker."""
+    if process.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=0x08000000,
+                timeout=5,
+            )
+        else:
+            # Children retain the worker's process group, so forced runtime stop
+            # still contains them. For a soft interrupt, target only this tree.
+            table = subprocess.run(
+                ["ps", "-e", "-o", "pid=,ppid="],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+            parents = [tuple(map(int, row.split())) for row in table.stdout.splitlines()]
+            descendants = [process.pid]
+            for parent in descendants:
+                descendants.extend(pid for pid, ppid in parents if ppid == parent)
+            for pid in reversed(descendants):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+    except (OSError, subprocess.SubprocessError):
+        pass
+    if process.poll() is None:
+        process.kill()
+    process.wait(timeout=5)
+
+
 class ExecutionIndex:
     def __init__(self) -> None:
         self.entries: dict[Any, Any]
@@ -107,7 +218,7 @@ class ExecutionIndex:
         self.captured = {}
 
     def add(self, filename: Any, source: Any, ordinal: Any) -> Any:
-        tree = ast.parse(source, filename)
+        tree = notebook_tree(source, filename)
         linecache.cache[filename] = (len(source), None, source.splitlines(True), filename)
         entries: list[Any]
         entries = []
@@ -1012,6 +1123,7 @@ class GraphLoader:
             "display",
             "update_display",
             "clear_output",
+            "__kl_command__",
         }
         for name in list(self.namespace):
             if name not in keep:
@@ -1063,6 +1175,7 @@ class Worker:
             "display": self.display,
             "update_display": self.update_display,
             "clear_output": self.clear,
+            "__kl_command__": self.notebook_command,
         }
         self.internal_bindings = self.namespace.copy()
         self.exec_id, self.ordinal = None, 0
@@ -1145,6 +1258,118 @@ class Worker:
 
     def clear(self, wait: Any = False) -> Any:
         self.emit("clear", wait=bool(wait))
+
+    def notebook_command(self, command: str, mode: str = "shell", capture: bool = False) -> Any:
+        if mode == "magic":
+            parts = command.split(maxsplit=1)
+            name = parts[0] if parts else ""
+            argument = parts[1] if len(parts) > 1 else ""
+            if name == "pwd":
+                return os.getcwd()
+            if name == "cd":
+                path = argument.strip()
+                if len(path) >= 2 and path[0] == path[-1] and path[0] in ("'", '"'):
+                    path = path[1:-1]
+                os.chdir(os.path.expanduser(os.path.expandvars(path or "~")))
+                print(os.getcwd())
+                return None
+            if name != "pip":
+                raise ValueError(f"Unsupported notebook magic %{name}. Supported: %pip, %cd, %pwd.")
+            command = "pip " + argument
+        command = command.strip()
+        if not command:
+            raise ValueError("A command is required after !")
+        if command.endswith("&") and not command.endswith("&&"):
+            raise ValueError("Background shell commands are not supported")
+        executable = re.match(r"^(pip3?|python3?|\{sys\.executable\})(?=\s|$)", command)
+        package_command = executable is not None and executable[1].startswith("pip")
+        if package_command and importlib.util.find_spec("pip") is None:
+            print("Setting up pip in the notebook environment...", flush=True)
+            self.notebook_command("python -m ensurepip --upgrade")
+            importlib.invalidate_caches()
+        python = windows_shell_path(sys.executable) if os.name == "nt" else sys.executable
+        if executable:
+            args = [python, "-m", "pip"] if package_command else [python]
+            prefix = subprocess.list2cmdline(args) if os.name == "nt" else shlex.join(args)
+            command = prefix + command[executable.end() :]
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1"}
+        path = env.get("PATH", "")
+        cwd = os.getcwd()
+        if os.name == "nt":
+            path = os.pathsep.join(windows_shell_path(entry) for entry in path.split(os.pathsep))
+            cwd = windows_shell_path(cwd)
+        env["PATH"] = str(pathlib.Path(python).parent) + os.pathsep + path
+        if sys.prefix != sys.base_prefix:
+            env["VIRTUAL_ENV"] = windows_shell_path(sys.prefix) if os.name == "nt" else sys.prefix
+        else:
+            env.pop("VIRTUAL_ENV", None)
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT if capture else subprocess.PIPE,
+            env=env,
+            cwd=cwd,
+            creationflags=0x08000000 if os.name == "nt" else 0,
+        )
+        captured: list[str] = []
+
+        def forward(pipe: Any, stream: Stream) -> None:
+            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+            try:
+                while chunk := pipe.read1(4096):
+                    text = decoder.decode(chunk)
+                    if capture:
+                        captured.append(text)
+                    else:
+                        stream.write(text)
+                        stream.flush()
+                remaining = decoder.decode(b"", final=True)
+                if capture:
+                    captured.append(remaining)
+                elif remaining:
+                    stream.write(remaining)
+            finally:
+                pipe.close()
+
+        readers = [
+            threading.Thread(
+                target=forward,
+                args=(process.stdout, self.stdout),
+                name="_kl_shell_stdout",
+                daemon=True,
+            )
+        ]
+        if not capture:
+            readers.append(
+                threading.Thread(
+                    target=forward,
+                    args=(process.stderr, self.stderr),
+                    name="_kl_shell_stderr",
+                    daemon=True,
+                )
+            )
+        try:
+            for reader in readers:
+                reader.start()
+            while process.poll() is None or any(reader.is_alive() for reader in readers):
+                if self.interrupted.wait(0.05):
+                    raise KeyboardInterrupt()
+            status = process.wait()
+            self.namespace["_exit_code"] = status
+            if status:
+                raise subprocess.CalledProcessError(status, command)
+            return "".join(captured).splitlines() if capture else None
+        except BaseException:
+            stop_shell(process)
+            raise
+        finally:
+            for reader in readers:
+                if reader.ident is not None:
+                    reader.join(timeout=5)
+            if package_command:
+                importlib.invalidate_caches()
 
     def input(self, prompt: Any = "", password: Any = False) -> Any:
         self.emit("stdin_request", prompt=str(prompt), password=password)

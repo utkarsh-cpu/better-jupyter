@@ -1,0 +1,314 @@
+﻿[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List"
+    },
+    {
+        "name":  "Cell 1: # Forecast analysis",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 2: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 4: ## Next experiment",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Cell 5: for day, value in enumerate(observations, 1):",
+        "role":  "ControlType.ListItem"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for # Forecast analysis",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Output tools: observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for observations = [12, 18, 15, 21]",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "code cell baseline",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Recorded output: Mean: 16.5\n",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Output tools: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "code cell forecast",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Recorded output: Preparing forecast...\n",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: float division by zero",
+        "role":  "ControlType.Group"
+    },
+    {
+        "name":  "Show full traceback for Output 2 for cell 3: print(\u0027Preparing forecast...\u0027)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 3",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "More actions for ## Next experiment",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Insert cell after cell 4",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Window"
+    },
+    {
+        "name":  "Type a command",
+        "role":  "ControlType.Edit"
+    },
+    {
+        "name":  "Notebook, selected",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Find notebook cells",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export notebook…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export PDF…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export Word document…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Open notebook…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run all cells",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run above",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run below",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Split cell at cursor",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Merge with next cell, unavailable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Checkpoint",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Interrupt, unavailable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Toggle notebook sidebar",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Help and shortcuts",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "All runtimes",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Diagnostics",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export Jupyter notebook…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Export bundle…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Restart empty",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Stop runtime",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Terminate worker…, unavailable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Training checkpoint (Experimental)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Training snapshots",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Native snapshot availability",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Preview garbage collection",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Run selected cell, unavailable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Add code cell",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Add Markdown cell",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Add Raw cell",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Duplicate cell",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Delete cell...",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Move cell up, unavailable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Move cell down",
+        "role":  "ControlType.Button"
+    }
+]

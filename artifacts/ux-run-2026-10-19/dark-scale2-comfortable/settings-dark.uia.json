@@ -1,0 +1,122 @@
+﻿[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "37,23,176,176"
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "229,23,176,176"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "429,23,176,176"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "609,23,176,176"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "789,23,176,176"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1365,23,176,176"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1559,23,176,176"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1751,23,176,176"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1943,23,176,176"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2135,23,176,176"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2065,270,176,176"
+    },
+    {
+        "name":  "More actions for # UI regression fixture",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2257,270,176,176"
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1089,769,382,176"
+    },
+    {
+        "name":  "Run print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "127,963,176,176"
+    },
+    {
+        "name":  "Output tools: print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1873,963,176,176"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2065,963,176,176"
+    },
+    {
+        "name":  "More actions for print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2257,963,176,176"
+    },
+    {
+        "name":  "code cell hello",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "115,1181,2334,108"
+    },
+    {
+        "name":  "Recorded output: Hello, KernelLedger\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "143,1355,2274,182"
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1089,1579,382,176"
+    }
+]

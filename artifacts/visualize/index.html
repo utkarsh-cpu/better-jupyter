@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KernelLedger — Python module map</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
+    --line:#e6ebf1; --accent:#2563eb; --canvas:#0b1220; --chip:#eef2f7;
+    --entry:#f59e0b; --worker:#8b5cf6; --supervisor:#3b82f6; --desktop:#14b8a6;
+    --core:#22c55e; --gpu:#f97316;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:14px}
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  code,code.in{font-family:var(--mono);font-size:.92em}
+  code.in{background:var(--chip);padding:1px 5px;border-radius:5px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:12.5px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .chip b{font-weight:700}
+  .chip .k{color:var(--muted);margin-right:6px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 1px 3px rgba(16,24,40,.05);padding:18px 20px;margin-bottom:18px}
+  .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+  @media (max-width:820px){.grid2{grid-template-columns:1fr}}
+  .hint{color:var(--muted);font-size:12.5px;margin:2px 0 0}
+
+  /* Architecture concept rows */
+  .layer{display:flex;align-items:center;gap:14px;margin:10px 0}
+  .layer .lab{flex:0 0 168px;font-size:12px;font-weight:600;color:var(--muted);
+    text-transform:none;text-align:right}
+  @media (max-width:640px){.layer .lab{flex-basis:0;display:none}}
+  .boxes{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+  .box{border-radius:9px;padding:8px 11px;font-size:12.5px;font-weight:600;color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);white-space:nowrap}
+  .box small{display:block;font-weight:400;opacity:.82;font-size:11px}
+  .box.entry{background:var(--entry)} .box.worker{background:var(--worker)}
+  .box.supervisor{background:var(--supervisor)} .box.desktop{background:var(--desktop)}
+  .box.core{background:var(--core)} .box.gpu{background:var(--gpu)}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--muted)}
+  .flow .sep{opacity:.5}
+
+  /* Stacked split bar */
+  .splitbar{display:flex;height:30px;border-radius:9px;overflow:hidden;margin-top:10px;font-size:12px;font-weight:600;color:#fff}
+  .splitbar .seg{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+  .seg.core{background:var(--core)} .seg.gpu{background:var(--gpu)}
+  .legend{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+  /* Group totals */
+  .rowbar{margin:9px 0}
+  .rowbar .lab{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+  .track{height:12px;background:#eef2f7;border-radius:6px;overflow:hidden}
+  .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#3b82f6,#6366f1)}
+
+  /* Graph panel */
+  .gpanel{background:var(--canvas);border-radius:14px;border:1px solid #1e293b;overflow:hidden}
+  .gcontrols{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:12px 16px;color:#cbd5e1;font-size:12.5px;
+    border-bottom:1px solid #1e293b}
+  .gcontrols label{display:flex;gap:7px;align-items:center;cursor:pointer;user-select:none}
+  .gcontrols input[type=checkbox]{accent-color:#3b82f6;width:15px;height:15px}
+  .gcontrols .spacer{margin-left:auto}
+  button.ctl{background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:8px;
+    padding:5px 11px;font-size:12px;cursor:pointer}
+  button.ctl:hover{background:#273549}
+  .legend2{display:flex;gap:12px;flex-wrap:wrap;padding:10px 16px;color:#94a3b8;font-size:11.5px;border-bottom:1px solid #1e293b}
+  .legend2 .dot{border-radius:3px}
+  .canvas-scroll{overflow:auto;padding:10px}
+  svg.graph{display:block}
+  .edge{fill:none;stroke:#3a4860;stroke-width:1.3;opacity:.62;transition:opacity .15s,stroke .15s}
+  .edge.lazy{stroke-dasharray:5 5;stroke:#39445a;opacity:.4;transition:opacity .15s,stroke .15s}
+  .edge.hl{stroke:#e2e8f0;stroke-width:2.1;opacity:1}
+  .edge.lazy.hl{stroke:#a5b4fc}
+  .edge.dim{opacity:.07}
+  .edge.lazy.dim{opacity:.05}
+  .node{cursor:pointer;transition:opacity .15s}
+  .node rect{stroke:rgba(255,255,255,.22);stroke-width:1;rx:9;transition:stroke .15s}
+  .node .name{fill:#f8fafc;font-family:var(--mono);font-size:11.5px;font-weight:600}
+  .node .meta{fill:#94a3b8;font-family:var(--mono);font-size:9.5px}
+  .node.pinned rect,.node.hl rect{stroke:#f8fafc;stroke-width:1.8}
+  .node.dim{opacity:.16}
+  text{user-select:none;pointer-events:none}
+
+  /* tooltip */
+  #tip{position:fixed;z-index:50;max-width:340px;background:#0f172a;color:#e2e8f0;
+    border:1px solid #334155;border-radius:10px;padding:11px 13px;font-size:12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);pointer-events:none;display:none;line-height:1.45}
+  #tip h4{margin:0 0 2px;font-size:13px;color:#fff}
+  #tip .tpath{color:#94a3b8;font-family:var(--mono);font-size:10.5px;margin-bottom:6px}
+  #tip .trow{display:flex;gap:12px;margin:2px 0}
+  #tip .k{color:#7c8ba1}
+  #tip .bdg{display:inline-block;font-size:10px;font-weight:700;color:#fff;border-radius:5px;padding:1px 6px;margin-bottom:6px}
+  #tip .sym{display:inline-block;background:#1e293b;border:1px solid #334155;border-radius:5px;
+    padding:1px 6px;margin:2px 3px 0 0;font-family:var(--mono);font-size:10px}
+  #tip .lst{margin-top:6px;padding-top:6px;border-top:1px solid #1e293b}
+  #tip .lst b{color:#93a3b6;font-weight:600;font-size:10.5px}
+  #tip .lst code{color:#cbd5e1;font-family:var(--mono);font-size:10px;display:inline-block;margin:1px 4px 1px 0}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{position:sticky;top:0;background:#f8fafc;text-align:left;font-size:11px;
+    color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--line)}
+  thead th.num{text-align:right}
+  tbody td{padding:8px 10px;border-bottom:1px solid #eef2f7;vertical-align:top}
+  tbody td.num{text-align:right;font-family:var(--mono);font-size:12px}
+  tbody tr.mod:hover{background:#f8fafc}
+  tr.group td{background:#f1f5f9;font-weight:700;font-size:12px;color:#334155;padding:6px 10px}
+  tr.group .cnt{float:right;color:var(--muted);font-weight:500}
+  .tag{font-size:10.5px;font-weight:700;color:#fff;border-radius:5px;padding:1px 7px;white-space:nowrap}
+  .doc{color:var(--muted);font-size:12px}
+  .filter{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .filter input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;
+    padding:8px 11px;font-size:13px;font-family:var(--sans)}
+  .note{font-size:12px;color:var(--muted)}
+  footer{margin-top:26px;color:var(--muted);font-size:12px;text-align:center}
+  .kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px}
+  .kcell{background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .kcell .n{font-size:20px;font-weight:700}
+  .kcell .t{font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>KernelLedger <span style="font-weight:300;font-size:15px;color:var(--muted)">·  Python module map</span></h1>
+  <p class="sub">A local Python notebook runtime — stdlib-only core, optional PyTorch/GPU layer, supervisor + worker, and a Rust GPUI desktop client.<br>
+  This map is generated from the actual source tree (<code class="in">visualize_inventory.py</code> → <code class="in">build_visual.py</code>).</p>
+
+  <div class="chips" id="chips"></div>
+
+  <!-- OVERVIEW -->
+  <div class="card">
+    <h2>Architecture at a glance</h2>
+    <p class="hint" id="flowhint"></p>
+    <div id="arch"></div>
+    <div class="kgrid" id="kgrid" style="margin-top:16px"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Stdlib core vs. optional GPU layer</h2>
+      <p class="hint">Only 4 modules import <code class="in">torch</code>/<code class="in">numpy</code>; the rest of the runtime uses just the CPython standard library.</p>
+      <div class="splitbar" id="splitbar"></div>
+      <div class="legend" id="splitlegend"></div>
+    </div>
+    <div class="card">
+      <h2>Python by area</h2>
+      <p class="hint">Line counts across the repository's Python.</p>
+      <div id="groupbars"></div>
+    </div>
+  </div>
+
+  <!-- GRAPH -->
+  <div class="card" style="padding:0">
+    <h2 style="padding:16px 18px 4px">Module dependency graph</h2>
+    <p class="gcontrols">
+      <span style="opacity:.85">Arrows point to what a module <b>imports</b> at load time.</span>
+      <label><input type="checkbox" id="showLazy" /> show lazy (in-function) imports</label>
+      <label><input type="checkbox" id="showSelf" /> dim unrelated</label>
+      <div class="spacer"></div>
+      <button class="ctl" id="resetBtn">reset</button>
+    </p>
+    <div class="legend2" id="legend2"></div>
+    <div class="canvas-scroll" id="canvasScroll"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <h2>Module inventory</h2>
+    <div class="filter">
+      <input id="filter" placeholder="Filter by name, symbol, or description… (e.g. checkpoint, BlobStore, torch)" />
+      <span class="note" id="tableCount"></span>
+    </div>
+    <div style="max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      <table id="inv">
+        <thead><tr>
+          <th style="width:210px">Module</th><th style="width:96px">Domain</th>
+          <th class="num" style="width:64px">Lines</th><th class="num" style="width:70px">Classes</th>
+          <th class="num" style="width:64px">Funcs</th><th style="width:70px">Deps</th>
+          <th>Notes</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Generated from <code class="in">src/kernelledger</code> · <span id="foot"></span></footer>
+</div>
+
+<div id="tip"></div>
+
+<script id="data" type="application/json">{"title":"KernelLedger \u2014 Python module map","board":{"w":1762.5,"h":774},"domains":["entry","worker","supervisor","desktop","core","gpu"],"nodes":[{"id":"kernelledger.__main__","name":"__main__","path":"src/kernelledger/__main__.py","lines":3,"classes":0,"functions":0,"optional":false,"domain":"entry","doc":"","symbols":[],"x":888,"y":357.0,"w":104,"h":46},{"id":"kernelledger.artifacts","name":"artifacts","path":"src/kernelledger/artifacts.py","lines":380,"classes":2,"functions":3,"optional":false,"domain":"gpu","doc":"Experimental v5 chunk store. Independent of the v4 runtime ledger. Every published object is a root until explicitly released. Writers, transfers, and GC serialize on an OS lock; leases protect transitive closure between calls. The format i","symbols":["ArtifactStore","BinaryReader","canonical","integer","validate_artifact"],"x":1360,"y":267.0,"w":133,"h":46},{"id":"kernelledger.blobs","name":"blobs","path":"src/kernelledger/blobs.py","lines":139,"classes":1,"functions":2,"optional":false,"domain":"core","doc":"Durable immutable content-addressed payloads.","symbols":["BlobStore","check_hash","references"],"x":1596,"y":87.0,"w":127,"h":46},{"id":"kernelledger.cli","name":"cli","path":"src/kernelledger/cli.py","lines":601,"classes":0,"functions":10,"optional":false,"domain":"entry","doc":"KernelLedger CLI. Inspection never starts a worker or supervisor.","symbols":["alive","connect","emit","ensure_supervisor","execute_cli","main","offline_mutation","parser","render","rpc"],"x":1124,"y":327.0,"w":136,"h":46},{"id":"kernelledger.desktop","name":"desktop","path":"src/kernelledger/desktop/__init__.py","lines":1,"classes":0,"functions":0,"optional":false,"domain":"desktop","doc":"Desktop protocol version 1; separate from the worker and legacy protocols.","symbols":[],"x":1596,"y":447.0,"w":100,"h":46},{"id":"kernelledger.desktop.contracts","name":"desktop.contracts","path":"src/kernelledger/desktop/contracts.py","lines":257,"classes":0,"functions":2,"optional":false,"domain":"desktop","doc":"Protocol request catalog used for stdlib validation and published JSON schemas.","symbols":["schema","validate"],"x":1124,"y":387.0,"w":139,"h":46},{"id":"kernelledger.desktop.helper","name":"desktop.helper","path":"src/kernelledger/desktop/helper.py","lines":297,"classes":1,"functions":3,"optional":false,"domain":"desktop","doc":"Offline desktop source and inspection server. Never launches notebook code.","symbols":["Helper","candidates","main","validate_interpreter"],"x":888,"y":417.0,"w":132,"h":46},{"id":"kernelledger.desktop.protocol","name":"desktop.protocol","path":"src/kernelledger/desktop/protocol.py","lines":102,"classes":0,"functions":6,"optional":false,"domain":"desktop","doc":"Bounded JSON framing and shared validation for socket and stdio clients.","symbols":["encode","error","hello","page","read","send"],"x":1124,"y":447.0,"w":133,"h":46},{"id":"kernelledger.desktop.server","name":"desktop.server","path":"src/kernelledger/desktop/server.py","lines":742,"classes":1,"functions":0,"optional":false,"domain":"desktop","doc":"Supervisor-owned durable desktop operations, input ownership and committed feeds.","symbols":["DesktopServer"],"x":888,"y":477.0,"w":138,"h":46},{"id":"kernelledger.execution","name":"execution","path":"src/kernelledger/execution/__init__.py","lines":1,"classes":0,"functions":0,"optional":false,"domain":"gpu","doc":"Execution target identities for the experimental v5 contracts.","symbols":[],"x":1596,"y":507.0,"w":100,"h":46},{"id":"kernelledger.execution.targets","name":"execution.targets","path":"src/kernelledger/execution/targets.py","lines":63,"classes":1,"functions":2,"optional":false,"domain":"gpu","doc":"Read-only target identity. Credentials and machine paths are never tracked.","symbols":["Target","local_target","runtime_identity"],"x":1596,"y":387.0,"w":139,"h":46},{"id":"kernelledger.experiments","name":"experiments","path":"src/kernelledger/experiments.py","lines":542,"classes":0,"functions":11,"optional":true,"domain":"gpu","doc":"Experimental explicit PyTorch training snapshots, outside the v4 worker API. Factories are supplied by the caller at restore, never deserialized from bytes. The caller owns the idle training boundary and dataset cursor/drain rule.","symbols":["capture_training","inspect_experiment","materialize_source","restore_training","validate_experiment_path","validate_training_parameters"],"x":652,"y":387.0,"w":136,"h":46},{"id":"kernelledger.git_state","name":"git_state","path":"src/kernelledger/git_state.py","lines":56,"classes":0,"functions":1,"optional":false,"domain":"gpu","doc":"Read-only experimental source/state association checks. No Git hooks installed.","symbols":["experiment_status"],"x":416,"y":417.0,"w":121,"h":46},{"id":"kernelledger.gpu","name":"gpu","path":"src/kernelledger/gpu/__init__.py","lines":1,"classes":0,"functions":0,"optional":false,"domain":"gpu","doc":"Experimental v5 APIs. Importing this package does not import a GPU framework.","symbols":[],"x":1596,"y":567.0,"w":100,"h":46},{"id":"kernelledger.gpu.backends","name":"gpu.backends","path":"src/kernelledger/gpu/backends/__init__.py","lines":1,"classes":0,"functions":0,"optional":false,"domain":"gpu","doc":"Native backends are unqualified until recorded real hardware restore evidence.","symbols":[],"x":1596,"y":627.0,"w":106,"h":46},{"id":"kernelledger.gpu.backends.capabilities","name":"gpu.backends.capabilities","path":"src/kernelledger/gpu/backends/capabilities.py","lines":131,"classes":0,"functions":2,"optional":false,"domain":"gpu","doc":"Inventory never imports a framework. Active probing is a separate process.","symbols":["inventory","probe"],"x":1360,"y":507.0,"w":193,"h":46},{"id":"kernelledger.gpu.backends.probe","name":"gpu.backends.probe","path":"src/kernelledger/gpu/backends/probe.py","lines":77,"classes":0,"functions":1,"optional":true,"domain":"gpu","doc":"Disposable active probe. Invoked by absolute path with an isolated interpreter.","symbols":["run"],"x":1596,"y":687.0,"w":146,"h":46},{"id":"kernelledger.gpu.cooperative","name":"gpu.cooperative","path":"src/kernelledger/gpu/cooperative.py","lines":388,"classes":3,"functions":1,"optional":true,"domain":"gpu","doc":"Opt-in cooperative training checkpoints; importing this module loads no framework. All registered-object mutations must use training_step(). Background data loaders must be drained by the supplied callback. Restore belongs in a fresh proces","symbols":["CheckpointBusy","CheckpointFaulted","CooperativeCheckpointPlugin"],"x":416,"y":357.0,"w":134,"h":46},{"id":"kernelledger.gpu.manifest","name":"gpu.manifest","path":"src/kernelledger/gpu/manifest.py","lines":190,"classes":0,"functions":2,"optional":false,"domain":"gpu","doc":"Framework-free validation of the experimental portable tensor format.","symbols":["validate_state","validate_tensor"],"x":1124,"y":267.0,"w":129,"h":46},{"id":"kernelledger.gpu.notebook","name":"gpu.notebook","path":"src/kernelledger/gpu/notebook.py","lines":127,"classes":0,"functions":5,"optional":false,"domain":"gpu","doc":"Explicit installed plugin bridge for the standalone notebook worker. Only register() imports PyTorch. This module never writes a notebook ledger. Captured sources are retained in an owned temporary directory on reconstruction.","symbols":["capture","reconstruct","register","status"],"x":180,"y":387.0,"w":126,"h":46},{"id":"kernelledger.gpu.portable","name":"gpu.portable","path":"src/kernelledger/gpu/portable.py","lines":259,"classes":2,"functions":2,"optional":true,"domain":"gpu","doc":"Explicit typed PyTorch values; no pickle or framework-native loaders. Call capture only at an application-owned idle boundary. This prototype does not change the standalone v4 worker's checkpoint or busy-refusal contract.","symbols":["PortableEncoder","inspect_state","restore_values"],"x":888,"y":297.0,"w":131,"h":46},{"id":"kernelledger.ledger","name":"ledger","path":"src/kernelledger/ledger.py","lines":378,"classes":1,"functions":3,"optional":false,"domain":"core","doc":"Single-writer SQLite execution history; readers never create a database.","symbols":["Ledger","fold","now","uid"],"x":1596,"y":267.0,"w":133,"h":46},{"id":"kernelledger.notebook","name":"notebook","path":"src/kernelledger/notebook.py","lines":352,"classes":1,"functions":5,"optional":false,"domain":"core","doc":"Tracked notebook source and standard-library ipynb conversion.","symbols":["Notebook","canonical","filename","source_hash","valid_id","write_json"],"x":1596,"y":327.0,"w":133,"h":46},{"id":"kernelledger.registry","name":"registry","path":"src/kernelledger/registry.py","lines":63,"classes":0,"functions":4,"optional":false,"domain":"core","doc":"Runtime hints. Authentication, never a pid, establishes liveness.","symbols":["directory","entry_path","list_runtimes","publish"],"x":1124,"y":507.0,"w":122,"h":46},{"id":"kernelledger.sharing","name":"sharing","path":"src/kernelledger/sharing.py","lines":482,"classes":1,"functions":9,"optional":false,"domain":"core","doc":"Read-only output views and verified sharing artifacts.","symbols":["Bundle","descriptor","export_bundle","gc","import_bundle","mutate","notebook_outputs","output_view","payload","selected_rows"],"x":1360,"y":387.0,"w":135,"h":46},{"id":"kernelledger.source","name":"source","path":"src/kernelledger/source.py","lines":402,"classes":2,"functions":2,"optional":false,"domain":"core","doc":"Revision-checked source transactions. Only this module publishes tracked source.","symbols":["SourceError","SourceService","atomic","manifest_bytes"],"x":1360,"y":447.0,"w":134,"h":46},{"id":"kernelledger.supervisor","name":"supervisor","path":"src/kernelledger/supervisor/__init__.py","lines":926,"classes":1,"functions":5,"optional":false,"domain":"supervisor","doc":"Authenticated asyncio supervisor; sole writer of runtime state.","symbols":["Supervisor","interpreter","main","read_message","send_blob","send_message"],"x":1360,"y":327.0,"w":139,"h":46},{"id":"kernelledger.supervisor.platform","name":"supervisor.platform","path":"src/kernelledger/supervisor/platform.py","lines":247,"classes":2,"functions":1,"optional":false,"domain":"supervisor","doc":"OS-owned locks, child process lifetime, and token permissions.","symbols":["DirectoryLock","ProcessTree","secure_token"],"x":1596,"y":147.0,"w":153,"h":46},{"id":"kernelledger.worker","name":"worker","path":"src/kernelledger/worker.py","lines":1355,"classes":7,"functions":5,"optional":false,"domain":"worker","doc":"Standalone worker. Intentionally imports no KernelLedger modules.","symbols":["Channel","Excluded","ExecutionIndex","GraphEncoder","GraphLoader","Stream","Worker","json_bytes","main","receive","recv_exact","validate_checkpoint"],"x":1596,"y":207.0,"w":141,"h":46}],"edges":[{"from":"kernelledger.__main__","to":"kernelledger.cli","d":"M 836.0 357.0 C 1014.0 357.0, 1014.0 327.0, 1192.0 327.0","ax":[940.0,357.0],"ay":0,"sx":940.0,"sy":357.0,"tx":1056.0,"ty":327.0},{"from":"kernelledger.artifacts","to":"kernelledger.blobs","d":"M 1293.5 267.0 C 1476.5 267.0, 1476.5 87.0, 1659.5 87.0","ax":[1426.5,267.0],"ay":0,"sx":1426.5,"sy":267.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.artifacts","to":"kernelledger.supervisor.platform","d":"M 1293.5 267.0 C 1483.0 267.0, 1483.0 147.0, 1672.5 147.0","ax":[1426.5,267.0],"ay":0,"sx":1426.5,"sy":267.0,"tx":1519.5,"ty":147.0},{"from":"kernelledger.cli","to":"kernelledger.supervisor.platform","d":"M 1056.0 327.0 C 1364.2 327.0, 1364.2 147.0, 1672.5 147.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1519.5,"ty":147.0},{"from":"kernelledger.cli","to":"kernelledger.blobs","d":"M 1056.0 327.0 C 1357.8 327.0, 1357.8 87.0, 1659.5 87.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.cli","to":"kernelledger.sharing","d":"M 1056.0 327.0 C 1241.8 327.0, 1241.8 387.0, 1427.5 387.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1292.5,"ty":387.0},{"from":"kernelledger.cli","to":"kernelledger.ledger","d":"M 1056.0 327.0 C 1359.2 327.0, 1359.2 267.0, 1662.5 267.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1529.5,"ty":267.0},{"from":"kernelledger.cli","to":"kernelledger.worker","d":"M 1056.0 327.0 C 1361.2 327.0, 1361.2 207.0, 1666.5 207.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1525.5,"ty":207.0},{"from":"kernelledger.cli","to":"kernelledger.notebook","d":"M 1056.0 327.0 C 1359.2 327.0, 1359.2 327.0, 1662.5 327.0","ax":[1192.0,327.0],"ay":0,"sx":1192.0,"sy":327.0,"tx":1529.5,"ty":327.0},{"from":"kernelledger.desktop.contracts","to":"kernelledger.source","d":"M 1054.5 387.0 C 1240.8 387.0, 1240.8 447.0, 1427.0 447.0","ax":[1193.5,387.0],"ay":0,"sx":1193.5,"sy":387.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.source","d":"M 822.0 417.0 C 1124.5 417.0, 1124.5 447.0, 1427.0 447.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.blobs","d":"M 822.0 417.0 C 1240.8 417.0, 1240.8 87.0, 1659.5 87.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.sharing","d":"M 822.0 417.0 C 1124.8 417.0, 1124.8 387.0, 1427.5 387.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1292.5,"ty":387.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.ledger","d":"M 822.0 417.0 C 1242.2 417.0, 1242.2 267.0, 1662.5 267.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1529.5,"ty":267.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.desktop.contracts","d":"M 822.0 417.0 C 1007.8 417.0, 1007.8 387.0, 1193.5 387.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1054.5,"ty":387.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.desktop.protocol","d":"M 822.0 417.0 C 1006.2 417.0, 1006.2 447.0, 1190.5 447.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1057.5,"ty":447.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.notebook","d":"M 822.0 417.0 C 1242.2 417.0, 1242.2 327.0, 1662.5 327.0","ax":[954.0,417.0],"ay":0,"sx":954.0,"sy":417.0,"tx":1529.5,"ty":327.0},{"from":"kernelledger.desktop.protocol","to":"kernelledger.source","d":"M 1057.5 447.0 C 1242.2 447.0, 1242.2 447.0, 1427.0 447.0","ax":[1190.5,447.0],"ay":0,"sx":1190.5,"sy":447.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.desktop.server","to":"kernelledger.source","d":"M 819.0 477.0 C 1123.0 477.0, 1123.0 447.0, 1427.0 447.0","ax":[957.0,477.0],"ay":0,"sx":957.0,"sy":477.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.desktop.server","to":"kernelledger.ledger","d":"M 819.0 477.0 C 1240.8 477.0, 1240.8 267.0, 1662.5 267.0","ax":[957.0,477.0],"ay":0,"sx":957.0,"sy":477.0,"tx":1529.5,"ty":267.0},{"from":"kernelledger.desktop.server","to":"kernelledger.desktop.contracts","d":"M 819.0 477.0 C 1006.2 477.0, 1006.2 387.0, 1193.5 387.0","ax":[957.0,477.0],"ay":0,"sx":957.0,"sy":477.0,"tx":1054.5,"ty":387.0},{"from":"kernelledger.desktop.server","to":"kernelledger.desktop.protocol","d":"M 819.0 477.0 C 1004.8 477.0, 1004.8 447.0, 1190.5 447.0","ax":[957.0,477.0],"ay":0,"sx":957.0,"sy":477.0,"tx":1057.5,"ty":447.0},{"from":"kernelledger.desktop.server","to":"kernelledger.notebook","d":"M 819.0 477.0 C 1240.8 477.0, 1240.8 327.0, 1662.5 327.0","ax":[957.0,477.0],"ay":0,"sx":957.0,"sy":477.0,"tx":1529.5,"ty":327.0},{"from":"kernelledger.experiments","to":"kernelledger.artifacts","d":"M 584.0 387.0 C 1005.2 387.0, 1005.2 267.0, 1426.5 267.0","ax":[720.0,387.0],"ay":0,"sx":720.0,"sy":387.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.experiments","to":"kernelledger.blobs","d":"M 584.0 387.0 C 1121.8 387.0, 1121.8 87.0, 1659.5 87.0","ax":[720.0,387.0],"ay":0,"sx":720.0,"sy":387.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.experiments","to":"kernelledger.gpu.portable","d":"M 584.0 387.0 C 768.8 387.0, 768.8 297.0, 953.5 297.0","ax":[720.0,387.0],"ay":0,"sx":720.0,"sy":387.0,"tx":822.5,"ty":297.0},{"from":"kernelledger.git_state","to":"kernelledger.experiments","d":"M 355.5 417.0 C 537.8 417.0, 537.8 387.0, 720.0 387.0","ax":[476.5,417.0],"ay":0,"sx":476.5,"sy":417.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.git_state","to":"kernelledger.artifacts","d":"M 355.5 417.0 C 891.0 417.0, 891.0 267.0, 1426.5 267.0","ax":[476.5,417.0],"ay":0,"sx":476.5,"sy":417.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.backends.capabilities","to":"kernelledger.execution.targets","d":"M 1263.5 507.0 C 1464.5 507.0, 1464.5 387.0, 1665.5 387.0","ax":[1456.5,507.0],"ay":0,"sx":1456.5,"sy":507.0,"tx":1526.5,"ty":387.0},{"from":"kernelledger.gpu.cooperative","to":"kernelledger.experiments","d":"M 349.0 357.0 C 534.5 357.0, 534.5 387.0, 720.0 387.0","ax":[483.0,357.0],"ay":0,"sx":483.0,"sy":357.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.gpu.cooperative","to":"kernelledger.artifacts","d":"M 349.0 357.0 C 887.8 357.0, 887.8 267.0, 1426.5 267.0","ax":[483.0,357.0],"ay":0,"sx":483.0,"sy":357.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.manifest","to":"kernelledger.artifacts","d":"M 1059.5 267.0 C 1243.0 267.0, 1243.0 267.0, 1426.5 267.0","ax":[1188.5,267.0],"ay":0,"sx":1188.5,"sy":267.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.manifest","to":"kernelledger.blobs","d":"M 1059.5 267.0 C 1359.5 267.0, 1359.5 87.0, 1659.5 87.0","ax":[1188.5,267.0],"ay":0,"sx":1188.5,"sy":267.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.gpu.notebook","to":"kernelledger.experiments","d":"M 117.0 387.0 C 418.5 387.0, 418.5 387.0, 720.0 387.0","ax":[243.0,387.0],"ay":0,"sx":243.0,"sy":387.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.gpu.notebook","to":"kernelledger.artifacts","d":"M 117.0 387.0 C 771.8 387.0, 771.8 267.0, 1426.5 267.0","ax":[243.0,387.0],"ay":0,"sx":243.0,"sy":387.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.notebook","to":"kernelledger.gpu.cooperative","d":"M 117.0 387.0 C 300.0 387.0, 300.0 357.0, 483.0 357.0","ax":[243.0,387.0],"ay":0,"sx":243.0,"sy":387.0,"tx":349.0,"ty":357.0},{"from":"kernelledger.gpu.portable","to":"kernelledger.artifacts","d":"M 822.5 297.0 C 1124.5 297.0, 1124.5 267.0, 1426.5 267.0","ax":[953.5,297.0],"ay":0,"sx":953.5,"sy":297.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.portable","to":"kernelledger.gpu.manifest","d":"M 822.5 297.0 C 1005.5 297.0, 1005.5 267.0, 1188.5 267.0","ax":[953.5,297.0],"ay":0,"sx":953.5,"sy":297.0,"tx":1059.5,"ty":267.0},{"from":"kernelledger.registry","to":"kernelledger.source","d":"M 1063.0 507.0 C 1245.0 507.0, 1245.0 447.0, 1427.0 447.0","ax":[1185.0,507.0],"ay":0,"sx":1185.0,"sy":507.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.sharing","to":"kernelledger.blobs","d":"M 1292.5 387.0 C 1476.0 387.0, 1476.0 87.0, 1659.5 87.0","ax":[1427.5,387.0],"ay":0,"sx":1427.5,"sy":387.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.sharing","to":"kernelledger.notebook","d":"M 1292.5 387.0 C 1477.5 387.0, 1477.5 327.0, 1662.5 327.0","ax":[1427.5,387.0],"ay":0,"sx":1427.5,"sy":387.0,"tx":1529.5,"ty":327.0},{"from":"kernelledger.sharing","to":"kernelledger.worker","d":"M 1292.5 387.0 C 1479.5 387.0, 1479.5 207.0, 1666.5 207.0","ax":[1427.5,387.0],"ay":0,"sx":1427.5,"sy":387.0,"tx":1525.5,"ty":207.0},{"from":"kernelledger.sharing","to":"kernelledger.ledger","d":"M 1292.5 387.0 C 1477.5 387.0, 1477.5 267.0, 1662.5 267.0","ax":[1427.5,387.0],"ay":0,"sx":1427.5,"sy":387.0,"tx":1529.5,"ty":267.0},{"from":"kernelledger.source","to":"kernelledger.notebook","d":"M 1293.0 447.0 C 1477.8 447.0, 1477.8 327.0, 1662.5 327.0","ax":[1427.0,447.0],"ay":0,"sx":1427.0,"sy":447.0,"tx":1529.5,"ty":327.0},{"from":"kernelledger.supervisor","to":"kernelledger.supervisor.platform","d":"M 1290.5 327.0 C 1481.5 327.0, 1481.5 147.0, 1672.5 147.0","ax":[1429.5,327.0],"ay":0,"sx":1429.5,"sy":327.0,"tx":1519.5,"ty":147.0},{"from":"kernelledger.supervisor","to":"kernelledger.blobs","d":"M 1290.5 327.0 C 1475.0 327.0, 1475.0 87.0, 1659.5 87.0","ax":[1429.5,327.0],"ay":0,"sx":1429.5,"sy":327.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.supervisor","to":"kernelledger.ledger","d":"M 1290.5 327.0 C 1476.5 327.0, 1476.5 267.0, 1662.5 267.0","ax":[1429.5,327.0],"ay":0,"sx":1429.5,"sy":327.0,"tx":1529.5,"ty":267.0},{"from":"kernelledger.supervisor","to":"kernelledger.worker","d":"M 1290.5 327.0 C 1478.5 327.0, 1478.5 207.0, 1666.5 207.0","ax":[1429.5,327.0],"ay":0,"sx":1429.5,"sy":327.0,"tx":1525.5,"ty":207.0},{"from":"kernelledger.supervisor","to":"kernelledger.notebook","d":"M 1290.5 327.0 C 1476.5 327.0, 1476.5 327.0, 1662.5 327.0","ax":[1429.5,327.0],"ay":0,"sx":1429.5,"sy":327.0,"tx":1529.5,"ty":327.0}],"lazy":[{"from":"kernelledger.cli","to":"kernelledger.source","d":"M 1056.0 327.0 C 1241.5 327.0, 1241.5 447.0, 1427.0 447.0","sx":1192.0,"sy":327.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.cli","to":"kernelledger.gpu.backends.capabilities","d":"M 1056.0 327.0 C 1256.2 327.0, 1256.2 507.0, 1456.5 507.0","sx":1192.0,"sy":327.0,"tx":1263.5,"ty":507.0},{"from":"kernelledger.cli","to":"kernelledger.git_state","d":"M 1192.0 327.0 C 773.8 327.0, 773.8 417.0, 355.5 417.0","sx":1192.0,"sy":327.0,"tx":355.5,"ty":417.0},{"from":"kernelledger.cli","to":"kernelledger.supervisor","d":"M 1056.0 327.0 C 1242.8 327.0, 1242.8 327.0, 1429.5 327.0","sx":1192.0,"sy":327.0,"tx":1290.5,"ty":327.0},{"from":"kernelledger.cli","to":"kernelledger.desktop.helper","d":"M 1192.0 327.0 C 1007.0 327.0, 1007.0 417.0, 822.0 417.0","sx":1192.0,"sy":327.0,"tx":822.0,"ty":417.0},{"from":"kernelledger.cli","to":"kernelledger.artifacts","d":"M 1056.0 327.0 C 1241.2 327.0, 1241.2 267.0, 1426.5 267.0","sx":1192.0,"sy":327.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.cli","to":"kernelledger.registry","d":"M 1056.0 327.0 C 1120.5 327.0, 1120.5 507.0, 1185.0 507.0","sx":1192.0,"sy":327.0,"tx":1063.0,"ty":507.0},{"from":"kernelledger.cli","to":"kernelledger.experiments","d":"M 1192.0 327.0 C 888.0 327.0, 888.0 387.0, 584.0 387.0","sx":1192.0,"sy":327.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.cli","to":"kernelledger.gpu.portable","d":"M 1192.0 327.0 C 1007.2 327.0, 1007.2 297.0, 822.5 297.0","sx":1192.0,"sy":327.0,"tx":822.5,"ty":297.0},{"from":"kernelledger.desktop.contracts","to":"kernelledger.blobs","d":"M 1054.5 387.0 C 1357.0 387.0, 1357.0 87.0, 1659.5 87.0","sx":1193.5,"sy":387.0,"tx":1532.5,"ty":87.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.experiments","d":"M 954.0 417.0 C 769.0 417.0, 769.0 387.0, 584.0 387.0","sx":954.0,"sy":417.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.gpu.backends.capabilities","d":"M 822.0 417.0 C 1139.2 417.0, 1139.2 507.0, 1456.5 507.0","sx":954.0,"sy":417.0,"tx":1263.5,"ty":507.0},{"from":"kernelledger.desktop.helper","to":"kernelledger.artifacts","d":"M 822.0 417.0 C 1124.2 417.0, 1124.2 267.0, 1426.5 267.0","sx":954.0,"sy":417.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.desktop.server","to":"kernelledger.supervisor","d":"M 819.0 477.0 C 1124.2 477.0, 1124.2 327.0, 1429.5 327.0","sx":957.0,"sy":477.0,"tx":1290.5,"ty":327.0},{"from":"kernelledger.desktop.server","to":"kernelledger.sharing","d":"M 819.0 477.0 C 1123.2 477.0, 1123.2 387.0, 1427.5 387.0","sx":957.0,"sy":477.0,"tx":1292.5,"ty":387.0},{"from":"kernelledger.gpu.backends.probe","to":"kernelledger.artifacts","d":"M 1669.0 687.0 C 1481.2 687.0, 1481.2 267.0, 1293.5 267.0","sx":1669.0,"sy":687.0,"tx":1293.5,"ty":267.0},{"from":"kernelledger.gpu.backends.probe","to":"kernelledger.gpu.portable","d":"M 1669.0 687.0 C 1245.8 687.0, 1245.8 297.0, 822.5 297.0","sx":1669.0,"sy":687.0,"tx":822.5,"ty":297.0},{"from":"kernelledger.ledger","to":"kernelledger.source","d":"M 1662.5 267.0 C 1477.8 267.0, 1477.8 447.0, 1293.0 447.0","sx":1662.5,"sy":267.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.notebook","to":"kernelledger.source","d":"M 1662.5 327.0 C 1477.8 327.0, 1477.8 447.0, 1293.0 447.0","sx":1662.5,"sy":327.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.registry","to":"kernelledger.worker","d":"M 1063.0 507.0 C 1364.8 507.0, 1364.8 207.0, 1666.5 207.0","sx":1185.0,"sy":507.0,"tx":1525.5,"ty":207.0},{"from":"kernelledger.supervisor","to":"kernelledger.source","d":"M 1290.5 327.0 C 1358.8 327.0, 1358.8 447.0, 1427.0 447.0","sx":1429.5,"sy":327.0,"tx":1293.0,"ty":447.0},{"from":"kernelledger.supervisor","to":"kernelledger.desktop.server","d":"M 1429.5 327.0 C 1124.2 327.0, 1124.2 477.0, 819.0 477.0","sx":1429.5,"sy":327.0,"tx":819.0,"ty":477.0},{"from":"kernelledger.supervisor","to":"kernelledger.gpu.backends.capabilities","d":"M 1290.5 327.0 C 1373.5 327.0, 1373.5 507.0, 1456.5 507.0","sx":1429.5,"sy":327.0,"tx":1263.5,"ty":507.0},{"from":"kernelledger.supervisor","to":"kernelledger.experiments","d":"M 1429.5 327.0 C 1006.8 327.0, 1006.8 387.0, 584.0 387.0","sx":1429.5,"sy":327.0,"tx":584.0,"ty":387.0},{"from":"kernelledger.supervisor","to":"kernelledger.registry","d":"M 1429.5 327.0 C 1246.2 327.0, 1246.2 507.0, 1063.0 507.0","sx":1429.5,"sy":327.0,"tx":1063.0,"ty":507.0},{"from":"kernelledger.supervisor","to":"kernelledger.sharing","d":"M 1290.5 327.0 C 1359.0 327.0, 1359.0 387.0, 1427.5 387.0","sx":1429.5,"sy":327.0,"tx":1292.5,"ty":387.0},{"from":"kernelledger.supervisor","to":"kernelledger.desktop.helper","d":"M 1429.5 327.0 C 1125.8 327.0, 1125.8 417.0, 822.0 417.0","sx":1429.5,"sy":327.0,"tx":822.0,"ty":417.0},{"from":"kernelledger.supervisor","to":"kernelledger.artifacts","d":"M 1290.5 327.0 C 1358.5 327.0, 1358.5 267.0, 1426.5 267.0","sx":1429.5,"sy":327.0,"tx":1293.5,"ty":267.0}],"groups":{"src":{"files":30,"lines":8566},"tests":{"files":13,"lines":2447},"scripts":{"files":12,"lines":1701},"examples":{"files":7,"lines":725},"artifacts":{"files":105,"lines":2812},"analysis":{"files":1,"lines":0},"_total":{"files":168,"lines":16251}},"totals":{"src_src":{"modules":30,"lines":8566,"classes":26,"functions":87},"top":{"modules":30,"lines":8566,"classes":26,"functions":87}},"split":{"stdlib":25,"gpu":4,"names":{"stdlib":["__main__","artifacts","blobs","cli","desktop","desktop.contracts","desktop.helper","desktop.protocol","desktop.server","execution","execution.targets","git_state","gpu","gpu.backends","gpu.backends.capabilities","gpu.manifest","gpu.notebook","ledger","notebook","registry","sharing","source","supervisor","supervisor.platform","worker"],"gpu":["experiments","gpu.backends.probe","gpu.cooperative","gpu.portable"]}},"legend_note":"Arrows point from a module to what it imports at load time. Dashed arrows are lazy (in-function) imports, shown off by default."}</script>
+<script>
+(function(){
+  const data = JSON.parse(document.getElementById('data').textContent);
+  const COLORS = {entry:'#f59e0b',worker:'#8b5cf6',supervisor:'#3b82f6',desktop:'#14b8a6',core:'#22c55e',gpu:'#f97316'};
+  const LABEL = {entry:'Entry (CLI)',worker:'Worker (executes code)',supervisor:'Supervisor (control plane)',
+    desktop:'Desktop protocol',core:'Core services (stdlib)',gpu:'GPU / experimental (torch)'};
+  const NODE = Object.fromEntries(data.nodes.map(n=>[n.id,n]));
+  const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // ---------- chips ----------
+  const tot = data.totals;
+  const chips = [
+    ['Modules', tot.src_src.modules],['Lines of src', tot.src_src.lines.toLocaleString()],
+    ['Classes', tot.src_src.classes],['Functions', tot.src_src.functions],
+    ['Stdlib-only core', data.split.stdlib+''],['Optional GPU modules', data.split.gpu+''],
+    ['Top-level imports', data.edges.length+' edges'],['Lazy imports', data.lazy.length],
+  ];
+  document.getElementById('chips').innerHTML = chips.map(([k,v])=>
+    `<span class="chip"><span class="k">${k}</span><b>${v}</b></span>`).join('');
+  document.getElementById('foot').textContent =
+    `${tot.src_src.modules} modules · ${tot.src_src.lines.toLocaleString()} lines in src`;
+
+  // ---------- architecture rows ----------
+  function box(id, desc){const n=NODE[id]; if(!n) return '';
+    return `<div class="box ${n.domain}">${esc(n.name)}<small>${esc(desc)}</small></div>`;}
+  const layers = [
+    ['Client', [['kernelledger.cli','kl — the command entry point'],['kernelledger.__main__','python -m kernelledger']], ''],
+    ['Control plane', [['kernelledger.supervisor','detached asyncio manager · sole writer'],['kernelledger.desktop.server','durable desktop ops'],['kernelledger.desktop.helper','offline inspection']], 'supervisor <-> CLI/worker over an authenticated channel; desktop over socket/stdio'],
+    ['Execution', [['kernelledger.worker','standalone worker · runs user code (imports no KL modules)']], ''],
+    ['State (stdlib)', [['kernelledger.ledger','SQLite execution history'],['kernelledger.blobs','content-addressed store'],['kernelledger.source','tracked source txns'],['kernelledger.notebook','cells + ipynb'],['kernelledger.registry','runtime registry'],['kernelledger.sharing','bundles / output views']], ''],
+    ['GPU / experimental (optional)', [['kernelledger.artifacts','v5 chunk store'],['kernelledger.experiments','training snapshots (torch)'],['kernelledger.gpu.portable','typed tensors'],['kernelledger.gpu.cooperative','checkpoint plugin'],['kernelledger.gpu.backends.capabilities','framework-free inventory']], 'imported lazily by the supervisor'],
+  ];
+  document.getElementById('flowhint').innerHTML = 'Arrows / flow:  CLI &amp; desktop reach the <b>supervisor</b>, which owns the <b>worker</b> plus shared <b>state</b>; the GPU layer is optional and loaded lazily.';
+  document.getElementById('arch').innerHTML = layers.map(([lab, boxes, flow])=>{
+    const b = boxes.map(([id,d])=>box(id,d)).join('');
+    const f = flow?`<div class="flow" style="margin-left:168px">${flow.replaceAll('<->','↔').replaceAll('->','→')}</div>`:'';
+    return `<div class="layer"><div class="lab">${lab}</div><div class="boxes">${b}</div></div>${f}`;
+  }).join('');
+  const kcells = [
+    [tot.src_src.lines.toLocaleString(),'lines in src'],[tot.src_src.modules,'modules'],
+    [tot.src_src.classes,'classes'],[tot.src_src.functions,'functions'],
+  ];
+  document.getElementById('kgrid').innerHTML = kcells.map(([n,t])=>`<div class="kcell"><div class="n">${n}</div><div class="t">${t}</div></div>`).join('');
+
+  // ---------- split ----------
+  const coreN = data.split.stdlib, gpuN = data.split.gpu, totN = coreN+gpuN;
+  document.getElementById('splitbar').innerHTML =
+    `<div class="seg core" style="flex:${coreN}">stdlib core · ${coreN}</div>`+
+    `<div class="seg gpu" style="flex:${gpuN}">GPU · ${gpuN}</div>`;
+  document.getElementById('splitlegend').innerHTML =
+    `<span><span class="dot" style="background:var(--core)"></span>Stdlib-only: ${totN-coreN} modules</span>`+
+    `<span><span class="dot" style="background:var(--gpu)"></span>Imports torch/numpy: ${esc(data.split.names.gpu.join(', '))}</span>`;
+
+  // ---------- group bars ----------
+  const order=['src','tests','scripts','examples','artifacts','analysis'];
+  const gsrc=(data&&data.groups)||{};
+  const gb=order.filter(k=>gsrc[k]&&Number.isFinite(gsrc[k].lines)&&Number.isFinite(gsrc[k].files))
+    .map(k=>({k, v:gsrc[k]})).sort((a,b)=>(b.v.lines||0)-(a.v.lines||0));
+  const maxLines=Math.max(1, ...gb.map(g=>g.v.lines));
+  const maxFiles=Math.max(1, ...gb.map(g=>g.v.files));
+  document.getElementById('groupbars').innerHTML = gb.map(g=>{
+    const lw=Math.max(2,Math.round(100*g.v.lines/maxLines));
+    const fw=Math.max(3,Math.round(100*g.v.files/maxFiles));
+    const main=g.v.lines>=g.v.files?`lines ${g.v.lines.toLocaleString()}`:`files ${g.v.files}`;
+    return `<div class="rowbar"><div class="lab"><span>${g.k}</span><span>${g.v.files} files · ${g.v.lines.toLocaleString()} lines</span></div>
+      <div class="track"><div class="fill" style="width:${Math.max(lw,fw)}%"></div></div></div>`;
+  }).join('') + `<div class="note" style="margin-top:8px">Totals: ${data.groups._total.files} files · ${data.groups._total.lines.toLocaleString()} lines of Python in the repo.</div>`;
+
+  // ---------- legend 2 ----------
+  document.getElementById('legend2').innerHTML =
+    data.domains.map(d=>`<span><span class="dot" style="background:${COLORS[d]}"></span>${LABEL[d]}</span>`).join('') +
+    `<span style="margin-left:auto">Solid = top-level import · Dashed = lazy (off by default)</span>`;
+
+  // ---------- graph ----------
+  const svgNS='http://www.w3.org/2000/svg';
+  const b=data.board;
+  const svg=document.createElementNS(svgNS,'svg');
+  svg.setAttribute('class','graph'); svg.setAttribute('viewBox',`0 0 ${b.w} ${b.h}`);
+  svg.setAttribute('width',b.w); svg.setAttribute('height',b.h);
+
+  const defs=document.createElementNS(svgNS,'defs');
+  defs.innerHTML=`
+    <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.2" orient="auto">
+      <path d="M0,0 L6,3.2 L0,6.4 Z" fill="#5b6b82"></path></marker>
+    <marker id="ahh" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#f1f5f9"></path></marker>
+    <marker id="ahl" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#a5b4fc"></path></marker>`;
+  svg.appendChild(defs);
+
+  const ge=document.createElementNS(svgNS,'g'); const gn=document.createElementNS(svgNS,'g');
+  svg.appendChild(ge); svg.appendChild(gn);
+
+  const edgeEls=new Map(), nodeEls=new Map();
+  function addEdge(e, dashed){
+    const p=document.createElementNS(svgNS,'path');
+    p.setAttribute('d',e.d); p.setAttribute('class','edge'+(dashed?' lazy':''));
+    p.setAttribute('marker-end', dashed?'url(#ah)':'url(#ah)');
+    p.dataset.from=e.from; p.dataset.to=e.to;
+    ge.appendChild(p); edgeEls.set(dashed?`L:${e.from}->${e.to}`:`S:${e.from}->${e.to}`,p);
+  }
+  data.lazy.forEach(e=>addEdge(e,true));
+  data.edges.forEach(e=>addEdge(e,false));
+
+  const edgeKey=(a,c,s)=>(s?'L:':'S:')+`${a}->${c}`;
+  for(const n of data.nodes){
+    const g=document.createElementNS(svgNS,'g');
+    g.setAttribute('class','node'); g.dataset.id=n.id;
+    const rx=n.x-n.w/2, ry=n.y-n.h/2;
+    const rect=document.createElementNS(svgNS,'rect');
+    rect.setAttribute('x',rx); rect.setAttribute('y',ry);
+    rect.setAttribute('width',n.w); rect.setAttribute('height',n.h); rect.setAttribute('rx',9);
+    rect.setAttribute('fill',COLORS[n.domain]); rect.setAttribute('fill-opacity', n.optional?0.92:0.82);
+    g.appendChild(rect);
+    const nm=document.createElementNS(svgNS,'text');
+    nm.setAttribute('class','name'); nm.setAttribute('x',n.x); nm.setAttribute('y',n.y-3);
+    nm.setAttribute('text-anchor','middle'); nm.textContent=n.name; g.appendChild(nm);
+    const mt=document.createElementNS(svgNS,'text');
+    mt.setAttribute('class','meta'); mt.setAttribute('x',n.x); mt.setAttribute('y',n.y+12);
+    mt.setAttribute('text-anchor','middle');
+    mt.textContent=`${n.lines.toLocaleString()} ln · C${n.classes}/F${n.functions}${n.optional?' · torch':''}`;
+    g.appendChild(mt);
+    g.addEventListener('mouseenter',ev=>highlight(n.id));
+    g.addEventListener('mousemove',ev=>moveTip(ev));
+    g.addEventListener('mouseleave',()=>release());
+    g.addEventListener('click',ev=>{ev.stopPropagation();togglePin(n.id);});
+    gn.appendChild(g); nodeEls.set(n.id,g);
+  }
+  document.getElementById('canvasScroll').appendChild(svg);
+  svg.addEventListener('mouseleave',()=>{ if(!pinned) release(); });
+
+  // adjacency
+  const outDeps={}, inDeps={};
+  data.nodes.forEach(n=>{outDeps[n.id]=new Set();inDeps[n.id]=new Set();});
+  const rel=new Set();
+  data.edges.forEach(e=>{outDeps[e.from]&&outDeps[e.from].add(e.to);inDeps[e.to]&&inDeps[e.to].add(e.from);rel.add(edgeKey(e.from,e.to,false)).add(edgeKey(e.to,e.from,false));});
+  data.lazy.forEach(e=>{rel.add(edgeKey(e.from,e.to,true)).add(edgeKey(e.to,e.from,true));});
+  function related(id){
+    const set=new Set([id]); const ek=new Set();
+    data.edges.forEach(e=>{if(e.from===id||e.to===id){set.add(e.from);set.add(e.to);ek.add(edgeKey(e.from,e.to,false));}});
+    if(showLazy()) data.lazy.forEach(e=>{if(e.from===id||e.to===id){set.add(e.from);set.add(e.to);ek.add(edgeKey(e.from,e.to,true));}});
+    return {set,ek};
+  }
+
+  let pinned=null;
+  const showLazy=()=>document.getElementById('showLazy').checked;
+  function applyClass(set,ek,dims){
+    const dim = dims && document.getElementById('showSelf').checked;
+    for(const [id,el] of nodeEls){
+      el.classList.toggle('hl', set.has(id));
+      el.classList.toggle('pin', pinned===id);
+      el.classList.toggle('dim', dim && !set.has(id));
+    }
+    for(const [k,el] of edgeEls){
+      const isLazy=k.startsWith('L:');
+      el.style.display = (isLazy && !showLazy())?'none':'';
+      el.classList.toggle('hl', ek.has(k));
+      el.classList.toggle('dim', dim && !ek.has(k));
+      el.setAttribute('marker-end', el.classList.contains('hl')?(isLazy?'url(#ahl)':'url(#ahh)'):((isLazy)?'url(#ah)':'url(#ah)'));
+    }
+  }
+  function highlight(id){const {set,ek}=related(id); applyClass(set,ek,true); showTip(id);}
+  function release(){ if(pinned){highlight(pinned);} else {applyClass(allSet(),new Set(),false); hideTip();} }
+  function togglePin(id){ if(pinned===id){pinned=null;release();} else {pinned=id;highlight(id);} }
+  function allSet(){const s=new Set(); data.nodes.forEach(n=>s.add(n.id)); return s;}
+  svg.addEventListener('click',()=>{pinned=null;release();});
+
+  // controls
+  document.getElementById('showLazy').addEventListener('change',()=>{ if(pinned)highlight(pinned);else{applyClass(allSet(),new Set(),false);}});
+  document.getElementById('showSelf').addEventListener('change',()=>{ if(pinned)highlight(pinned);else{const{set,ek}=related(pinned||'');applyClass(set,ek,true);} });
+  document.getElementById('resetBtn').addEventListener('click',()=>{pinned=null;applyClass(allSet(),new Set(),false);hideTip();});
+
+  // lazy default off
+  data.lazy && applyClass(allSet(),new Set(),false);
+  function hideTip(){document.getElementById('tip').style.display='none';}
+  document.getElementById('showLazy').checked=false;
+
+  // ---------- tooltip ----------
+  function tooltipHTML(id){
+    const n=NODE[id];
+    const deps=[...outDeps[id]].map(x=>NODE[x].name);
+    const by=[...inDeps[id]].map(x=>NODE[x].name);
+    const sym=n.symbols.slice(0,14).map(s=>`<span class="sym">${esc(s)}</span>`).join('');
+    return `<h4>${esc(n.name)}</h4>
+      <div class="tpath">${esc(n.path)}${n.optional?' · <b style="color:#fb923c">torch/numpy</b>':''}</div>
+      <span class="bdg" style="background:${COLORS[n.domain]}">${LABEL[n.domain]}</span>
+      <div class="trow"><span><span class="k">lines</span> ${n.lines.toLocaleString()}</span>
+        <span><span class="k">classes</span> ${n.classes}</span><span><span class="k">funcs</span> ${n.functions}</span></div>
+      ${n.doc?`<div>${esc(n.doc)}</div>`:''}
+      ${sym?`<div>
+      <div class="lst"><b>public symbols</b></div>${sym}</div>`:''}
+      ${deps.length?`<div class="lst"><b>imports</b> ${deps.map(x=>`<code>${esc(x)}</code>`).join('')}</div>`:''}
+      ${by.length?`<div class="lst"><b>imported by</b> ${by.map(x=>`<code>${esc(x)}</code>`).join('')}</div>`:''}`;
+  }
+  function showTip(id){const t=document.getElementById('tip');t.innerHTML=tooltipHTML(id);t.style.display='block';moveTip(lastEv);}
+  let lastEv={clientX:innerWidth/2,clientY:innerHeight/2};
+  function moveTip(ev){if(!ev)return;lastEv=ev;const t=document.getElementById('tip');
+    if(t.style.display==='none')return;
+    const pad=14; let x=ev.clientX+pad,y=ev.clientY+pad;
+    const r=t.getBoundingClientRect();
+    if(x+r.width>innerWidth-8)x=ev.clientX-r.width-pad;
+    if(y+r.height>innerHeight-8)y=ev.clientY-r.height-pad;
+    t.style.left=x+'px';t.style.top=Math.max(8,y)+'px';}
+  gn.addEventListener('mousemove',e=>moveTip(e));
+
+  // ---------- table ----------
+  const tbody=document.getElementById('tbody');
+  const domains=['entry','worker','supervisor','desktop','core','gpu'];
+  const tagColor={entry:'#f59e0b',worker:'#8b5cf6',supervisor:'#3b82f6',desktop:'#14b8a6',core:'#22c55e',gpu:'#f97316'};
+  const depCount={};
+  data.nodes.forEach(n=>depCount[n.id]=0);
+  data.edges.forEach(e=>{depCount[e.from]=(depCount[e.from]||0)+1;});
+  data.lazy.forEach(e=>{depCount[e.from]=(depCount[e.from]||0)+0.5;});
+  let shown=0;
+  function renderTable(filter=''){
+    filter=(filter||'').toLowerCase(); tbody.innerHTML=''; shown=0;
+    for(const d of domains){
+      const rows=data.nodes.filter(n=>n.domain===d)
+        .filter(n=>!filter|| (n.name+' '+n.symbols.join(' ')+' '+(n.doc||'')+' '+n.path).toLowerCase().includes(filter))
+        .sort((a,b)=>b.lines-a.lines);
+      if(!rows.length) continue;
+      tbody.insertAdjacentHTML('beforeend',`<tr class="group"><td colspan="7">${LABEL[d]}<span class="cnt">${rows.length} module${rows.length>1?'s':''}</span></td></tr>`);
+      for(const n of rows){
+        shown++;
+        const deps=depCount[n.id]||0;
+        tbody.insertAdjacentHTML('beforeend',`
+          <tr class="mod" data-id="${n.id}">
+            <td><code class="in">${esc(n.name)}</code></td>
+            <td><span class="tag" style="background:${tagColor[d]}">${n.domain}</span>${n.optional?' <span class="tag" style="background:#fb923c">torch</span>':''}</td>
+            <td class="num">${n.lines.toLocaleString()}</td><td class="num">${n.classes}</td><td class="num">${n.functions}</td>
+            <td class="num">${deps?deps+' out':''}</td>
+            <td class="doc">${esc(n.doc)||'—'}${n.symbols.length?' <span style="opacity:.6">·</span> '+n.symbols.slice(0,8).map(s=>esc(s)).join(', ')+(n.symbols.length>8?'…':''):''}</td>
+          </tr>`);
+      }
+    }
+    document.getElementById('tableCount').textContent=`${shown} of ${data.nodes.length} modules`;
+  }
+  renderTable();
+  document.getElementById('filter').addEventListener('input',e=>renderTable(e.target.value));
+})();
+</script>
+</body>
+</html>

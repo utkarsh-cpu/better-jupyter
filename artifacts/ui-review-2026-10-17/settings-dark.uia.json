@@ -1,0 +1,122 @@
+﻿[
+    {
+        "name":  "Notebook switcher: Forecast analysis - October experiment",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "System",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Light",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Dark",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "High contrast",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Interface size 100 percent",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Interface size 125 percent",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Interface size 150 percent",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Interface size 200 percent",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "12 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "14 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "16 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "18 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "20 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "24 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Compact",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Comfortable",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "180 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "220 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "260 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "300 px",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Reduce motion",
+        "role":  "ControlType.CheckBox"
+    },
+    {
+        "name":  "Choose project interpreter…",
+        "role":  "ControlType.Button"
+    },
+    {
+        "name":  "Show path",
+        "role":  "ControlType.Button"
+    }
+]

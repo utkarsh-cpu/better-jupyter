@@ -1,0 +1,22 @@
+{
+  "KernelLedger": {
+    "workingSet": 191.67,
+    "privateWorkingSet": 74.3,
+    "privateBytes": 216.94
+  },
+  "marimo Python": {
+    "workingSet": 140.0,
+    "privateWorkingSet": 101.06,
+    "privateBytes": 106.33
+  },
+  "marimo tab": {
+    "workingSet": 213.23,
+    "privateWorkingSet": 103.21,
+    "privateBytes": 116.86
+  },
+  "marimo total": {
+    "workingSet": 353.24,
+    "privateWorkingSet": 204.28,
+    "privateBytes": 223.32
+  }
+}

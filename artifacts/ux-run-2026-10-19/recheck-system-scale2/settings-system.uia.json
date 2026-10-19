@@ -1,0 +1,170 @@
+﻿[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "37,43,112,120"
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "165,43,112,120"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "301,43,112,120"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "417,43,112,120"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "533,43,112,120"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1565,43,232,120"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1815,43,112,120"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1943,43,112,120"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2071,43,112,120"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2199,43,112,120"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2143,254,162,120"
+    },
+    {
+        "name":  "More actions for # UI regression fixture",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2321,254,112,120"
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1089,691,382,120"
+    },
+    {
+        "name":  "Run print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "127,829,112,120"
+    },
+    {
+        "name":  "Output tools: print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2065,829,112,120"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2193,829,112,120"
+    },
+    {
+        "name":  "More actions for print(\u0027Hello, KernelLedger\u0027)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2321,829,112,120"
+    },
+    {
+        "name":  "code cell hello",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "115,991,2334,108"
+    },
+    {
+        "name":  "Recorded output: Hello, KernelLedger\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "143,1165,2274,182"
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1089,1389,382,120"
+    },
+    {
+        "name":  "Run 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "127,1527,112,120"
+    },
+    {
+        "name":  "Output tools: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2065,1527,112,120"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2193,1527,112,120"
+    },
+    {
+        "name":  "More actions for 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2321,1527,112,120"
+    },
+    {
+        "name":  "code cell error",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "115,1689,2334,66"
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "143,1821,2274,216"
+    },
+    {
+        "name":  "Show full traceback for Output 1 for cell 3: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1101,1869,560,120"
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1109,2079,342,120"
+    }
+]

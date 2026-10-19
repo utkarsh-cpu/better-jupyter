@@ -51,6 +51,7 @@ HELPER = {
     "source.watch": [],
     "sessions.list": [],
     "executions.list": [],
+    "executions.watermark": [],
     "execution.get": ["exec_id"],
     "events.list": ["exec_id"],
     "fold.get": ["exec_id"],
@@ -59,6 +60,7 @@ HELPER = {
     "bundle.inspect": ["path"],
     "descriptor.inspect": ["path"],
     "export_ipynb": ["path"],
+    "export_document": ["path", "format"],
     "bundle_export": ["path"],
     "doctor": [],
     "interpreter.candidates": [],
@@ -112,6 +114,7 @@ def validate(request: Any, helper: bool = False) -> None:
         "manifest_revision",
         "snapshot",
         "device",
+        "format",
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
@@ -120,7 +123,14 @@ def validate(request: Any, helper: bool = False) -> None:
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
     if "page_size" in request and not 1 <= request["page_size"] <= 500:
         raise SourceError("invalid_request", "page_size must be between 1 and 500")
-    for key in ("trust", "allow_python_mismatch", "reuse_input", "keep_outputs", "dry_run"):
+    for key in (
+        "trust",
+        "allow_python_mismatch",
+        "reuse_input",
+        "keep_outputs",
+        "dry_run",
+        "latest_per_cell",
+    ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")
     if not helper and method in EFFECTS:

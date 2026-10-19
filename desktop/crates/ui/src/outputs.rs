@@ -6,6 +6,53 @@ pub(super) struct OutputBlock {
     pub event: Value,
     pub context: SharedString,
     pub tools_state: Option<Entity<bool>>,
+    pub commands: Option<std::sync::mpsc::Sender<Command>>,
+    pub cell_id: SharedString,
+    pub exec_id: SharedString,
+    pub index: usize,
+}
+
+#[derive(Clone)]
+struct PageSource {
+    slot: String,
+    digest: String,
+    offset: u64,
+    end: u64,
+    total: u64,
+}
+
+fn page_fields(slot: &str, node: &Value) -> Option<PageSource> {
+    let digest = node["blob"].as_str()?.to_owned();
+    let page = &node["page"];
+    Some(PageSource {
+        slot: slot.to_owned(),
+        digest,
+        offset: page["offset"].as_u64()?,
+        end: page["end"].as_u64()?,
+        total: page["total"].as_u64()?,
+    })
+}
+
+fn page_source(event: &Value) -> Option<PageSource> {
+    if event["page"].is_object()
+        && let Some(digest) = event["blob"].as_str()
+    {
+        return Some(PageSource {
+            slot: String::new(),
+            digest: digest.to_owned(),
+            offset: event["page"]["offset"].as_u64()?,
+            end: event["page"]["end"].as_u64()?,
+            total: event["page"]["total"].as_u64()?,
+        });
+    }
+    [
+        "text/plain",
+        "text/markdown",
+        "text/latex",
+        "application/json",
+    ]
+    .into_iter()
+    .find_map(|mime| page_fields(mime, &event["bundle"][mime]))
 }
 
 pub(super) fn cell_tools(id: SharedString, window: &mut Window, cx: &mut App) -> Entity<bool> {
@@ -39,7 +86,7 @@ impl RenderOnce for OutputTools {
             .selected(open)
             .contextual(self.group, self.always || open)
             .accessibility_label(format!("Output tools: {}", self.context))
-            .hint("Output tools — copy, find, and display options")
+            .hint("Output tools \u{2014} copy, find, and display options")
             .on_click(move |_, _, cx| {
                 state.update(cx, |open, cx| {
                     *open = !*open;
@@ -90,6 +137,11 @@ impl RenderOnce for OutputBlock {
             current.actual_size,
         );
         let event = &self.event;
+        let paging = page_source(event);
+        let commands = self.commands.clone();
+        let cell_id = self.cell_id.to_string();
+        let exec_id = self.exec_id.to_string();
+        let output_index = self.index;
         let error = event["kind"] == "error";
         let text = event["text"]
             .as_str()
@@ -109,7 +161,12 @@ impl RenderOnce for OutputBlock {
             });
         let tools = owner_tools.unwrap_or(current.tools);
         let copied = current.copied;
-        let mut actions = h_flex().gap_1().flex_wrap();
+        let mut actions = h_flex()
+            .gap_1()
+            .flex_wrap()
+            .pb_1()
+            .border_b_1()
+            .border_color(divider(cx));
         if let Some(text) = text.clone() {
             let copy_state = state.clone();
             actions = actions.child(
@@ -173,20 +230,38 @@ impl RenderOnce for OutputBlock {
                     })
                 }),
         );
-        if text.as_ref().is_some_and(|s| s.len() > 16384) && !collapsed {
+        if (text.as_ref().is_some_and(|text| text.len() > 16384)
+            || paging.as_ref().is_some_and(|page| page.total > 16384))
+            && !collapsed
+        {
             for cap in [16384, 65536, 262144] {
                 let state = state.clone();
+                let paging = paging.clone();
+                let commands = commands.clone();
+                let cell_id = cell_id.clone();
+                let exec_id = exec_id.clone();
                 actions = actions.child(
                     action_button((self.id.clone(), cap))
                         .ghost()
                         .small()
                         .label(format!("{} KiB", cap / 1024))
-                        .selected(limit == cap)
+                        .selected(paging.is_none() && limit == cap)
                         .on_click(move |_, _, cx| {
                             state.update(cx, |s, cx| {
                                 s.limit = cap;
                                 cx.notify();
-                            })
+                            });
+                            if let (Some(commands), Some(page)) = (&commands, &paging) {
+                                let _ = commands.send(Command::OutputPage {
+                                    cell_id: cell_id.clone(),
+                                    exec_id: exec_id.clone(),
+                                    index: output_index,
+                                    slot: page.slot.clone(),
+                                    digest: page.digest.clone(),
+                                    offset: page.offset,
+                                    length: cap,
+                                });
+                            }
                         }),
                 );
             }
@@ -238,7 +313,7 @@ impl RenderOnce for OutputBlock {
             .w_full()
             .relative()
             .min_h(rems(1.875))
-            .gap_1()
+            .gap_1p5()
             .role(Role::Group)
             .aria_label(if error {
                 format!(
@@ -248,8 +323,10 @@ impl RenderOnce for OutputBlock {
                 )
             } else if let Some(text) = &text {
                 format!("Recorded output: {}", bounded(text, 4096))
+            } else if image_path.is_some() {
+                recorded_figure_name(event, &self.context)
             } else {
-                "Recorded rich output".into()
+                format!("Recorded output: {}", self.context)
             })
             .when(error, |d| {
                 d.p_3()
@@ -282,7 +359,92 @@ impl RenderOnce for OutputBlock {
             })
             .when(tools, |d| d.child(actions));
         if collapsed {
-            return body.child("Output hidden").into_any_element();
+            return body
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(cx.theme().muted_foreground)
+                        .child("Output hidden"),
+                )
+                .into_any_element();
+        }
+        if let Some(page) = paging.clone()
+            && (page.offset > 0 || page.end < page.total)
+        {
+            let page_len = page.end.saturating_sub(page.offset).max(1) as usize;
+            let previous = commands.clone();
+            let next = commands.clone();
+            let cell_for_previous = cell_id.clone();
+            let cell_for_next = cell_id.clone();
+            let exec_for_previous = exec_id.clone();
+            let exec_for_next = exec_id.clone();
+            let previous_page = page.clone();
+            let next_page = page.clone();
+            body = body.child(
+                h_flex()
+                    .gap_1()
+                    .flex_wrap()
+                    .items_center()
+                    .child(
+                        action_button((ElementId::from(self.id.clone()), "output-previous"))
+                            .ghost()
+                            .small()
+                            .label("Previous page")
+                            .unavailable(page.offset == 0)
+                            .accessibility_label(format!("Previous output page: {}", self.context))
+                            .on_click(move |_, _, _| {
+                                if let Some(commands) = &previous {
+                                    let _ = commands.send(Command::OutputPage {
+                                        cell_id: cell_for_previous.clone(),
+                                        exec_id: exec_for_previous.clone(),
+                                        index: output_index,
+                                        slot: previous_page.slot.clone(),
+                                        digest: previous_page.digest.clone(),
+                                        offset: previous_page
+                                            .offset
+                                            .saturating_sub(page_len as u64),
+                                        length: page_len,
+                                    });
+                                }
+                            }),
+                    )
+                    .child(
+                        action_button((ElementId::from(self.id.clone()), "output-next"))
+                            .ghost()
+                            .small()
+                            .label("Next page")
+                            .unavailable(page.end >= page.total)
+                            .accessibility_label(format!("Next output page: {}", self.context))
+                            .on_click(move |_, _, _| {
+                                if let Some(commands) = &next {
+                                    let _ = commands.send(Command::OutputPage {
+                                        cell_id: cell_for_next.clone(),
+                                        exec_id: exec_for_next.clone(),
+                                        index: output_index,
+                                        slot: next_page.slot.clone(),
+                                        digest: next_page.digest.clone(),
+                                        offset: next_page.end,
+                                        length: page_len,
+                                    });
+                                }
+                            }),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!(
+                                "Bytes {}–{} of {}",
+                                if page.end > page.offset {
+                                    page.offset + 1
+                                } else {
+                                    page.offset
+                                },
+                                page.end,
+                                page.total
+                            )),
+                    ),
+            );
         }
         if search {
             body = body.child(Input::new(&query).small().cleanable(true));
@@ -294,11 +456,16 @@ impl RenderOnce for OutputBlock {
                     .gap_2()
                     .flex_wrap()
                     .items_center()
-                    .child(div().text_color(cx.theme().danger).child(format!(
-                        "{}: {}",
-                        event["ename"].as_str().unwrap_or("Error"),
-                        event["evalue"].as_str().unwrap_or("Execution failed")
-                    )))
+                    .child(
+                        div()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(cx.theme().danger)
+                            .child(format!(
+                                "{}: {}",
+                                event["ename"].as_str().unwrap_or("Error"),
+                                event["evalue"].as_str().unwrap_or("Execution failed")
+                            )),
+                    )
                     .child(
                         action_button((ElementId::from(self.id.clone()), "traceback"))
                             .ghost()
@@ -332,7 +499,11 @@ impl RenderOnce for OutputBlock {
             || !event["bundle"]["application/json"]["value"].is_null();
         if let Some(text) = text.filter(|_| !prefer_rich || search) {
             if !error || details || search {
-                let shown = bounded(&text, limit);
+                let shown = if paging.is_some() {
+                    text.clone()
+                } else {
+                    bounded(&text, limit)
+                };
                 let needle = query.read(cx).value().to_lowercase();
                 let shown = if search && !needle.is_empty() {
                     let lines = shown
@@ -356,7 +527,7 @@ impl RenderOnce for OutputBlock {
                         paragraph_gap: rems(0.),
                         code_block: div()
                             .p_0()
-                            .bg(cx.theme().background)
+                            .bg(cx.theme().transparent)
                             .rounded(px(0.))
                             .style()
                             .clone(),
@@ -364,24 +535,98 @@ impl RenderOnce for OutputBlock {
                     })
                     .selectable(true),
                 );
-                if text.len() > limit {
-                    body = body.child("Display limited; Copy retains the complete loaded text. Recorded output is unchanged.");
+                if let Some(page) = &paging {
+                    if page.end < page.total || page.offset > 0 {
+                        body = body.child(
+                            div()
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(
+                                    "Copy and Find use this page. Recorded output is unchanged.",
+                                ),
+                        );
+                    }
+                } else if text.len() > limit {
+                    body = body.child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Display limited; Copy retains the complete loaded text. Recorded output is unchanged."),
+                    );
                 }
             }
         } else if let Some(path) = image_path {
-            body = body.child(
+            let image_file = PathBuf::from(path);
+            body = body.child(if image_file.is_file() {
+                remember_cached_image(&image_file, &self.id, window, cx);
                 div()
                     .id((ElementId::from(self.id.clone()), "image-scroll"))
                     .overflow_x_scroll()
                     .child(
-                        img(PathBuf::from(path))
+                        img(image_file)
+                            .rounded(px(6.))
                             .when(!actual, |image| image.max_w_full().max_h(px(500.))),
-                    ),
-            );
+                    )
+                    .into_any_element()
+            } else {
+                let commands = commands.clone();
+                let cell_id = cell_id.clone();
+                let exec_id = exec_id.clone();
+                let mime = ["image/png", "image/jpeg"]
+                    .into_iter()
+                    .find(|mime| event["bundle"][*mime]["local_path"].as_str() == Some(path))
+                    .unwrap_or("image/png");
+                let digest = event["bundle"][mime]["blob"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                let mime = mime.to_owned();
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("This figure was evicted from the image cache."),
+                    )
+                    .child(
+                        action_button((ElementId::from(self.id.clone()), "show-image"))
+                            .ghost()
+                            .small()
+                            .label("Show again")
+                            .unavailable(digest.is_empty())
+                            .on_click(move |_, _, _| {
+                                if let Some(commands) = &commands {
+                                    let _ = commands.send(Command::ShowImage {
+                                        cell_id: cell_id.clone(),
+                                        exec_id: exec_id.clone(),
+                                        index: output_index,
+                                        mime: mime.clone(),
+                                        digest: digest.clone(),
+                                    });
+                                }
+                            }),
+                    )
+                    .into_any_element()
+            });
         } else {
             body = body.child(output_inner(event, self.id.to_string(), cx));
         }
         body.into_any_element()
+    }
+}
+
+fn recorded_figure_name(event: &Value, context: &str) -> String {
+    let alt = ["image/png", "image/jpeg"].into_iter().find_map(|mime| {
+        event["bundle"][mime]["alt"]
+            .as_str()
+            .or(event["bundle"][mime]["name"].as_str())
+            .filter(|label| !label.is_empty())
+    });
+    match alt {
+        Some(label) => format!("Recorded figure: {label}"),
+        None => format!("Recorded figure: {context}"),
     }
 }
 
@@ -405,6 +650,16 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
                     .replace("```", "~~~")
             ),
         )
+        .style(gpui_kit::component::text::TextViewStyle {
+            paragraph_gap: rems(0.),
+            code_block: div()
+                .p_0()
+                .bg(theme.transparent)
+                .rounded(px(0.))
+                .style()
+                .clone(),
+            ..Default::default()
+        })
         .selectable(true)
         .into_any_element();
     }
@@ -454,12 +709,13 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
             .map(Vec::len)
             .max()
             .unwrap_or(0);
+        let row_border = divider(cx);
         let render_row = |index: usize, row: &Value| {
             let mut line = h_flex()
                 .id(SharedString::from(format!("{id}-row-{index}")))
                 .role(Role::Row)
                 .border_b_1()
-                .border_color(theme.border)
+                .border_color(row_border)
                 .when(index == 0, |d| {
                     d.bg(theme.muted).font_weight(FontWeight::SEMIBOLD)
                 });
@@ -495,6 +751,11 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
             .aria_label("Recorded table")
             .aria_row_count(rows.len())
             .aria_column_count(columns)
+            .rounded(px(6.))
+            .border_1()
+            .border_color(row_border)
+            .bg(theme.popover)
+            .overflow_hidden()
             .text_xs();
         if let Some(header) = rows.first() {
             table = table.child(render_row(0, header));
@@ -513,7 +774,14 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
                 ),
         );
         if rows.len() > 201 {
-            table = table.child("Showing the first 200 data rows. Recorded data is unchanged; use the text fallback for additional rows.");
+            table = table.child(
+                div()
+                    .px_3()
+                    .py_2()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Showing the first 200 data rows. Recorded data is unchanged; use the text fallback for additional rows."),
+            );
         }
         return div()
             .id(SharedString::from(format!("{id}-table")))
@@ -553,4 +821,193 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
             "{kind}: native preview unavailable; recorded data retained"
         ))
         .into_any_element()
+}
+
+fn remember_cached_image(
+    path: &std::path::Path,
+    id: &SharedString,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    let Some(hash) = path.file_name().and_then(|name| name.to_str()) else {
+        return;
+    };
+    let Some(dir) = path.parent() else {
+        return;
+    };
+    if hash.len() != 64 || !hash.chars().all(|character| character.is_ascii_hexdigit()) {
+        return;
+    }
+    let seen = window.use_keyed_state(
+        (ElementId::from(id.clone()), format!("image-touch-{hash}")),
+        cx,
+        |_, _| false,
+    );
+    if *seen.read(cx) {
+        return;
+    }
+    seen.update(cx, |flag, cx| {
+        *flag = true;
+        cx.notify();
+    });
+    kernelledger_client::output::touch_cached_image(dir, hash);
+}
+
+pub(super) fn attachment_preview(
+    commands: std::sync::mpsc::Sender<Command>,
+    cell_id: SharedString,
+    name: SharedString,
+    mime: SharedString,
+    preview: Option<Value>,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
+    let requested = window.use_keyed_state(
+        (
+            ElementId::from(cell_id.clone()),
+            format!("attachment-{name}"),
+        ),
+        cx,
+        |_, _| false,
+    );
+    if preview.is_none() && !*requested.read(cx) {
+        requested.update(cx, |flag, cx| {
+            *flag = true;
+            cx.notify();
+        });
+        let _ = commands.send(Command::PreviewAttachment {
+            cell_id: cell_id.to_string(),
+            name: name.to_string(),
+            offset: 0,
+            length: kernelledger_client::output::VIEW_TEXT_LIMIT,
+        });
+    }
+    let mut block = v_flex()
+        .id((
+            ElementId::from(cell_id.clone()),
+            format!("attachment-{name}"),
+        ))
+        .gap_1()
+        .role(Role::Group)
+        .aria_label(format!("Attachment {name}"))
+        .child(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(format!("{name} · {mime}")),
+        );
+    let Some(preview) = preview else {
+        return block
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child("Loading attachment preview"),
+            )
+            .into_any_element();
+    };
+    if let Some(error) = preview["error"].as_str().filter(|error| !error.is_empty()) {
+        let retry = commands.clone();
+        let retry_cell = cell_id.to_string();
+        let retry_name = name.to_string();
+        return block
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(error.to_string()),
+            )
+            .child(
+                action_button((
+                    ElementId::from(cell_id.clone()),
+                    format!("attachment-retry-{name}"),
+                ))
+                .ghost()
+                .small()
+                .label("Try preview again")
+                .on_click(move |_, _, _| {
+                    let _ = retry.send(Command::PreviewAttachment {
+                        cell_id: retry_cell.clone(),
+                        name: retry_name.clone(),
+                        offset: 0,
+                        length: kernelledger_client::output::VIEW_TEXT_LIMIT,
+                    });
+                }),
+            )
+            .into_any_element();
+    }
+    if let Some(path) = preview["path"].as_str().filter(|path| !path.is_empty()) {
+        let file = PathBuf::from(path);
+        if file.is_file() {
+            remember_cached_image(&file, &cell_id, window, cx);
+            block = block.child(img(file).max_w_full().max_h(px(320.)).rounded(px(6.)));
+        }
+    } else if let Some(text) = preview["text"].as_str() {
+        let offset = preview["offset"].as_u64().unwrap_or(0);
+        let end = preview["end"].as_u64().unwrap_or(0);
+        let total = preview["total"].as_u64().unwrap_or(0);
+        block = block.child(
+            div()
+                .font_family(cx.theme().mono_font_family.clone())
+                .text_xs()
+                .child(text.to_owned()),
+        );
+        if offset > 0 || end < total {
+            let page_len = end.saturating_sub(offset).max(1);
+            let previous = commands.clone();
+            let next = commands.clone();
+            let previous_cell = cell_id.to_string();
+            let next_cell = cell_id.to_string();
+            let previous_name = name.to_string();
+            let next_name = name.to_string();
+            block = block.child(
+                h_flex()
+                    .gap_1()
+                    .items_center()
+                    .child(
+                        action_button((
+                            ElementId::from(cell_id.clone()),
+                            format!("attachment-previous-{name}"),
+                        ))
+                        .ghost()
+                        .small()
+                        .label("Previous page")
+                        .unavailable(offset == 0)
+                        .on_click(move |_, _, _| {
+                            let _ = previous.send(Command::PreviewAttachment {
+                                cell_id: previous_cell.clone(),
+                                name: previous_name.clone(),
+                                offset: offset.saturating_sub(page_len),
+                                length: page_len as usize,
+                            });
+                        }),
+                    )
+                    .child(
+                        action_button((
+                            ElementId::from(cell_id.clone()),
+                            format!("attachment-next-{name}"),
+                        ))
+                        .ghost()
+                        .small()
+                        .label("Next page")
+                        .unavailable(end >= total)
+                        .on_click(move |_, _, _| {
+                            let _ = next.send(Command::PreviewAttachment {
+                                cell_id: next_cell.clone(),
+                                name: next_name.clone(),
+                                offset: end,
+                                length: page_len as usize,
+                            });
+                        }),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(format!("Bytes {}–{} of {total}", offset + 1, end)),
+                    ),
+            );
+        }
+    }
+    block.into_any_element()
 }

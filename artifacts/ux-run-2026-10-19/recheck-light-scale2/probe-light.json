@@ -1,0 +1,365 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\desktop\\target\\debug\\kernelledger-desktop.exe",
+  "theme": "light",
+  "dpi": 192,
+  "minimum_outer_logical": [
+    813.0,
+    606.5
+  ],
+  "time_to_visible_window_ms": 1633.95,
+  "window_title": "KernelLedger \u2014 notebook",
+  "uia_nodes": 19,
+  "native_identity": "passed",
+  "output_semantics": "passed",
+  "screenshot": [
+    "settings-light.png"
+  ],
+  "measurement_limit": "Time to visible window only, not editor-ready latency. No NVDA/IME/mixed-DPI qualification.",
+  "resize_cycles": 10,
+  "native_menu_and_destinations": "passed",
+  "bar_alignment": [
+    {
+      "logical_size": [
+        800,
+        600
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 165,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 301,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "History",
+          "x": 417,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Checkpoints",
+          "x": 533,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Run all",
+          "x": 1009,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Menu",
+          "x": 1265,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1024,
+        768
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 165,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 301,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "History",
+          "x": 417,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Checkpoints",
+          "x": 533,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Runtime: Python (Ready)",
+          "x": 1053,
+          "y": 43,
+          "width": 232,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Run all",
+          "x": 1303,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Menu",
+          "x": 1687,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1280,
+        850
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 165,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 301,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "History",
+          "x": 417,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Checkpoints",
+          "x": 533,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Runtime: Python (Ready)",
+          "x": 1565,
+          "y": 43,
+          "width": 232,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Run all",
+          "x": 1815,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Menu",
+          "x": 2199,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        }
+      ]
+    },
+    {
+      "logical_size": [
+        1440,
+        900
+      ],
+      "vertical_center_spread_logical_px": 0.0,
+      "buttons": [
+        {
+          "name": "Outline",
+          "x": 37,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook switcher: notebook",
+          "x": 165,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Notebook, current destination",
+          "x": 301,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "History",
+          "x": 417,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Checkpoints",
+          "x": 533,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Runtime: Python (Ready)",
+          "x": 1885,
+          "y": 43,
+          "width": 232,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Run all",
+          "x": 2135,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        },
+        {
+          "name": "Menu",
+          "x": 2519,
+          "y": 43,
+          "width": 112,
+          "height": 120,
+          "center": 103
+        }
+      ]
+    }
+  ],
+  "caption_controls": [
+    {
+      "logical_size": [
+        800,
+        600
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1024,
+        768
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1280,
+        850
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    },
+    {
+      "logical_size": [
+        1440,
+        900
+      ],
+      "hit_test_codes": {
+        "minimize": 8,
+        "maximize": 9,
+        "close": 20
+      },
+      "interactive_controls": "client",
+      "blank_chrome": "drag"
+    }
+  ],
+  "ui_scale": 2.0,
+  "comfortable": false,
+  "capture_limit": "Desktop capture cropped to owned window; verify occlusion and physical monitor bounds visually. Resize calls alone do not prove control reachability."
+}

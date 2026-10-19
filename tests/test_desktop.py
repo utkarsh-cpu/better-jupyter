@@ -1,10 +1,14 @@
 import concurrent.futures
 import json
+import os
 import socket
 import sqlite3
 import struct
+import subprocess
+import sys
 import time
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -14,7 +18,8 @@ from kernelledger.desktop.protocol import API, LIMIT, encode
 from kernelledger.ledger import DDL, Ledger
 from kernelledger.notebook import Notebook
 from kernelledger.source import SourceError, SourceService, source_hash
-from kernelledger.supervisor import interpreter
+from kernelledger.supervisor import interpreter, windows_venv_launch
+from kernelledger.supervisor.platform import HIDDEN_CONSOLE
 
 
 class Client:
@@ -371,6 +376,143 @@ def test_subscription_follow_and_verified_blob(project):
         control.close()
         feed.close()
         blobs.close()
+
+
+def test_list_page_does_not_load_every_row(tmp_path, monkeypatch):
+    notebook = Notebook(tmp_path)
+    notebook.init()
+    ledger = Ledger(tmp_path / ".kl" / "ledger.sqlite")
+    sid = ledger.session("nb", {})
+    ledger.db.executemany(
+        "INSERT INTO executions VALUES (?,?,?,?,?,?,?,?)",
+        [
+            (
+                f"exec-{i:04d}",
+                sid,
+                i + 1,
+                f"cell-{i % 4}",
+                "a" * 64,
+                "ok",
+                "2026-10-18T00:00:00Z",
+                None,
+            )
+            for i in range(3000)
+        ],
+    )
+    ledger.db.commit()
+    ledger.event("exec-2999", "stdout", {"text": "3\n"})
+    ledger.close()
+    seen: list[tuple[str, tuple]] = []
+    original = Ledger.rows
+
+    def spy(self, sql, args=()):
+        seen.append((sql, tuple(args)))
+        return original(self, sql, args)
+
+    monkeypatch.setattr(Ledger, "rows", spy)
+    helper = Helper(tmp_path)
+    first = helper.dispatch({"method": "executions.list", "page_size": 25})
+    assert len(first["items"]) == 25
+    assert first["cursor"]
+    assert any(
+        "executions" in sql and sql.endswith("LIMIT ? OFFSET ?") and args[-2:] == (25, 0)
+        for sql, args in seen
+    )
+    assert all("LIMIT ? OFFSET ?" in sql for sql, _args in seen)
+    second = helper.dispatch(
+        {"method": "executions.list", "page_size": 25, "cursor": first["cursor"]}
+    )
+    assert [item["exec_id"] for item in first["items"]] != [
+        item["exec_id"] for item in second["items"]
+    ]
+    for method in ("sessions.list", "checkpoints.list"):
+        seen.clear()
+        helper.dispatch({"method": method, "page_size": 10})
+        assert any("LIMIT ? OFFSET ?" in sql for sql, _args in seen)
+    latest = helper.dispatch(
+        {"method": "executions.list", "latest_per_cell": True, "page_size": 500}
+    )
+    assert len(latest["items"]) == 4
+    assert {item["cell_id"] for item in latest["items"]} == {f"cell-{i}" for i in range(4)}
+    newest = next(item for item in latest["items"] if item["cell_id"] == "cell-3")
+    assert newest["exec_id"] == "exec-2999"
+    assert newest["fold_events"] == 1
+    assert newest["fold_seq"] == 1
+    mark = helper.dispatch({"method": "executions.watermark"})
+    assert mark["executions"] == 3000
+    assert mark["events"] == 1
+    assert helper.dispatch({"method": "executions.watermark"}) == mark
+
+
+def test_windows_venv_skips_redirector_and_keeps_site_packages(tmp_path):
+    if os.name != "nt":
+        pytest.skip("Windows venv redirector")
+    base = Path(getattr(sys, "base_prefix", sys.prefix))
+    base_python = base / "python.exe"
+    if not base_python.is_file():
+        pytest.skip("base interpreter is not a Windows python.exe")
+    root = tmp_path / "venv"
+    package = root / "Lib" / "site-packages" / "only_in_venv"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("MARKER = 'venv-only'\n", encoding="utf-8")
+    (root / "Scripts").mkdir()
+    (root / "pyvenv.cfg").write_text(
+        f"home = {base}\ninclude-system-site-packages = false\n",
+        encoding="utf-8",
+    )
+    launcher = root / "Scripts" / "python.exe"
+    launcher.write_bytes(b"")
+    executable, extra = windows_venv_launch(str(launcher))
+    assert Path(executable) == base_python.resolve()
+    assert extra["__PYVENV_LAUNCHER__"] == str(launcher.resolve())
+    env = os.environ.copy()
+    env.pop("__PYVENV_LAUNCHER__", None)
+    env.update(extra)
+    result = subprocess.run(
+        [
+            executable,
+            "-I",
+            "-c",
+            "import only_in_venv,sys; print(sys.prefix); print(only_in_venv.MARKER)",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        env=env,
+        creationflags=HIDDEN_CONSOLE,
+    )
+    assert result.returncode == 0, result.stderr
+    prefix, marker = result.stdout.splitlines()
+    assert os.path.normcase(str(Path(prefix).resolve())) == os.path.normcase(str(root.resolve()))
+    assert marker == "venv-only"
+    (root / "pyvenv.cfg").write_text(
+        f"home = {tmp_path / 'missing'}\nexecutable = {base_python}\n",
+        encoding="utf-8",
+    )
+    executable, extra = windows_venv_launch(str(launcher))
+    assert Path(executable) == base_python.resolve()
+    proc = subprocess.Popen(
+        [executable, "-I", "-c", "import time; time.sleep(8)"],
+        env={**env, **extra},
+        creationflags=HIDDEN_CONSOLE,
+    )
+    try:
+        time.sleep(0.4)
+        count = subprocess.check_output(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                f"@(Get-CimInstance Win32_Process -Filter 'ParentProcessId={proc.pid}').Count",
+            ],
+            text=True,
+            timeout=20,
+        )
+        assert count.strip() == "0"
+    finally:
+        proc.kill()
+        proc.wait(timeout=5)
 
 
 def test_stop_preempts_busy_work_and_cancels_queued_runs(project):

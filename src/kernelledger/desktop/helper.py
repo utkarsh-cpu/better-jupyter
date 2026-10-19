@@ -12,12 +12,13 @@ from typing import Any
 
 from .. import __version__
 from ..blobs import BlobStore
+from ..documents import export_document
 from ..ledger import Ledger
 from ..notebook import Notebook
 from ..sharing import Bundle, descriptor, export_bundle, notebook_outputs, output_view
 from ..source import SourceError, SourceService
 from .contracts import validate
-from .protocol import API, LIMIT, encode, error, hello, page
+from .protocol import API, LIMIT, encode, error, hello, page, sql_page
 
 
 def candidates(root: Any) -> Any:
@@ -46,6 +47,41 @@ def candidates(root: Any) -> Any:
         except (OSError, subprocess.TimeoutExpired):
             pass
     return [{"path": path} for path in sorted(paths)]
+
+
+def _cell_source(blobs: Any, item: Any) -> None:
+    digest = item.get("source_sha256")
+    if not isinstance(digest, str):
+        return
+    try:
+        item["source"] = blobs.get(digest).decode()
+    except (OSError, UnicodeError, ValueError):
+        return
+
+
+def _execution_list_sql(request: Any) -> tuple[str, tuple[Any, ...]]:
+    session_id = request.get("session_id")
+    if request.get("latest_per_cell") is True:
+        where = "WHERE cell_id IS NOT NULL"
+        args: tuple[Any, ...] = ()
+        if session_id:
+            where += " AND session_id=?"
+            args = (session_id,)
+        return (
+            "SELECT e.*, "
+            "(SELECT COUNT(*) FROM events ev WHERE ev.exec_id=e.exec_id) AS fold_events, "
+            "(SELECT COALESCE(MAX(seq), 0) FROM events ev WHERE ev.exec_id=e.exec_id) AS fold_seq "
+            "FROM executions e JOIN ("
+            f"SELECT cell_id, MAX(rowid) AS latest_rowid FROM executions {where} GROUP BY cell_id"
+            ") latest ON e.rowid=latest.latest_rowid ORDER BY e.session_id, e.ordinal",
+            args,
+        )
+    if session_id:
+        return (
+            "SELECT * FROM executions WHERE session_id=? ORDER BY session_id,ordinal",
+            (session_id,),
+        )
+    return "SELECT * FROM executions ORDER BY session_id,ordinal", ()
 
 
 def validate_interpreter(path: str) -> Any:
@@ -160,31 +196,51 @@ class Helper:
             }
         path = self.root / ".kl/ledger.sqlite"
         if not path.exists():
+            if method == "executions.watermark":
+                return {
+                    "executions": 0,
+                    "execution_rowid": 0,
+                    "events": 0,
+                    "event_rowid": 0,
+                    "max_end": "",
+                }
             if method.endswith(".list"):
                 return {"items": [], "cursor": None}
             if method == "export_ipynb":
                 self.notebook.export_ipynb(request["path"])
                 return {"path": request["path"]}
+            if method == "export_document":
+                return export_document(self.notebook, request["path"], request["format"])
             raise SourceError("not_found", "history is empty")
         immutable = (
             not os.access(path.parent, os.W_OK) and not (path.parent / "supervisor.json").exists()
         )
         ledger = Ledger(path, readonly=True, immutable=immutable)
         try:
+            if method == "executions.watermark":
+                # Executions alone miss event appends and status updates that keep the same rowid.
+                row = ledger.rows(
+                    "SELECT (SELECT COUNT(*) FROM executions) AS executions, "
+                    "(SELECT COALESCE(MAX(rowid), 0) FROM executions) AS execution_rowid, "
+                    "(SELECT COUNT(*) FROM events) AS events, "
+                    "(SELECT COALESCE(MAX(rowid), 0) FROM events) AS event_rowid, "
+                    "(SELECT COALESCE(MAX(end), '') FROM executions) AS max_end"
+                )[0]
+                return dict(row)
             if method in ("sessions.list", "executions.list", "checkpoints.list"):
-                table, order = {
-                    "sessions.list": ("sessions", "start,session_id"),
-                    "executions.list": ("executions", "session_id,ordinal"),
-                    "checkpoints.list": ("checkpoints", "timestamp,checkpoint_id"),
-                }[method]
-                sql, args = "SELECT * FROM " + table, ()
-                if method == "executions.list" and request.get("session_id"):
-                    sql += " WHERE session_id=?"
-                    args = (request["session_id"],)
-                return {
-                    **page(ledger.rows(sql + " ORDER BY " + order, args), request),
-                    "read_only_snapshot": immutable,
-                }
+                if method == "executions.list":
+                    sql, args = _execution_list_sql(request)
+                else:
+                    table, order = {
+                        "sessions.list": ("sessions", "start,session_id"),
+                        "checkpoints.list": ("checkpoints", "timestamp,checkpoint_id"),
+                    }[method]
+                    sql, args = f"SELECT * FROM {table} ORDER BY {order}", ()
+                listed = sql_page(ledger, sql, args, request)
+                if method == "executions.list" and request.get("latest_per_cell") is not True:
+                    for item in listed["items"]:
+                        _cell_source(self.blobs, item)
+                return {**listed, "read_only_snapshot": immutable}
             if method in ("execution.get", "fold.get"):
                 return output_view(self.notebook, ledger, self.blobs, request["exec_id"])
             if method == "events.list":
@@ -206,6 +262,10 @@ class Helper:
                 )
                 self.notebook.export_ipynb(request["path"], outputs)
                 return {"path": request["path"]}
+            if method == "export_document":
+                return export_document(
+                    self.notebook, request["path"], request["format"], ledger, self.blobs
+                )
             if method == "bundle_export":
                 return export_bundle(
                     self.notebook,

@@ -1,0 +1,32 @@
+{"name": "light-scale1", "theme": "light", "ui_scale": 1, "comfortable": false, "exit": 0, "seconds": 20.8}
+{"name": "light-scale1-comfortable", "theme": "light", "ui_scale": 1, "comfortable": true, "exit": 0, "seconds": 21.1}
+{"name": "light-scale1p25", "theme": "light", "ui_scale": 1.25, "comfortable": false, "exit": 0, "seconds": 21.2}
+{"name": "light-scale1p25-comfortable", "theme": "light", "ui_scale": 1.25, "comfortable": true, "exit": 0, "seconds": 21.2}
+{"name": "light-scale1p5", "theme": "light", "ui_scale": 1.5, "comfortable": false, "exit": 0, "seconds": 21.3}
+{"name": "light-scale1p5-comfortable", "theme": "light", "ui_scale": 1.5, "comfortable": true, "exit": 0, "seconds": 21.0}
+{"name": "light-scale2", "theme": "light", "ui_scale": 2, "comfortable": false, "exit": 1, "seconds": 10.2, "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\scripts\\desktop_ui_probe.py\", line 195, in <module>\n    assert b[\"x\"] >= origin.x and b[\"x\"] + b[\"width\"] <= origin.x + client.right - 102 * scale, (w, h, b)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: (800, 600, {'name': 'Menu', 'x': 1311, 'y': 43, 'width': 112, 'height': 120, 'center': 103})\n", "stdout": "Started empty worker session e0e9e633-cdc0-472e-852d-8998b9156299\n"}
+{"name": "light-scale2-comfortable", "theme": "light", "ui_scale": 2, "comfortable": true, "exit": 0, "seconds": 20.9}
+{"name": "dark-scale1", "theme": "dark", "ui_scale": 1, "comfortable": false, "exit": 0, "seconds": 20.4}
+{"name": "dark-scale1-comfortable", "theme": "dark", "ui_scale": 1, "comfortable": true, "exit": 0, "seconds": 21.2}
+{"name": "dark-scale1p25", "theme": "dark", "ui_scale": 1.25, "comfortable": false, "exit": 0, "seconds": 20.2}
+{"name": "dark-scale1p25-comfortable", "theme": "dark", "ui_scale": 1.25, "comfortable": true, "exit": 0, "seconds": 21.1}
+{"name": "dark-scale1p5", "theme": "dark", "ui_scale": 1.5, "comfortable": false, "exit": 0, "seconds": 20.2}
+{"name": "dark-scale1p5-comfortable", "theme": "dark", "ui_scale": 1.5, "comfortable": true, "exit": 0, "seconds": 21.0}
+{"name": "dark-scale2", "theme": "dark", "ui_scale": 2, "comfortable": false, "exit": 1, "seconds": 10.2, "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\scripts\\desktop_ui_probe.py\", line 195, in <module>\n    assert b[\"x\"] >= origin.x and b[\"x\"] + b[\"width\"] <= origin.x + client.right - 102 * scale, (w, h, b)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: (800, 600, {'name': 'Menu', 'x': 1311, 'y': 43, 'width': 112, 'height': 120, 'center': 103})\n", "stdout": "Started empty worker session ac76cb7c-9b15-44be-bba3-64271cc1984b\n"}
+{"name": "dark-scale2-comfortable", "theme": "dark", "ui_scale": 2, "comfortable": true, "exit": 0, "seconds": 20.9}
+{"name": "contrast-scale1", "theme": "contrast", "ui_scale": 1, "comfortable": false, "exit": 0, "seconds": 21.4}
+{"name": "contrast-scale1-comfortable", "theme": "contrast", "ui_scale": 1, "comfortable": true, "exit": 0, "seconds": 21.1}
+{"name": "contrast-scale1p25", "theme": "contrast", "ui_scale": 1.25, "comfortable": false, "exit": 0, "seconds": 21.1}
+{"name": "contrast-scale1p25-comfortable", "theme": "contrast", "ui_scale": 1.25, "comfortable": true, "exit": 0, "seconds": 21.0}
+{"name": "contrast-scale1p5", "theme": "contrast", "ui_scale": 1.5, "comfortable": false, "exit": 0, "seconds": 20.4}
+{"name": "contrast-scale1p5-comfortable", "theme": "contrast", "ui_scale": 1.5, "comfortable": true, "exit": 0, "seconds": 22.0}
+{"name": "contrast-scale2", "theme": "contrast", "ui_scale": 2, "comfortable": false, "exit": 1, "seconds": 10.2, "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\scripts\\desktop_ui_probe.py\", line 195, in <module>\n    assert b[\"x\"] >= origin.x and b[\"x\"] + b[\"width\"] <= origin.x + client.right - 102 * scale, (w, h, b)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: (800, 600, {'name': 'Menu', 'x': 1311, 'y': 43, 'width': 112, 'height': 120, 'center': 103})\n", "stdout": "Started empty worker session 324a23cf-5491-4862-bab7-84fab2b44cbd\n"}
+{"name": "contrast-scale2-comfortable", "theme": "contrast", "ui_scale": 2, "comfortable": true, "exit": 0, "seconds": 21.0}
+{"name": "system-scale1", "theme": "system", "ui_scale": 1, "comfortable": false, "exit": 0, "seconds": 21.3}
+{"name": "system-scale1-comfortable", "theme": "system", "ui_scale": 1, "comfortable": true, "exit": 0, "seconds": 21.2}
+{"name": "system-scale1p25", "theme": "system", "ui_scale": 1.25, "comfortable": false, "exit": 0, "seconds": 21.3}
+{"name": "system-scale1p25-comfortable", "theme": "system", "ui_scale": 1.25, "comfortable": true, "exit": 0, "seconds": 21.0}
+{"name": "system-scale1p5", "theme": "system", "ui_scale": 1.5, "comfortable": false, "exit": 0, "seconds": 20.2}
+{"name": "system-scale1p5-comfortable", "theme": "system", "ui_scale": 1.5, "comfortable": true, "exit": 0, "seconds": 21.2}
+{"name": "system-scale2", "theme": "system", "ui_scale": 2, "comfortable": false, "exit": 1, "seconds": 11.3, "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\scripts\\desktop_ui_probe.py\", line 195, in <module>\n    assert b[\"x\"] >= origin.x and b[\"x\"] + b[\"width\"] <= origin.x + client.right - 102 * scale, (w, h, b)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: (800, 600, {'name': 'Menu', 'x': 1311, 'y': 43, 'width': 112, 'height': 120, 'center': 103})\n", "stdout": "Started empty worker session ae866440-810f-408f-9948-a7f77afe58d6\n"}
+{"name": "system-scale2-comfortable", "theme": "system", "ui_scale": 2, "comfortable": true, "exit": 0, "seconds": 21.0}

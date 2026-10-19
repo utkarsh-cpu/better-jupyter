@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Commands",
+    "role": "ControlType.Button",
+    "x": 2184,
+    "y": 65,
+    "width": 56,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Settings",
+    "role": "ControlType.Button",
+    "x": 2256,
+    "y": 65,
+    "width": 172,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Menu",
+    "role": "ControlType.Button",
+    "x": 2444,
+    "y": 65,
+    "width": 56,
+    "height": 60,
+    "offscreen": false
+  },
+  {
+    "name": "Open notebook",
+    "role": "ControlType.Button",
+    "x": 701,
+    "y": 754,
+    "width": 318,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Create notebook",
+    "role": "ControlType.Button",
+    "x": 1039,
+    "y": 754,
+    "width": 336,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Create sample notebook",
+    "role": "ControlType.Button",
+    "x": 1395,
+    "y": 754,
+    "width": 400,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Help and shortcuts",
+    "role": "ControlType.Button",
+    "x": 1815,
+    "y": 754,
+    "width": 364,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Commands",
+    "role": "ControlType.Window",
+    "x": 864,
+    "y": 124,
+    "width": 1152,
+    "height": 695,
+    "offscreen": false
+  },
+  {
+    "name": "Type a command",
+    "role": "ControlType.Edit",
+    "x": 886,
+    "y": 146,
+    "width": 1108,
+    "height": 64,
+    "offscreen": false
+  },
+  {
+    "name": "Add Raw cell, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 212,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Duplicate cell, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 316,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Delete cell..., unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 420,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Move cell up, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 524,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  },
+  {
+    "name": "Move cell down, unavailable",
+    "role": "ControlType.Button",
+    "x": 878,
+    "y": 628,
+    "width": 1124,
+    "height": 100,
+    "offscreen": false
+  }
+]

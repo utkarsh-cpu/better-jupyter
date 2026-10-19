@@ -170,6 +170,23 @@
     {
       "type": "object",
       "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "const": "executions.watermark"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "method",
         "exec_id"
       ],
@@ -327,6 +344,31 @@
           ]
         },
         "path": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "path",
+        "format"
+      ],
+      "properties": {
+        "method": {
+          "const": "export_document"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
           "type": "string"
         }
       }
