@@ -1,10 +1,11 @@
-# KernelLedger AI assistant plan, draft 1
+# KernelLedger AI assistant plan, draft 2
 
 | | |
 | --- | --- |
-| Status | Draft 2026-10-20. Not authoritative. No AI code exists. |
+| Status | Draft 2026-10-20. Not authoritative. No AI code exists. Draft 2 checks every reference against the runtime plan, the frontend plan, and the code. |
 | Tracks | Cross-track proposal. On acceptance the runtime plan publishes version 6 with sections 2–9 and 11–13 of this draft, and the frontend plan publishes its next version with section 10 (versioning rule 4). |
-| Baseline | [Runtime plan](../PLAN.md) version 5, [frontend plan](../FRONTEND_PLAN.md) version 4. |
+| Baseline | [Runtime plan](../PLAN.md) version 5, [frontend plan](../FRONTEND_PLAN.md) version 4. The [frontend v5](frontend-v5-draft.md) and [v6](frontend-v6-draft.md) drafts are still pending. Section 10 joins whichever frontend version is published next and follows the v5 draft's layout rule F-RD-05 if that draft is adopted. |
+| References | "Runtime §n" and "frontend §n" cite sections of the current plans, as the frontend plan does. |
 | Versioning | [Plan rules](README.md). Proposed frontend requirements use `F-AI-<nn>`, scenarios `FS-AI-<nn>`, open decisions `AD-<nn>` until adopted. |
 | Source | The "Explore AI Features for the Project" review of 2026-10-19: 22 candidate features, 3 connection routes, a 5-step rollout. Section 2 decides every one. |
 
@@ -12,11 +13,11 @@
 
 KernelLedger gains an optional assistant that answers from the ledger. Every factual claim cites a cell id, execution id, checkpoint id, or source hash that the user can open. The differentiating question is: *which execution produced this result, what changed since, and which saved state can I continue from?*
 
-The assistant reads. It proposes edits, cells, and runs. It never applies them itself. An accepted proposal travels the existing paths: source writes through the source service with `manifest_revision` (runtime A5.1), executions through supervisor `run` with `expected_sha256` and a `client_request_id` (runtime A8.3). Revision checks, trust checks, and the single-writer ledger keep their meaning unchanged.
+The assistant reads. It proposes edits, cells, and runs. It never applies them itself. An accepted proposal travels the existing paths: source writes through the helper's `source.mutate` with the expected manifest and cell revisions (runtime §5.1, §8.7), executions through supervisor `run` or `batch` with `expected_sha256` (runtime §8.2, §8.4) and a `client_request_id` (runtime §8.3). Revision checks, trust checks, and the single-writer ledger keep their meaning unchanged.
 
 The assistant is off until the user picks a provider. Local models, an API key, and an eligible ChatGPT plan are equal routes behind one adapter interface.
 
-Out of scope: training or fine-tuning models, bundling model weights in the installer, hosting a KernelLedger cloud service, and live inspection of a worker namespace (frontend A15 gate stays closed).
+Out of scope: training or fine-tuning models, bundling model weights in the installer, hosting a KernelLedger cloud service, and live inspection of a worker namespace (the frontend §15 live namespace inspector gate stays closed). The assistant only makes outbound requests. It opens no listener, so runtime §21's "remote or multi-user desktop access" choice is untouched.
 
 ## 2. Disposition of every reviewed recommendation
 
@@ -26,7 +27,7 @@ Out of scope: training or fine-tuning models, bundling model weights in the inst
 | --- | --- | --- |
 | Local models (Ollama, LM Studio, OpenAI-compatible) | Adopt. First-class, tested first because it needs no account and keeps data on the machine. | A0 |
 | OpenAI API key | Adopt via the Responses API with Structured Outputs and streaming. | A0 |
-| ChatGPT account (Sign in with ChatGPT, plan usage) | Adopt behind a gate. OpenAI's open-source route registers the client and issues OAuth credentials (OIDC with PKCE) for eligible Plus/Pro Responses requests. Identity scopes alone grant no inference. Requires KernelLedger to qualify as an open-source client (AD-03). | A2, gated |
+| ChatGPT account (Sign in with ChatGPT, plan usage) | Adopt behind a gate. OpenAI's open-source route registers the client and issues OAuth credentials (OIDC with PKCE) for eligible Plus/Pro Responses requests. Identity scopes alone grant no inference. Requires KernelLedger to qualify as an open-source client (AD-03). Signing in to a cloud account conflicts with frontend F-GOAL-04 ("cloud accounts" are out of scope for the first release), so the desktop route also waits for the first desktop release or a frontend version that amends F-GOAL-04. | A2, gated |
 | Other cloud vendors | Through the generic OpenAI-compatible adapter first. Native adapters only on demand. | A3 |
 
 ### 2.2 Features
@@ -36,11 +37,11 @@ Out of scope: training or fine-tuning models, bundling model weights in the inst
 | 1 | Explain and fix errors | Adopt | A1 | None. |
 | 2 | Ask your notebook | Adopt | A1 | Answers must cite ids; uncited claims are labeled. |
 | 3 | Generate or edit cells | Adopt | A1 | None. |
-| 4 | Compare runs and branches | Adopt | A2 | Deterministic diff first, model narrates. |
+| 4 | Compare runs and branches | Adopt | A2 | Deterministic diff first, model narrates. Each worktree is its own notebook with its own ledger, and there is no merged timeline (runtime §14). A cross-worktree comparison opens the other worktree read-only, found through `siblings` or `git worktree list`. `git_state.experiment_status` covers training artifacts only, so it is not the comparison engine. |
 | 5 | Checkpoint recovery guide | Adopt | A2 | None. |
 | 6 | Data exploration assistant | Adopt, changed | A3 | No new profiling contract. The assistant proposes a visible profiling cell; the user runs it; the assistant reads its recorded output. |
 | 7 | Plot interpretation | Adopt | A3 | Vision-capable models only; image sent only when selected. |
-| 8 | Experiment reports | Adopt | A3 | Uses existing `export_document` (PDF, Word). |
+| 8 | Experiment reports | Adopt, changed | A3 | Today `export_document` only renders the notebook's own blocks. The helper's `export_document` request gains an optional `markdown` field that is rendered through the existing `markdown_blocks`, `pdf_bytes`, and `word_bytes` functions (section 12). The user reviews the draft before export. |
 | 9 | Training run advisor | Adopt, conditional | A3 | Only from metrics the user recorded; no inference of missing metrics. |
 | 10 | Anomaly detection | Adopt | A3 | Statistics flag; model explains flags only. |
 | 11 | Reproducibility review | Adopt | A2 | Moved earlier: built from existing deterministic checks. |
@@ -56,7 +57,17 @@ Out of scope: training or fine-tuning models, bundling model weights in the inst
 | 21 | External assistant integration (MCP) | Adopt, split | A2 read-only, A4 proposals | Read-only tools need no provider layer, so they move earlier. |
 | 22 | Voice interaction | Defer | — | Separate speech pipeline and accessibility work; revisit after A3. |
 
-### 2.3 Cross-cutting recommendations
+### 2.3 Integration points named by the review
+
+| Module | Use |
+| --- | --- |
+| `src/kernelledger/desktop/contracts.py` | Pattern for the assistant method catalog and its generated schema (section 12). |
+| `src/kernelledger/desktop/helper.py` | Read-only context through `Helper.dispatch` and an allowlist (section 4). |
+| `src/kernelledger/source.py` | Applies accepted `edit_cell` and `insert_cells` proposals with revision checks. |
+| `src/kernelledger/documents.py` | Report export (feature 8). |
+| `desktop/crates/client/src/service.rs` | Model for the assistant process manager: streaming, cancellation, background requests (section 10.3). |
+
+### 2.4 Cross-cutting recommendations
 
 | Recommendation | Where it lands |
 | --- | --- |
@@ -91,9 +102,10 @@ Desktop client --(stdio)--> Desktop helper      (unchanged: source service, read
       +--(desktop protocol)--> Supervisor   (accepted runs only, sent by the client)
 ```
 
-- **Separate process.** `python -I -m kernelledger.assistant --project <dir>`. The helper's runtime A8.7 guarantee (no network, never executes code) stays intact. Cancellation can kill the process. A provider hang or crash cannot stall source saves.
+- **Separate process.** `python -I -m kernelledger.assistant --project <dir>`, run by the private distribution in the desktop package (frontend F-PKG-01). The helper's runtime §8.7 guarantee (no network, never executes notebook code) stays intact. Cancellation can kill the process. A provider hang or crash cannot stall source saves.
 - **Framing.** Same desktop framing and `hello` as the helper, its own version, plus `delta` (streamed text), `proposal`, and `done` messages carrying a `request_id`.
-- **No new Python dependency.** HTTP and server-sent events via `urllib.request` and `http.client`, consistent with the stdlib runtime. Context reads reuse the helper's read-only query functions; no SQL is duplicated.
+- **No new Python dependency.** HTTP and server-sent events via `urllib.request` and `http.client`, consistent with the stdlib runtime (runtime §18).
+- **Context reads.** The helper's queries live inside `Helper.dispatch`, and the same object also serves `source.mutate`, `source.recover`, and the exports. The assistant creates an in-process `Helper` and reaches it only through a fixed allowlist: `source.read`, `sessions.list`, `executions.list`, `execution.get`, `events.list`, `fold.get`, `checkpoints.list`, `checkpoint.get`, `training.list`, `training.inspect`, `native.status`, `doctor`, `interpreter.candidates`, `blob.read`. A test fails if a method outside the allowlist becomes reachable. No SQL is duplicated. `interpreter.validate` is excluded because it starts the candidate interpreter.
 - **Package layout.**
 
 | Module | Role |
@@ -135,9 +147,9 @@ A provider is labeled **Local** only when its host resolves to a loopback addres
 
 ### 5.4 Credentials
 
-- **Desktop:** the Rust client stores API keys and refresh tokens in the OS credential store (Windows Credential Manager; Secret Service on Linux) through the `keyring` crate. It passes the credential to the assistant process in the `hello` over stdin, never in argv or environment. The assistant holds it in memory only.
-- **CLI:** `KL_AI_API_KEY`, then `OPENAI_API_KEY`, from the CLI's own environment. `kl ai login` stores a key in Windows Credential Manager via `ctypes` (as token ACLs already do). On Linux it uses `secret-tool` when present, otherwise environment-only (AD-02).
-- The supervisor never receives assistant credentials, so the worker cannot read them through KernelLedger. A key the user exported into their own shell environment is visible to user code as before; the docs say so.
+- **Desktop:** the Rust client stores API keys and refresh tokens in the OS credential store (Windows Credential Manager; Secret Service on Linux) through the `keyring` crate, pinned under F-STACK-01 and listed in the license inventory (F-PKG-07, `docs/desktop/dependency-licenses.json`). It passes the credential to the assistant process in the `hello` over stdin, never in argv or environment. The assistant holds it in memory only.
+- **CLI:** `KL_AI_API_KEY`, then `OPENAI_API_KEY`, from the CLI's own environment. `kl ai login` stores a key in Windows Credential Manager through `ctypes` calls to `CredWriteW` and `CredReadW`, alongside the existing token ACL code in `supervisor/platform.py`. On Linux it uses `secret-tool` when present, otherwise environment-only (AD-02).
+- The supervisor never receives assistant credentials, so the worker cannot read them through KernelLedger. A `kl` command that starts the supervisor passes on its own environment (runtime §3, §6), so a key the user exported into that shell reaches user code. The docs say so, and `kl ai status` warns when `KL_AI_API_KEY` or `OPENAI_API_KEY` is set in an environment that starts supervisors.
 
 ### 5.5 Usage and budgets
 
@@ -166,9 +178,9 @@ The receipt lists every item, its byte size and token estimate, the destination 
 
 ### 6.3 Redaction
 
-- `getpass` replies stay redacted (runtime A8.5). `.kl/token` is never readable through any tool.
+- `getpass` replies stay redacted (runtime §8.5). `.kl/token` is never readable through any tool.
 - Bindings in `checkpoint_denylist` are masked in outputs and summaries.
-- Pattern rules mask common credential shapes (API key prefixes, bearer tokens, private key blocks, connection strings with passwords). Masks are shown in the receipt. Like runtime A15, the product does not claim to find every secret.
+- Pattern rules mask common credential shapes (API key prefixes, bearer tokens, private key blocks, connection strings with passwords). Masks are shown in the receipt. Like runtime §15, the product does not claim to find every secret.
 
 ### 6.4 Prompt injection
 
@@ -186,7 +198,7 @@ Context is wrapped in delimited data blocks with provenance. The system prompt s
 | --- | --- | --- |
 | `edit_cell` | `cell_id`, base `source_sha256`, new source, rationale | `source.mutate` with the current `manifest_revision` |
 | `insert_cells` | Position, cells, rationale | `source.mutate` |
-| `run_cells` | Cell ids, expected source hashes | Supervisor `run` / `batch` with a new `client_request_id` |
+| `run_cells` | Cell ids, expected source hashes | Supervisor `run` for one cell, `batch` with stop-on-error for several (runtime §8.4), each with a new `client_request_id` |
 | `command` | Shell text, explanation | Never executed; copy only |
 
 A proposal whose base no longer matches is **stale** and cannot be applied; the user can regenerate it. Acceptance is per proposal, after a diff view.
@@ -210,7 +222,7 @@ Responses use JSON Schema (Structured Outputs where supported, otherwise validat
 
 `applications` rows are written when the client reports acceptance, which links every AI-originated change to ledger operations. Retention defaults to 90 days (AD-06). `kl ai purge` deletes everything. Bundle and ipynb exports exclude `.kl/assistant/`; an opt-in export of one conversation as Markdown exists.
 
-## 9. Security summary for runtime A15
+## 9. Security summary for runtime §15
 
 - New process with network access, isolated from the helper, supervisor, and worker.
 - Credentials: section 5.4. Never logged; diagnostic exports omit the hello.
@@ -222,7 +234,7 @@ Responses use JSON Schema (Structured Outputs where supported, otherwise validat
 
 ### 10.1 Surfaces
 
-- **F-AI-01** An **Assistant** tab in the right inspector region (frontend A3 has fixed regions, so no new dock). It holds the conversation, context chips, the receipt, streamed answers with citation links, and proposals.
+- **F-AI-01** An **Assistant** tab in the right inspector region (F-IA-07). Frontend §3 has fixed regions, so there is no new dock. The current UI crates have no inspector yet, so A1 builds the inspector container. Under the v5 draft's F-RD-05, the inspector becomes a drawer below 1,024 logical pixels, and the Assistant follows it. It holds the conversation, context chips, the receipt, streamed answers with citation links, and proposals.
 - **F-AI-02** Cell actions: *Explain error* on failed outputs, *Ask about this cell*, *Suggest edit*, *Document*. History and checkpoint detail gain *Explain* and *Compare with…*.
 - **F-AI-03** Proposal review reuses the "Copy recorded source into current cell" preview pattern (F-IA-22): side-by-side diff, Apply, Reject, Regenerate. Stale proposals show why.
 - **F-AI-04** Citations open the cited cell, execution, or checkpoint with the standard Back behavior (F-IA-25).
@@ -257,11 +269,13 @@ Responses use JSON Schema (Structured Outputs where supported, otherwise validat
 | `kl ai purge` | Delete assistant records |
 | `kl mcp` | Read-only MCP server over stdio (A2) |
 
-The CLI runs the assistant library in-process; it never starts the supervisor for read-only tasks (runtime A16 rule for `kl log` and `kl show`).
+The CLI runs the assistant library in-process. Like `kl show` (runtime §20), it never starts the supervisor or a worker for read-only tasks.
 
 ## 12. Protocol and contracts
 
-Assistant methods: `providers.list`, `providers.test`, `models.list`, `context.preview`, `respond` (streams), `cancel`, `conversations.list`, `conversation.get`, `proposals.list`, `proposal.resolve`, `application.record`, `search` (A3), `purge`. `schemas/desktop-assistant.schema.json` is generated from a catalog in the style of `desktop/contracts.py`. Fixtures in `tests/fixtures/desktop/assistant/` are consumed by Rust tests (runtime A8.8).
+Assistant methods: `providers.list`, `providers.test`, `models.list`, `context.preview`, `respond` (streams), `cancel`, `conversations.list`, `conversation.get`, `proposals.list`, `proposal.resolve`, `application.record`, `search` (A3), `purge`. `schemas/desktop-assistant.schema.json` is generated from a catalog in the style of `desktop/contracts.py`. Fixtures in `tests/fixtures/desktop/assistant/` are consumed by Rust tests (runtime §8.8).
+
+One existing contract changes. The helper's `export_document` request gains an optional `markdown` string. When present, it replaces the notebook blocks, and the format and destination rules are unchanged. `schemas/desktop-helper.schema.json` and the helper version are updated with it.
 
 ## 13. Delivery phases and exit gates
 
@@ -279,7 +293,7 @@ Exit: evaluation set (section 14) passes its thresholds on the qualified models.
 
 ### A2 Ledger-native value
 
-Compare runs and worktree branches (`git_state`), checkpoint recovery guide, resume-work summary, deterministic stale-cell indicator (also shown without AI in the sidebar), reproducibility review, environment and GPU helper, read-only `kl mcp`, ChatGPT-plan adapter if AD-03 passes.
+Compare runs, and compare across worktrees by opening the other worktree read-only (feature 4), checkpoint recovery guide, resume-work summary, deterministic stale-cell indicator (also shown without AI in the sidebar), reproducibility review, environment and GPU helper, read-only `kl mcp`, ChatGPT-plan adapter if AD-03 passes.
 
 Exit: deterministic analyses have unit tests independent of any model. Comparisons separate observed differences from suggested causes in the rendered output. MCP tools are verified against at least one MCP client.
 
@@ -287,7 +301,7 @@ Exit: deterministic analyses have unit tests independent of any model. Compariso
 
 Data exploration through proposed profiling cells, plot interpretation, experiment report drafts into `export_document`, test generation, starter builder, history search (FTS5, then optional local embeddings), anomaly flags, training run advisor, other vendors through `openai-compatible`.
 
-Exit: report drafts export to PDF and Word through the existing path. Search returns results with ids on a 1,000-execution fixture within the frontend A13 interaction targets. Vision features are disabled with a reason on non-vision models.
+Exit: report drafts export to PDF and Word through the existing path. Search returns results with ids on a 1,000-execution fixture, and its first page meets F-PERF-03 (100 ms). Vision features are disabled with a reason on non-vision models.
 
 ### A4 Automation and latency-sensitive editing
 
@@ -320,5 +334,5 @@ Voice interaction. Revisit after A3 with a speech-pipeline and accessibility pla
 
 ## 16. Adoption
 
-- **Runtime version 6** adds: an Assistant section (sections 3–9, 11–13 here), the new process in A3 (System shape), `.kl/assistant/` in A4 (Files), the `assistant` config key, assistant credentials and egress in A15, `kl ai` and `kl mcp` in A16, the assistant protocol version in A17. Affected frontend requirements: F-SET-01, F-SET-02, F-IA-07, F-A11Y-03.
-- **Frontend next version** adds F-AI-01 to F-AI-09, an "Assistant" row in A3, and an Assistant phase gate, with `Requires` naming runtime version 6.
+- **Runtime version 6** adds: an Assistant section (sections 3–9, 11–13 here), the new process in §3 (System shape), `.kl/assistant/` and the `assistant` config key in §4 (Files), the `export_document` `markdown` field in §8.2, assistant credentials and egress in §15, `kl ai` and `kl mcp` in §16, an assistant protocol column in the §17 table, and `assistant/` in the §18 source layout. Affected frontend requirements: F-GOAL-04, F-SET-01, F-SET-02, F-IA-07, F-A11Y-03, F-PKG-07.
+- **Frontend next version** adds F-AI-01 to F-AI-09, an "Assistant" row in §3, an Assistant phase gate in §17, and scenarios `FS-AI-*` in §18, with `Requires` naming runtime version 6. It amends F-GOAL-04 if the ChatGPT-plan route is adopted.

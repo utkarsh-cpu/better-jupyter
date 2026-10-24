@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/app", "crates/ui", "crates/client", "crates/models"]
+members = ["crates/app", "crates/ui", "crates/client", "crates/models", "crates/protocol", "crates/runtime", "crates/daemon"]
 default-members = ["crates/app"]
 resolver = "2"
 
@@ -17,6 +17,7 @@ serde_json = "1.0"
 sha2 = "0.10"
 uuid = { version = "1.18", features = ["v4", "serde"] }
 anyhow = "1.0"
+keyring = { version = "=3.6.3", features = ["windows-native", "sync-secret-service"] }
 smol = "2.0"
 html5ever = "=0.27.0"
 markup5ever_rcdom = "=0.3.0"
@@ -24,6 +25,8 @@ image = { version = "=0.25.10", default-features = false, features = ["png", "jp
 kernelledger-client = { path = "crates/client" }
 kernelledger-models = { path = "crates/models" }
 kernelledger-ui = { path = "crates/ui" }
+kernelledger-protocol = { path = "crates/protocol" }
+kernelledger-runtime = { path = "crates/runtime" }
 
 [profile.dev]
 debug = 0

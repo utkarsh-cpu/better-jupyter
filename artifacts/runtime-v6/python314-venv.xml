@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="2.760" timestamp="2026-10-24T07:52:56.505926+05:30" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_desktop" name="test_windows_venv_skips_redirector_and_keeps_site_packages" time="2.664" /></testsuite></testsuites>

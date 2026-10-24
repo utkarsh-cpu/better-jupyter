@@ -291,11 +291,31 @@ impl Workspace {
     }
     pub(super) fn status_bar(&self, cx: &mut Context<Self>) -> Div {
         let theme = cx.theme();
-        let (bar, muted_fg, primary) = (theme.status_bar, theme.muted_foreground, theme.primary);
+        let (bar, muted_fg, primary, success, info) = (
+            theme.status_bar,
+            theme.muted_foreground,
+            theme.primary,
+            theme.success,
+            theme.info,
+        );
         let tab = &self.tabs[self.active];
         let state = tab.runtime["worker_state"].as_str();
         let state_color = state.map(|s| tone(s, cx)).unwrap_or(muted_fg);
         let edit = tab.model.mode == Mode::Edit;
+        let ai_provider = tab.assistant.receipt["provider"]
+            .as_str()
+            .or_else(|| tab.assistant.settings["settings"]["provider"].as_str())
+            .unwrap_or("");
+        let ai_dest_label = tab.assistant.receipt["destination"]["label"]
+            .as_str()
+            .or_else(|| tab.assistant.settings["destination"]["label"].as_str())
+            .unwrap_or("Local");
+        let ai_dest_local = tab.assistant.receipt["destination"]["local"]
+            .as_bool()
+            .or_else(|| tab.assistant.settings["destination"]["local"].as_bool())
+            .unwrap_or(true);
+        let view = cx.entity();
+
         h_flex()
             .flex_none()
             .min_h(rems(1.625))
@@ -365,5 +385,46 @@ impl Workspace {
                 },
             )
             .child(div().flex_1())
+            .when(tab.assistant.busy, |d| {
+                d.child(
+                    h_flex()
+                        .gap_1p5()
+                        .items_center()
+                        .child(badge(
+                            format!(
+                                "{} \u{00b7} {}",
+                                if ai_provider.is_empty() {
+                                    "AI"
+                                } else {
+                                    ai_provider
+                                },
+                                ai_dest_label
+                            ),
+                            if ai_dest_local { success } else { info },
+                        ))
+                        .child("Working\u{2026}"),
+                )
+            })
+            .child(
+                action_button("status-assistant")
+                    .ghost()
+                    .small()
+                    .icon(Glyph::MessageCircle)
+                    .label("Assistant")
+                    .selected(tab.assistant.open)
+                    .on_a11y_click(move |_, cx| {
+                        view.update(cx, |v, cx| v.open_assistant(cx));
+                    })
+                    .on_click(cx.listener(|v, _, _, cx| v.open_assistant(cx))),
+            )
+            .when(tab.assistant.busy, |d| {
+                d.child(
+                    action_button("status-ai-cancel")
+                        .ghost()
+                        .small()
+                        .label("Cancel AI")
+                        .on_click(cx.listener(|v, _, _, _| v.send(Command::AssistantCancel))),
+                )
+            })
     }
 }

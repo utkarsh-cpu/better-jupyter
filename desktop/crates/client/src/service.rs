@@ -9,6 +9,12 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    Assistant {
+        method: String,
+        fields: Value,
+    },
+    AssistantCancel,
+    AssistantApply(Value),
     Edit {
         cell_id: String,
         request: Value,
@@ -63,6 +69,16 @@ pub enum Command {
 }
 #[derive(Debug, Clone)]
 pub enum Event {
+    AssistantDelta(Value),
+    AssistantProposal(Value),
+    AssistantDone {
+        method: String,
+        value: Value,
+    },
+    AssistantError {
+        method: String,
+        message: String,
+    },
     Source(Value),
     Saved {
         cell_id: String,
@@ -196,6 +212,7 @@ struct AttachmentShown {
 }
 
 struct Session {
+    assistant: crate::assistant::AssistantService,
     project: PathBuf,
     python: PathBuf,
     profile: PathBuf,
@@ -224,6 +241,11 @@ impl Session {
         let identity = ClientIdentity::load(&profile)?;
         let helper = HelperClient::start(&python, &project, &identity)?;
         let mut session = Self {
+            assistant: crate::assistant::AssistantService::new(
+                project.clone(),
+                python.clone(),
+                events.clone(),
+            ),
             project,
             python,
             profile,
@@ -382,7 +404,7 @@ impl Session {
         }
         Ok(())
     }
-    fn submit(&mut self, method: &str, mut fields: Value) -> Result<()> {
+    fn submit(&mut self, method: &str, mut fields: Value) -> Result<String> {
         self.ensure_runtime()?;
         if matches!(method, "training-checkpoint" | "training-restore") {
             ensure!(
@@ -428,10 +450,60 @@ impl Session {
                 return Err(error);
             }
         }
-        Ok(())
+        Ok(key)
     }
     fn handle(&mut self, command: Command) -> Result<bool> {
         match command {
+            Command::Assistant { method, fields } => {
+                self.assistant.requests.send((method, fields))?;
+            }
+            Command::AssistantCancel => self.assistant.cancel(),
+            Command::AssistantApply(resolution) => {
+                self.save_all()?;
+                self.refresh()?;
+                let pid = resolution["proposal_id"].clone();
+                let result = if resolution["mutation"].is_object() {
+                    let snapshot = self
+                        .helper
+                        .request("source.mutate", resolution["mutation"].clone())?;
+                    self.snapshot = snapshot.clone();
+                    let _ = self.events.send(Event::Source(snapshot.clone()));
+                    json!({"manifest_revision":snapshot["manifest_revision"]})
+                } else if resolution["payload"]["kind"] == "run_cells" {
+                    let cells = resolution["payload"]["cells"]
+                        .as_array()
+                        .ok_or_else(|| anyhow::anyhow!("Invalid run proposal"))?;
+                    let mut hashes = serde_json::Map::new();
+                    let mut ids = Vec::new();
+                    for cell in cells {
+                        let id = cell["cell_id"]
+                            .as_str()
+                            .ok_or_else(|| anyhow::anyhow!("Missing proposal cell"))?;
+                        ensure!(
+                            self.snapshot["cells"]
+                                .as_array()
+                                .is_some_and(|rows| rows.iter().any(|c| c["id"] == id
+                                    && c["revision"] == cell["source_sha256"]
+                                    && c["type"] == "code")),
+                            "Proposal is stale; regenerate it"
+                        );
+                        hashes.insert(id.to_owned(), cell["source_sha256"].clone());
+                        ids.push(id.to_owned());
+                    }
+                    ensure!(!ids.is_empty(), "Empty run proposal");
+                    let key = self.submit(
+                        "batch",
+                        json!({"cell_ids":ids,"expected_sha256":hashes,"on_error":"stop"}),
+                    )?;
+                    json!({"client_request_id":key})
+                } else {
+                    bail!("Commands are copy-only");
+                };
+                self.assistant.requests.send((
+                    "application.record".into(),
+                    json!({"proposal_id":pid,"result":result}),
+                ))?;
+            }
             Command::Detach => return Ok(false),
             Command::DiscardDraft(id) => {
                 self.edits.remove(&id);
@@ -580,6 +652,7 @@ impl Session {
                     );
                 }
                 let required_capability = match method.as_str() {
+                    "export_document" if fields["markdown"].is_string() => Some("document_reports"),
                     "training.list" | "training.inspect" => Some("portable_training"),
                     "native.status" => Some("native_snapshot_status"),
                     _ => None,

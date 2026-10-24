@@ -310,13 +310,33 @@ impl Workspace {
                     })),
             );
         }
-        actions = actions.child(
-            action_button("copy-checkpoint-id")
-                .ghost()
-                .small()
-                .label("Copy checkpoint identifier")
-                .on_click(cx.listener(move |_, _, _, cx| copy_acknowledged(id.clone(), cx))),
-        );
+        let ai_id = id.clone();
+        actions = actions
+            .child(
+                action_button("checkpoint-ai-context")
+                    .outline()
+                    .small()
+                    .icon(Glyph::MessageCircle)
+                    .label("Explain this checkpoint in Assistant")
+                    .on_click(cx.listener(move |v, _, _, cx| {
+                        let ai = &mut v.tabs[v.active].assistant;
+                        ai.checkpoint_ids = vec![ai_id.clone()];
+                        ai.open = true;
+                        ai.receipt = Value::Null;
+                        v.ai_preview(
+                            "checkpoint",
+                            "Explain this checkpoint's coverage, exclusions and recovery options. Cite the saved evidence.".into(),
+                            cx,
+                        );
+                    })),
+            )
+            .child(
+                action_button("copy-checkpoint-id")
+                    .ghost()
+                    .small()
+                    .label("Copy checkpoint identifier")
+                    .on_click(cx.listener(move |_, _, _, cx| copy_acknowledged(id.clone(), cx))),
+            );
         report.child(actions)
     }
 }

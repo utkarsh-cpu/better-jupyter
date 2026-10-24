@@ -115,6 +115,7 @@ def validate(request: Any, helper: bool = False) -> None:
         "snapshot",
         "device",
         "format",
+        "markdown",
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
@@ -167,6 +168,8 @@ def schema(helper: bool = False) -> Any:
                 if key != "expected_sha256"
                 else {"type": "string", "pattern": "^[0-9a-f]{64}$"}
             )
+        if helper and method == "export_document":
+            properties["markdown"] = {"type": "string"}
         variants.append({"type": "object", "required": keys, "properties": properties})
     variants.extend(
         [

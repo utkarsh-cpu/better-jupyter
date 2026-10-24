@@ -1,0 +1,86 @@
+[
+  {
+    "name": "unicode",
+    "request": {
+      "method": "run",
+      "source": "\u00e9\n\t\ud83d\ude00\u007f",
+      "request_id": "excluded",
+      "client_request_id": "kept"
+    },
+    "canonical": "{\"client_request_id\":\"kept\",\"method\":\"run\",\"source\":\"\\u00e9\\n\\t\\ud83d\\ude00\\u007f\"}",
+    "sha256": "c9692d2ce2226ddfe12a65aa0cf6c9d14f819d087b34826fbbe6343c8a7ed419",
+    "native_supported": true
+  },
+  {
+    "name": "ordering",
+    "request": {
+      "z": {
+        "\u03b2": null,
+        "a": true
+      },
+      "a": [
+        false,
+        0,
+        -7,
+        9223372036854775807,
+        18446744073709551615
+      ]
+    },
+    "canonical": "{\"a\":[false,0,-7,9223372036854775807,18446744073709551615],\"z\":{\"a\":true,\"\\u03b2\":null}}",
+    "sha256": "d7bef13bf118646dd24fc847f03283a94772f2e3e523e0a5faa807c0910350fc",
+    "native_supported": true
+  },
+  {
+    "name": "transport_retry",
+    "request": {
+      "method": "run",
+      "source": "\u00e9\n\t\ud83d\ude00\u007f",
+      "request_id": "different",
+      "client_request_id": "kept"
+    },
+    "canonical": "{\"client_request_id\":\"kept\",\"method\":\"run\",\"source\":\"\\u00e9\\n\\t\\ud83d\\ude00\\u007f\"}",
+    "sha256": "c9692d2ce2226ddfe12a65aa0cf6c9d14f819d087b34826fbbe6343c8a7ed419",
+    "native_supported": true
+  },
+  {
+    "name": "escapes",
+    "request": {
+      "x": "\b\f\r\\\"/\u0000",
+      "nested": {
+        "request_id": "retained"
+      }
+    },
+    "canonical": "{\"nested\":{\"request_id\":\"retained\"},\"x\":\"\\b\\f\\r\\\\\\\"/\\u0000\"}",
+    "sha256": "d6ada2d824f9dff876eed685538614f27478b4868c2cdcc232b3c7c65fda3939",
+    "native_supported": true
+  },
+  {
+    "name": "negative_zero",
+    "request": {
+      "value": -0.0
+    },
+    "canonical": "{\"value\":-0.0}",
+    "sha256": "c848a4efa987f46ba3bfd46242333afcb1c68c3240e0f35ae9d269b1c980648b",
+    "native_supported": false
+  },
+  {
+    "name": "float",
+    "request": {
+      "value": 1.0,
+      "small": 1e-07,
+      "large": 1e+20
+    },
+    "canonical": "{\"large\":1e+20,\"small\":1e-07,\"value\":1.0}",
+    "sha256": "619781fc17f360e54ef16570375e24067e3dd16170b9a3df6a9693dd183923d6",
+    "native_supported": false
+  },
+  {
+    "name": "big_integer",
+    "request": {
+      "value": 1267650600228229401496703205376
+    },
+    "canonical": "{\"value\":1267650600228229401496703205376}",
+    "sha256": "df155315d1ba71b33402ba95679634279dceb633369d890eea39afbc1df30ba6",
+    "native_supported": false
+  }
+]

@@ -538,6 +538,29 @@ impl Workspace {
             }
         } else if let Some((id, index)) = &self.cell_menu {
             for (action, label) in [
+                ("ai-explain", "Explain error"),
+                ("assistant", "Ask about this cell"),
+                ("ai-edit", "Suggest edit"),
+                ("ai-refactor", "Refactor cell"),
+                ("ai-document", "Document"),
+                ("ai-tests", "Generate tests"),
+            ] {
+                let id = id.clone();
+                menu = menu.child(
+                    action_button(action)
+                        .ghost()
+                        .w_full()
+                        .label(label)
+                        .on_click(cx.listener(move |v, _, window, cx| {
+                            v.tabs[v.active].model.selected = Some(id.clone());
+                            v.tabs[v.active].assistant.selected_cells = vec![id.clone()];
+                            v.close_menu(window, cx);
+                            v.run_command(action, window, cx);
+                        })),
+                );
+            }
+            menu = menu.child(menu_sep(cx));
+            for (action, label) in [
                 ("duplicate", "Duplicate cell"),
                 ("move-up", "Move up"),
                 ("move-down", "Move down"),

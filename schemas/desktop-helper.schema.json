@@ -370,6 +370,9 @@
         },
         "format": {
           "type": "string"
+        },
+        "markdown": {
+          "type": "string"
         }
       }
     },

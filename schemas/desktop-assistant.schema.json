@@ -1,0 +1,1172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KernelLedger assistant v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "status"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "settings.get"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "settings.update"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "settings"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "policy.update"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "policy"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "providers.list"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "providers.test"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "models.list"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "context.preview"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "question"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "respond"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "receipt_hash"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "cancel"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "conversations.list"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "conversation.get"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "conversation_id"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "proposals.list"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "proposal.resolve"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "proposal_id",
+        "state"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "application.record"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "proposal_id",
+        "result"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "search"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "query"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "purge"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "receipt_hash": {
+          "type": "string"
+        },
+        "approved_receipt": {
+          "type": "string"
+        },
+        "conversation_id": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "task": {
+          "type": "string"
+        },
+        "cell_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "exec_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_ids": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string"
+          }
+        },
+        "settings": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "method"
+      ]
+    }
+  ]
+}

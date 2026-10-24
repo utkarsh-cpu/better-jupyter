@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="6.591" timestamp="2026-10-24T07:41:18.531162+05:30" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_worker_qualification" name="test_selected_worker_minor_roundtrip" time="6.516" /></testsuite></testsuites>

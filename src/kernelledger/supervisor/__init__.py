@@ -8,10 +8,11 @@ import secrets
 import shutil
 import struct
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
-from ..blobs import BlobStore, references
+from ..blobs import BUFFER_SIZE, BlobStore, VerifiedBlob, blob_io, check_hash, references
 from ..ledger import Ledger, now, uid
 from ..notebook import Notebook, write_json
 from ..worker import INLINE, json_bytes, validate_checkpoint
@@ -51,9 +52,37 @@ async def send_blob(writer: Any, data: Any) -> Any:
     header = json_bytes({"schema": 1, "kind": "blob", "sha256": digest, "byte_size": len(data)})
     writer.write(struct.pack(">I", len(header)) + header)
     for offset in range(0, len(data), 1048576):
-        writer.write(data[offset : offset + 1048576])
+        writer.write(memoryview(data)[offset : offset + 1048576])
         await writer.drain()
     return digest
+
+
+async def send_stored_blob(writer: Any, blobs: BlobStore, digest: str) -> None:
+    """Verify before framing, then stream and rehash the bytes actually sent.
+
+    The same open handle is used throughout; replacement and in-place mutation
+    fail the transfer instead of silently restoring different content.
+    """
+    with (blobs.root / check_hash(digest)).open("rb") as stream:
+        verified = await blob_io(blobs.verify_stream, stream, digest)
+        stream.seek(0)
+        header = json_bytes(
+            {"schema": 1, "kind": "blob", "sha256": digest, "byte_size": verified.byte_size}
+        )
+        writer.write(struct.pack(">I", len(header)) + header)
+        remaining, hasher = verified.byte_size, hashlib.sha256()
+        while remaining:
+            data = await blob_io(stream.read, min(BUFFER_SIZE, remaining))
+            if not data:
+                raise ValueError(f"blob changed during transfer: {digest}")
+            hasher.update(data)
+            writer.write(data)
+            await writer.drain()
+            remaining -= len(data)
+        verified.check_current()
+        if hasher.hexdigest() != digest:
+            raise ValueError(f"blob hash mismatch: {digest}")
+        await writer.drain()
 
 
 def windows_venv_launch(python: str) -> tuple[str, dict[str, str]]:
@@ -80,14 +109,20 @@ def windows_venv_launch(python: str) -> tuple[str, dict[str, str]]:
         key, separator, value = line.partition("=")
         if separator:
             values[key.strip().lower()] = value.strip().strip('"')
-    executable = values.get("executable") or ""
-    if not executable and values.get("home"):
-        executable = str(Path(values["home"]) / "python.exe")
+    # A venv created from another venv may record that redirector as
+    # `executable`. Running it overwrites __PYVENV_LAUNCHER__ and silently selects
+    # the parent environment. `home` identifies the actual base interpreter.
+    home_executable = Path(values["home"]) / "python.exe" if values.get("home") else None
+    executable = (
+        str(home_executable)
+        if home_executable is not None and home_executable.is_file()
+        else values.get("executable") or ""
+    )
     if not executable or not Path(executable).is_file():
         return python, {}
     if os.path.normcase(os.path.abspath(executable)) == os.path.normcase(os.path.abspath(python)):
         return python, {}
-    return os.path.abspath(executable), {"__PYVENV_LAUNCHER__": os.path.abspath(python)}
+    return str(Path(executable).resolve()), {"__PYVENV_LAUNCHER__": os.path.abspath(python)}
 
 
 def interpreter(
@@ -118,6 +153,8 @@ def interpreter(
 
 
 class Supervisor:
+    _admitted_to: "Supervisor"
+
     def __init__(
         self,
         root: Any,
@@ -168,7 +205,9 @@ class Supervisor:
             await send_message(self.writer, kind, **fields)
 
     def record_blob(self, digest: Any) -> Any:
-        self.ledger.blob(digest, len(self.blobs.get(digest)))
+        verified = digest if isinstance(digest, VerifiedBlob) else self.blobs.verify(digest)
+        verified.check_current()
+        self.ledger.blob(verified.sha256, verified.byte_size)
 
     def flush_stream(self) -> Any:
         if self.stream:
@@ -472,8 +511,9 @@ class Supervisor:
                 await send_message(
                     notify, "notice", message=f"Started empty worker session {self.session}"
                 )
-        digest = self.blobs.put(source.encode())
-        self.record_blob(digest)
+        verified = self.blobs.put_verified(source.encode())
+        digest = verified.sha256
+        self.record_blob(verified)
         if accepted and accepted["session_id"] == self.session:
             eid = accepted["exec_id"]
         else:
@@ -494,6 +534,7 @@ class Supervisor:
         return {**result, "new_empty_session": empty, "session_id": self.session}
 
     async def checkpoint(self) -> Any:
+        started = time.perf_counter()
         if not self.process:
             raise ValueError("no live worker; run or restore first")
         existing = {path.name for path in self.blobs.root.iterdir()}
@@ -515,8 +556,10 @@ class Supervisor:
         validate_checkpoint(manifest)
         if self.publish_hook:
             self.publish_hook("payloads_moved")
+        verification_started = time.perf_counter()
         digest = self.blobs.put(json_bytes(manifest))
-        blobs = self.blobs.closure([digest])
+        blobs = await blob_io(self.blobs.verified_closure, [digest])
+        verification_seconds = time.perf_counter() - verification_started
         status = "partial" if manifest["excluded"] else "complete"
         if self.publish_hook:
             self.publish_hook("manifest_moved")
@@ -525,8 +568,9 @@ class Supervisor:
             "SELECT exec_id FROM executions WHERE session_id=? ORDER BY ordinal DESC LIMIT 1",
             (self.session,),
         )
+        commit_started = time.perf_counter()
         with self.ledger.db:
-            for blob in blobs:
+            for blob in blobs.values():
                 self.record_blob(blob)
             self.ledger.db.execute(
                 "INSERT INTO checkpoints VALUES (?,?,?,?,?,?,?)",
@@ -550,6 +594,13 @@ class Supervisor:
             "excluded": manifest["excluded"],
             "notes": manifest["notes"],
             "walk_seconds": offer.get("walk_seconds"),
+            "timings": {
+                "walk_seconds": offer.get("walk_seconds"),
+                "transfer_seconds": offer.get("transfer_seconds"),
+                "verify_seconds": verification_seconds,
+                "commit_seconds": time.perf_counter() - commit_started,
+                "total_seconds": time.perf_counter() - started,
+            },
             "new_blob_bytes": sum(
                 path.stat().st_size
                 for path in self.blobs.root.iterdir()
@@ -563,7 +614,7 @@ class Supervisor:
         )
         if row["origin"] != "local" and not request.get("trust"):
             raise ValueError("imported checkpoint executes saved source; pass --trust")
-        hashes = self.blobs.closure([row["manifest_sha256"]])
+        hashes = await blob_io(self.blobs.closure, [row["manifest_sha256"]])
         manifest = json.loads(self.blobs.get(row["manifest_sha256"]))
         validate_checkpoint(manifest)
         await self.end_worker()
@@ -578,7 +629,7 @@ class Supervisor:
         self.waiter = asyncio.get_running_loop().create_future()
         async with self.worker_send_lock:
             for digest in hashes:
-                await send_blob(self.writer, self.blobs.get(digest))
+                await send_stored_blob(self.writer, self.blobs, digest)
             await send_message(self.writer, "restore", manifest=manifest)
         result = await self.waiter
         self.ledger.session_event(self.session, "restore_result", result)

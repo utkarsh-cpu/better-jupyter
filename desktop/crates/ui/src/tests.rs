@@ -23,7 +23,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut view = Workspace::new(None, "system", vec![], window, cx);
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
-                view.tabs.push(Tab { model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
+                view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
                     uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new() });
                 view
             })
@@ -1319,4 +1319,98 @@ fn attachment_preview_requests_the_first_text_window(cx: &mut TestAppContext) {
         }
         other => panic!("expected an attachment preview, got {other:?}"),
     }
+}
+
+#[gpui_kit::test]
+fn assistant_previews_context_without_sending_or_applying(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.open_assistant(cx);
+            assert!(v.tabs[0].assistant.open);
+            v.tabs[0].assistant.selected_cells = vec!["first".into()];
+            v.ai_preview("ask", "Explain this cell".into(), cx);
+        });
+        window.render_frame(cx);
+        assert!(view.read(cx).tabs[0].assistant.busy);
+    })
+    .unwrap();
+    let sent = commands.try_iter().collect::<Vec<_>>();
+    assert!(
+        sent.iter()
+            .any(|c| matches!(c, Command::Assistant { method, .. } if method=="settings.get"))
+    );
+    assert!(sent.iter().any(|c| matches!(c, Command::Assistant { method, fields } if method=="context.preview" && fields["cell_ids"]==json!(["first"]))));
+    assert!(!sent.iter().any(|c| matches!(c, Command::Assistant { method, .. } if method=="respond" || method=="proposal.resolve")));
+    assert!(!sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(_) | Command::Run { .. } | Command::AssistantApply(_)
+    )));
+}
+
+#[gpui_kit::test]
+fn assistant_error_action_prepares_only_selected_cell_and_execution(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().exec_id = Some("recorded-error".into());
+            v.run_command("ai-explain", window, cx);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let request = commands
+        .try_iter()
+        .find_map(|command| {
+            if let Command::Assistant { method, fields } = command {
+                if method == "context.preview" {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(request["cell_ids"], json!(["first"]));
+    assert_eq!(request["exec_ids"], json!(["recorded-error"]));
+    assert_eq!(request["task"], "explain");
+}
+
+#[gpui_kit::test]
+fn assistant_extended_commands_and_unavailable_reasons_work(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = None;
+            assert!(v.command_reason("ai-refactor").is_some());
+            assert!(v.command_reason("ai-tests").is_some());
+            assert!(v.command_reason("ai-repro").is_none());
+            assert!(v.command_reason("ai-report").is_none());
+            v.tabs[0].model.selected = Some("first".into());
+            assert!(v.command_reason("ai-refactor").is_none());
+            assert!(v.command_reason("ai-tests").is_none());
+            v.run_command("ai-refactor", window, cx);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let request = commands
+        .try_iter()
+        .find_map(|command| {
+            if let Command::Assistant { method, fields } = command {
+                if method == "context.preview" {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(request["cell_ids"], json!(["first"]));
+    assert_eq!(request["task"], "refactor");
 }

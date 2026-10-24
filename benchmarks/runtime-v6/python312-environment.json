@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\.venv\\Scripts\\python.exe",
+  "release_level": "final",
+  "implementation": "CPython",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "architecture": "AMD64",
+  "gil_enabled": true,
+  "free_threaded_build": false,
+  "dependencies": {
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "pyarrow": null,
+    "matplotlib": null,
+    "torch": null,
+    "kernelledger": "0.1.0",
+    "pytest": "9.1.1"
+  },
+  "installed_distributions": [
+    {
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6"
+    },
+    {
+      "name": "hypothesis",
+      "version": "6.168.3"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.0"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "name": "kernelledger",
+      "version": "0.1.0"
+    },
+    {
+      "name": "kl-shell-probe",
+      "version": "1.0"
+    },
+    {
+      "name": "lxml",
+      "version": "6.1.3"
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.2.0"
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2"
+    },
+    {
+      "name": "nodeenv",
+      "version": "1.11.0"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.4"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.6"
+    },
+    {
+      "name": "pillow",
+      "version": "13.0.0"
+    },
+    {
+      "name": "pip",
+      "version": "25.0.1"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0"
+    },
+    {
+      "name": "Pygments",
+      "version": "2.21.0"
+    },
+    {
+      "name": "pypdf",
+      "version": "6.21.1"
+    },
+    {
+      "name": "pyright",
+      "version": "1.1.414"
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "python-docx",
+      "version": "1.2.0"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "name": "reportlab",
+      "version": "4.5.1"
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3"
+    },
+    {
+      "name": "ruff",
+      "version": "0.16.10"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "sortedcontainers",
+      "version": "2.4.0"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.5"
+    }
+  ],
+  "qualification": "requires test results; dependency resolution alone is not a pass",
+  "gpu": "unqualified; hardware/driver/training lanes are separate"
+}

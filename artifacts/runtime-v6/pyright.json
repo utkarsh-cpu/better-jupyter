@@ -1,0 +1,333 @@
+{
+  "version": "1.1.414",
+  "time": "1792807180822",
+  "generalDiagnostics": [
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"approvals\" is partially unknown\n\u00a0\u00a0Type of \"approvals\" is \"Any | dict[Unknown, Unknown]\"",
+      "range": {
+        "start": {
+          "line": 78,
+          "character": 12
+        },
+        "end": {
+          "line": 78,
+          "character": 21
+        }
+      },
+      "rule": "reportUnknownVariableType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Argument type is partially unknown\n\u00a0\u00a0Argument corresponds to parameter \"o\" in function \"__new__\"\n\u00a0\u00a0Argument type is \"Any | Unknown\"",
+      "range": {
+        "start": {
+          "line": 80,
+          "character": 28
+        },
+        "end": {
+          "line": 80,
+          "character": 45
+        }
+      },
+      "rule": "reportUnknownArgumentType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"approvals\" is partially unknown\n\u00a0\u00a0Type of \"approvals\" is \"Any | dict[Unknown, Unknown]\"",
+      "range": {
+        "start": {
+          "line": 84,
+          "character": 8
+        },
+        "end": {
+          "line": 84,
+          "character": 17
+        }
+      },
+      "rule": "reportUnknownVariableType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "\"get\" is not a known attribute of \"None\"",
+      "range": {
+        "start": {
+          "line": 85,
+          "character": 35
+        },
+        "end": {
+          "line": 85,
+          "character": 38
+        }
+      },
+      "rule": "reportOptionalMemberAccess"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "\"get\" is not a known attribute of \"None\"",
+      "range": {
+        "start": {
+          "line": 86,
+          "character": 39
+        },
+        "end": {
+          "line": 86,
+          "character": 42
+        }
+      },
+      "rule": "reportOptionalMemberAccess"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Any | Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+      "range": {
+        "start": {
+          "line": 88,
+          "character": 12
+        },
+        "end": {
+          "line": 88,
+          "character": 25
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Argument type is partially unknown\n\u00a0\u00a0Argument corresponds to parameter \"o\" in function \"__new__\"\n\u00a0\u00a0Argument type is \"Unknown | Any | None\"",
+      "range": {
+        "start": {
+          "line": 88,
+          "character": 12
+        },
+        "end": {
+          "line": 88,
+          "character": 95
+        }
+      },
+      "rule": "reportUnknownArgumentType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Any | Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+      "range": {
+        "start": {
+          "line": 88,
+          "character": 34
+        },
+        "end": {
+          "line": 88,
+          "character": 47
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Any | Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+      "range": {
+        "start": {
+          "line": 88,
+          "character": 60
+        },
+        "end": {
+          "line": 88,
+          "character": 73
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "\"get\" is not a known attribute of \"None\"",
+      "range": {
+        "start": {
+          "line": 88,
+          "character": 79
+        },
+        "end": {
+          "line": 88,
+          "character": 82
+        }
+      },
+      "rule": "reportOptionalMemberAccess"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"host\" is partially unknown\n\u00a0\u00a0Type of \"host\" is \"Unknown | Literal['']\"",
+      "range": {
+        "start": {
+          "line": 114,
+          "character": 12
+        },
+        "end": {
+          "line": 114,
+          "character": 16
+        }
+      },
+      "rule": "reportUnknownVariableType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"hostname\" is unknown",
+      "range": {
+        "start": {
+          "line": 114,
+          "character": 19
+        },
+        "end": {
+          "line": 114,
+          "character": 42
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"task\" is partially unknown\n\u00a0\u00a0Type of \"task\" is \"Unknown | Literal['ask']\"",
+      "range": {
+        "start": {
+          "line": 235,
+          "character": 8
+        },
+        "end": {
+          "line": 235,
+          "character": 12
+        }
+      },
+      "rule": "reportUnknownVariableType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+      "range": {
+        "start": {
+          "line": 235,
+          "character": 15
+        },
+        "end": {
+          "line": 235,
+          "character": 26
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Argument type is partially unknown\n\u00a0\u00a0Argument corresponds to parameter \"task\" in function \"configured\"\n\u00a0\u00a0Argument type is \"Unknown | Literal['ask']\"",
+      "range": {
+        "start": {
+          "line": 236,
+          "character": 60
+        },
+        "end": {
+          "line": 236,
+          "character": 64
+        }
+      },
+      "rule": "reportUnknownArgumentType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"request\" is partially unknown\n\u00a0\u00a0Type of \"request\" is \"dict[Unknown, Unknown]\"",
+      "range": {
+        "start": {
+          "line": 242,
+          "character": 12
+        },
+        "end": {
+          "line": 242,
+          "character": 19
+        }
+      },
+      "rule": "reportUnknownVariableType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Argument type is partially unknown\n\u00a0\u00a0Argument corresponds to parameter \"map\" in function \"__init__\"\n\u00a0\u00a0Argument type is \"dict[Unknown, Unknown] | Any\"",
+      "range": {
+        "start": {
+          "line": 242,
+          "character": 27
+        },
+        "end": {
+          "line": 242,
+          "character": 34
+        }
+      },
+      "rule": "reportUnknownArgumentType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)] | Any\"",
+      "range": {
+        "start": {
+          "line": 269,
+          "character": 41
+        },
+        "end": {
+          "line": 269,
+          "character": 52
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Argument type is partially unknown\n\u00a0\u00a0Argument corresponds to parameter \"key\" in function \"pop\"\n\u00a0\u00a0Argument type is \"Unknown | Any\"",
+      "range": {
+        "start": {
+          "line": 269,
+          "character": 41
+        },
+        "end": {
+          "line": 269,
+          "character": 72
+        }
+      },
+      "rule": "reportUnknownArgumentType"
+    },
+    {
+      "file": "c:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger\\src\\kernelledger\\assistant\\service.py",
+      "severity": "error",
+      "message": "Type of \"get\" is partially unknown\n\u00a0\u00a0Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)] | Any\"",
+      "range": {
+        "start": {
+          "line": 286,
+          "character": 20
+        },
+        "end": {
+          "line": 286,
+          "character": 31
+        }
+      },
+      "rule": "reportUnknownMemberType"
+    }
+  ],
+  "summary": {
+    "filesAnalyzed": 47,
+    "errorCount": 20,
+    "warningCount": 0,
+    "informationCount": 0,
+    "timeInSec": 2.708
+  }
+}

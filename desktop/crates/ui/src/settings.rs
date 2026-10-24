@@ -2,11 +2,13 @@ use std::rc::Rc;
 
 use super::*;
 
+type SettingsAction = Rc<dyn Fn(&mut Workspace, &mut Window, &mut Context<Workspace>)>;
+
 fn revealed(
     button: WorkbenchButton,
     reveal: GroupReveal,
     cx: &mut Context<Workspace>,
-    apply: Rc<dyn Fn(&mut Workspace, &mut Window, &mut Context<Workspace>)>,
+    apply: SettingsAction,
 ) -> WorkbenchButton {
     let view = cx.entity();
     let a11y_reveal = reveal.clone();
@@ -15,7 +17,7 @@ fn revealed(
         .on_a11y_click(move |window, cx| {
             let reveal = a11y_reveal.clone();
             let apply = a11y_apply.clone();
-            let _ = view.update(cx, |v, cx| {
+            view.update(cx, |v, cx| {
                 reveal.activate(v, window, cx, move |v, window, cx| apply(v, window, cx));
             });
         })
@@ -60,7 +62,12 @@ impl Workspace {
         .detach();
     }
 
-    pub(super) fn settings_page(&mut self, value: &Value, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn settings_page(
+        &mut self,
+        value: &Value,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let settings_scroll = self.tabs[self.active]
             .scrolls
             .entry("Settings".into())
@@ -360,7 +367,7 @@ impl Workspace {
                                 .on_a11y_action(accesskit::Action::Click, {
                                     let reveal = reveal.clone();
                                     move |_, window, cx| {
-                                        let _ = view.update(cx, |v, cx| {
+                                        view.update(cx, |v, cx| {
                                             let next = !v.preferences.reduced_motion;
                                             reveal.activate(v, window, cx, move |v, _, cx| {
                                                 v.preferences.reduced_motion = next;
@@ -382,6 +389,7 @@ impl Workspace {
                 ),
             )
             .child(runtime_reveal.track(runtime))
+            .child(self.ai_settings(window, cx))
             .when_some(self.preference_status.clone(), |d, message| {
                 d.child(
                     div()

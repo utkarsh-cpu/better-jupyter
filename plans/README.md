@@ -18,6 +18,7 @@ Runtime archives keep their historical names (`v1.md`, `v2.md`, `v3.md`) so exis
 | Runtime | 3 | Superseded 2026-10-04 | [v3.md](v3.md) |
 | Runtime | 4 | Superseded 2026-10-08 | [v4.md](v4.md) |
 | Runtime | 5 | Current; bounded training integration | [PLAN.md](../PLAN.md) |
+| Runtime | 6 | Draft 2026-10-24; measured Python upgrades and staged Rust backend migration; coordinate version assignment with assistant draft | [v6-draft.md](v6-draft.md) |
 | Runtime | 5 | Draft 2026-10-07; GPU experiments, native snapshots, Git/worktrees, Windows/Linux targets | [v5-draft.md](v5-draft.md) |
 | Frontend | 1 | Superseded 2026-10-04 | [frontend-v1.md](frontend-v1.md) |
 | Frontend | 2 | Superseded 2026-10-05 | [frontend-v2.md](frontend-v2.md) |

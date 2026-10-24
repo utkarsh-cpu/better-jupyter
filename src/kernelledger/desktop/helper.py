@@ -210,7 +210,12 @@ class Helper:
                 self.notebook.export_ipynb(request["path"])
                 return {"path": request["path"]}
             if method == "export_document":
-                return export_document(self.notebook, request["path"], request["format"])
+                return export_document(
+                    self.notebook,
+                    request["path"],
+                    request["format"],
+                    markdown=request.get("markdown"),
+                )
             raise SourceError("not_found", "history is empty")
         immutable = (
             not os.access(path.parent, os.W_OK) and not (path.parent / "supervisor.json").exists()
@@ -264,7 +269,12 @@ class Helper:
                 return {"path": request["path"]}
             if method == "export_document":
                 return export_document(
-                    self.notebook, request["path"], request["format"], ledger, self.blobs
+                    self.notebook,
+                    request["path"],
+                    request["format"],
+                    ledger,
+                    self.blobs,
+                    request.get("markdown"),
                 )
             if method == "bundle_export":
                 return export_bundle(
@@ -317,7 +327,13 @@ def main() -> None:
                     "kind": "welcome",
                     "api": API,
                     "version": 1,
-                    "capabilities": ["blob_ranges", "portable_training", "native_snapshot_status"],
+                    "helper_version": 2,
+                    "capabilities": [
+                        "blob_ranges",
+                        "portable_training",
+                        "native_snapshot_status",
+                        "document_reports",
+                    ],
                     "identity": {
                         "kernelledger_version": __version__,
                         "project_path": str(helper.root),

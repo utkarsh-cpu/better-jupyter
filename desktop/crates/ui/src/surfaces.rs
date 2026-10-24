@@ -8,7 +8,7 @@ impl Workspace {
             .cloned()
             .unwrap_or(Value::Null);
         if self.surface == "Settings" {
-            return self.settings_page(&value, cx);
+            return self.settings_page(&value, window, cx);
         }
         if self.surface == "History" {
             return self.history_page(&value, window, cx);

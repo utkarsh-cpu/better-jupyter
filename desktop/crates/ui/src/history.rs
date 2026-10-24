@@ -67,7 +67,7 @@ impl Workspace {
             })
             .on_a11y_click(move |window, cx| {
                 let reveal = a11y_reveal.clone();
-                let _ = view.update(cx, |v, cx| match &reveal {
+                view.update(cx, |v, cx| match &reveal {
                     Some(reveal) => reveal.activate(v, window, cx, toggle_raw_details),
                     None => toggle_raw_details(v, window, cx),
                 });
@@ -123,9 +123,13 @@ impl Workspace {
     ) -> AnyElement {
         let mut body = v_flex().gap_3();
         if value.get("exec_id").is_some() {
+            let eid_ai = value["exec_id"].as_str().unwrap_or_default().to_string();
+            let cid_ai = value["cell_id"].as_str().unwrap_or_default().to_string();
+            let is_err = value["status"].as_str() == Some("error");
             body = body.child(
                 h_flex()
                     .gap_3()
+                    .flex_wrap()
                     .items_center()
                     .child(self.record_back(cx))
                     .child(
@@ -137,7 +141,35 @@ impl Workspace {
                     .child(badge(
                         outcome_label(value["status"].as_str().unwrap_or("Unknown")).to_string(),
                         tone(value["status"].as_str().unwrap_or(""), cx),
-                    )),
+                    ))
+                    .child(div().flex_1())
+                    .child(
+                        action_button("history-ai-explain")
+                            .outline()
+                            .small()
+                            .icon(Glyph::Sparkles)
+                            .label(if is_err {
+                                "Explain failure in Assistant"
+                            } else {
+                                "Explain execution in Assistant"
+                            })
+                            .on_click(cx.listener(move |v, _, _, cx| {
+                                let tab = &mut v.tabs[v.active];
+                                if !cid_ai.is_empty() {
+                                    tab.model.selected = Some(cid_ai.clone());
+                                }
+                                tab.assistant.exec_ids = vec![eid_ai.clone()];
+                                tab.assistant.open = true;
+                                tab.assistant.receipt = Value::Null;
+                                let task = if is_err { "error" } else { "explain" };
+                                let prompt = if is_err {
+                                    format!("Explain why execution {eid_ai} failed and propose a fix.")
+                                } else {
+                                    format!("Explain recorded execution {eid_ai} and its output.")
+                                };
+                                v.ai_preview(task, prompt, cx);
+                            })),
+                    ),
             );
             body = body.child(
                 div()

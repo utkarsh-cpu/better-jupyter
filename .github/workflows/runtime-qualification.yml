@@ -1,0 +1,102 @@
+name: Runtime qualification
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * 1'
+jobs:
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        codecs: [false, true]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: false
+      - run: python -m pip install -e ".[dev]" --report core-resolution.json
+      - if: matrix.codecs
+        run: python -m pip install --only-binary=:all: -e ".[codecs,plots]" --report codec-resolution.json
+      - run: python scripts/python_qualification.py --out environment.json
+      - run: python -m pytest -q --junitxml=qualification.xml
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualification-${{ matrix.os }}-${{ matrix.python }}-codecs-${{ matrix.codecs }}
+          path: |
+            *resolution.json
+            environment.json
+            qualification.xml
+  native-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.99.0'
+          components: rustfmt, clippy
+      - run: python -m pip install -e ".[dev]"
+      - run: cargo build --manifest-path desktop/Cargo.toml --locked -p kernelledger-daemon
+      - run: cargo test --manifest-path desktop/Cargo.toml --locked -p kernelledger-protocol -p kernelledger-runtime -p kernelledger-daemon
+      - run: cargo clippy --manifest-path desktop/Cargo.toml --locked -p kernelledger-protocol -p kernelledger-runtime -p kernelledger-daemon --all-targets -- -D warnings
+      - shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            export KL_NATIVE_DAEMON="$GITHUB_WORKSPACE/desktop/target/debug/kernelledger-daemon.exe"
+          else
+            export KL_NATIVE_DAEMON="$GITHUB_WORKSPACE/desktop/target/debug/kernelledger-daemon"
+          fi
+          python -m pytest -q tests/test_native_probe.py --junitxml=native-probe.xml
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-probe-${{ matrix.os }}
+          path: native-probe.xml
+  mixed-worker:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        supervisor: ['3.14', '3.15']
+        worker: ['3.11', '3.12', '3.13', '3.14', '3.15']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        id: supervisor
+        with:
+          python-version: ${{ matrix.supervisor }}
+          allow-prereleases: false
+      - uses: actions/setup-python@v5
+        id: worker
+        with:
+          python-version: ${{ matrix.worker }}
+          allow-prereleases: false
+      - shell: bash
+        env:
+          SUPERVISOR_PYTHON: ${{ steps.supervisor.outputs.python-path }}
+          KL_QUALIFIED_WORKER: ${{ steps.worker.outputs.python-path }}
+        run: |
+          "$SUPERVISOR_PYTHON" -m pip install -e ".[dev]" --report supervisor-resolution.json
+          "$SUPERVISOR_PYTHON" scripts/python_qualification.py --out supervisor-environment.json
+          "$KL_QUALIFIED_WORKER" scripts/python_qualification.py --out worker-environment.json
+          "$SUPERVISOR_PYTHON" -m pytest -q tests/test_worker_qualification.py --junitxml=mixed-worker.xml
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixed-${{ matrix.os }}-${{ matrix.supervisor }}-${{ matrix.worker }}
+          path: |
+            supervisor-resolution.json
+            *environment.json
+            mixed-worker.xml

@@ -1,4 +1,5 @@
-mod accessibility;
+﻿mod accessibility;
+mod assistant;
 mod checkpoints;
 mod components;
 mod diagnostics;
@@ -77,7 +78,67 @@ const SURFACES: [(&str, Glyph, &str); 7] = [
         "Appearance and interpreter preferences",
     ),
 ];
-const COMMANDS: [(&str, &str, &str, Glyph); 38] = [
+const COMMANDS: [(&str, &str, &str, Glyph); 48] = [
+    (
+        "ai-explain",
+        "Explain cell error",
+        "Prepare recorded error context for review",
+        Glyph::Info,
+    ),
+    (
+        "ai-edit",
+        "Suggest cell edit",
+        "Propose a revision-checked source edit",
+        Glyph::FileText,
+    ),
+    (
+        "ai-refactor",
+        "Refactor cell",
+        "Propose a cleaner cell refactoring with base source revision",
+        Glyph::Code,
+    ),
+    (
+        "ai-document",
+        "Document this cell",
+        "Propose documentation for the selected cell",
+        Glyph::FileText,
+    ),
+    (
+        "ai-tests",
+        "Generate tests for cell",
+        "Propose a verification test cell",
+        Glyph::Check,
+    ),
+    (
+        "ai-summary",
+        "Resume-work summary",
+        "Summarize notebook state with evidence",
+        Glyph::Clock,
+    ),
+    (
+        "ai-repro",
+        "Reproducibility review",
+        "Audit stale cells, execution order, and checkpoints",
+        Glyph::Check,
+    ),
+    (
+        "ai-report",
+        "Generate notebook report",
+        "Draft a publication-ready narrative with recorded evidence",
+        Glyph::FileText,
+    ),
+    (
+        "ai-environment",
+        "Explain environment",
+        "Review interpreter and GPU reports",
+        Glyph::Cpu,
+    ),
+    (
+        "assistant",
+        "Ask assistant",
+        "Review notebook context and ask a configured model",
+        Glyph::MessageCircle,
+    ),
     (
         "notebook",
         "Notebook",
@@ -309,6 +370,7 @@ const COMMANDS: [(&str, &str, &str, Glyph); 38] = [
 ];
 
 struct Tab {
+    assistant: assistant::AssistantView,
     model: NotebookModel,
     service: NotebookService,
     list: ListState,
@@ -513,6 +575,7 @@ impl Workspace {
             return;
         }
         self.tabs.push(Tab {
+            assistant: assistant::AssistantView::default(),
             service: NotebookService::start(project.clone(), self.python.clone()),
             model: NotebookModel {
                 project,
@@ -620,6 +683,150 @@ impl Workspace {
             while let Ok(event) = tab.service.events.try_recv() {
                 changed = true;
                 match event {
+                    Event::AssistantDelta(frame) => {
+                        tab.assistant
+                            .draft
+                            .push_str(frame["text"].as_str().unwrap_or(""));
+                        tab.assistant.status =
+                            "Receiving draft; citations and proposals are being checked\u{2026}".into();
+                    }
+                    Event::AssistantProposal(proposal) => tab.assistant.proposals.push(proposal),
+                    Event::AssistantError { method, message } => {
+                        tab.assistant.busy = false;
+                        if method == "proposal"
+                            && (message.contains("changed") || message.contains("revision"))
+                        {
+                            for proposal in &mut tab.assistant.proposals {
+                                if proposal["state"] == "accepted" {
+                                    proposal["state"] = json!("stale");
+                                }
+                            }
+                        }
+                        tab.assistant.status = format!("{method}: {message}");
+                    }
+                    Event::AssistantDone { method, value } => {
+                        tab.assistant.busy = false;
+                        match method.as_str() {
+                            "context.preview" => {
+                                tab.assistant.receipt = value;
+                                tab.assistant.status =
+                                    "Context ready. Inspect the receipt before sending.".into();
+                            }
+                            "respond" => {
+                                tab.assistant.status =
+                                    "Answer complete. Review evidence and proposed changes.".into();
+                                tab.assistant.proposals =
+                                    value["proposals"].as_array().cloned().unwrap_or_default();
+                                tab.assistant.conversation =
+                                    value["conversation_id"].as_str().map(str::to_owned);
+                                tab.assistant.answer = value;
+                                tab.assistant.receipt = Value::Null;
+                            }
+                            "settings.get" => {
+                                tab.assistant.settings = value;
+                                let prefix = format!("ai-{}-", tab.model.project.display());
+                                self.prompts.retain(|key, _| {
+                                    !key.starts_with(&prefix) || key.ends_with("-Question")
+                                });
+                            }
+                            "settings.update" => {
+                                if value.get("destination").is_some() {
+                                    tab.assistant.settings = value;
+                                } else {
+                                    tab.assistant.settings["settings"] = value["settings"].clone();
+                                }
+                                tab.assistant.status = "AI settings saved.".into();
+                                tab.assistant.receipt = Value::Null;
+                            }
+                            "policy.update" => {
+                                tab.assistant.settings["policy"] = value["policy"].clone();
+                                tab.assistant.status = "Notebook AI policy saved.".into();
+                                tab.assistant.receipt = Value::Null;
+                            }
+                            "proposal.resolve" => {
+                                for proposal in &mut tab.assistant.proposals {
+                                    if proposal["id"] == value["proposal_id"] {
+                                        proposal["state"] = value["state"].clone();
+                                    }
+                                }
+                                if value["state"] == "accepted" {
+                                    let _ =
+                                        tab.service.commands.send(Command::AssistantApply(value));
+                                    tab.assistant.status =
+                                        "Applying reviewed proposal through source/runtime contracts\u{2026}".into();
+                                }
+                            }
+                            "application.record" => {
+                                tab.assistant.status = "Proposal applied and recorded.".into()
+                            }
+                            "conversations.list" => {
+                                tab.inspections.insert("AI conversations".into(), value);
+                            }
+                            "conversation.get" => {
+                                tab.assistant.transcript =
+                                    value["messages"].as_array().cloned().unwrap_or_default();
+                            }
+                            "proposals.list" => {
+                                tab.assistant.proposals =
+                                    value["items"].as_array().cloned().unwrap_or_default();
+                                tab.assistant.status = format!(
+                                    "Loaded {} recorded proposals.",
+                                    tab.assistant.proposals.len()
+                                );
+                            }
+                            "models.list" => {
+                                let count = value["items"]
+                                    .as_array()
+                                    .or_else(|| value["models"].as_array())
+                                    .map(|m| m.len())
+                                    .unwrap_or(0);
+                                tab.inspections.insert("AI models".into(), value);
+                                tab.assistant.status = if count == 0 {
+                                    "Endpoint returned no models.".into()
+                                } else {
+                                    format!("Discovered {count} models.")
+                                };
+                            }
+                            "providers.test" => {
+                                let ok = value["streaming"].as_bool() == Some(true)
+                                    || value["ok"].as_bool() == Some(true);
+                                tab.assistant.status = if ok {
+                                    "Connection verified (streaming & structured JSON qualified).".into()
+                                } else {
+                                    format!(
+                                        "Provider test failed: {}",
+                                        value["error"].as_str().unwrap_or("unreachable")
+                                    )
+                                };
+                            }
+                            "search" => {
+                                let count = value["items"]
+                                    .as_array()
+                                    .map(|items| items.len())
+                                    .unwrap_or(0);
+                                tab.inspections.insert("AI search".into(), value);
+                                tab.assistant.status =
+                                    format!("Found {count} matching ledger executions.");
+                            }
+                            "purge" => {
+                                tab.assistant.conversation = None;
+                                tab.assistant.transcript.clear();
+                                tab.assistant.proposals.clear();
+                                tab.assistant.answer = Value::Null;
+                                tab.assistant.receipt = Value::Null;
+                                tab.inspections.remove("AI conversations");
+                                tab.inspections.remove("AI search");
+                                tab.assistant.status = "Assistant records purged.".into();
+                            }
+                            "credential.set" | "credential.delete" => {
+                                tab.assistant.status = "OS credential store updated.".into()
+                            }
+                            _ => {
+                                tab.assistant.status =
+                                    serde_json::to_string_pretty(&value).unwrap_or_default()
+                            }
+                        }
+                    }
                     Event::Source(snapshot) => {
                         if let Ok(snapshot) = serde_json::from_value::<SourceSnapshot>(snapshot) {
                             tab.uninitialized = snapshot.state == "missing"
@@ -1400,6 +1607,50 @@ impl Workspace {
             return;
         }
         match method {
+            "ai-explain" | "ai-edit" | "ai-refactor" | "ai-document" | "ai-tests"
+            | "ai-summary" | "ai-repro" | "ai-report" | "ai-environment" => {
+                self.tabs[self.active].assistant.open = true;
+                self.tabs[self.active].assistant.selected_cells = self.tabs[self.active]
+                    .model
+                    .selected
+                    .clone()
+                    .into_iter()
+                    .collect();
+                let (task, question) = match method {
+                    "ai-explain" => ("explain", "Explain the recorded error and propose a fix."),
+                    "ai-edit" => (
+                        "edit",
+                        "Suggest an improvement to this cell. Propose an edit with its base source hash.",
+                    ),
+                    "ai-refactor" => (
+                        "refactor",
+                        "Refactor this cell for readability and modularity. Propose an edit with its base source hash.",
+                    ),
+                    "ai-document" => ("document", "Propose documentation for this cell."),
+                    "ai-tests" => (
+                        "tests",
+                        "Propose a new code cell with unit tests verifying the selected cell.",
+                    ),
+                    "ai-summary" => (
+                        "summary",
+                        "Summarize where I left off, citing recorded evidence.",
+                    ),
+                    "ai-repro" => (
+                        "reproducibility",
+                        "Review stale cells, execution order, and checkpoints for reproducibility.",
+                    ),
+                    "ai-report" => (
+                        "report",
+                        "Draft a narrative notebook report citing recorded cells, executions, and checkpoints.",
+                    ),
+                    _ => (
+                        "environment",
+                        "Explain recorded environment and GPU reports. Show installation commands only as copyable proposals.",
+                    ),
+                };
+                self.ai_preview(task, question.into(), cx);
+            }
+            "assistant" => self.open_assistant(cx),
             "run-selected" => self.run(&RunCell, window, cx),
             "add-code" | "add-markdown" | "add-raw" => {
                 let tab = &self.tabs[self.active];
@@ -1531,6 +1782,21 @@ impl Workspace {
         let Some(tab) = self.tabs.get(self.active) else {
             return Some("Open a notebook to use this action");
         };
+        if method.starts_with("ai-") {
+            if tab.assistant.settings["policy"].as_str() == Some("off") {
+                return Some("Notebook AI policy is Off (change in Settings \u{2192} AI)");
+            }
+            if tab.assistant.settings["settings"]["enabled"].as_bool() == Some(false) {
+                return Some("Enable AI assistant in Settings \u{2192} AI");
+            }
+            if matches!(
+                method,
+                "ai-explain" | "ai-edit" | "ai-refactor" | "ai-document" | "ai-tests"
+            ) && tab.model.selected.is_none()
+            {
+                return Some("Select a cell first");
+            }
+        }
         if method == "inspect-bundle"
             && tab
                 .inspections
@@ -2210,10 +2476,11 @@ impl Render for Workspace {
                         .relative()
                         .child(
                             h_resizable(SharedString::from(format!(
-                                "notebook-layout-v5-{}-{}-{}",
+                                "notebook-layout-v5-{}-{}-{}-{}",
                                 self.preferences.outline_width,
                                 self.surface,
-                                self.sidebar_visible && !self.compact
+                                self.sidebar_visible && !self.compact,
+                                self.tabs[self.active].assistant.open && !self.compact
                             )))
                             .when(
                                 self.surface == "Notebook" && !self.compact && self.sidebar_visible,
@@ -2227,6 +2494,17 @@ impl Render for Workspace {
                                 },
                             )
                             .child(resizable_panel().child(center))
+                            .when(
+                                self.tabs[self.active].assistant.open && !self.compact,
+                                |d| {
+                                    d.child(
+                                        resizable_panel()
+                                            .size(px(430.))
+                                            .size_range(px(360.)..px(720.))
+                                            .child(self.assistant_panel(window, cx)),
+                                    )
+                                },
+                            )
                             .on_resize(cx.listener(
                                 |v,
                                  state: &Entity<gpui_kit::component::resizable::ResizableState>,
@@ -2259,6 +2537,25 @@ impl Render for Workspace {
                                         .border_color(divider(cx))
                                         .when(!self.high_contrast, |d| d.shadow_lg())
                                         .child(self.sidebar(cx)),
+                                )
+                            },
+                        )
+                        .when(
+                            self.tabs[self.active].assistant.open && self.compact,
+                            |d| {
+                                d.child(
+                                    div()
+                                        .absolute()
+                                        .right_0()
+                                        .top_0()
+                                        .bottom_0()
+                                        .w(px(420. * self.preferences.ui_scale))
+                                        .max_w_full()
+                                        .bg(cx.theme().background)
+                                        .border_l_1()
+                                        .border_color(divider(cx))
+                                        .when(!self.high_contrast, |d| d.shadow_lg())
+                                        .child(self.assistant_panel(window, cx)),
                                 )
                             },
                         ),

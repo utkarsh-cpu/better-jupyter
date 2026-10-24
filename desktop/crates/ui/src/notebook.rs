@@ -216,6 +216,8 @@ impl Workspace {
                 cx,
             ),
         );
+        let has_error = matches!(cell.outcome.as_str(), "error" | "failed")
+            || cell.output.iter().any(|e| e["kind"] == "error");
         let header = h_flex()
             .min_h(rems(if self.preferences.comfortable {
                 2.75
@@ -256,6 +258,20 @@ impl Workspace {
                     outcome_label(&cell.outcome).to_string(),
                     tone(&cell.outcome, cx),
                 ))
+            })
+            .when(has_error, |d| {
+                let err_cell_id = id.clone();
+                d.child(
+                    action_button(("explain-error", index))
+                        .ghost()
+                        .small()
+                        .label("Explain error")
+                        .on_click(cx.listener(move |v, _, window, cx| {
+                            v.tabs[v.active].model.selected = Some(err_cell_id.clone());
+                            v.tabs[v.active].assistant.selected_cells = vec![err_cell_id.clone()];
+                            v.run_command("ai-explain", window, cx);
+                        })),
+                )
             })
             .when(cell.stale(), |d| {
                 d.child(badge("Edited since run", warning))

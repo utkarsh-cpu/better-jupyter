@@ -120,6 +120,9 @@ def parser() -> Any:
     )
     p.add_argument("--project", "-C", default=".", help="notebook directory")
     sub = p.add_subparsers(dest="command", required=True)
+    from .assistant.cli import add_parser
+
+    add_parser(sub)
     gpu = sub.add_parser("experimental-gpu", help="isolated v5 prototypes; no runtime migration")
     gpu.add_argument("--store", default=".kl-gpu-experimental")
     gpu_commands = gpu.add_subparsers(dest="gpu_command", required=True)
@@ -269,6 +272,15 @@ def offline_mutation(root: Any, command: Any, request: Any) -> Any:
 def execute_cli(args: Any) -> Any:
     root = Path(args.project).resolve()
     notebook, command = Notebook(root), args.command
+    if command == "ai":
+        from .assistant.cli import execute
+
+        return execute(root, args)
+    if command == "mcp":
+        from .assistant.mcp import main
+
+        main(root)
+        return 0
     if command == "experimental-gpu":
         from .artifacts import ARTIFACT_SCHEMA, ArtifactStore
         from .experiments import inspect_experiment, materialize_source

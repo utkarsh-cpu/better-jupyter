@@ -1,0 +1,9 @@
+{
+  "api": "kernelledger.assistant",
+  "version": 1,
+  "frames": [
+    {"kind": "delta", "request_id": "request-1", "text": "Recorded value is 1.", "unverified": true},
+    {"kind": "proposal", "request_id": "request-1", "proposal": {"id": "proposal-1", "state": "proposed", "payload": {"kind": "edit_cell", "cell_id": "first", "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "source": "x = 2\n", "rationale": "Update value"}}},
+    {"kind": "done", "request_id": "request-1", "result": {"answer": "Recorded value is 1.", "citations": [{"kind": "cell", "id": "first", "verified": true}], "proposals": []}}
+  ]
+}

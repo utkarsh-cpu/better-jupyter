@@ -108,7 +108,9 @@ class SourceService:
                     result[name] = self._path(name).read_bytes()
         return result
 
-    def read(self) -> Any:
+    def read(self, inspect_only: bool = False) -> Any:
+        if inspect_only:
+            return self._read()
         if (self.state / "source.lock").exists() and os.access(self.state, os.W_OK):
             with self.locked():
                 return self._read()
@@ -271,6 +273,28 @@ class SourceService:
             if action == "edit":
                 require(cell)
                 after[name(cell)] = canonical(request["source"]).encode()
+            elif action == "insert_cells":
+                proposed: Any = request.get("cells")
+                index = request.get("index")
+                if (
+                    not isinstance(proposed, list)
+                    or not 1 <= len(cast(list[Any], proposed)) <= 100
+                    or type(index) is not int
+                    or not 0 <= index <= len(cells)
+                ):
+                    raise SourceError("invalid_request", "invalid inserted cell set")
+                proposed = cast(list[Any], proposed)
+                for offset, entry in enumerate(proposed):
+                    if (
+                        not isinstance(entry, dict)
+                        or cast(dict[str, Any], entry).get("type") not in EXTENSIONS
+                        or not isinstance(cast(dict[str, Any], entry).get("source"), str)
+                    ):
+                        raise SourceError("invalid_request", "invalid inserted cell")
+                    entry = cast(dict[str, Any], entry)
+                    new: Any = {"id": uuid.uuid4().hex[:12], "type": entry["type"]}
+                    cells.insert(index + offset, new)
+                    after[name(new)] = canonical(entry["source"]).encode()
             elif action in ("add", "duplicate", "split"):
                 if action != "add":
                     require(cell)

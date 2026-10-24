@@ -117,6 +117,8 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
 
 /// Kit correctly blocks disabled activation, but this GPUI version does not
 /// expose an aria-disabled setter. Populate the existing AccessKit node directly.
+type AccessibilityClick = Rc<dyn Fn(&mut Window, &mut App)>;
+
 #[derive(IntoElement)]
 pub(super) struct WorkbenchButton {
     inner: Button,
@@ -124,7 +126,7 @@ pub(super) struct WorkbenchButton {
     disabled: bool,
     name: Option<SharedString>,
     treatment: ButtonTreatment,
-    a11y_click: Option<Rc<dyn Fn(&mut Window, &mut App)>>,
+    a11y_click: Option<AccessibilityClick>,
 }
 enum ButtonTreatment {
     Secondary,

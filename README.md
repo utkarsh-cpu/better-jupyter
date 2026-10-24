@@ -127,3 +127,10 @@ autosave and recovery drafts, execution controls, safe output rendering, and his
 inspection. The [coverage report](docs/desktop/coverage.md) identifies unfinished
 workflows and qualification gates across both plans. This is not a qualified release.
 [plans/README.md](plans/README.md) explains how both plans are versioned and archived.
+Measured storage changes and the decision to keep the Python supervisor are in
+[the runtime migration record](docs/runtime-v6.md).
+
+The optional [notebook assistant](docs/assistant.md) adds provider settings, reviewed
+context receipts, cited answers and revision-checked proposals in the desktop and
+`kl ai` CLI. Its process, records and credentials are separate from the worker and
+runtime ledger. The guide documents setup and the remaining qualification gates.

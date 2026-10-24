@@ -1,0 +1,4 @@
+# GPUI debug render trees need more than the platform's default test-thread stack.
+# This affects Rust-spawned threads, not the notebook worker or the GUI main stack.
+[env]
+RUST_MIN_STACK = { value = "16777216", force = false }

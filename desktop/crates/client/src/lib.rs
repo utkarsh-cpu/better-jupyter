@@ -1,8 +1,6 @@
 //! Blocking transports used only by background executors, never by GPUI render code.
 use anyhow::{Result, bail, ensure};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::{Read, Write},
@@ -12,55 +10,18 @@ use std::{
     time::Duration,
 };
 use uuid::Uuid;
+pub mod assistant;
 pub mod output;
 pub mod preferences;
 pub mod registry;
 pub mod service;
 
-pub const API: &str = "kernelledger.desktop";
-pub const FRAME_LIMIT: usize = 1_048_576;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProtocolError {
-    pub code: String,
-    pub message: String,
-    pub retryable: bool,
-    pub details: Value,
-}
-impl std::fmt::Display for ProtocolError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.code, self.message)
-    }
-}
-impl std::error::Error for ProtocolError {}
-
-pub fn write_frame(mut writer: impl Write, message: &Value) -> Result<()> {
-    let data = serde_json::to_vec(message)?;
-    ensure!(data.len() <= FRAME_LIMIT, "JSON frame exceeds 1 MiB");
-    writer.write_all(&(data.len() as u32).to_be_bytes())?;
-    writer.write_all(&data)?;
-    writer.flush()?;
-    Ok(())
-}
-pub fn read_frame(mut reader: impl Read) -> Result<Value> {
-    let mut size = [0; 4];
-    reader.read_exact(&mut size)?;
-    let size = u32::from_be_bytes(size) as usize;
-    ensure!(size <= FRAME_LIMIT, "JSON frame exceeds 1 MiB");
-    let mut data = vec![0; size];
-    reader.read_exact(&mut data)?;
-    let value: Value = serde_json::from_slice(&data)?;
-    ensure!(value.is_object(), "frame must be an object");
-    Ok(value)
-}
+pub use kernelledger_protocol::{API, FRAME_LIMIT, ProtocolError, hash, read_frame, write_frame};
 pub fn checked_response(message: Value) -> Result<Value> {
     if message["kind"] == "error" {
         return Err(serde_json::from_value::<ProtocolError>(message["error"].clone())?.into());
     }
     Ok(message)
-}
-pub fn hash(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
 }
 
 #[derive(Clone)]

@@ -65,7 +65,19 @@ def receive(sock: Any) -> Any:
     if message.get("schema") != SCHEMA:
         raise ValueError("unsupported protocol schema")
     if message["kind"] == "blob":
-        data = recv_exact(sock, message["byte_size"])
+        if (
+            type(message.get("byte_size")) is not int
+            or not 0 <= message["byte_size"] <= 2 * 1024**3
+        ):
+            raise ValueError("invalid binary frame size")
+        data = bytearray(message["byte_size"])
+        view = memoryview(data)
+        offset = 0
+        while offset < len(data):
+            count = sock.recv_into(view[offset : offset + 1048576])
+            if not count:
+                raise EOFError("connection closed")
+            offset += count
         if hashlib.sha256(data).hexdigest() != message["sha256"]:
             raise ValueError("blob hash mismatch")
         message["data"] = data
@@ -93,7 +105,8 @@ class Channel:
             {"schema": SCHEMA, "kind": "blob", "sha256": digest, "byte_size": len(data)}
         )
         with self.lock:
-            self.sock.sendall(struct.pack(">I", len(header)) + header + data)
+            self.sock.sendall(struct.pack(">I", len(header)) + header)
+            self.sock.sendall(memoryview(data))
         return digest
 
 
@@ -1186,10 +1199,11 @@ class Worker:
         self.stdout, self.stderr = Stream(self, "stdout"), Stream(self, "stderr")
         self.protocol_thread = None
         self.interrupted = threading.Event()
+        self.cleaning_shell = False
         self.original_sleep = time.sleep
 
     def sleep(self, seconds: Any) -> None:
-        if threading.current_thread() is not threading.main_thread():
+        if self.cleaning_shell or threading.current_thread() is not threading.main_thread():
             self.original_sleep(seconds)
         elif self.interrupted.wait(seconds):
             raise KeyboardInterrupt()
@@ -1362,7 +1376,15 @@ class Worker:
                 raise subprocess.CalledProcessError(status, command)
             return "".join(captured).splitlines() if capture else None
         except BaseException:
-            stop_shell(process)
+            # subprocess.wait uses time.sleep on POSIX. The notebook's patched
+            # sleep must not re-raise the same interrupt while we kill/reap its
+            # shell children. Further soft interrupts coalesce during cleanup;
+            # supervisor hard kill remains available.
+            self.cleaning_shell = True
+            try:
+                stop_shell(process)
+            finally:
+                self.cleaning_shell = False
             raise
         finally:
             for reader in readers:
@@ -1464,9 +1486,15 @@ class Worker:
                 self.namespace, message.get("denylist", []), self.internal_bindings
             )
             walk_seconds = time.perf_counter() - started
+            transfer_started = time.perf_counter()
             for data in encoder.blobs.values():
                 self.channel.blob(data)
-            self.emit("checkpoint_offer", manifest=manifest, walk_seconds=walk_seconds)
+            self.emit(
+                "checkpoint_offer",
+                manifest=manifest,
+                walk_seconds=walk_seconds,
+                transfer_seconds=time.perf_counter() - transfer_started,
+            )
         except OverflowError:
             self.emit("checkpoint_offer", refused="payload_limit")
         except Exception as error:
@@ -1513,9 +1541,13 @@ class Worker:
                     message = json.loads(self.blobs[message["blob"]])
                     self.commands.put(message)
                 elif kind == "interrupt":
-                    if self.exec_id:
-                        self.interrupted.set()
+                    if self.exec_id and not self.cleaning_shell:
+                        # Queue the Python interrupt before waking cooperative
+                        # waits. Waking first can raise KeyboardInterrupt in the
+                        # main thread, then interrupt its child-process cleanup
+                        # a second time when interrupt_main finally runs.
                         _thread.interrupt_main()
+                        self.interrupted.set()
                 elif kind == "stdin_reply":
                     self.replies.put(message)
                 else:

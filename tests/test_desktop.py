@@ -526,18 +526,20 @@ def test_stop_preempts_busy_work_and_cancels_queued_runs(project):
         deadline = time.monotonic() + 5
         while control.call("runtime.status")["worker_state"] != "running":
             assert time.monotonic() < deadline
-            time.sleep(.02)
+            time.sleep(0.02)
         stopped = other.submit("stop")
         deadline = time.monotonic() + 8
         while (project.root / ".kl/supervisor.json").exists():
             assert time.monotonic() < deadline, "Stop queued behind the 30-second cell"
-            time.sleep(.02)
+            time.sleep(0.02)
         with sqlite3.connect(project.root / ".kl/ledger.sqlite") as ledger:
             states = dict(ledger.execute("SELECT operation_id,state FROM operations"))
             assert states[stopped["operation_id"]] == "completed"
             assert states[first["operation_id"]] in ("failed", "completed", "canceled")
             assert states[second["operation_id"]] == "canceled"
-            assert not ledger.execute("SELECT 1 FROM executions WHERE status IN ('running','queued')").fetchall()
+            assert not ledger.execute(
+                "SELECT 1 FROM executions WHERE status IN ('running','queued')"
+            ).fetchall()
     finally:
         control.close()
         other.close()

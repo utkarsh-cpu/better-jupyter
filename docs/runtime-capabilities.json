@@ -1,0 +1,2597 @@
+{
+  "schema": 1,
+  "authority": "Python catalogs remain authoritative",
+  "coverage_note": "Suite references are regression entry points, not per-method qualification evidence.",
+  "capabilities": [
+    {
+      "surface": "cli",
+      "name": "ai",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai status",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai test",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai purge",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai summary",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai logout",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai login",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai configure",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai ask",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai explain",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai compare",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai apply",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai proposals",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai search",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "ai export",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py",
+        "tests/test_documents.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "mcp",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu inventory",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu probe",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu inspect",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu export",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu import",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu gc",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu source-status",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "experimental-gpu materialize",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "init",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "stop",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "status",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "restart",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "log",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "checkpoint",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "retarget",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "training-checkpoint",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "training-list",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "native-checkpoint",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "training-inspect",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "training-restore",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_gpu_desktop.py",
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "gc",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "migrate",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "runtimes",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "operation",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "cancel",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "serve",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "doctor",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "add",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "rm",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "run",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "interrupt",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "show",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "restore",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "continue",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "replay",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "import",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "export",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py",
+        "tests/test_documents.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "publish",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "fetch",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "pin",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "unpin",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "bundle",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "bundle export",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py",
+        "tests/test_documents.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "bundle show",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "cli",
+      "name": "bundle import",
+      "implementation": "src/kernelledger/cli.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_source.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "desktop",
+      "name": "batch",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "blob.read",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "sha256"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "bundle_import",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "changes.list",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "checkpoint",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "continue",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "checkpoint_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "execution.follow",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "exec_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "gc",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "import_ipynb",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "input.cancel",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "input_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "input.claim",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "input_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "input.release",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "input_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "input.reply",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "input_id",
+        "text"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "interrupt",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "interrupt_kill",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "migrate",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "native.status",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "operation.cancel",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "operation_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "operation.get",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "operation.list",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "pin",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "name",
+        "checkpoint_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "publish",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "checkpoint_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "replay",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "session_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "restart",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "restore",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "checkpoint_id"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "run",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "expected_sha256"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "runtime.status",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "stop",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "subscribe",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "training-checkpoint",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "training-restore",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "snapshot"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "training.inspect",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "snapshot"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "training.list",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "desktop",
+      "name": "unpin",
+      "implementation": "src/kernelledger/desktop/server.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "name"
+      ],
+      "stopped_runtime": false
+    },
+    {
+      "surface": "helper",
+      "name": "blob.read",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "sha256"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "bundle.inspect",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "bundle_export",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "checkpoint.get",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "checkpoint_id"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "checkpoints.list",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "descriptor.inspect",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "doctor",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "events.list",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "exec_id"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "execution.get",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "exec_id"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "executions.list",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "executions.watermark",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "export_document",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path",
+        "format"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "export_ipynb",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "fold.get",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "exec_id"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "interpreter.candidates",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "interpreter.validate",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "path"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "native.status",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "ping",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "sessions.list",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "source.mutate",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "action",
+        "manifest_revision"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "source.read",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "source.recover",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "source.watch",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "training.inspect",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "snapshot"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "helper",
+      "name": "training.list",
+      "implementation": "src/kernelledger/desktop/helper.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "application.record",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "proposal_id",
+        "result"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "cancel",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "context.preview",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "question"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "conversation.get",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "conversation_id"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "conversations.list",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "models.list",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "policy.update",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "policy"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "proposal.resolve",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "proposal_id",
+        "state"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "proposals.list",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "providers.list",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "providers.test",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "purge",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "respond",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "receipt_hash"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "search",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "query"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "settings.get",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "settings.update",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [
+        "settings"
+      ],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "status",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "worker",
+      "name": "Decimal",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "Fraction",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "UUID",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "blob",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "bytearray",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "bytes",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "checkpoint",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "checkpoint_offer",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "clear",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "complex",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "date",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "datetime",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "dict",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "display",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "display_update",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "enum",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "envelope",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "error",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "execute",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "float",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "frozenset",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "function",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "hello",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "instance",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "int",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "interrupt",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "list",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "numpy_generator",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "path",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "range",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "ready",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "ref",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "restore",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "restore_result",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "result",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "set",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "shutdown",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "status",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stderr",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stdin_reply",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stdin_request",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stdout",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "str",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "table",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "time",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "timedelta",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_checkpoint",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_restore",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_result",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "tuple",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "blob",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "checkpoint",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "checkpoint_offer",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "execute",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "interrupt",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "notice",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "ready",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "response",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "restore",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "restore_result",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "shutdown",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "status",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stderr",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stdin_request",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "stdout",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_checkpoint",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_restore",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "training_result",
+      "implementation": "src/kernelledger/supervisor/__init__.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "bundle.schema",
+      "implementation": "schemas/bundle.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "checkpoint.schema",
+      "implementation": "schemas/checkpoint.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "descriptor.schema",
+      "implementation": "schemas/descriptor.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "desktop-assistant.schema",
+      "implementation": "schemas/desktop-assistant.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "desktop-helper.schema",
+      "implementation": "schemas/desktop-helper.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "desktop-protocol.schema",
+      "implementation": "schemas/desktop-protocol.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "experimental-gpu-artifact-v1.schema",
+      "implementation": "schemas/experimental-gpu-artifact-v1.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "experimental-gpu-portable-v1.schema",
+      "implementation": "schemas/experimental-gpu-portable-v1.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "ledger-v2.schema",
+      "implementation": "schemas/ledger-v2.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "ledger.schema",
+      "implementation": "schemas/ledger.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "notebook.schema",
+      "implementation": "schemas/notebook.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "persisted_or_wire_schema",
+      "name": "protocol.schema",
+      "implementation": "schemas/protocol.schema.json",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_desktop_contracts.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "ledger_schema_2_wal_full",
+      "implementation": "src/kernelledger/ledger.py",
+      "regression_suites": [
+        "tests/test_desktop.py",
+        "tests/test_runtime.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "runtime_lock_job_group_token_acl",
+      "implementation": "src/kernelledger/supervisor/platform.py",
+      "regression_suites": [
+        "tests/test_boundaries.py",
+        "tests/test_runtime.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "source_lock_recovery_canonical_bytes",
+      "implementation": "src/kernelledger/source.py",
+      "regression_suites": [
+        "tests/test_source.py",
+        "tests/test_desktop.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "registry_detached_lifetime",
+      "implementation": "src/kernelledger/registry.py",
+      "regression_suites": [
+        "tests/test_desktop.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "blob_publication_and_gc",
+      "implementation": "src/kernelledger/blobs.py",
+      "regression_suites": [
+        "tests/test_boundaries.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "platform_or_storage",
+      "name": "portable_training_and_native_refusal",
+      "implementation": "src/kernelledger/gpu/backends/capabilities.py",
+      "regression_suites": [
+        "tests/test_gpu_capabilities.py",
+        "tests/test_gpu_portable.py"
+      ],
+      "native": "not_implemented"
+    }
+  ]
+}

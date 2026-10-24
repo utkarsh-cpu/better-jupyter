@@ -373,13 +373,22 @@ def word_bytes(blocks: list[Block]) -> bytes:
 
 
 def export_document(
-    notebook: Notebook, path: str, format: str, ledger: Any = None, blobs: Any = None
+    notebook: Notebook,
+    path: str,
+    format: str,
+    ledger: Any = None,
+    blobs: Any = None,
+    markdown: str | None = None,
 ) -> dict[str, str]:
     if format not in ("pdf", "docx"):
         raise SourceError("invalid_request", "Document format must be pdf or docx")
     destination = Path(path)
     if destination.suffix.lower() != f".{format}":
         raise SourceError("invalid_request", f"Choose a file ending in .{format}")
-    blocks = notebook_blocks(notebook, ledger, blobs)
+    blocks = (
+        notebook_blocks(notebook, ledger, blobs)
+        if markdown is None
+        else [Block("title", "Assistant report"), *markdown_blocks(markdown)]
+    )
     atomic(destination, pdf_bytes(blocks) if format == "pdf" else word_bytes(blocks))
     return {"path": str(destination), "format": format}
