@@ -120,6 +120,17 @@ fn main() -> anyhow::Result<()> {
         &service,
         |e| matches!(e, Event::Operation(v) if v["state"] == "completed"),
     )?;
+    let identity = ClientIdentity::load(&profile_path())?;
+    let mut runtime = RuntimeClient::connect(&project, &identity, "control")?;
+    let status = runtime.request("runtime.status", json!({}))?;
+    let implementation = status["implementation"].as_str().unwrap_or("python");
+    if std::env::var("KERNELLEDGER_RUNTIME").as_deref() == Ok("native") {
+        anyhow::ensure!(
+            implementation == "rust",
+            "Native selection started a different backend"
+        );
+    }
+    drop(runtime);
     service.commands.send(Command::Runtime {
         method: "stop".into(),
         fields: json!({}),
@@ -198,7 +209,7 @@ fn main() -> anyhow::Result<()> {
     anyhow::ensure!(seen.len() == 3, "Paging omitted recorded executions");
     println!(
         "{}",
-        json!({"sample_creation":"passed","stop_idle":"passed","stop_busy":"passed","stop_other_client":"passed","offline_history":"passed","run_restarts":"passed","export_saves_current_source":"passed","offline_bundle_export":"passed","offline_history_paging":"passed"})
+        json!({"runtime_implementation":implementation,"sample_creation":"passed","stop_idle":"passed","stop_busy":"passed","stop_other_client":"passed","offline_history":"passed","run_restarts":"passed","export_saves_current_source":"passed","offline_bundle_export":"passed","offline_history_paging":"passed"})
     );
     service.commands.send(Command::Detach)?;
     let _: Value = snapshot;

@@ -143,6 +143,71 @@ impl RuntimeClient {
     }
 }
 
+/// Choose the helper process once, before any request.
+///
+/// Python remains the default until native release qualification is complete.
+/// With `KERNELLEDGER_HELPER=native`, the daemon serves supported methods
+/// natively and starts Python only for methods it does not implement.
+/// `KERNELLEDGER_HELPER=native` fails if the daemon binary is missing.
+fn helper_command(python: &Path, project: &Path) -> Result<Command> {
+    let mode = std::env::var("KERNELLEDGER_HELPER").unwrap_or_default();
+    if mode.is_empty() || mode == "python" {
+        return Ok(python_helper_command(python, project));
+    }
+    if mode != "native" {
+        bail!("KERNELLEDGER_HELPER must be python or native");
+    }
+    match daemon_binary()? {
+        Some(daemon) => Ok(native_helper_command(&daemon, python, project)),
+        None if mode == "native" => {
+            bail!("native helper requested but kernelledger-daemon was not found")
+        }
+        None => Ok(python_helper_command(python, project)),
+    }
+}
+
+fn python_helper_command(python: &Path, project: &Path) -> Command {
+    let mut command = Command::new(python);
+    command
+        .args(["-I", "-m", "kernelledger.desktop.helper", "--project"])
+        .arg(project);
+    command
+}
+
+fn native_helper_command(daemon: &Path, python: &Path, project: &Path) -> Command {
+    let mut command = Command::new(daemon);
+    command
+        .arg("helper")
+        .arg("--project")
+        .arg(project)
+        .arg("--python")
+        .arg(python);
+    command
+}
+
+fn daemon_binary() -> Result<Option<PathBuf>> {
+    if let Some(raw) = std::env::var_os("KERNELLEDGER_DAEMON") {
+        let path = PathBuf::from(raw);
+        if path.is_file() {
+            return Ok(Some(path));
+        }
+        bail!("KERNELLEDGER_DAEMON does not exist: {}", path.display());
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return Ok(None);
+    };
+    let Some(dir) = exe.parent() else {
+        return Ok(None);
+    };
+    let name = if cfg!(windows) {
+        "kernelledger-daemon.exe"
+    } else {
+        "kernelledger-daemon"
+    };
+    let candidate = dir.join(name);
+    Ok(candidate.is_file().then_some(candidate))
+}
+
 pub struct HelperClient {
     process: Child,
     stdin: ChildStdin,
@@ -151,12 +216,8 @@ pub struct HelperClient {
 }
 impl HelperClient {
     pub fn start(python: &Path, project: &Path, identity: &ClientIdentity) -> Result<Self> {
-        let mut command = Command::new(python);
-        command
-            .args(["-I", "-m", "kernelledger.desktop.helper", "--project"])
-            .arg(project)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped());
+        let mut command = helper_command(python, project)?;
+        command.stdin(Stdio::piped()).stdout(Stdio::piped());
         fs::create_dir_all(project.join(".kl"))?;
         let log = fs::OpenOptions::new()
             .create(true)
@@ -298,17 +359,47 @@ pub fn all_pages(mut call: impl FnMut(Value) -> Result<Value>) -> Result<Vec<Val
 }
 
 pub fn start_runtime(python: &Path, project: &Path, worker_python: Option<&Path>) -> Result<()> {
-    let mut command = Command::new(python);
-    command
-        .args(["-I", "-m", "kernelledger", "-C"])
-        .arg(project)
-        .args(["serve", "--launch", "desktop"]);
-    if std::env::var_os("KL_PRIVATE_RUNTIME").is_some() {
-        command.args(["--distribution", "private"]);
-    }
-    if let Some(worker) = worker_python {
-        command.arg("--python").arg(worker);
-    }
+    let mode = std::env::var("KERNELLEDGER_RUNTIME").unwrap_or_else(|_| "python".into());
+    ensure!(
+        ["", "python", "native"].contains(&mode.as_str()),
+        "KERNELLEDGER_RUNTIME must be python or native"
+    );
+    let mut command = if mode == "native" {
+        let daemon = daemon_binary()?.ok_or_else(|| {
+            anyhow::anyhow!("Native startup requires KERNELLEDGER_DAEMON or a bundled daemon")
+        })?;
+        ensure!(daemon.is_absolute(), "Native daemon path must be absolute");
+        let mut selection = Command::new(python);
+        selection.args(["-I","-c","import json,sys; from pathlib import Path; from kernelledger.supervisor import interpreter; p=Path(sys.argv[1]); c=p/'.kl/config.json'; print(json.dumps(interpreter(p,sys.argv[2] or None,json.loads(c.read_text()) if c.exists() else {},sys.argv[3],'desktop')[0]))"]).arg(project).arg(worker_python.unwrap_or_else(||Path::new(""))).arg(if std::env::var_os("KL_PRIVATE_RUNTIME").is_some() {"private"} else {"installed"});
+        hide_console(&mut selection);
+        let output = selection.output()?;
+        ensure!(
+            output.status.success(),
+            "Worker interpreter selection failed; select a project interpreter"
+        );
+        let selected: String = serde_json::from_slice(&output.stdout)?;
+        let mut native = Command::new(daemon);
+        native
+            .arg("serve-experimental")
+            .arg("--project")
+            .arg(project)
+            .arg("--python")
+            .arg(selected);
+        native
+    } else {
+        let mut command = Command::new(python);
+        command
+            .args(["-I", "-m", "kernelledger", "-C"])
+            .arg(project)
+            .args(["serve", "--launch", "desktop"]);
+        if std::env::var_os("KL_PRIVATE_RUNTIME").is_some() {
+            command.args(["--distribution", "private"]);
+        }
+        if let Some(worker) = worker_python {
+            command.arg("--python").arg(worker);
+        }
+        command
+    };
     fs::create_dir_all(project.join(".kl"))?;
     let log = fs::OpenOptions::new()
         .create(true)
@@ -325,8 +416,12 @@ pub fn start_runtime(python: &Path, project: &Path, worker_python: Option<&Path>
         command.process_group(0);
     }
     let mut child = command.spawn()?;
-    for _ in 0..150 {
-        if project.join(".kl/supervisor.json").exists() {
+    let identity = ClientIdentity::load(&profile_path())?;
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    while std::time::Instant::now() < deadline {
+        if project.join(".kl/supervisor.json").exists()
+            && RuntimeClient::connect(project, &identity, "control").is_ok()
+        {
             return Ok(());
         }
         if child.try_wait()?.is_some() {

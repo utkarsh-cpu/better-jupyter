@@ -1,0 +1,157 @@
+[
+  {
+    "name": "KernelLedger \u2014 notebook",
+    "role": "ControlType.Window",
+    "id": ""
+  },
+  {
+    "name": "Outline",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Notebook switcher: notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Notebook, current destination",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "History",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Checkpoints",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Commands",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Runtime: Python (Ready)",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run all",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Settings",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Menu",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Edit",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "More actions for # UI regression fixture",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Insert cell after cell 1",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Output tools: print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "More actions for print('Hello, KernelLedger')",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell hello",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded output: Hello, KernelLedger\n",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Insert cell after cell 2",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Run 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Explain error",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Output tools: 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Hide output",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "More actions for 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "code cell error",
+    "role": "ControlType.Edit",
+    "id": ""
+  },
+  {
+    "name": "Recorded execution error: ZeroDivisionError: division by zero",
+    "role": "ControlType.Group",
+    "id": ""
+  },
+  {
+    "name": "Show full traceback for Output 1 for cell 3: 1 / 0",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Add cell at end of notebook",
+    "role": "ControlType.Button",
+    "id": ""
+  },
+  {
+    "name": "Assistant",
+    "role": "ControlType.Button",
+    "id": ""
+  }
+]

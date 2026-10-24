@@ -19,6 +19,14 @@ fn main() -> anyhow::Result<()> {
     let snapshot=helper.request("source.mutate",json!({"action":"edit","cell_id":id,"source":"print('rust vertical slice')","manifest_revision":source["manifest_revision"],"cell_revisions":{id:first["revision"]}}))?;
     start_runtime(&python, &project, None)?;
     let mut runtime = RuntimeClient::connect(&project, &identity, "control")?;
+    let status = runtime.request("runtime.status", json!({}))?;
+    let implementation = status["implementation"].as_str().unwrap_or("python");
+    if std::env::var("KERNELLEDGER_RUNTIME").as_deref() == Ok("native") {
+        anyhow::ensure!(
+            implementation == "rust",
+            "Native selection started a different backend"
+        );
+    }
     let key = Uuid::new_v4();
     let accepted=runtime.request("run",json!({"cell_id":id,"expected_sha256":snapshot["cells"][0]["revision"],"client_request_id":key}))?;
     drop(runtime); // Recover after losing the connection, using the same durable request key.
@@ -41,7 +49,7 @@ fn main() -> anyhow::Result<()> {
             );
             println!(
                 "{}",
-                json!({"accepted":accepted,"operation":operation,"fold":fold})
+                json!({"runtime_implementation":implementation,"accepted":accepted,"operation":operation,"fold":fold})
             );
             break;
         }

@@ -163,12 +163,8 @@ impl Workspace {
             theme.info,
         );
         let policy = settings_root["policy"].as_str().unwrap_or("allowed");
-        let provider_name = settings_root["settings"]["provider"]
-            .as_str()
-            .unwrap_or("");
-        let model_name = settings_root["settings"]["model"]
-            .as_str()
-            .unwrap_or("");
+        let provider_name = settings_root["settings"]["provider"].as_str().unwrap_or("");
+        let model_name = settings_root["settings"]["model"].as_str().unwrap_or("");
         let dest_label = settings_root["destination"]["label"]
             .as_str()
             .unwrap_or("Local");
@@ -813,9 +809,7 @@ impl Workspace {
             state.task.clone()
         };
         let settings_root = state.settings.clone();
-        let provider_name = settings_root["settings"]["provider"]
-            .as_str()
-            .unwrap_or("");
+        let provider_name = settings_root["settings"]["provider"].as_str().unwrap_or("");
         let model_name = settings_root["settings"]["model"]
             .as_str()
             .unwrap_or("unconfigured");
@@ -1004,10 +998,7 @@ impl Workspace {
                                     .child("Evidence verification pending"),
                             ),
                     )
-                    .child(TextView::markdown(
-                        "ai-stream-draft",
-                        safe_markdown(&draft),
-                    )),
+                    .child(TextView::markdown("ai-stream-draft", safe_markdown(&draft))),
             );
         }
         Some(col.into_any_element())
@@ -1206,21 +1197,20 @@ impl Workspace {
                                         "Always allow for this notebook & destination"
                                     })
                                     .on_click(cx.listener(move |v, _, _, cx| {
-                                        let root = v.tabs[v.active].assistant.settings
-                                            ["notebook_root"]
-                                            .as_str()
-                                            .map(str::to_owned)
-                                            .unwrap_or_else(|| {
-                                                v.tabs[v.active]
-                                                    .model
-                                                    .project
-                                                    .display()
-                                                    .to_string()
-                                            });
+                                        let root =
+                                            v.tabs[v.active].assistant.settings["notebook_root"]
+                                                .as_str()
+                                                .map(str::to_owned)
+                                                .unwrap_or_else(|| {
+                                                    v.tabs[v.active]
+                                                        .model
+                                                        .project
+                                                        .display()
+                                                        .to_string()
+                                                });
                                         let key = format!("{root}::{approval_url}");
-                                        let mut config = v.tabs[v.active].assistant.settings
-                                            ["settings"]
-                                            .clone();
+                                        let mut config =
+                                            v.tabs[v.active].assistant.settings["settings"].clone();
                                         if !config.is_object() {
                                             config = json!({});
                                         }
@@ -1228,8 +1218,7 @@ impl Workspace {
                                             config["approvals"] = json!({});
                                         }
                                         if auto_approved {
-                                            if let Some(map) = config["approvals"].as_object_mut()
-                                            {
+                                            if let Some(map) = config["approvals"].as_object_mut() {
                                                 map.remove(&key);
                                                 map.remove(&approval_url);
                                             }
@@ -1470,7 +1459,9 @@ impl Workspace {
                 .as_str()
                 .or(payload["text"].as_str())
                 .map(str::to_owned)
-                .unwrap_or_else(|| serde_json::to_string_pretty(&payload["cells"]).unwrap_or_default());
+                .unwrap_or_else(|| {
+                    serde_json::to_string_pretty(&payload["cells"]).unwrap_or_default()
+                });
 
             let state_tone = match p_state {
                 "accepted" => success,
@@ -1612,9 +1603,9 @@ impl Workspace {
                         .outline()
                         .small()
                         .label("Copy command")
-                        .on_click(cx.listener(move |_, _, _, cx| {
-                            copy_acknowledged(command.clone(), cx)
-                        })),
+                        .on_click(
+                            cx.listener(move |_, _, _, cx| copy_acknowledged(command.clone(), cx)),
+                        ),
                 );
             } else {
                 action_row = action_row.child(
@@ -1691,11 +1682,7 @@ impl Workspace {
     ) -> AnyElement {
         let busy = self.tabs[self.active].assistant.busy;
         let theme = cx.theme();
-        let (primary, info, mono) = (
-            theme.primary,
-            theme.info,
-            theme.mono_font_family.clone(),
-        );
+        let (primary, info, mono) = (theme.primary, theme.info, theme.mono_font_family.clone());
         let search_results = self.tabs[self.active]
             .inspections
             .get("AI search")
@@ -1703,35 +1690,32 @@ impl Workspace {
             .cloned()
             .unwrap_or_default();
         let search_for_click = search_input.clone();
-        let mut search_card = card(cx)
-            .p_2p5()
-            .gap_2()
-            .child(
-                h_flex()
-                    .gap_1p5()
-                    .items_center()
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(Input::new(&search_input).small().cleanable(true)),
-                    )
-                    .child(
-                        action_button("ai-search-submit")
-                            .outline()
-                            .small()
-                            .icon(Glyph::Search)
-                            .label("Search history")
-                            .unavailable(busy)
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                let q = search_for_click.read(cx).value().trim().to_string();
-                                if !q.is_empty() {
-                                    v.ai("search", json!({"query": q}));
-                                    cx.notify();
-                                }
-                            })),
-                    ),
-            );
+        let mut search_card = card(cx).p_2p5().gap_2().child(
+            h_flex()
+                .gap_1p5()
+                .items_center()
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(Input::new(&search_input).small().cleanable(true)),
+                )
+                .child(
+                    action_button("ai-search-submit")
+                        .outline()
+                        .small()
+                        .icon(Glyph::Search)
+                        .label("Search history")
+                        .unavailable(busy)
+                        .on_click(cx.listener(move |v, _, _, cx| {
+                            let q = search_for_click.read(cx).value().trim().to_string();
+                            if !q.is_empty() {
+                                v.ai("search", json!({"query": q}));
+                                cx.notify();
+                            }
+                        })),
+                ),
+        );
         if !search_results.is_empty() {
             let mut results_col = v_flex().gap_1().pt_1();
             for (i, hit) in search_results.iter().take(8).enumerate() {
@@ -2004,7 +1988,10 @@ impl Workspace {
         );
         let retention = self.ai_input(
             "Retention days",
-            &settings["retention_days"].as_u64().unwrap_or(90).to_string(),
+            &settings["retention_days"]
+                .as_u64()
+                .unwrap_or(90)
+                .to_string(),
             window,
             cx,
         );
@@ -2308,7 +2295,10 @@ impl Workspace {
         );
         let retention = self.ai_input(
             "Retention days",
-            &settings["retention_days"].as_u64().unwrap_or(90).to_string(),
+            &settings["retention_days"]
+                .as_u64()
+                .unwrap_or(90)
+                .to_string(),
             window,
             cx,
         );
@@ -2341,7 +2331,10 @@ impl Workspace {
             );
         }
 
-        let approvals = settings["approvals"].as_object().cloned().unwrap_or_default();
+        let approvals = settings["approvals"]
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
         let mut approvals_box = v_flex().gap_1p5();
         if approvals.is_empty() {
             approvals_box = approvals_box.child(

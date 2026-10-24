@@ -1,4 +1,4 @@
-﻿mod accessibility;
+mod accessibility;
 mod assistant;
 mod checkpoints;
 mod components;
@@ -688,7 +688,8 @@ impl Workspace {
                             .draft
                             .push_str(frame["text"].as_str().unwrap_or(""));
                         tab.assistant.status =
-                            "Receiving draft; citations and proposals are being checked\u{2026}".into();
+                            "Receiving draft; citations and proposals are being checked\u{2026}"
+                                .into();
                     }
                     Event::AssistantProposal(proposal) => tab.assistant.proposals.push(proposal),
                     Event::AssistantError { method, message } => {
@@ -791,7 +792,8 @@ impl Workspace {
                                 let ok = value["streaming"].as_bool() == Some(true)
                                     || value["ok"].as_bool() == Some(true);
                                 tab.assistant.status = if ok {
-                                    "Connection verified (streaming & structured JSON qualified).".into()
+                                    "Connection verified (streaming & structured JSON qualified)."
+                                        .into()
                                 } else {
                                     format!(
                                         "Provider test failed: {}",
@@ -2540,25 +2542,22 @@ impl Render for Workspace {
                                 )
                             },
                         )
-                        .when(
-                            self.tabs[self.active].assistant.open && self.compact,
-                            |d| {
-                                d.child(
-                                    div()
-                                        .absolute()
-                                        .right_0()
-                                        .top_0()
-                                        .bottom_0()
-                                        .w(px(420. * self.preferences.ui_scale))
-                                        .max_w_full()
-                                        .bg(cx.theme().background)
-                                        .border_l_1()
-                                        .border_color(divider(cx))
-                                        .when(!self.high_contrast, |d| d.shadow_lg())
-                                        .child(self.assistant_panel(window, cx)),
-                                )
-                            },
-                        ),
+                        .when(self.tabs[self.active].assistant.open && self.compact, |d| {
+                            d.child(
+                                div()
+                                    .absolute()
+                                    .right_0()
+                                    .top_0()
+                                    .bottom_0()
+                                    .w(px(420. * self.preferences.ui_scale))
+                                    .max_w_full()
+                                    .bg(cx.theme().background)
+                                    .border_l_1()
+                                    .border_color(divider(cx))
+                                    .when(!self.high_contrast, |d| d.shadow_lg())
+                                    .child(self.assistant_panel(window, cx)),
+                            )
+                        }),
                 )
                 .child(self.status_bar(cx));
         }

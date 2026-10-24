@@ -58,9 +58,17 @@ def rpc(root: Any, request: Any) -> Any:
                         if message.get("password")
                         else input(message["prompt"])
                     )
-                    channel.send("stdin_reply", text=text)
+                    channel.send(
+                        "stdin_reply",
+                        text=text,
+                        **({"input_id": message["input_id"]} if "input_id" in message else {}),
+                    )
                 except EOFError:
-                    channel.send("stdin_reply", error="input was required but stdin is closed")
+                    channel.send(
+                        "stdin_reply",
+                        error="input was required but stdin is closed",
+                        **({"input_id": message["input_id"]} if "input_id" in message else {}),
+                    )
                 continue
             if "error" in message:
                 raise ValueError(message["error"])
@@ -76,16 +84,44 @@ def alive(root: Any) -> Any:
         return None
 
 
+def runtime_command(
+    root: Path, python: Any = None, *, distribution: str = "installed", launch: str = "terminal"
+) -> list[str]:
+    mode = os.environ.get("KERNELLEDGER_RUNTIME", "python") or "python"
+    if mode not in ("python", "native"):
+        raise ValueError("KERNELLEDGER_RUNTIME must be python or native")
+    if mode == "python":
+        command = [sys.executable, "-m", "kernelledger", "--project", str(root), "serve"]
+        if python:
+            command.extend(["--python", str(python)])
+        return command
+    binary = Path(os.environ.get("KERNELLEDGER_DAEMON", ""))
+    if not binary.is_absolute() or not binary.is_file():
+        raise ValueError(
+            "Native startup requires an absolute KERNELLEDGER_DAEMON path to an installed binary"
+        )
+    from .supervisor import interpreter
+
+    config_path = root / ".kl/config.json"
+    config: dict[str, Any] = json.loads(config_path.read_text()) if config_path.exists() else {}
+    selected, _ = interpreter(root, python, config, distribution, launch)
+    return [
+        str(binary),
+        "serve-experimental",
+        "--project",
+        str(root.resolve()),
+        "--python",
+        os.path.abspath(selected),
+    ]
+
+
 def ensure_supervisor(root: Any, python: Any = None) -> Any:
     if alive(root):
         return
     Notebook(root).read()
     state = root / ".kl"
     state.mkdir(exist_ok=True)
-    args: list[Any]
-    args = [sys.executable, "-m", "kernelledger", "--project", str(root), "serve"]
-    if python:
-        args.extend(["--python", python])
+    args = runtime_command(root, python)
     env: dict[Any, Any]
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(__file__).parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
@@ -321,6 +357,12 @@ def execute_cli(args: Any) -> Any:
                 emit({"snapshot": args.snapshot, "destination": args.destination})
         return 0
     if command == "serve":
+        if os.environ.get("KERNELLEDGER_RUNTIME", "python") not in ("", "python"):
+            return subprocess.call(
+                runtime_command(
+                    root, args.python, distribution=args.distribution, launch=args.launch
+                )
+            )
         from .supervisor import main
 
         main(root, args.python, args.distribution, args.launch)

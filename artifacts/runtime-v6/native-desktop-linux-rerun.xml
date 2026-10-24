@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="8" time="5.971" timestamp="2026-10-24T16:16:17.337922+00:00" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_native_desktop" name="test_native_desktop_run_retry_and_capability_subset" time="0.542" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_batch_is_durable_and_frozen_before_reply" time="0.744" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_cancels_queued_execution_without_running_it" time="0.395" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_lost_reply_and_removed_source_reconcile_by_key" time="0.613" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_accepted_queue_reopens_in_python_after_crash" time="0.815" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_stop_bypasses_running_work_and_commits_result" time="0.225" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_running_cancel_keeps_the_worker_usable" time="0.414" /><testcase classname="tests.test_native_desktop" name="test_native_desktop_cancel_race_with_worker_envelopes" time="1.407"><failure message="AssertionError: {'operation_id': 'f8c9c7ed-e6d4-45ec-a3b2-62fec010cf60', 'client_id': '270ed2db-35ab-4e21-882a-338a0711b983', 'client_request_id': 'f9746f05-a03d-47d5-9f63-8fdfadb67cf4', 'kind': 'run', ...}&#10;assert 'failed' in ('canceled', 'completed')">native_runtime = (&lt;kernelledger.notebook.Notebook object at 0x7422cc7d20f0&gt;, &lt;Popen: returncode: None args: ['/home/utkarsh_kaushik/kl-native-v6-target/d...&gt;)
+
+&gt;   ???
+E   AssertionError: {'operation_id': 'f8c9c7ed-e6d4-45ec-a3b2-62fec010cf60', 'client_id': '270ed2db-35ab-4e21-882a-338a0711b983', 'client_request_id': 'f9746f05-a03d-47d5-9f63-8fdfadb67cf4', 'kind': 'run', ...}
+E   assert 'failed' in ('canceled', 'completed')
+
+_          = 4
+accepted   = {'kind': 'accepted', 'operation_id': 'f8c9c7ed-e6d4-45ec-a3b2-62fec010cf60', 'executions': ['d258a469-d06c-426c-8a12-38da9fc4baa5']}
+client     = &lt;test_desktop.Client object at 0x7422cc7d1d00&gt;
+native_runtime = (&lt;kernelledger.notebook.Notebook object at 0x7422cc7d20f0&gt;, &lt;Popen: returncode: None args: ['/home/utkarsh_kaushik/kl-native-v6-target/d...&gt;)
+notebook   = &lt;kernelledger.notebook.Notebook object at 0x7422cc7d20f0&gt;
+result     = {'operation_id': 'f8c9c7ed-e6d4-45ec-a3b2-62fec010cf60', 'client_id': '270ed2db-35ab-4e21-882a-338a0711b983', 'client_request_id': 'f9746f05-a03d-47d5-9f63-8fdfadb67cf4', 'kind': 'run', ...}
+source     = '# envelope padding\n# envelope padding\n# envelope padding\n# envelope padding\n# envelope padding\n# envelope paddin...nvelope padding\n# envelope padding\n# envelope padding\n# envelope padding\nimport time\nwhile True: time.sleep(0.01)'
+
+C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger-v6\tests\test_native_desktop.py:300: AssertionError</failure></testcase></testsuite></testsuites>

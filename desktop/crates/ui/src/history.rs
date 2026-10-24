@@ -163,7 +163,9 @@ impl Workspace {
                                 tab.assistant.receipt = Value::Null;
                                 let task = if is_err { "error" } else { "explain" };
                                 let prompt = if is_err {
-                                    format!("Explain why execution {eid_ai} failed and propose a fix.")
+                                    format!(
+                                        "Explain why execution {eid_ai} failed and propose a fix."
+                                    )
                                 } else {
                                     format!("Explain recorded execution {eid_ai} and its output.")
                                 };

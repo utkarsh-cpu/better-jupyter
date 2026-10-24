@@ -7,7 +7,7 @@ import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
 
 from ..source import SourceError
@@ -76,17 +76,20 @@ class Assistant:
     ) -> bool:
         if isinstance(config, str):
             cfg = settings.load(self.settings_file)
-            approvals = cfg.get("approvals") or {}
+            approvals: dict[str, Any] = cfg.get("approvals") or {}
             if config in approvals:
                 return bool(approvals[config])
             config = cfg
-        if dest is None:
-            dest = self.status_summary(config)["destination"]
+        destination: dict[str, Any] = (
+            dest if dest is not None else self.status_summary(config)["destination"]
+        )
         approvals = config.get("approvals") or {}
-        key = f"{self.root}::{dest.get('base_url', '')}"
-        alt_key = f"{self.root}::{dest.get('host', '')}"
+        key = f"{self.root}::{destination.get('base_url', '')}"
+        alt_key = f"{self.root}::{destination.get('host', '')}"
         return bool(
-            approvals.get(key) or approvals.get(alt_key) or approvals.get(dest.get("host", ""))
+            approvals.get(key)
+            or approvals.get(alt_key)
+            or approvals.get(destination.get("host", ""))
         )
 
     def status_summary(self, config: dict[str, Any]) -> dict[str, Any]:
@@ -106,7 +109,7 @@ class Assistant:
                 "base_url": "http://127.0.0.1/fake",
             }
         elif prov_name in ("openai", "openai-compatible"):
-            base = prov_cfg.get(
+            base: str = prov_cfg.get(
                 "base_url",
                 "https://api.openai.com/v1"
                 if prov_name == "openai"
@@ -176,6 +179,7 @@ class Assistant:
         from .contracts import validate
 
         validate(request)
+        request = cast(dict[str, Any], request)
         method = request["method"]
         if method == "cancel":
             self.cancel()
@@ -233,7 +237,7 @@ class Assistant:
         if method == "search":
             self.index()
             return self.store.search(request["query"])
-        task = request.get("task", "ask") if isinstance(request, dict) else "ask"
+        task = request.get("task", "ask")
         config, notebook_config, provider = self.configured(task)
         if method == "models.list":
             return {"items": provider.models(), "destination": provider.destination}

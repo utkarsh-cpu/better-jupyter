@@ -1199,6 +1199,9 @@ class Worker:
         self.stdout, self.stderr = Stream(self, "stdout"), Stream(self, "stderr")
         self.protocol_thread = None
         self.interrupted = threading.Event()
+        self.correlated_inputs = False
+        self.input_replies: dict[str, queue.Queue[Any]] = {}
+        self.input_lock = threading.Lock()
         self.cleaning_shell = False
         self.original_sleep = time.sleep
 
@@ -1394,11 +1397,36 @@ class Worker:
                 importlib.invalidate_caches()
 
     def input(self, prompt: Any = "", password: Any = False) -> Any:
-        self.emit("stdin_request", prompt=str(prompt), password=password)
-        reply = self.replies.get()
+        input_id = str(uuid.uuid4()) if self.correlated_inputs else None
+        replies: queue.Queue[Any] = self.replies if input_id is None else queue.Queue()
+        try:
+            if input_id is not None:
+                with self.input_lock:
+                    self.input_replies[input_id] = replies
+            self.emit(
+                "stdin_request",
+                prompt=str(prompt),
+                password=password,
+                **({"input_id": input_id} if input_id is not None else {}),
+            )
+            reply = replies.get()
+        finally:
+            if input_id is not None:
+                with self.input_lock:
+                    self.input_replies.pop(input_id, None)
         if reply.get("error"):
             raise RuntimeError(reply["error"])
         return reply["text"]
+
+    def input_reply(self, message: Any) -> None:
+        input_id = message.get("input_id")
+        if input_id is None:
+            self.replies.put(message)
+        else:
+            with self.input_lock:
+                replies = self.input_replies.get(input_id)
+                if replies is not None:
+                    replies.put(message)
 
     def show_figures(self, *args: Any, **kwargs: Any) -> Any:
         self.figures()
@@ -1421,6 +1449,7 @@ class Worker:
 
     def execute(self, message: Any) -> Any:
         self.interrupted.clear()
+        self.correlated_inputs = message.get("correlated_inputs", False)
         self.exec_id = message["exec_id"]
         self.ordinal += 1
         filename = (
@@ -1428,9 +1457,9 @@ class Worker:
             if message.get("cell_id")
             else f"<unattributed>@{self.exec_id}"
         )
-        self.emit("status", state="running")
         state = "ok"
         try:
+            self.emit("status", state="running")
             if hashlib.sha256(message["source"].encode()).hexdigest() != message["source_sha256"]:
                 raise ValueError("source hash mismatch")
             tree = self.index.add(filename, message["source"], self.ordinal)
@@ -1538,8 +1567,13 @@ class Worker:
                 if kind == "blob":
                     self.blobs[message["sha256"]] = message["data"]
                 elif kind == "envelope":
-                    message = json.loads(self.blobs[message["blob"]])
-                    self.commands.put(message)
+                    envelope_id = message["blob"]
+                    message = json.loads(self.blobs[envelope_id])
+                    if message["kind"] == "stdin_reply":
+                        self.blobs.pop(envelope_id, None)
+                        self.input_reply(message)
+                    else:
+                        self.commands.put(message)
                 elif kind == "interrupt":
                     if self.exec_id and not self.cleaning_shell:
                         # Queue the Python interrupt before waking cooperative
@@ -1549,7 +1583,7 @@ class Worker:
                         _thread.interrupt_main()
                         self.interrupted.set()
                 elif kind == "stdin_reply":
-                    self.replies.put(message)
+                    self.input_reply(message)
                 else:
                     self.commands.put(message)
         except (EOFError, OSError, ValueError):

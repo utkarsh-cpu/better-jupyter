@@ -1,0 +1,13 @@
+{
+  "schema": "kernelledger.native-gates/1",
+  "default_backend": "python",
+  "phases": [
+    {"phase": 3, "status": "partial", "remaining": ["Exact malformed-input error parity", "Large-history memory measurements", "Desktop browsing qualification"]},
+    {"phase": 4, "status": "partial", "remaining": ["Real disk-full and permission-failure matrix", "All crash-publication boundaries", "Windows reparse-point and long-path matrix", "Schema-1 verified migration backup path"]},
+    {"phase": 5, "status": "partial", "remaining": ["Desktop admission/cancellation fault-injection and sustained-load qualification", "Complete numeric request-hash qualification", "Expanded input disconnect/reconnect and worker-delivery failure qualification", "Expanded feed fan-out, reconnect, heartbeat, and slow-reader stress qualification", "Overlapping background-output and process-tree stress qualification", "Grouped stream commits and end-to-end queue byte budgets"]},
+    {"phase": 6, "status": "partial", "remaining": ["Replay/continue full behavior parity", "Pins, GC, bundle and import mutations under native ownership", "Training capture/restore and candidate admission", "Complete assistant and export interoperability inventory", "Cross-version and optional-codec qualification"]},
+    {"phase": 7, "status": "partial", "remaining": ["Clean-machine Windows/Linux installation, upgrade, uninstall", "Complete third-party license texts", "Rollback rehearsal across the full capability inventory", "Release artifact signing/integrity and update coexistence qualification"]},
+    {"phase": 8, "status": "blocked", "remaining": ["Every preceding phase exit gate", "Two qualified opt-in release candidates", "Measured material benefit with no unexplained regressions", "Plan publication and assistant draft reconciliation", "Subsequent-release Python rollback retention"]}
+  ],
+  "release_candidates": []
+}

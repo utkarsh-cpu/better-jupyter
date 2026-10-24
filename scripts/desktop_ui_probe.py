@@ -17,6 +17,7 @@ import time
 from kernelledger.cli import alive, rpc, ensure_supervisor
 
 from kernelledger.notebook import Notebook
+from kernelledger.ledger import Ledger
 
 p = argparse.ArgumentParser()
 p.add_argument("--exe", type=Path, default=Path("desktop/target/debug/kernelledger-desktop.exe"))
@@ -25,6 +26,7 @@ p.add_argument("--theme", choices=["light", "dark", "system", "contrast"], defau
 p.add_argument("--window-capture-exe", type=Path, help="Capture only the probe window using Windows Graphics Capture")
 p.add_argument("--ui-scale", type=float, choices=[1, 1.25, 1.5, 2], default=1)
 p.add_argument("--comfortable", action="store_true")
+p.add_argument("--exercise-runtime", action="store_true", help="Invoke native Run and Create checkpoint controls and verify durable results")
 args = p.parse_args()
 if os.name != "nt": raise SystemExit("Windows native probe only")
 args.output.mkdir(parents=True, exist_ok=True)
@@ -118,19 +120,23 @@ $items | ForEach-Object {{ [pscustomobject]@{{ name=$_.Current.Name; role=$_.Cur
         assert "Run all" in names, names
         assert "Run selected" not in names and "Interrupt" not in names, names
         assert not any(name in ("[ ]", "[1]", "[2]") for name in names), names
-        navigation_script = f'''
+        navigation_helpers = f'''
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 if (-not ('ProbeOwnedKeys' -as [type])) {{
-    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ProbeOwnedKeys {{ [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hwnd, uint msg, IntPtr w, IntPtr l); }}'
+    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ProbeOwnedKeys {{ [DllImport("user32.dll")] public static extern bool PostMessageW(IntPtr hwnd, uint msg, IntPtr w, IntPtr l); [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr hwnd, uint msg, IntPtr w, IntPtr l); }}'
 }}
 $root = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]{window})
 function Invoke-Named([string] $label) {{
+    for ($attempt = 0; $attempt -lt 40; $attempt++) {{
     $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $label)
     $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
     if ($null -eq $element) {{
         $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "$label, current destination")
         $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    }}
+    if ($null -ne $element -and $element.Current.IsEnabled) {{ break }}
+    Start-Sleep -Milliseconds 100
     }}
     if ($null -eq $element) {{ throw "Missing action: $label" }}
     $pattern = $null
@@ -141,6 +147,18 @@ function Invoke-Named([string] $label) {{
     }} else {{ throw "Action has no activation pattern: $label" }}
     Start-Sleep -Milliseconds 150
 }}
+function Scroll-Top {{
+    $b = $root.Current.BoundingRectangle
+    $x = [int]($b.Width * .65)
+    $y = [int]($b.Height * .65)
+    [ProbeOwnedKeys]::SendMessageW([IntPtr]{window}, 0x0200, [IntPtr]::Zero, [IntPtr](($y -shl 16) -bor $x)) | Out-Null
+    for ($i = 0; $i -lt 5; $i++) {{
+        [ProbeOwnedKeys]::SendMessageW([IntPtr]{window}, 0x020A, [IntPtr](720 -shl 16), [IntPtr]((([int]($b.Y+$y)) -shl 16) -bor [int]($b.X+$x))) | Out-Null
+        Start-Sleep -Milliseconds 100
+    }}
+}}
+'''
+        navigation_script = navigation_helpers + f'''
 Invoke-Named 'Menu'
 $nodes = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
 $names = @($nodes | ForEach-Object {{ $_.Current.Name }})
@@ -152,6 +170,7 @@ foreach ($label in @('Settings','Help','Diagnostics','Runtimes')) {{
 [ProbeOwnedKeys]::PostMessageW([IntPtr]{window}, 0x0101, [IntPtr]0x1b, [IntPtr]::Zero) | Out-Null
 Start-Sleep -Milliseconds 150
 Invoke-Named 'Checkpoints'
+Scroll-Top
 $nodes = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
 $names = @($nodes | ForEach-Object {{ $_.Current.Name }})
 if ($names -notcontains 'Create checkpoint') {{ throw 'Missing checkpoint creation action' }}
@@ -162,6 +181,61 @@ Invoke-Named 'Notebook'
 '''
         navigation = subprocess.run(["powershell", "-NoProfile", "-Command", navigation_script], capture_output=True, text=True, timeout=20)
         if navigation.returncode: raise RuntimeError(navigation.stderr)
+        runtime_actions = {}
+        if args.exercise_runtime:
+            def recorded(sql):
+                ledger = Ledger(project / ".kl/ledger.sqlite", readonly=True)
+                try: return ledger.rows(sql)
+                finally: ledger.close()
+            def await_record(sql, count):
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline:
+                    rows = recorded(sql)
+                    if len(rows) > count: return rows
+                    time.sleep(.05)
+                raise RuntimeError("UI action did not publish its durable result")
+            runs = "SELECT * FROM executions WHERE cell_id='hello' AND status='ok' ORDER BY ordinal"
+            before = len(recorded(runs))
+            invoke_run = navigation_script + "\nInvoke-Named \"Run print('Hello, KernelLedger')\""
+            subprocess.run(["powershell", "-NoProfile", "-Command", invoke_run], check=True, capture_output=True, timeout=25)
+            rows = await_record(runs, before)
+            runtime_actions["run_from_ui"] = {"status":"passed", "exec_id":rows[-1]["exec_id"]}
+            checkpoints = "SELECT * FROM checkpoints ORDER BY timestamp"
+            before = len(recorded(checkpoints))
+            invoke_checkpoint = navigation_script + "\nInvoke-Named 'Checkpoints'\nInvoke-Named 'Create checkpoint'"
+            subprocess.run(["powershell", "-NoProfile", "-Command", invoke_checkpoint], check=True, capture_output=True, timeout=25)
+            rows = await_record(checkpoints, before)
+            assert rows[-1]["status"] == "complete", rows[-1]
+            runtime_actions["checkpoint_from_ui"] = {"status":"passed", "checkpoint_id":rows[-1]["checkpoint_id"]}
+            previous_session = rpc(project, {"command":"status"})["session_id"]
+            inspect_checkpoint = navigation_script + "\nInvoke-Named 'Checkpoints'\nInvoke-Named 'Inspect checkpoint'"
+            subprocess.run(["powershell", "-NoProfile", "-Command", inspect_checkpoint], check=True, capture_output=True, timeout=25)
+            # Reach the report footer through the owned window's scroll path.
+            # UIA can expose a clipped action whose center is not clickable yet.
+            body = wintypes.RECT()
+            point = wintypes.POINT()
+            u.GetClientRect(window, ctypes.byref(body))
+            u.ClientToScreen(window, ctypes.byref(point))
+            x, y = int(body.right * .65), int(body.bottom * .65)
+            u.SendMessageW(window, 0x0200, 0, (y << 16) | x)
+            for _ in range(5):
+                u.SendMessageW(window, 0x020A, -720 << 16, ((point.y+y) << 16) | (point.x+x))
+                time.sleep(.1)
+            invoke_restore = navigation_helpers + "\nInvoke-Named ('Restore checkpoint' + [char]0x2026)\nInvoke-Named 'Allow saved Python code to run'\nInvoke-Named 'Restore checkpoint'"
+            restored = subprocess.run(["powershell", "-NoProfile", "-Command", invoke_restore], capture_output=True, text=True, timeout=30)
+            if restored.returncode:
+                failed_tree = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", timeout=20)
+                (args.output / "restore-failure-uia.json").write_text(failed_tree.stdout, encoding="utf-8")
+                raise RuntimeError(restored.stderr)
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                current_session = rpc(project, {"command":"status"})["session_id"]
+                if current_session and current_session != previous_session: break
+                time.sleep(.05)
+            else: raise RuntimeError("UI restore did not create a replacement session")
+            assert rpc(project, {"command":"run", "source":"assert answer == 42"})["status"] == "ok"
+            runtime_actions["restore_from_ui"] = {"status":"passed", "session_id":current_session}
+            subprocess.run(["powershell", "-NoProfile", "-Command", navigation_helpers + "\nInvoke-Named 'Notebook'"], check=True, capture_output=True, timeout=25)
         # Exercise the real compositor and repeat compact/wide transitions.
         for iteration in range(10):
             for w, h in [(800, 600), (1440, 900)]:
@@ -277,6 +351,8 @@ Invoke-Named 'Notebook'
         report["caption_controls"] = caption_checks
         report["ui_scale"] = args.ui_scale
         report["comfortable"] = args.comfortable
+        report["runtime_implementation"] = rpc(project, {"command":"status"}).get("implementation", "python")
+        report["runtime_actions"] = runtime_actions
         report["screenshot"] = captures
         report["capture_limit"] = "Desktop capture cropped to owned window; verify occlusion and physical monitor bounds visually. Resize calls alone do not prove control reachability."
         if args.window_capture_exe:

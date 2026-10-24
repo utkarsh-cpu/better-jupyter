@@ -1,5 +1,18 @@
-//! Headless feasibility probe. No ledger writer or production runtime service.
+//! Headless feasibility probe. No production supervisor yet.
+//! The `helper` mode serves ledger and blob inspection without a worker, and
+//! publishes tracked source through the native journal. Execution history stays
+//! read-only here.
+pub mod capture;
+pub mod helper;
+pub mod ledger;
+pub mod notebook;
 pub mod platform;
+pub mod publication;
+pub mod resources;
+pub mod source;
+pub mod store;
+pub mod supervisor;
+pub mod writer;
 use anyhow::{Context, Result, bail, ensure};
 use kernelledger_protocol::{BUFFER_SIZE, copy_blob, hash, read_worker, write_worker};
 use platform::{FileLock, WorkerTree, python_command};
@@ -254,9 +267,21 @@ pub fn probe(options: ProbeOptions<'_>) -> Result<Value> {
     )
 }
 
+/// Python `str(Path.resolve())` form: drop Windows verbatim prefixes.
+pub fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned()
+}
+
 pub fn diagnostics() -> Value {
     json!({"implementation":"rust", "version":env!("CARGO_PKG_VERSION"), "mode":"feasibility_only",
-        "supervisor":false, "offline_helper":false, "native_gpu_capture":false,
+        "supervisor":false, "offline_helper":"inspection_and_source", "native_gpu_capture":false,
+        "helper_native_methods": helper::NATIVE, "helper_delegated_methods": helper::DELEGATED,
+        "experimental_supervisor":true,"worker_resource":resources::identity(),
+        "build_source_sha256":env!("KL_NATIVE_SOURCE_SHA256"),
         "worker_protocol":1, "ledger_schema_written":null})
 }
 
@@ -277,6 +302,7 @@ pub fn run(args: &[String]) -> Result<Value> {
             .with_context(|| format!("missing value for {flag}"))
     };
     match mode.as_str() {
+        "serve-experimental" => supervisor::serve(&args[1..]),
         "lock-probe" => {
             let _lock = FileLock::acquire(Path::new(value("--path")?))?;
             println!("{{\"locked\":true}}");
@@ -300,7 +326,7 @@ pub fn run(args: &[String]) -> Result<Value> {
             })
         }
         _ => bail!(
-            "unsupported mode; available: diagnostics, probe, lock-probe (no production supervisor/helper)"
+            "unsupported mode; available: diagnostics, probe, lock-probe, helper (inspection and source; no production supervisor)"
         ),
     }
 }
