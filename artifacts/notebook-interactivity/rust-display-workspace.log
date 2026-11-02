@@ -1,0 +1,187 @@
+cargo.exe :    Compiling kernelledger-runtime v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\runtime)
+At line:2 char:1
++ & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' test --manifest-pat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling ke...crates\runtime):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Compiling kernelledger-daemon v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\daemon)
+    Finished `test` profile [unoptimized] target(s) in 26.94s
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_client-4fe446f8b31e0c64.exe)
+
+running 27 tests
+test media::tests::active_exports_are_bounded_and_slots_are_released ... ok
+test preferences::tests::old_partial_preferences_receive_defaults_and_stale_dimensions_are_clamped ... ok
+test math::tests::nested_math_and_scripts_bind_to_the_last_atom ... ok
+test assistant::tests::assistant_stream_fixture_round_trips_bounded_frames ... ok
+test output::tests::attachment_names_reject_path_separators ... ok
+test output::tests::image_cache_drops_offscreen_records_before_visible_ones ... ok
+test math::tests::arbitrary_tex_and_excessive_work_are_refused ... ok
+test output::tests::table_discards_active_content ... ok
+test service::tests::display_backlog_advances_without_rewalking_unchanged_executions ... ok
+test output::tests::truncation_is_unicode_safe ... ok
+test output::tests::text_blob_reads_one_page_of_a_large_stream ... ok
+test recorded::tests::source_locations_accept_only_recorded_notebook_filenames ... ok
+test display::tests::broadcast_replay_keeps_history_identity_and_reapplies_after_refold ... ok
+test tests::rejects_length_before_allocating ... ok
+test tests::structured_errors_survive_transport ... ok
+test tests::shared_fixture_frames ... ok
+test output::tests::text_window_keeps_character_boundaries ... ok
+test service::tests::unchanged_watermark_does_not_call_fold_get ... ok
+test service::tests::source_membership_changes_reload_current_outputs_without_new_ledger_events ... ok
+test display::tests::clear_and_rerun_retire_targets_and_do_not_apply_earlier_updates ... ok
+test media::tests::corrupt_oversized_or_inconsistent_outputs_publish_nothing ... ok
+test preferences::tests::schema_one_migrates_without_losing_layout_and_scale_is_normalized ... ok
+test preferences::tests::save_replaces_own_file_and_preserves_other_preferences_and_future_schema ... ok
+test media::tests::export_verifies_every_page_and_never_overwrites ... ok
+test output::tests::stored_images_stay_inside_the_cache_budget ... ok
+test display::tests::a_refold_never_expands_beyond_the_view_budget ... ok
+test display::tests::content_and_target_bounds_report_unfollowed_outputs ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running unittests src\main.rs (desktop\target\debug\deps\kernelledger_daemon-b8b882b2ce77e166.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (desktop\target\debug\deps\kernelledger_desktop-6cac98a59cdccb64.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_models-5784fd9ec0467281.exe)
+
+running 6 tests
+test tests::reconnect_retains_operation_key_and_unknown_is_final ... ok
+test tests::replayed_feed_deduplicates ... ok
+test tests::run_waits_for_acknowledged_content ... ok
+test presentation::tests::snapshots_require_idle_and_training_requires_capability ... ok
+test tests::conflict_preserves_both_versions ... ok
+test tests::typing_during_save_remains_dirty ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_protocol-3c44342d034ca551.exe)
+
+running 3 tests
+test tests::fragmented_and_invalid_frames ... ok
+test tests::corrupt_binary_and_limits ... ok
+test tests::python_hash_fixtures ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_runtime-e5820077319c8ef8.exe)
+
+running 23 tests
+test capture::tests::budget_never_splits_unicode_or_forgets_dropped_bytes ... ok
+test capture::tests::incremental_utf8_preserves_split_characters_and_replaces_invalid_bytes ... ok
+test notebook::tests::ids_and_canonical_source ... ok
+test store::tests::references_follow_python_rules ... ok
+test ledger::tests::fold_matches_python_semantics ... ok
+test ledger::tests::uri_escaping ... ok
+test source::tests::manifest_bytes_match_python_indentation_and_order ... ok
+test store::tests::json_encodings_match_python_detection ... ok
+test source::tests::json_text_matches_python_dumps ... ok
+test supervisor::desktop::tests::interactive_reads_do_not_wait_behind_bulk_worker_writes ... ok
+test helper::tests::capabilities_match_the_configured_fallback ... ok
+test resources::tests::validation_cache_requires_exact_bytes_and_has_hard_entry_and_byte_limits ... ok
+test supervisor::accept::tests::blocking_accept_wakes_and_idle_shutdown_joins_both_listeners ... ok
+test store::tests::verification_detects_corruption_and_missing ... ok
+test store::tests::publish_is_content_addressed_and_does_not_replace_existing ... ok
+test publication::tests::cleanup_removes_only_the_publishing_instance ... ok
+test capture::tests::closing_does_not_wait_for_an_inherited_pipe_handle_to_reach_eof ... ok
+test store::tests::operation_local_evidence_rejects_changes_and_next_request_rehashes ... ok
+test writer::tests::lock_acceptance_takeover_and_terminal_results ... ok
+test writer::tests::rejected_publication_and_lost_reply_leave_recoverable_state ... ok
+test supervisor::desktop::tests::stop_admission_bypasses_a_held_lifecycle_gate ... ok
+test writer::tests::desktop_admission_is_atomic_and_cancellation_wins_before_dispatch ... ok
+test writer::tests::input_answer_failure_rolls_back_and_retry_records_one_redacted_reply ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_ui-854d0d0eb4f9d25d.exe)
+
+running 45 tests
+test images::tests::budget_evicts_offscreen_images_before_the_one_just_shown ... ok
+test images::tests::offscreen_images_leave_on_the_following_frame ... ok
+test tests::caption_gutter_collapses_export_before_settings_at_compact_200_percent ... ok
+test interactive::tests::unicode_positions_and_static_fallback ... ok
+test tests::filters_combine_cell_outcome_session_and_time ... ok
+test tests::checkpoint_commands_work_from_checkpoint_page_and_reject_unknown_runtime ... ok
+test tests::attachment_preview_requests_the_first_text_window ... ok
+test tests::assistant_previews_context_without_sending_or_applying ... ok
+test tests::header_run_action_executes_an_unselected_cell_once ... ok
+test tests::comfortable_actions_have_a_full_touch_target ... ok
+test tests::assistant_extended_commands_and_unavailable_reasons_work ... ok
+test tests::display_replay_limits_offer_an_explicit_reload_without_running ... ok
+test tests::assistant_error_action_prepares_only_selected_cell_and_execution ... ok
+test tests::late_output_pages_and_images_cannot_replace_an_updated_display ... ok
+test tests::surface_results_and_runtime_actions_are_scoped ... ok
+test tests::contextual_commands_preserve_ids_and_reject_irrelevant_or_unsaved_actions ... ok
+test tests::palette_filters_navigates_and_restores_focus ... ok
+test tests::export_menu_blocks_background_actions_and_escape_restores_focus ... ok
+test tests::history_cursor_keeps_session_scope_and_return_to_cell_restores_editor ... ok
+test tests::ime_composition_suppresses_run_shortcuts ... ok
+test tests::debug_gutter_and_navigation_bind_to_the_executed_revision ... ok
+test tests::escape_dismisses_completion_before_command_mode_and_preserves_editing ... ok
+test tests::theme_text_and_focus_tokens_meet_contrast_thresholds ... ok
+test tests::console_editor_newline_and_shortcuts_preserve_notebook_source ... ok
+test tests::structural_commands_respect_saved_source_and_require_merge_confirmation ... ok
+test tests::large_output_paging_requests_the_next_recorded_window ... ok
+test tests::menu_blocks_background_execution_and_escape_returns_focus ... ok
+test tests::reveal_after_a_structural_reset_renders_the_unmeasured_target ... ok
+test tests::media_save_requires_a_selected_path_and_cancellation_sends_nothing ... ok
+test tests::command_mode_run_bindings_preserve_source ... ok
+test tests::export_selection_sends_format_and_cancellation_sends_nothing ... ok
+test tests::cell_shortcuts_reuse_source_guards_and_delete_confirmation ... ok
+test tests::delete_requires_confirmation_and_escape_preserves_source ... ok
+test tests::output_tools_are_in_cell_header_and_outputs_use_the_full_reading_width ... ok
+test tests::history_filters_validate_dates_and_keep_existing_text_and_outcome ... ok
+test tests::bundle_review_inspects_without_running_and_keeps_source_conflicts ... ok
+test tests::run_keys_precede_editor_newline_and_submit_once ... ok
+test tests::disabled_titlebar_action_stays_centered_and_runtime_actions_live_in_menu ... ok
+test tests::clipped_settings_control_scrolls_into_view_before_it_runs ... ok
+test tests::dialog_starts_on_cancel_and_traps_keyboard_focus ... ok
+test tests::project_shortcuts_navigate_find_and_preserve_editor_text ... ok
+test tests::palette_manual_scroll_survives_redraw_and_keyboard_reveals_selection ... ok
+test tests::settings_segments_change_preferences_through_native_buttons ... ok
+test tests::scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width ... ok
+test tests::outline_is_contextual_and_collapse_survives_ten_resize_cycles ... ok
+
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.64s
+
+   Doc-tests kernelledger_client
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_models
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_ui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

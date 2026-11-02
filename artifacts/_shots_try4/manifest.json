@@ -1,0 +1,55 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "runtime_implementation": "python",
+  "screens": [
+    {
+      "name": "settings",
+      "file": "settings.png",
+      "description": "Appearance, type, layout and interpreter settings"
+    },
+    {
+      "name": "variables",
+      "file": "variables.png",
+      "description": "Passive live namespace metadata"
+    },
+    {
+      "name": "console",
+      "file": "console.png",
+      "description": "Console sharing the notebook worker"
+    },
+    {
+      "name": "assistant",
+      "file": "assistant.png",
+      "description": "Assistant inspector with evidence and composer"
+    },
+    {
+      "name": "debugger",
+      "file": "debugger.png",
+      "description": "Debugger paused on a live frame with stepping controls"
+    },
+    {
+      "name": "debugger-stepped",
+      "file": "debugger-stepped.png",
+      "description": "Debugger after stepping to the next line"
+    },
+    {
+      "name": "recorded-source",
+      "file": "recorded-source.png",
+      "description": "Immutable recorded source page for a changed cell"
+    }
+  ],
+  "failures": [
+    {
+      "name": "source-preview",
+      "description": "Read-only source preview",
+      "error": "Exception calling \"SetFocus\" with \"0\" argument(s): \"Target element cannot receive focus.\"\nAt line:17 char:1\n+ $field.SetFocus()\n+ ~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : NotSpecified: (:) [], ParentContainsErrorRecordException\n    + FullyQualifiedErrorId : InvalidOperationException"
+    }
+  ],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

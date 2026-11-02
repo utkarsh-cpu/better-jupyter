@@ -29,6 +29,7 @@ use std::{
 use uuid::Uuid;
 
 pub(super) const CAPABILITIES: &[&str] = &[
+    "interactive_reads",
     "operations",
     "batches",
     "blob_ranges",
@@ -45,6 +46,13 @@ const EFFECTS: &[&str] = &[
     "continue",
 ];
 const METHODS: &[&str] = &[
+    "code.complete",
+    "code.inspect",
+    "namespace.list",
+    "namespace.preview",
+    "debug.control",
+    "debug.breakpoints",
+    "widget.state",
     "runtime.status",
     "run",
     "batch",
@@ -146,6 +154,13 @@ fn validate(request: &Value) -> Result<&str> {
         ));
     }
     let required: &[&str] = match method {
+        "code.complete" => &["worker_generation", "source", "source_revision", "cursor"],
+        "code.inspect" => &["worker_generation", "name"],
+        "namespace.list" => &["worker_generation"],
+        "namespace.preview" => &["worker_generation", "handle"],
+        "debug.control" => &["worker_generation", "command", "controller_id"],
+        "debug.breakpoints" => &["worker_generation", "breakpoints"],
+        "widget.state" => &["worker_generation", "handle"],
         "run" => &["expected_sha256"],
         "restore" | "continue" => &["checkpoint_id"],
         "operation.cancel" => &["operation_id"],
@@ -164,6 +179,50 @@ fn validate(request: &Value) -> Result<&str> {
     let mut fields = request.clone();
     fields["method"] = "ping".into();
     helper::validate(&fields)?;
+    if request
+        .get("debug")
+        .is_some_and(|value| !value.is_boolean())
+    {
+        return Err(invalid("debug must be a boolean"));
+    }
+    if request.get("origin").is_some_and(|value| {
+        !value
+            .as_str()
+            .is_some_and(|origin| ["notebook", "console", "widget", "jupyter"].contains(&origin))
+    }) {
+        return Err(invalid("Unsupported execution origin"));
+    }
+    if method.starts_with("code.") || method.starts_with("namespace.") {
+        for key in [
+            "worker_generation",
+            "source_revision",
+            "handle",
+            "name",
+            "source",
+        ] {
+            if request.get(key).is_some_and(|value| !value.is_string()) {
+                return Err(invalid(format!("{key} must be a string")));
+            }
+        }
+        if method == "code.complete"
+            && !request["cursor"].as_u64().is_some_and(|cursor| {
+                request["source"]
+                    .as_str()
+                    .is_some_and(|source| cursor <= source.chars().count() as u64)
+            })
+        {
+            return Err(invalid(
+                "cursor must be a Unicode code-point offset in source",
+            ));
+        }
+        if method == "namespace.list"
+            && request
+                .get("page_size")
+                .is_some_and(|size| !size.as_u64().is_some_and(|size| (1..=100).contains(&size)))
+        {
+            return Err(invalid("namespace pages are limited to 100 bindings"));
+        }
+    }
     if EFFECTS.contains(&method)
         && !request["client_request_id"]
             .as_str()
@@ -263,6 +322,16 @@ fn accept(
     ledger: &Writer,
 ) -> Result<Value> {
     let method = request["method"].as_str().unwrap();
+    if matches!(method, "checkpoint" | "restore" | "continue") && {
+        let state = shared.status.lock().unwrap();
+        state["debug"].is_object() || state["background_tasks"] == true
+    } {
+        return Err(coded(
+            "busy",
+            "Resume or stop debugging before checkpoint or restore",
+            json!({}),
+        ));
+    }
     let key = request["client_request_id"].as_str().unwrap();
     let client = greeting["client_id"].as_str().unwrap();
     // Stop must bypass both the work queue and a lifecycle/source admission
@@ -555,7 +624,18 @@ fn status(root: &Path, shared: &Shared) -> Result<Value> {
     let state = shared.status.lock().unwrap().clone();
     let ledger = reader(root)?;
     let pending = inputs::views(shared);
-    value["worker_state"] = if !pending.is_empty() {
+    value["debug"] = state["debug"].clone();
+    value["background_tasks"] = state["background_tasks"].clone();
+    value["worker_start_stage"] = state["worker_start_stage"].clone();
+    value["checkpoint_eligible"] = json!(
+        state["worker_start_stage"] == "ready"
+            && state["in_flight"].is_null()
+            && state["debug"].is_null()
+            && state["background_tasks"] != true
+    );
+    value["worker_state"] = if state["debug"].is_object() {
+        "paused"
+    } else if !pending.is_empty() {
         "waiting_input"
     } else if !state["in_flight"].is_null() {
         "running"
@@ -568,6 +648,9 @@ fn status(root: &Path, shared: &Shared) -> Result<Value> {
     value["session_id"] = state["session_id"].clone();
     value["active_execution"] = state["in_flight"].clone();
     value["capabilities"] = json!(CAPABILITIES);
+    value["interactive"] = json!({"engine":state["environment"]["engine"],"namespace_epoch":state["namespace_epoch"],
+        "worker_generation":state["environment"]["worker_generation"],
+        "features":state["environment"]["interactive_features"].as_array().cloned().unwrap_or_default()});
     value["interpreter"] = state
         .get("environment")
         .cloned()
@@ -593,6 +676,101 @@ fn status(root: &Path, shared: &Shared) -> Result<Value> {
     )?);
     Ok(value)
 }
+fn interactive_read(request: &Value, shared: &Shared) -> Result<Value> {
+    if serde_json::to_vec(request)?.len() > 60000 {
+        return Err(coded(
+            "too_large",
+            "Interactive requests are limited to 64 KiB",
+            json!({}),
+        ));
+    }
+    {
+        let state = shared.status.lock().unwrap();
+        if state["session_id"].is_null() {
+            return Err(coded(
+                "disconnected",
+                "Run a cell before live inspection",
+                json!({}),
+            ));
+        }
+        if state["worker_start_stage"] != "ready" {
+            return Err(coded(
+                "busy",
+                "Worker lifecycle transition in progress",
+                json!({}),
+            ));
+        }
+        if request["worker_generation"] != state["environment"]["worker_generation"] {
+            return Err(coded(
+                "stale_generation",
+                "Worker changed; refresh runtime status",
+                json!({}),
+            ));
+        }
+        if !state["in_flight"].is_null() && request["method"] != "debug.control" {
+            return Err(coded(
+                "busy",
+                "Live reads require an idle execution thread",
+                json!({}),
+            ));
+        }
+    }
+    let id = Uuid::new_v4().to_string();
+    let (send, receive) = mpsc::sync_channel(1);
+    {
+        let mut pending = shared.interactive.lock().unwrap();
+        if pending.len() >= 32 {
+            return Err(coded("busy", "Interactive read queue is full", json!({})));
+        }
+        pending.insert(id.clone(), send);
+    }
+    let result = (|| -> Result<Value> {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        {
+            let _send = shared.worker_send.try_lock().map_err(|_| {
+                coded(
+                    "busy",
+                    "Worker transport is occupied; retry when idle",
+                    json!({}),
+                )
+            })?;
+            let mut socket = shared.socket.lock().unwrap();
+            let socket = socket
+                .as_mut()
+                .ok_or_else(|| coded("disconnected", "Worker disconnected", json!({})))?;
+            socket.set_write_timeout(Some(Duration::from_secs(2)))?;
+            let sent = kernelledger_protocol::write_worker(
+                &mut *socket,
+                &json!({"schema":1,"kind":"interactive_read","request_id":id,"request":request}),
+            );
+            socket.set_write_timeout(Some(Duration::from_secs(10)))?;
+            if let Err(error) = sent {
+                // A partially written frame cannot be reused safely.
+                let _ = socket.shutdown(std::net::Shutdown::Both);
+                return Err(error);
+            }
+        }
+        let mut value = receive
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .map_err(|_| coded("timeout", "Interactive read expired", json!({})))?;
+        let state = shared.status.lock().unwrap();
+        if value["worker_generation"] != state["environment"]["worker_generation"] {
+            return Err(coded(
+                "stale_generation",
+                "Worker changed while reading",
+                json!({}),
+            ));
+        }
+        value["request_id"] = request.get("request_id").cloned().unwrap_or(Value::Null);
+        value["session_id"] = state["session_id"].clone();
+        value.as_object_mut().unwrap().remove("schema");
+        value.as_object_mut().unwrap().remove("kind");
+        Ok(value)
+    })();
+    shared.interactive.lock().unwrap().remove(&id);
+    result
+}
+
 fn control(
     root: &Path,
     request: &Value,
@@ -605,6 +783,10 @@ fn control(
     let method = validate(request)?;
     match method {
         "runtime.status" => status(root, shared),
+        "code.complete" | "code.inspect" | "namespace.list" | "namespace.preview"
+        | "debug.control" | "debug.breakpoints" | "widget.state" => {
+            interactive_read(request, shared)
+        }
         "input.claim" | "input.release" | "input.reply" | "input.cancel" => {
             inputs::control(method, request, greeting, connection, shared, ledger)
         }
@@ -700,11 +882,8 @@ fn control(
                 if shared.status.lock().unwrap()["in_flight"].is_null() {
                     return Err(coded("busy", "no in-flight execution", json!({})));
                 }
-                kernelledger_protocol::write_worker(
-                    &mut *socket,
-                    &json!({"schema":1,"kind":"interrupt"}),
-                )?;
                 if let Some(eid) = shared.status.lock().unwrap()["in_flight"].as_str() {
+                    super::interrupt_worker(shared, socket, eid)?;
                     inputs::cancel(eid, shared, ledger, Some(socket))?;
                 }
             }
@@ -869,6 +1048,22 @@ pub(super) fn serve(
 mod tests {
     use super::*;
     use std::{sync::Arc, thread};
+    #[test]
+    fn interactive_reads_do_not_wait_behind_bulk_worker_writes() {
+        let shared = Shared::default();
+        *shared.status.lock().unwrap() = json!({"session_id":"session", "worker_start_stage":"ready", "environment":{"worker_generation":"generation"}, "in_flight":null});
+        let held = shared.worker_send.lock().unwrap();
+        let started = Instant::now();
+        let error = interactive_read(
+            &json!({"method":"namespace.list","worker_generation":"generation"}),
+            &shared,
+        )
+        .unwrap_err();
+        assert_eq!(helper::error_body(&error)["code"], "busy");
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(shared.interactive.lock().unwrap().is_empty());
+        drop(held);
+    }
     #[test]
     fn stop_admission_bypasses_a_held_lifecycle_gate() {
         let directory = tempfile::tempdir().unwrap();

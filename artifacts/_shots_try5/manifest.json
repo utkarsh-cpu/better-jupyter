@@ -1,0 +1,19 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "runtime_implementation": "python",
+  "screens": [],
+  "failures": [
+    {
+      "name": "source-preview",
+      "description": "Read-only source preview",
+      "error": "file dialog has no file-name field: [(200870, 0, 'DUIViewWndClassName'), (200814, 0, 'DirectUIHWND'), (463024, 0, 'CtrlNotifySink'), (200868, 0, 'NamespaceTreeControl'), (266412, 0, 'Static'), (1118192, 100, 'SysTreeView32'), (2953152, 0, 'CtrlNotifySink'), (4459718, 0, 'Shell Preview Extension Host'), (2363386, 0, 'CtrlNotifySink'), (528558, 1121, 'SHELLDLL_DefView'), (135338, 0, 'DirectUIHWND'), (12914628, 0, 'CtrlNotifySink'), (2756564, 0, 'ScrollBar'), (659108, 0, 'CtrlNotifySink'), (2559970, 0, 'ScrollBar'), (200584, 1090, 'Static'), (1314674, 1148, 'ComboBoxEx32'), (2229688, 1148, 'ComboBox'), (1183618, 1148, 'Edit'), (1707888, 1, 'Button'), (2166630, 2, 'Button'), (200614, -1, 'ScrollBar'), (724842, 1092, 'Static'), (6360312, 1091, 'Static'), (1248698, 1093, 'Static'), (1379766, 1120, 'ListBox'), (7998526, 1095, 'Static'), (6098442, 1038, 'Button'), (5246984, 0, 'WorkerW'), (725040, 40965, 'ReBarWindow32'), (1708132, 0, 'TravelBand'), (4721750, 0, 'ToolbarWindow32'), (200852, 0, 'UpBand'), (1577042, 0, 'ToolbarWindow32'), (1970178, 41477, 'Address Band Root'), (1249268, 0, 'msctls_progress32'), (986786, 0, 'Breadcrumb Parent'), (5377270, 1001, 'ToolbarWindow32'), (6950820, 0, 'ToolbarWindow32'), (6098750, 41477, 'ComboBoxEx32'), (6489584, 41477, 'ComboBox'), (3018750, 41477, 'Edit'), (7539416, 0, 'SeparatorBand'), (1640520, 0, 'UniversalSearchBand'), (7473202, 0, 'Search Box'), (16321654, 0, 'SearchEditBoxWrapperClass'), (4460466, 0, 'DirectUIHWND'), (135336, 0, 'SeparatorBand')]"
+    }
+  ],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

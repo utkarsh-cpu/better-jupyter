@@ -1,0 +1,107 @@
+[
+    {
+        "name":  "KernelLedger — notebook",
+        "role":  "ControlType.Window",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "View checkpoint",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Dismiss",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Restored in a new session: e549c168-5108-46fe-b645-654cc0bbd1e2",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Return to notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Copy session identifier",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Dismiss restored session notice",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Python code (same notebook worker)",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Run in notebook session",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "View console history",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: Console output confirmed\n",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: Console output 1",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "id":  ""
+    }
+]

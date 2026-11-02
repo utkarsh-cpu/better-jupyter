@@ -1,0 +1,31 @@
+{
+  "schema": "kernelledger.native-package/1",
+  "experimental": true,
+  "platform": "Windows",
+  "architecture": "AMD64",
+  "git_commit": "6a62fa8b2bfad347aea51856ee470875ea10b40d",
+  "source_snapshot_sha256": "e09daa81d4ec73b3279c52d80ba8fa7304bfd5c30dcf441f9382b02671bea2be",
+  "dirty_tree": true,
+  "worker": {
+    "name": "worker.py",
+    "worker_protocol": 1,
+    "version": "0.1.0",
+    "sha256": "06f27bfae432d8a52be0e56de19cb3f3a02f898f1ca82c82b49fa4c5e19f7340",
+    "byte_size": 134333,
+    "source": "embedded"
+  },
+  "files": {
+    "kernelledger-daemon.exe": {
+      "sha256": "973905265b26641868ae9e5361a003801c03cfc60de0163bc9a5d7f0d9a1f40b",
+      "byte_size": 5339136
+    },
+    "README.txt": {
+      "sha256": "9073a747216fa06aa2f57f8c949ecdfc42089576cc0164f6c1d4bc7e76c2a262",
+      "byte_size": 2080
+    },
+    "licenses.json": {
+      "sha256": "f1a91d280d7cfb0b529c8cf6ff7142f8b68ea72986c0ad8ba2b210cefc439307",
+      "byte_size": 5168
+    }
+  }
+}

@@ -231,13 +231,24 @@ class Notebook:
             from .source import SourceService
 
             return SourceService(self.root).legacy("import_ipynb", path)
-        original = json.loads(Path(path).read_text(encoding="utf-8"))
+        with Path(path).open("rb") as stream:
+            raw = stream.read(64 * 1024 * 1024 + 1)
+        if len(raw) > 64 * 1024 * 1024:
+            raise ValueError("Notebook import exceeds the 64 MiB file limit")
+        original = json.loads(raw.decode("utf-8-sig"))
         if original.get("nbformat") != 4:
             raise ValueError("only ipynb format 4 is supported")
         if self.read()["cells"]:
             raise ValueError("import needs an empty notebook")
         data = self.read()
         data["metadata"] = original.get("metadata", {})
+        extras = {
+            key: value
+            for key, value in original.items()
+            if key not in ("nbformat", "nbformat_minor", "metadata", "cells")
+        }
+        if extras:
+            data["metadata"].setdefault("kernelledger", {})["ipynb_fields"] = extras
         imported: dict[Any, Any]
         seen: set[Any]
         imported, seen = {}, set()
@@ -258,6 +269,26 @@ class Notebook:
                 for k, v in item.get("metadata", {}).items()
                 if k not in ("execution", "execution_count")
             }
+            extras = {
+                key: value
+                for key, value in item.items()
+                if key
+                not in (
+                    "id",
+                    "cell_type",
+                    "source",
+                    "metadata",
+                    "outputs",
+                    "execution_count",
+                    "attachments",
+                )
+            }
+            if extras or item.get("execution_count") is not None:
+                interchange = metadata.setdefault("kernelledger", {})
+                if extras:
+                    interchange["ipynb_fields"] = extras
+                if item.get("execution_count") is not None:
+                    interchange["imported_execution_count"] = item["execution_count"]
             self.add(item["cell_type"], source, cid, metadata)
             cell = self.cell(cid)
             attachments = item.get("attachments", {})
@@ -312,6 +343,7 @@ class Notebook:
             source = self.source(cell)
             item: dict[Any, Any]
             item = {
+                **cell.get("metadata", {}).get("kernelledger", {}).get("ipynb_fields", {}),
                 "id": cell["id"],
                 "cell_type": cell["type"],
                 "metadata": dict(cell.get("metadata", {})),
@@ -341,6 +373,7 @@ class Notebook:
                 )
                 if record:
                     item["metadata"]["kernelledger"] = {
+                        **item["metadata"].get("kernelledger", {}),
                         "output_source_sha256": record["source_sha256"],
                         "source_sha256": source_hash(source),
                         "output_mismatch": record["source_sha256"] != source_hash(source),
@@ -348,5 +381,11 @@ class Notebook:
             cells.append(item)
         write_json(
             Path(path),
-            {"nbformat": 4, "nbformat_minor": 5, "metadata": data["metadata"], "cells": cells},
+            {
+                **data["metadata"].get("kernelledger", {}).get("ipynb_fields", {}),
+                "nbformat": 4,
+                "nbformat_minor": 5,
+                "metadata": data["metadata"],
+                "cells": cells,
+            },
         )

@@ -7,6 +7,13 @@ from ..source import SourceError
 
 SUPERVISOR = {
     "runtime.status": [],
+    "code.complete": ["worker_generation", "source", "source_revision", "cursor"],
+    "code.inspect": ["worker_generation", "name"],
+    "namespace.list": ["worker_generation"],
+    "namespace.preview": ["worker_generation", "handle"],
+    "debug.control": ["worker_generation", "command", "controller_id"],
+    "debug.breakpoints": ["worker_generation", "breakpoints"],
+    "widget.state": ["worker_generation", "handle"],
     "run": ["expected_sha256"],
     "batch": [],
     "interrupt": [],
@@ -42,6 +49,7 @@ SUPERVISOR = {
     "blob.read": ["sha256"],
 }
 HELPER = {
+    "display.updates": ["after_rowid", "through_rowid"],
     "training.list": [],
     "training.inspect": ["snapshot"],
     "native.status": [],
@@ -53,6 +61,7 @@ HELPER = {
     "executions.list": [],
     "executions.watermark": [],
     "execution.get": ["exec_id"],
+    "source.execution": ["exec_id", "source_revision", "line"],
     "events.list": ["exec_id"],
     "fold.get": ["exec_id"],
     "checkpoints.list": [],
@@ -116,14 +125,39 @@ def validate(request: Any, helper: bool = False) -> None:
         "device",
         "format",
         "markdown",
+        "worker_generation",
+        "source_revision",
+        "handle",
+        "controller_id",
+        "command",
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
     for key in ("offset", "length", "after_seq", "after_change_seq", "page_size"):
         if key in request and (type(request[key]) is not int or request[key] < 0):
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
+    if "line" in request and (
+        type(request["line"]) is not int or not 1 <= request["line"] <= 100000
+    ):
+        raise SourceError("invalid_request", "line must be between 1 and 100000")
+    if method == "display.updates":
+        for key in ("after_rowid", "through_rowid"):
+            if type(request[key]) is not int or not 0 <= request[key] <= 2**63 - 1:
+                raise SourceError("invalid_request", f"{key} must be a nonnegative SQLite rowid")
+        if request["after_rowid"] > request["through_rowid"]:
+            raise SourceError("invalid_request", "after_rowid exceeds through_rowid")
     if "page_size" in request and not 1 <= request["page_size"] <= 500:
         raise SourceError("invalid_request", "page_size must be between 1 and 500")
+    if method == "code.complete" and (
+        type(request["cursor"]) is not int or not 0 <= request["cursor"] <= len(request["source"])
+    ):
+        raise SourceError("invalid_request", "cursor must be a Unicode code-point offset in source")
+    if method == "namespace.list" and not 1 <= request.get("page_size", 100) <= 100:
+        raise SourceError("invalid_request", "namespace pages are limited to 100 bindings")
+    if method == "debug.breakpoints" and (
+        type(request["breakpoints"]) is not list or len(request["breakpoints"]) > 100
+    ):
+        raise SourceError("invalid_request", "At most 100 breakpoints are supported")
     for key in (
         "trust",
         "allow_python_mismatch",
@@ -131,6 +165,7 @@ def validate(request: Any, helper: bool = False) -> None:
         "keep_outputs",
         "dry_run",
         "latest_per_cell",
+        "debug",
     ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")
@@ -141,6 +176,13 @@ def validate(request: Any, helper: bool = False) -> None:
             raise SourceError("invalid_request", "client_request_id must be a UUID") from None
     if method == "run" and (("source" in request) + ("cell_id" in request) != 1):
         raise SourceError("invalid_request", "run requires one cell_id or source")
+    if "origin" in request and request["origin"] not in (
+        "notebook",
+        "console",
+        "widget",
+        "jupyter",
+    ):
+        raise SourceError("invalid_request", "Unsupported execution origin")
     if "snapshot" in request:
         from ..blobs import check_hash
 
@@ -164,10 +206,23 @@ def schema(helper: bool = False) -> Any:
             properties["client_request_id"] = {"type": "string", "format": "uuid"}
         for key in required:
             properties[key] = (
-                {"type": "string"}
+                {"type": "integer", "minimum": 0}
+                if key in ("cursor", "line")
+                else {"type": "string"}
                 if key != "expected_sha256"
                 else {"type": "string", "pattern": "^[0-9a-f]{64}$"}
             )
+            if key == "breakpoints":
+                properties[key] = {"type": "array", "maxItems": 100, "items": {"type": "object"}}
+            if key == "line":
+                properties[key] = {"type": "integer", "minimum": 1, "maximum": 100000}
+            if key in ("after_rowid", "through_rowid"):
+                properties[key] = {"type": "integer", "minimum": 0, "maximum": 2**63 - 1}
+        if helper and method == "display.updates":
+            properties["session_id"] = {"type": "string"}
+        if method == "run":
+            properties["origin"] = {"enum": ["notebook", "console", "widget", "jupyter"]}
+            properties["debug"] = {"type": "boolean"}
         if helper and method == "export_document":
             properties["markdown"] = {"type": "string"}
         variants.append({"type": "object", "required": keys, "properties": properties})

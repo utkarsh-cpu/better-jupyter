@@ -1,0 +1,74 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "runtime_implementation": "python",
+  "screens": [
+    {
+      "name": "notebook",
+      "file": "notebook.png",
+      "description": "Notebook with outline, cells, outputs and status bar"
+    },
+    {
+      "name": "component-title-bar",
+      "file": "component-title-bar.png",
+      "description": "Application title bar: outline toggle, notebook switcher, destinations, commands, runtime, run, export, settings and menu (2538x72 px crop)"
+    },
+    {
+      "name": "component-cell-header",
+      "file": "component-cell-header.png",
+      "description": "Cell header: run control, ordinal, language and outcome, with output tools (2538x72 px crop)"
+    },
+    {
+      "name": "component-status-bar",
+      "file": "component-status-bar.png",
+      "description": "Status bar: mode, cell count, runtime state, save state and assistant toggle (2538x65 px crop)"
+    },
+    {
+      "name": "overlay-command-palette",
+      "file": "overlay-command-palette.png",
+      "description": "Command palette over the notebook"
+    },
+    {
+      "name": "overlay-application-menu",
+      "file": "overlay-application-menu.png",
+      "description": "Workspace menu with files and destinations"
+    },
+    {
+      "name": "history-list",
+      "file": "history-list.png",
+      "description": "History list with filters and recorded executions"
+    },
+    {
+      "name": "diagnostics",
+      "file": "diagnostics.png",
+      "description": "Health checks, in-flight operations and recovery tools"
+    },
+    {
+      "name": "help",
+      "file": "help.png",
+      "description": "Shortcuts, terminology and build information"
+    },
+    {
+      "name": "settings",
+      "file": "settings.png",
+      "description": "Appearance, type, layout and interpreter settings"
+    },
+    {
+      "name": "notebook-empty",
+      "file": "notebook-empty.png",
+      "description": "Notebook with no cells yet"
+    },
+    {
+      "name": "welcome",
+      "file": "welcome.png",
+      "description": "Welcome screen before a notebook is open"
+    }
+  ],
+  "failures": [],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

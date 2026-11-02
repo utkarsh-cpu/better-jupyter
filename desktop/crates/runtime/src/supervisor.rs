@@ -65,14 +65,53 @@ fn reserve(shared: &Shared) -> Result<QueueSlot> {
     })
 }
 #[derive(Default)]
+struct InterruptDelivery {
+    execution: Option<String>,
+    running: bool,
+    pending: bool,
+}
+impl InterruptDelivery {
+    fn begin(&mut self, execution: &str) {
+        *self = Self {
+            execution: Some(execution.into()),
+            ..Self::default()
+        };
+    }
+    fn request(&mut self, execution: &str) -> bool {
+        if self.execution.as_deref() != Some(execution) {
+            return false;
+        }
+        if self.running {
+            return true;
+        }
+        self.pending = true;
+        false
+    }
+    fn acknowledge(&mut self, execution: &str) -> bool {
+        if self.execution.as_deref() != Some(execution) {
+            return false;
+        }
+        self.running = true;
+        std::mem::take(&mut self.pending)
+    }
+}
+// The caller holds worker_send, keeping acknowledgment and control delivery ordered.
+fn interrupt_worker(shared: &Shared, socket: &mut TcpStream, execution: &str) -> Result<()> {
+    if shared.interrupt_delivery.lock().unwrap().request(execution) {
+        write_worker(socket, &json!({"schema":1,"kind":"interrupt"}))?;
+    }
+    Ok(())
+}
+#[derive(Default)]
 struct Shared {
     identity: Value,
-    status: Mutex<Value>,
+    status: Arc<Mutex<Value>>,
     socket: Mutex<Option<TcpStream>>,
     worker_send: Mutex<()>,
     validation: Mutex<crate::resources::ValidationCache>,
     cache_validation: bool,
     cancel_delivery: Mutex<(Option<String>, bool)>,
+    interrupt_delivery: Mutex<InterruptDelivery>,
     inputs: Mutex<inputs::Requests>,
     record_secret_input: bool,
     stopping: AtomicBool,
@@ -87,6 +126,7 @@ struct Shared {
     stop_error: Mutex<Option<String>>,
     connections: Mutex<HashMap<Uuid, TcpStream>>,
     desktop_clients: Mutex<HashMap<Uuid, Value>>,
+    interactive: Arc<Mutex<HashMap<String, mpsc::SyncSender<Value>>>>,
 }
 struct Worker {
     process: Process,
@@ -153,6 +193,7 @@ impl Worker {
         parent: Option<String>,
         checkpoint: Option<String>,
     ) -> Result<Self> {
+        let publish = parent.is_none();
         let listener = TcpListener::bind(("127.0.0.1", 0))?;
         listener.set_nonblocking(true)?;
         let secret = token();
@@ -232,19 +273,43 @@ impl Worker {
         let mut input = socket.try_clone()?;
         let store = BlobStore::new(&root.join(".kl"));
         let (send, events) = mpsc::sync_channel(64);
+        let interactive = shared.interactive.clone();
+        let interactive_state = shared.status.clone();
+        let generation = hello["worker_generation"].clone();
         thread::Builder::new()
             .name("kl-worker-reader".into())
             .spawn(move || {
                 loop {
                     let event = receive(&mut input, &store);
+                    if let Ok(value) = &event
+                        && value["kind"] == "interactive_state"
+                    {
+                        let mut state = interactive_state.lock().unwrap();
+                        if state["environment"]["worker_generation"] == generation {
+                            state["debug"] = value["debug"].clone();
+                        }
+                        continue;
+                    }
+                    if let Ok(value) = &event
+                        && value["kind"] == "interactive_reply"
+                    {
+                        if let Some(id) = value["request_id"].as_str()
+                            && let Some(reply) = interactive.lock().unwrap().remove(id)
+                        {
+                            let _ = reply.try_send(value.clone());
+                        }
+                        continue;
+                    }
                     let failed = event.is_err();
                     if send.send(event).is_err() || failed {
                         break;
                     }
                 }
             })?;
-        *shared.socket.lock().unwrap() = Some(socket.try_clone()?);
-        *shared.status.lock().unwrap() = json!({"pid":std::process::id(),"session_id":session,"worker_python":hello["executable"],"environment":hello,"in_flight":null,"worker_start_stage":"ready","implementation":"rust","experimental":true});
+        if publish {
+            *shared.socket.lock().unwrap() = Some(socket.try_clone()?);
+            *shared.status.lock().unwrap() = json!({"pid":std::process::id(),"session_id":session,"worker_python":hello["executable"],"environment":hello,"in_flight":null,"worker_start_stage":"ready","implementation":"rust","experimental":true});
+        }
         Ok(Self {
             process,
             socket,
@@ -544,6 +609,7 @@ fn restore(
         .as_str()
         .context("checkpoint session")?
         .to_owned();
+    shared.status.lock().unwrap()["worker_start_stage"] = "restore".into();
     let started = Worker::start(
         root,
         python,
@@ -563,7 +629,7 @@ fn restore(
     };
     timings["candidate_start_seconds"] = stage.elapsed().as_secs_f64().into();
     stage = Instant::now();
-    shared.status.lock().unwrap()["worker_start_stage"] = "restore".into();
+    let mut namespace_epoch = Value::Null;
     let reconstructed = (|| -> Result<Value> {
         let minor = |text: &str| text.split('.').take(2).collect::<Vec<_>>().join(".");
         if minor(
@@ -608,6 +674,7 @@ fn restore(
         loop {
             let event = candidate.wait(shared)?;
             if event["kind"] == "ready" {
+                namespace_epoch = event["namespace_epoch"].clone();
                 break;
             }
             if event["kind"] == "restore_result" {
@@ -639,8 +706,12 @@ fn restore(
             stage = Instant::now();
             worker.take();
             timings["retire_seconds"] = stage.elapsed().as_secs_f64().into();
+            {
+                let _send = shared.worker_send.lock().unwrap();
+                *shared.socket.lock().unwrap() = Some(candidate.socket.try_clone()?);
+                *shared.status.lock().unwrap() = json!({"pid":std::process::id(),"session_id":candidate.session,"worker_python":candidate.environment["executable"],"environment":candidate.environment,"namespace_epoch":namespace_epoch,"in_flight":null,"worker_start_stage":"ready","implementation":"rust","experimental":true});
+            }
             *worker = Some(candidate);
-            shared.status.lock().unwrap()["worker_start_stage"] = "ready".into();
             timings["total_seconds"] = total_started.elapsed().as_secs_f64().into();
             if std::env::var("KERNELLEDGER_PROFILE").as_deref() == Ok("1") {
                 report["timings"] = timings;
@@ -762,11 +833,12 @@ fn execute(
             }
             worker.process.pipes.begin(&eid)?;
             *shared.cancel_delivery.lock().unwrap() = (None, false);
+            shared.interrupt_delivery.lock().unwrap().begin(&eid);
             shared.status.lock().unwrap()["in_flight"] = eid.clone().into();
             send_command(
                 &mut worker.socket,
                 &store,
-                &json!({"schema":1,"kind":"execute","exec_id":eid,"cell_id":cell,"source":source,"source_sha256":digest,"correlated_inputs":true}),
+                &json!({"schema":1,"kind":"execute","exec_id":eid,"cell_id":cell,"source":source,"source_sha256":digest,"correlated_inputs":true,"debug":request.get("debug").cloned().unwrap_or(json!(false)),"origin":request.get("origin").cloned().unwrap_or(if cell.is_some(){json!("notebook")}else{json!("unattributed")})}),
             )?;
         }
         loop {
@@ -784,31 +856,33 @@ fn execute(
             event.as_object_mut().unwrap().remove("schema");
             event.as_object_mut().unwrap().remove("kind");
             event.as_object_mut().unwrap().remove("exec_id");
+            if kind == "status" && event["namespace_epoch"].is_number() {
+                shared.status.lock().unwrap()["namespace_epoch"] = event["namespace_epoch"].clone();
+                shared.status.lock().unwrap()["background_tasks"] =
+                    event["background_tasks"].clone();
+            }
+            if kind == "status" && event["state"] == "running" {
+                let _send = shared.worker_send.lock().unwrap();
+                let mut interrupt = shared.interrupt_delivery.lock().unwrap().acknowledge(&eid);
+                if let Some(oid) = operation.filter(|_| accepted.is_some()) {
+                    let mut delivery = shared.cancel_delivery.lock().unwrap();
+                    delivery.0 = Some(oid.into());
+                    interrupt |= !delivery.1
+                        && ledger.call(Mutation::Operation {
+                            operation: oid.into(),
+                        })?["result"]["cancel_requested"]
+                            == true;
+                    delivery.1 |= interrupt;
+                }
+                if interrupt {
+                    write_worker(&mut worker.socket, &json!({"schema":1,"kind":"interrupt"}))?;
+                }
+            }
             if kind == "status" && event["state"] == "running" && accepted.is_none() {
                 ledger.call(Mutation::ExecutionState {
                     execution: eid.clone(),
                     state: "running".into(),
                 })?;
-            }
-            if kind == "status"
-                && event["state"] == "running"
-                && let Some(oid) = operation.filter(|_| accepted.is_some())
-            {
-                // An interrupt received before the worker's execution thread
-                // starts may be ignored by worker protocol 1. Reconcile the
-                // durable cancellation when its running acknowledgment arrives.
-                let _send = shared.worker_send.lock().unwrap();
-                let mut delivery = shared.cancel_delivery.lock().unwrap();
-                delivery.0 = Some(oid.into());
-                if !delivery.1
-                    && ledger.call(Mutation::Operation {
-                        operation: oid.into(),
-                    })?["result"]["cancel_requested"]
-                        == true
-                {
-                    write_worker(&mut worker.socket, &json!({"schema":1,"kind":"interrupt"}))?;
-                    delivery.1 = true;
-                }
             }
             if kind == "stdin_request" {
                 inputs::requested(
@@ -1234,6 +1308,20 @@ fn client(
         );
         let request = receive(&mut socket, &BlobStore::new(&root.join(".kl")))?;
         ensure!(request["kind"] == "request", "expected request");
+        if matches!(
+            request["command"].as_str(),
+            Some("checkpoint" | "restore" | "continue")
+        ) && shared.status.lock().unwrap()["debug"].is_object()
+        {
+            return Ok(json!({"refused":"paused_debugging"}));
+        }
+        if matches!(
+            request["command"].as_str(),
+            Some("checkpoint" | "restore" | "continue")
+        ) && shared.status.lock().unwrap()["background_tasks"] == true
+        {
+            return Ok(json!({"refused":"background_tasks"}));
+        }
         match request["command"].as_str() {
             Some("status") => {
                 let mut status = shared.identity.clone();
@@ -1292,8 +1380,8 @@ fn client(
                         !shared.status.lock().unwrap()["in_flight"].is_null(),
                         "no in-flight execution"
                     );
-                    write_worker(&mut *worker, &json!({"schema":1,"kind":"interrupt"}))?;
                     if let Some(eid) = shared.status.lock().unwrap()["in_flight"].as_str() {
+                        interrupt_worker(shared, worker, eid)?;
                         inputs::cancel(eid, shared, ledger, Some(worker))?;
                     }
                 }
@@ -1454,14 +1542,15 @@ pub fn serve(args: &[String]) -> Result<Value> {
     let mut publication = crate::publication::Publication::publish(&root, &info)?;
     let shared = Arc::new(Shared {
         identity: info,
-        status: Mutex::new(
+        status: Arc::new(Mutex::new(
             json!({"pid":std::process::id(),"session_id":null,"in_flight":null,"worker_start_stage":"absent","implementation":"rust","experimental":true}),
-        ),
+        )),
         socket: Mutex::new(None),
         worker_send: Mutex::new(()),
         validation: Mutex::new(crate::resources::ValidationCache::default()),
         cache_validation: !args.iter().any(|arg| arg == "--worker"),
         cancel_delivery: Mutex::new((None, false)),
+        interrupt_delivery: Mutex::new(InterruptDelivery::default()),
         inputs: Mutex::new(inputs::Requests::new()),
         record_secret_input: fs::read(root.join(".kl/config.json"))
             .ok()
@@ -1479,6 +1568,7 @@ pub fn serve(args: &[String]) -> Result<Value> {
         stop_error: Mutex::new(None),
         connections: Mutex::new(HashMap::new()),
         desktop_clients: Mutex::new(HashMap::new()),
+        interactive: Arc::new(Mutex::new(HashMap::new())),
     });
     let (send, jobs) = mpsc::sync_channel(COMMAND_LIMIT);
     let acceptors = accept::Acceptors::start(

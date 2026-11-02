@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
 from .blobs import references
+from .display import session_views
 from .ledger import TABLES, fold, now
 from .notebook import source_hash, write_json
 from .worker import validate_checkpoint
@@ -41,16 +42,24 @@ def output_view(notebook: Any, ledger: Any, blobs: Any, eid: Any, raw: Any = Fal
         "current_source_sha256": current,
         "output_mismatch": current != row["source_sha256"],
         "outputs": events if raw else fold(events),
+        "origin": next(
+            (
+                event["origin"]
+                for event in events
+                if event["kind"] == "status" and event.get("origin")
+            ),
+            "unknown",
+        ),
     }
 
 
 def notebook_outputs(ledger: Any, blobs: Any, sid: Any) -> Any:
     result: dict[Any, Any]
     result = {}
-    for row in ledger.rows("SELECT * FROM executions WHERE session_id=? ORDER BY ordinal", (sid,)):
+    for row in session_views(ledger, sid):
         outputs: list[Any]
         outputs = []
-        for event in fold(ledger.events(row["exec_id"])):
+        for event in row["outputs"]:
             kind = event["kind"]
             if kind in ("stdout", "stderr"):
                 text = event.get("text")
@@ -69,10 +78,17 @@ def notebook_outputs(ledger: Any, blobs: Any, sid: Any) -> Any:
                 output = {
                     "output_type": "execute_result" if kind == "result" else "display_data",
                     "data": data,
-                    "metadata": event.get("metadata", {}),
+                    "metadata": payload(event["metadata"]["kernelledger"]["original_metadata"], blobs)
+                    if isinstance(event.get("metadata", {}).get("kernelledger", {}), dict) and "original_metadata" in event.get("metadata", {}).get("kernelledger", {})
+                    else event.get("metadata", {}),
                 }
                 if kind == "result":
                     output["execution_count"] = row["ordinal"]
+                if event.get("display_update_origin"):
+                    output["metadata"] = {
+                        **output["metadata"],
+                        "kernelledger_display_update_origin": event["display_update_origin"],
+                    }
                 outputs.append(output)
             elif kind == "error":
                 outputs.append(
@@ -428,6 +444,14 @@ def mutate(command: Any, request: Any, notebook: Any, ledger: Any, blobs: Any) -
     if command == "bundle_import":
         return import_bundle(notebook, ledger, blobs, request["path"])
     if command == "import_outputs":
+        def stored(value: Any) -> Any:
+            data = value.encode() if isinstance(value, str) else json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
+            if len(data) <= 32768:
+                return {"value": value}
+            digest = blobs.put(data)
+            ledger.blob(digest, len(data))
+            return {"blob": digest, "encoding": "utf8" if isinstance(value, str) else "json"}
+
         sid = ledger.session(
             notebook.read()["id"], {"kind": "imported"}, origin="ipynb", state="closed"
         )
@@ -439,43 +463,81 @@ def mutate(command: Any, request: Any, notebook: Any, ledger: Any, blobs: Any) -
                 kind = output["output_type"]
                 if kind == "stream":
                     text = output["text"]
+                    text = "".join(cast(list[str], text)) if isinstance(text, list) else text
+                    content = stored(text)
                     ledger.event(
                         eid,
                         output["name"],
-                        {
-                            "text": "".join(cast(list[str], text))
-                            if isinstance(text, list)
-                            else text
-                        },
+                        {"text": content["value"]} if "value" in content else content,
                     )
-                elif kind in ("display_data", "execute_result"):
+                elif kind in ("display_data", "execute_result", "update_display_data"):
                     bundle: dict[Any, Any]
                     bundle = {}
                     for mime, value in output["data"].items():
-                        if mime in ("image/png", "image/jpeg"):
+                        if mime in (
+                            "image/png",
+                            "image/jpeg",
+                            "audio/wav",
+                            "audio/mpeg",
+                            "audio/ogg",
+                            "video/mp4",
+                            "video/webm",
+                        ):
+                            encoded = "".join(cast(list[str], value)) if isinstance(value, list) else value
+                            if len(encoded) > 48 * 1024 * 1024:
+                                raise ValueError("Imported media exceeds the 32 MiB binary attachment limit")
                             data = base64.b64decode(
-                                "".join(cast(list[str], value))
-                                if isinstance(value, list)
-                                else value,
+                                encoded,
                                 validate=True,
                             )
+                            if len(data) > 32 * 1024 * 1024:
+                                raise ValueError("Imported media exceeds the 32 MiB binary attachment limit")
                             digest = blobs.put(data)
                             ledger.blob(digest, len(data))
                             bundle[mime] = {"blob": digest, "encoding": "binary"}
                         else:
-                            bundle[mime] = {
-                                "value": "".join(cast(list[str], value))
-                                if isinstance(value, list) and mime != "application/json"
+                            bundle[mime] = stored(
+                                "".join(cast(list[str], value))
+                                if isinstance(value, list) and (mime.startswith("text/") or mime == "image/svg+xml")
                                 else value
-                            }
+                            )
+                    metadata = output.get("metadata", {})
+                    if type(metadata) is not dict:
+                        raise ValueError("Imported output metadata must be an object")
+                    if len(json.dumps(metadata, ensure_ascii=False).encode()) > 65536:
+                        metadata = {"kernelledger": {"metadata_truncated": True, "original_metadata": stored(metadata)}}
                     ledger.event(
                         eid,
-                        "result" if kind == "execute_result" else "display",
-                        {"bundle": bundle, "metadata": output.get("metadata", {})},
+                        "result"
+                        if kind == "execute_result"
+                        else "display_update"
+                        if kind == "update_display_data"
+                        else "display",
+                        {
+                            "bundle": bundle,
+                            "metadata": metadata,
+                            "display_id": output.get("transient", {}).get("display_id"),
+                            "imported": True,
+                        },
                     )
                 elif kind == "error":
                     ledger.event(
                         eid, "error", {k: output[k] for k in ("ename", "evalue", "traceback")}
+                    )
+                elif kind == "clear_output":
+                    ledger.event(eid, "clear", {"wait": bool(output.get("wait"))})
+                else:
+                    ledger.event(
+                        eid,
+                        "display",
+                        {
+                            "bundle": {
+                                "text/plain": {
+                                    "value": f"Unsupported imported output type: {kind}; original payload retained"
+                                },
+                                "application/vnd.kernelledger.imported-output+json": stored(output),
+                            }
+                        },
                     )
             ledger.write("UPDATE executions SET status='ok',end=? WHERE exec_id=?", (now(), eid))
         return {"session_id": sid, "origin": "imported"}

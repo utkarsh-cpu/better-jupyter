@@ -18,6 +18,9 @@ pytorch = "kernelledger.gpu.cooperative:CooperativeCheckpointPlugin"
 [project.optional-dependencies]
 codecs = ["numpy", "pandas", "pyarrow"]
 plots = ["matplotlib"]
+jupyter = ["jupyter-client>=8.6,<9", "pyzmq>=26,<28"]
+ipython-spike = ["ipython>=8.18,<10"]
+debugger-spike = ["debugpy>=1.8,<1.9"]
 gpu = [
     "torch==2.12.0",
     "numpy==2.5.2; python_version >= '3.12'",

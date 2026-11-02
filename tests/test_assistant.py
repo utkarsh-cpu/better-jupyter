@@ -152,6 +152,13 @@ def test_receipt_exact_messages_are_sent_and_records_are_separate(assistant, not
         "stop",
         "import_ipynb",
         "../token",
+        "code.complete",
+        "code.inspect",
+        "namespace.list",
+        "namespace.preview",
+        "debug.control",
+        "debug.breakpoints",
+        "widget.state",
     ],
 )
 def test_effectful_helper_methods_are_unreachable(notebook, method):

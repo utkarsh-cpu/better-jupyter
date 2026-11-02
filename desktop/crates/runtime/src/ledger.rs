@@ -204,15 +204,15 @@ pub fn fold(events: Vec<Value>) -> Vec<Value> {
             }
             if kind == "display_update" {
                 let display_id = event.get("display_id").filter(|v| !v.is_null()).cloned();
-                if let Some(id) = display_id
-                    && let Some(slot) = visible
+                if let Some(id) = display_id {
+                    for slot in visible
                         .iter_mut()
-                        .rev()
-                        .find(|item| item.get("display_id") == Some(&id))
-                {
-                    let mut replaced = event.clone();
-                    replaced["kind"] = Value::from("display");
-                    *slot = replaced;
+                        .filter(|item| item.get("display_id") == Some(&id))
+                    {
+                        let mut replaced = event.clone();
+                        replaced["kind"] = Value::from("display");
+                        *slot = replaced;
+                    }
                 }
             } else {
                 visible.push(event);

@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="8" skipped="2" tests="54" time="266.962" timestamp="2026-10-26T01:12:47.631915+05:30" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_interactive_worker" name="test_restore_does_not_expose_reconstructing_namespace" time="4.510" /><testcase classname="tests.test_interactive_worker" name="test_numpy_preview_is_bounded_and_does_not_call_subclass_hooks" time="0.002"><skipped type="pytest.skip" message="could not import 'numpy': No module named 'numpy'">C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger-v6\tests\test_interactive_worker.py:57: could not import 'numpy': No module named 'numpy'</skipped></testcase><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42;-True]" time="0.003" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42; # comment-True]" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[';'-False]" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42 # ;-False]" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[&quot;&quot;&quot;;\n;&quot;&quot;&quot;-False]" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[x = 1; x\n-False]" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_execution_conveniences_and_original_source" time="5.262" /><testcase classname="tests.test_interactive_worker" name="test_timing_errors_capture_and_exact_writefile" time="2.894" /><testcase classname="tests.test_interactive_worker" name="test_history_collision_alias_and_checkpoint" time="5.876" /><testcase classname="tests.test_interactive_worker" name="test_async_future_flags_and_cleanup" time="2.555" /><testcase classname="tests.test_interactive_worker" name="test_cancel_resistant_tasks_block_new_execution_and_snapshots" time="4.055" /><testcase classname="tests.test_interactive_worker" name="test_passive_metadata_does_not_call_user_hooks" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_recorded_file_bytes_and_mime_metadata" time="3.097" /><testcase classname="tests.test_interactive_worker" name="test_live_read_payloads_never_use_durable_envelopes" time="0.016" /><testcase classname="tests.test_interactive_worker" name="test_live_reads_unicode_staleness_and_no_history" time="3.730" /><testcase classname="tests.test_interactive_worker" name="test_busy_reads_do_not_block_interrupt" time="2.963" /><testcase classname="tests.test_worker_debug" name="test_debug_pause_step_claim_and_interrupt" time="3.601" /><testcase classname="tests.test_worker_debug" name="test_breakpoints_bind_to_saved_source_revision" time="2.128" /><testcase classname="tests.test_worker_debug" name="test_debug_post_mortem_and_prior_cell_breakpoint" time="4.350" /><testcase classname="tests.test_widget_protocol" name="test_widget_callbacks_are_durable_and_retry_deduplicated" time="4.371" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('integer_slider', 0.5)]" time="7.077" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('integer_slider', float('nan'))]" time="7.010" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('checkbox', 1)]" time="4.080" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('dropdown', 'missing', options=['yes'])]" time="3.721" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('button', label='x' * 2000)]" time="5.416" /><testcase classname="tests.test_jupyter_adapter" name="test_execution_identity_is_stable_and_session_scoped" time="0.001" /><testcase classname="tests.test_jupyter_adapter" name="test_connection_refuses_remote_and_unsigned" time="0.006" /><testcase classname="tests.test_jupyter_adapter" name="test_kernelspec_preview_does_not_start_or_install" time="0.026" /><testcase classname="tests.test_jupyter_adapter" name="test_real_jupyter_client_shared_namespace_completion_and_detach" time="8.499"><failure message="AssertionError: {'header': {'msg_id': '9b3c7efe-268d229861cef7039626599b_42884_2', 'msg_type': 'kernel_info_reply', 'username': 'usern..., 'msg_type': 'kernel_info_request', 'username': 'username', 'session': 'd9ca2e6f-5cbfc672b275ecb599599211', ...}, ...}&#10;assert 'd9ca2e6f-5cb...599211_2736_1' == 'd9ca2e6f-5cb...599211_2736_2'&#10;  &#10;  - d9ca2e6f-5cbfc672b275ecb599599211_2736_2&#10;  ?                                        ^&#10;  + d9ca2e6f-5cbfc672b275ecb599599211_2736_1&#10;  ?                                        ^">notebook = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFB2A1D0&gt;
+tmp_path = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_real_jupyter_client_share0')
+
+    def test_real_jupyter_client_shared_namespace_completion_and_detach(notebook, tmp_path):
+        jupyter_client = pytest.importorskip("jupyter_client")
+        from jupyter_client.connect import write_connection_file
+    
+        ensure_supervisor(notebook.root)
+        assert rpc(notebook.root, {"command": "run", "source": "shared = 40"})["status"] == "ok"
+        connection = tmp_path / "kernel.json"
+        write_connection_file(str(connection), key=b"kernelledger-test-connection-key-32")
+        env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")}
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "kernelledger",
+                "-C",
+                str(notebook.root),
+                "jupyter-adapter",
+                "-f",
+                str(connection),
+            ],
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            creationflags=0x08000000 if os.name == "nt" else 0,
+        )
+        client = jupyter_client.BlockingKernelClient(connection_file=str(connection))
+        client.load_connection_file()
+        client.start_channels()
+        try:
+            client.wait_for_ready(timeout=15)
+            message_id = client.execute("shared += 2\nshared")
+            reply = client.get_shell_msg(timeout=15)
+&gt;           assert reply["parent_header"]["msg_id"] == message_id, reply
+E           AssertionError: {'header': {'msg_id': '9b3c7efe-268d229861cef7039626599b_42884_2', 'msg_type': 'kernel_info_reply', 'username': 'usern..., 'msg_type': 'kernel_info_request', 'username': 'username', 'session': 'd9ca2e6f-5cbfc672b275ecb599599211', ...}, ...}
+E           assert 'd9ca2e6f-5cb...599211_2736_1' == 'd9ca2e6f-5cb...599211_2736_2'
+E             
+E             - d9ca2e6f-5cbfc672b275ecb599599211_2736_2
+E             ?                                        ^
+E             + d9ca2e6f-5cbfc672b275ecb599599211_2736_1
+E             ?                                        ^
+
+tests\test_jupyter_adapter.py:78: AssertionError</failure></testcase><testcase classname="tests.test_notebook_interactivity_interchange" name="test_roundtrip_unknown_fields_media_and_bounded_imported_outputs" time="0.201" /><testcase classname="tests.test_shell" name="test_token_aware_escapes_preserve_strings_comments_and_python_operators" time="0.001" /><testcase classname="tests.test_shell" name="test_windows_shell_paths_preserve_drive_and_network_targets" time="0.000" /><testcase classname="tests.test_shell" name="test_mixed_shell_output_capture_and_original_source_are_recorded" time="5.873" /><testcase classname="tests.test_shell" name="test_shell_failure_is_visible_and_runtime_remains_usable" time="7.519" /><testcase classname="tests.test_shell" name="test_pip_installs_into_selected_standalone_environment[False]" time="40.776" /><testcase classname="tests.test_shell" name="test_pip_installs_into_selected_standalone_environment[True]" time="36.625" /><testcase classname="tests.test_shell" name="test_directory_magics_and_shell_functions_survive_checkpoint_restore" time="12.158" /><testcase classname="tests.test_shell" name="test_interrupt_stops_shell_child_and_preserves_worker" time="11.356" /><testcase classname="tests.test_boundaries" name="test_stream_volume_truncation_and_denylist" time="5.197" /><testcase classname="tests.test_boundaries" name="test_busy_and_interrupt_kill" time="10.466" /><testcase classname="tests.test_boundaries" name="test_imported_outputs_inspect_without_worker" time="1.284"><failure message="AssertionError: assert (1 == 0)&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python....TKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python.exe: No module named kernelledger\n').returncode">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFEE4ED0&gt;
+tmp_path = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_imported_outputs_inspect_0')
+
+    def test_imported_outputs_inspect_without_worker(project, tmp_path):
+        original = {
+            "nbformat": 4,
+            "metadata": {},
+            "cells": [
+                {
+                    "id": "one",
+                    "cell_type": "code",
+                    "metadata": {},
+                    "source": "raise RuntimeError('never execute')",
+                    "outputs": [{"output_type": "stream", "name": "stdout", "text": "imported output"}],
+                }
+            ],
+        }
+        path = tmp_path / "input.ipynb"
+        path.write_text(json.dumps(original))
+        rows = project.import_ipynb(path)
+        from kernelledger.cli import offline_mutation
+    
+        offline_mutation(project.root, "import_outputs", {"rows": rows})
+        assert not (project.root / ".kl/supervisor.json").exists()
+        ledger = Ledger(project.root / ".kl/ledger.sqlite", readonly=True)
+        eid = ledger.one("SELECT exec_id FROM executions")["exec_id"]
+        ledger.close()
+        output = subprocess.run(
+            [sys.executable, "-m", "kernelledger", "-C", str(project.root), "show", eid],
+            capture_output=True,
+            text=True,
+        )
+&gt;       assert output.returncode == 0 and "imported output" in output.stdout
+E       AssertionError: assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python....TKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python.exe: No module named kernelledger\n').returncode
+
+tests\test_boundaries.py:107: AssertionError</failure></testcase><testcase classname="tests.test_boundaries" name="test_bundle_tamper_rejected" time="4.225" /><testcase classname="tests.test_boundaries" name="test_publish_crash_commit_point[payloads_moved]" time="7.156"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin0\\.kl\\supervisor.json'">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFE65510&gt;
+stage = 'payloads_moved'
+
+    @pytest.mark.parametrize(
+        "stage", ["payloads_moved", "manifest_moved", "before_commit", "after_commit"]
+    )
+    def test_publish_crash_commit_point(project, stage):
+        # A constructor-only test hook deterministically kills the supervisor at each boundary.
+        code = f"""
+    import asyncio, os
+    from kernelledger.supervisor import Supervisor
+    s = Supervisor({str(project.root)!r})
+    def crash(stage):
+        if stage == {stage!r}:
+            os._exit(19)
+    s.publish_hook = crash
+    asyncio.run(s.run())
+    """
+        process = subprocess.Popen(
+            [sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        try:
+            for _ in range(200):
+                if alive(project.root):
+                    break
+                time.sleep(0.025)
+&gt;           assert execute(project, "a=b'x'*100000")["status"] == "ok"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_boundaries.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_boundaries.py:33: in execute
+    return rpc(n.root, {"command": "run", "source": source})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\kernelledger\cli.py:34: in rpc
+    sock, channel = connect(root)
+                    ^^^^^^^^^^^^^
+src\kernelledger\cli.py:25: in connect
+    info = json.loads((state / "supervisor.json").read_text())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_publish_crash_commit_poin0/.kl/supervisor.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin0\\.kl\\supervisor.json'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: FileNotFoundError</failure></testcase><testcase classname="tests.test_boundaries" name="test_publish_crash_commit_point[manifest_moved]" time="5.686"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin1\\.kl\\supervisor.json'">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFCFFB50&gt;
+stage = 'manifest_moved'
+
+    @pytest.mark.parametrize(
+        "stage", ["payloads_moved", "manifest_moved", "before_commit", "after_commit"]
+    )
+    def test_publish_crash_commit_point(project, stage):
+        # A constructor-only test hook deterministically kills the supervisor at each boundary.
+        code = f"""
+    import asyncio, os
+    from kernelledger.supervisor import Supervisor
+    s = Supervisor({str(project.root)!r})
+    def crash(stage):
+        if stage == {stage!r}:
+            os._exit(19)
+    s.publish_hook = crash
+    asyncio.run(s.run())
+    """
+        process = subprocess.Popen(
+            [sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        try:
+            for _ in range(200):
+                if alive(project.root):
+                    break
+                time.sleep(0.025)
+&gt;           assert execute(project, "a=b'x'*100000")["status"] == "ok"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_boundaries.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_boundaries.py:33: in execute
+    return rpc(n.root, {"command": "run", "source": source})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\kernelledger\cli.py:34: in rpc
+    sock, channel = connect(root)
+                    ^^^^^^^^^^^^^
+src\kernelledger\cli.py:25: in connect
+    info = json.loads((state / "supervisor.json").read_text())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_publish_crash_commit_poin1/.kl/supervisor.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin1\\.kl\\supervisor.json'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: FileNotFoundError</failure></testcase><testcase classname="tests.test_boundaries" name="test_publish_crash_commit_point[before_commit]" time="6.828"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin2\\.kl\\supervisor.json'">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEE9BCF50&gt;
+stage = 'before_commit'
+
+    @pytest.mark.parametrize(
+        "stage", ["payloads_moved", "manifest_moved", "before_commit", "after_commit"]
+    )
+    def test_publish_crash_commit_point(project, stage):
+        # A constructor-only test hook deterministically kills the supervisor at each boundary.
+        code = f"""
+    import asyncio, os
+    from kernelledger.supervisor import Supervisor
+    s = Supervisor({str(project.root)!r})
+    def crash(stage):
+        if stage == {stage!r}:
+            os._exit(19)
+    s.publish_hook = crash
+    asyncio.run(s.run())
+    """
+        process = subprocess.Popen(
+            [sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        try:
+            for _ in range(200):
+                if alive(project.root):
+                    break
+                time.sleep(0.025)
+&gt;           assert execute(project, "a=b'x'*100000")["status"] == "ok"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_boundaries.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_boundaries.py:33: in execute
+    return rpc(n.root, {"command": "run", "source": source})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\kernelledger\cli.py:34: in rpc
+    sock, channel = connect(root)
+                    ^^^^^^^^^^^^^
+src\kernelledger\cli.py:25: in connect
+    info = json.loads((state / "supervisor.json").read_text())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_publish_crash_commit_poin2/.kl/supervisor.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin2\\.kl\\supervisor.json'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: FileNotFoundError</failure></testcase><testcase classname="tests.test_boundaries" name="test_publish_crash_commit_point[after_commit]" time="5.894"><failure message="FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin3\\.kl\\supervisor.json'">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFF8EF90&gt;
+stage = 'after_commit'
+
+    @pytest.mark.parametrize(
+        "stage", ["payloads_moved", "manifest_moved", "before_commit", "after_commit"]
+    )
+    def test_publish_crash_commit_point(project, stage):
+        # A constructor-only test hook deterministically kills the supervisor at each boundary.
+        code = f"""
+    import asyncio, os
+    from kernelledger.supervisor import Supervisor
+    s = Supervisor({str(project.root)!r})
+    def crash(stage):
+        if stage == {stage!r}:
+            os._exit(19)
+    s.publish_hook = crash
+    asyncio.run(s.run())
+    """
+        process = subprocess.Popen(
+            [sys.executable, "-c", code], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        try:
+            for _ in range(200):
+                if alive(project.root):
+                    break
+                time.sleep(0.025)
+&gt;           assert execute(project, "a=b'x'*100000")["status"] == "ok"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_boundaries.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_boundaries.py:33: in execute
+    return rpc(n.root, {"command": "run", "source": source})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\kernelledger\cli.py:34: in rpc
+    sock, channel = connect(root)
+                    ^^^^^^^^^^^^^
+src\kernelledger\cli.py:25: in connect
+    info = json.loads((state / "supervisor.json").read_text())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1058: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_publish_crash_commit_poin3/.kl/supervisor.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Temp\\kl-ni311-a95ca180\\test_publish_crash_commit_poin3\\.kl\\supervisor.json'
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: FileNotFoundError</failure></testcase><testcase classname="tests.test_boundaries" name="test_schema_contracts" time="4.583"><failure message="ValueError: supervisor failed to start:">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDEFEE7390&gt;
+tmp_path = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_schema_contracts0')
+
+    def test_schema_contracts(project, tmp_path):
+        import jsonschema
+    
+&gt;       ensure_supervisor(project.root)
+
+tests\test_boundaries.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+root = WindowsPath('C:/Temp/kl-ni311-a95ca180/test_schema_contracts0')
+python = None
+
+    def ensure_supervisor(root: Any, python: Any = None) -&gt; Any:
+        if alive(root):
+            return
+        Notebook(root).read()
+        state = root / ".kl"
+        state.mkdir(exist_ok=True)
+        args = runtime_command(root, python)
+        env: dict[Any, Any]
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(Path(__file__).parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
+        from .supervisor.platform import HIDDEN_CONSOLE
+    
+        kwargs: dict[str, Any] = (
+            {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
+        )
+        with (state / "supervisor.log").open("ab") as log:
+            process = subprocess.Popen(
+                args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, **kwargs
+            )
+        deadline = time.monotonic() + 15
+        while time.monotonic() &lt; deadline:
+            if alive(root):
+                return
+            if process.poll() is not None:
+                # Another starting CLI may have won the lock.
+                if alive(root):
+                    return
+&gt;               raise ValueError(
+                    "supervisor failed to start: "
+                    + (state / "supervisor.log").read_text(errors="replace")[-4000:]
+                )
+E               ValueError: supervisor failed to start:
+
+src\kernelledger\cli.py:145: ValueError</failure></testcase><testcase classname="tests.test_boundaries" name="test_soft_interrupt_sleep" time="2.067" /><testcase classname="tests.test_boundaries" name="test_recheckpoint_functions_and_dataclass_redefinition" time="5.814" /><testcase classname="tests.test_boundaries" name="test_token_permissions_and_standalone_worker" time="5.217" /><testcase classname="tests.test_boundaries" name="test_interactive_input_and_replay_reuse" time="2.129"><failure message="AssertionError: C:\Users\UTKARSH KAUSHIK\AppData\Local\uv\cache\builds-v0\.tmpHfjkp3\Scripts\python.exe: No module named kernelledger&#10;  &#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python....TKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python.exe: No module named kernelledger\n').returncode">project = &lt;kernelledger.notebook.Notebook object at 0x000001FDF0088090&gt;
+
+    def test_interactive_input_and_replay_reuse(project):
+        command = [
+            sys.executable,
+            "-m",
+            "kernelledger",
+            "-C",
+            str(project.root),
+            "run",
+            "--source",
+            "answer=input('value: ')\nassert answer=='recorded'\nprint(answer)",
+        ]
+        response = subprocess.run(
+            command, input="recorded\n", capture_output=True, text=True, timeout=20
+        )
+&gt;       assert response.returncode == 0, response.stderr
+E       AssertionError: C:\Users\UTKARSH KAUSHIK\AppData\Local\uv\cache\builds-v0\.tmpHfjkp3\Scripts\python.exe: No module named kernelledger
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python....TKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmpHfjkp3\\Scripts\\python.exe: No module named kernelledger\n').returncode
+
+tests\test_boundaries.py:283: AssertionError</failure></testcase><testcase classname="tests.test_boundaries" name="test_matplotlib_and_pandas_display" time="0.020"><skipped type="pytest.skip" message="could not import 'matplotlib': No module named 'matplotlib'">C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger-v6\tests\test_boundaries.py:292: could not import 'matplotlib': No module named 'matplotlib'</skipped></testcase></testsuite></testsuites>

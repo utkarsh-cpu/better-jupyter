@@ -1,0 +1,114 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "build": {
+    "source_revision": "6a62fa8b2bfad347aea51856ee470875ea10b40d",
+    "dirty_tree": true,
+    "dirty_paths": 120,
+    "executable": "artifacts\\frontend-screenshot-polish\\2026-11-01\\before\\bin\\kernelledger-desktop.exe",
+    "executable_sha256": "9165d0980ac50cd3a91c522c881d1a81da51bdafa099ed4b4db6036a383f548a"
+  },
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "ui_scale": 1.0,
+  "editor_size": 14.0,
+  "density": "compact",
+  "runtime_implementation": "python",
+  "measurements": {
+    "notebook": {
+      "cell_pitch_logical_px": [
+        177.0,
+        168.0
+      ],
+      "anchors": [
+        "Run print('Hello, KernelLedger')",
+        "Run 1 / 0",
+        "Run display_fixture = True"
+      ],
+      "run_to_source_logical_px": 8.0
+    }
+  },
+  "screens": [
+    {
+      "name": "notebook",
+      "file": "notebook.png",
+      "description": "Notebook with outline, cells, outputs and status bar"
+    },
+    {
+      "name": "overlay-cell-actions",
+      "file": "overlay-cell-actions.png",
+      "description": "Per-cell actions menu"
+    },
+    {
+      "name": "history-list",
+      "file": "history-list.png",
+      "description": "History list with filters and recorded executions"
+    },
+    {
+      "name": "history-filter-pending",
+      "file": "history-filter-pending.png",
+      "description": "History search edited but not applied"
+    },
+    {
+      "name": "history-no-results",
+      "file": "history-no-results.png",
+      "description": "History search applied with no matching records"
+    },
+    {
+      "name": "checkpoints-inspect",
+      "file": "checkpoints-inspect.png",
+      "description": "Checkpoint inspection report"
+    },
+    {
+      "name": "settings",
+      "file": "settings.png",
+      "description": "Appearance, type, layout and interpreter settings"
+    },
+    {
+      "name": "assistant",
+      "file": "assistant.png",
+      "description": "Assistant inspector with evidence and composer"
+    },
+    {
+      "name": "welcome",
+      "file": "welcome.png",
+      "description": "Welcome screen before a notebook is open"
+    }
+  ],
+  "failures": [
+    {
+      "name": "overlay-cell-actions-assistant",
+      "description": "Assistant group inside the cell actions menu, with Back",
+      "error": "Missing accessible element: Assistant actions\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...sistant actions:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Assistant actions"
+    },
+    {
+      "name": "settings-editor",
+      "description": "Editor settings section",
+      "error": "Missing accessible element: Editor settings\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...Editor settings:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Editor settings"
+    },
+    {
+      "name": "settings-layout-accessibility",
+      "description": "Layout & accessibility settings section",
+      "error": "Missing accessible element: Layout & accessibility settings\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...bility settings:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Layout & accessibility settings"
+    },
+    {
+      "name": "settings-runtime",
+      "description": "Runtime settings section",
+      "error": "Missing accessible element: Runtime settings\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...untime settings:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Runtime settings"
+    },
+    {
+      "name": "settings-assistant",
+      "description": "Assistant settings section",
+      "error": "Missing accessible element: Assistant settings\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...istant settings:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Assistant settings"
+    },
+    {
+      "name": "assistant-provider-settings",
+      "description": "Connect a provider leads to the Assistant settings section",
+      "error": "Missing accessible element: Open provider settings\nAt line:22 char:5\n+     throw \"Missing accessible element: $label\"\n+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n    + CategoryInfo          : OperationStopped: (Missing accessi...ovider settings:String) [], RuntimeException\n    + FullyQualifiedErrorId : Missing accessible element: Open provider settings"
+    }
+  ],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

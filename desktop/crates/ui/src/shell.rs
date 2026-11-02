@@ -7,32 +7,45 @@ pub(crate) const CAPTION_GUTTER: f32 = 102.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct HeaderCollapse {
+    /// Export shows its icon only; its label returns when room allows.
+    pub export_label: bool,
+    /// Run all shows its icon only, with the same accessible name and tooltip.
+    pub run_label: bool,
     pub switcher: bool,
     pub runtime: bool,
     pub export: bool,
     pub settings: bool,
 }
 
-/// Hide trailing actions, in this order, until Menu clears the caption gutter.
-/// Comfortable windows already drop the switcher, runtime, and Export below
-/// 560 rem-scaled pixels; that set stays collapsed.
+/// Shorten, then hide, trailing actions in this order until Menu clears the
+/// caption gutter: Export's label, Run all's label, Export (still in Menu),
+/// runtime, switcher, Settings. Comfortable windows already drop the switcher,
+/// runtime, and Export below 560 rem-scaled pixels; that set stays collapsed.
 pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> HeaderCollapse {
     let mut collapse = HeaderCollapse {
+        export_label: false,
+        run_label: false,
         switcher: false,
         runtime: false,
         export: false,
         settings: false,
     };
     if comfortable && width < 560. * scale {
+        collapse.export_label = true;
+        collapse.run_label = true;
         collapse.switcher = true;
         collapse.runtime = true;
         collapse.export = true;
     }
-    for _ in 0..4 {
+    for _ in 0..6 {
         if header_fits(width, scale, comfortable, collapse) {
             break;
         }
-        if !collapse.export {
+        if !collapse.export_label {
+            collapse.export_label = true;
+        } else if !collapse.run_label {
+            collapse.run_label = true;
+        } else if !collapse.export {
             collapse.export = true;
         } else if !collapse.runtime {
             collapse.runtime = true;
@@ -89,24 +102,20 @@ pub(crate) fn header_fits(
         };
         push(rem * 0.625 + 7. + rem * 0.375 + button.max(word) + 2.);
     }
-    push(if compact {
+    push(if collapse.run_label {
         button
     } else {
-        button.max(72. * scale)
+        button.max(92. * scale)
     });
     if !collapse.export {
-        push(if compact {
+        push(if collapse.export_label {
             button
         } else {
-            button.max(80. * scale)
+            button.max(86. * scale)
         });
     }
     if !collapse.settings {
-        push(if compact {
-            button
-        } else {
-            button.max(88. * scale)
-        });
+        push(button);
     }
     push(button);
     used += rem * 0.5;
@@ -147,6 +156,7 @@ impl Workspace {
             .child(button)
     }
 
+    #[inline(never)]
     pub(super) fn header(
         &self,
         window: &Window,
@@ -309,8 +319,6 @@ impl Workspace {
                 .debug_selector("runtime-menu")
                 .ghost()
                 .small()
-                .rounded_full()
-                .bg(cx.theme().popover)
                 .accessibility_label(format!("Runtime: Python ({state})"))
                 .hint(format!("Python ({state}) \u{2014} runtime controls"))
                 .on_click(cx.listener(|v, _, window, cx| {
@@ -328,13 +336,7 @@ impl Workspace {
                     tab.runtime["worker_state"].as_str(),
                 ));
             } else {
-                runtime = runtime
-                    .label(if compact {
-                        state.clone()
-                    } else {
-                        format!("Python: {state}")
-                    })
-                    .dropdown_caret(true);
+                runtime = runtime.label(state.clone()).dropdown_caret(true);
             }
             let color = if tab.runtime["connection_lost"] == true {
                 cx.theme().danger
@@ -347,12 +349,8 @@ impl Workspace {
             if !collapse.runtime {
                 header = header.child(
                     h_flex()
-                        .rounded_full()
-                        .bg(cx.theme().popover)
-                        .border_1()
-                        .border_color(divider(cx))
-                        .pl_2p5()
-                        .gap_1p5()
+                        .pl_1()
+                        .gap_1()
                         .items_center()
                         .child(dot(color))
                         .child(self.anchored("runtime", runtime, cx)),
@@ -371,7 +369,7 @@ impl Workspace {
                             .unwrap_or("Run all code cells"),
                     )
                     .on_click(cx.listener(|v, _, window, cx| v.run_command("run-all", window, cx)));
-                if !compact {
+                if !collapse.run_label {
                     run = run.label("Run all");
                 }
                 header = header.child(run);
@@ -386,13 +384,13 @@ impl Workspace {
                     .hint("Export PDF, Word, Jupyter, or bundle (Ctrl+Shift+E)")
                     .unavailable(self.command_reason("export-menu").is_some())
                     .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx)));
-                if !compact {
-                    export = export.label("Export").dropdown_caret(true);
+                if !collapse.export_label {
+                    export = export.label("Export");
                 }
                 header = header.child(self.anchored("export", export, cx));
             }
         }
-        let mut settings = action_button("settings-button")
+        let settings = action_button("settings-button")
             .debug_selector("settings-button")
             .ghost()
             .small()
@@ -409,9 +407,6 @@ impl Workspace {
                 v.run_command("settings", window, cx);
                 v.focus.focus(window, cx);
             }));
-        if !compact {
-            settings = settings.label("Settings");
-        }
         if !collapse.settings {
             header = header.child(settings);
         }
@@ -439,32 +434,31 @@ impl Workspace {
         );
         gpui_kit::component::TitleBar::new()
             .h(rems(if self.preferences.comfortable {
-                3.5
-            } else {
                 3.25
+            } else {
+                2.875
             }))
             .bg(cx.theme().title_bar)
             .border_b_1()
             .border_color(divider(cx))
             .child(header)
     }
-    pub(super) fn menu_overlay(
-        &self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    #[inline(never)]
+    pub(super) fn menu_overlay(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let menu_sep = |cx: &App| div().h(px(1.)).w_full().my_1().bg(divider(cx));
         let mut menu = v_flex()
             .id("workspace-menu-content")
+            .debug_selector(|| "workspace-menu-content".into())
             .overflow_y_scroll()
-            .w(px(300.))
+            .w(px(272.))
             .max_h(px(440.))
-            .p_2()
-            .gap_1()
+            .p_1()
+            .gap_0p5()
+            .items_stretch()
             .bg(cx.theme().popover)
             .border_1()
-            .border_color(divider(cx))
-            .rounded(px(10.))
+            .border_color(surface_edge(cx))
+            .rounded(px(8.))
             .when(!self.high_contrast, |d| d.shadow_lg());
         if self.export_menu {
             menu = menu
@@ -510,7 +504,7 @@ impl Workspace {
                     action_button(SharedString::from(format!("export-{format}")))
                         .ghost()
                         .w_full()
-                        .menu_label(label)
+                        .menu_item(label, None)
                         .hint(description)
                         .on_click(cx.listener(move |v, _, window, cx| {
                             v.close_menu(window, cx);
@@ -529,28 +523,44 @@ impl Workspace {
                         .ghost()
                         .w_full()
                         .icon(icon)
-                        .label(label)
+                        .menu_item(label, None)
                         .on_click(cx.listener(move |v, _, window, cx| {
                             v.close_menu(window, cx);
                             v.mutate(json!({"action":"add","type":kind,"index":index}));
                         })),
                 );
             }
-        } else if let Some((id, index)) = &self.cell_menu {
-            for (action, label) in [
-                ("ai-explain", "Explain error"),
-                ("assistant", "Ask about this cell"),
-                ("ai-edit", "Suggest edit"),
-                ("ai-refactor", "Refactor cell"),
-                ("ai-document", "Document"),
-                ("ai-tests", "Generate tests"),
-            ] {
+        } else if let Some((id, _)) = self.cell_menu.as_ref().filter(|_| self.cell_menu_assistant) {
+            menu = menu
+                .child(
+                    action_button("cell-menu-back")
+                        .ghost()
+                        .w_full()
+                        .menu_item("\u{2039} Back", Some("left"))
+                        .accessibility_label("Back to cell actions")
+                        .on_click(cx.listener(|v, _, window, cx| {
+                            v.cell_menu_assistant = false;
+                            v.dialog_focus.focus(window, cx);
+                            cx.notify();
+                        })),
+                )
+                .child(menu_sep(cx))
+                .child(
+                    div()
+                        .px_2()
+                        .py_0p5()
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(cx.theme().muted_foreground)
+                        .child("Assistant"),
+                );
+            for (action, label) in CELL_ASSISTANT_ACTIONS {
                 let id = id.clone();
                 menu = menu.child(
                     action_button(action)
                         .ghost()
                         .w_full()
-                        .label(label)
+                        .menu_item(label, None)
                         .on_click(cx.listener(move |v, _, window, cx| {
                             v.tabs[v.active].model.selected = Some(id.clone());
                             v.tabs[v.active].assistant.selected_cells = vec![id.clone()];
@@ -559,15 +569,32 @@ impl Workspace {
                         })),
                 );
             }
-            menu = menu.child(menu_sep(cx));
+        } else if let Some((id, index)) = &self.cell_menu {
             for (action, label) in [
                 ("duplicate", "Duplicate cell"),
                 ("move-up", "Move up"),
                 ("move-down", "Move down"),
+                ("assistant-group", "Assistant"),
                 ("delete", "Delete cell\u{2026}"),
             ] {
                 let cell_id = id.clone();
                 let index = *index;
+                if action == "assistant-group" {
+                    menu = menu.child(menu_sep(cx)).child(
+                        action_button("cell-menu-assistant")
+                            .ghost()
+                            .w_full()
+                            .menu_item(format!("{label} \u{203a}"), Some("right"))
+                            .accessibility_label("Assistant actions")
+                            .hint("Ask, suggest an edit, refactor, document, or generate tests")
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.cell_menu_assistant = true;
+                                v.dialog_focus.focus(window, cx);
+                                cx.notify();
+                            })),
+                    );
+                    continue;
+                }
                 if action == "delete" {
                     menu = menu.child(menu_sep(cx));
                 }
@@ -575,7 +602,13 @@ impl Workspace {
                     action_button(action)
                         .ghost()
                         .w_full()
-                        .label(label)
+                        .menu_item(
+                            label,
+                            match action {
+                                "duplicate" => Some("ctrl-shift-d"),
+                                _ => None,
+                            },
+                        )
                         .unavailable(
                             (action == "move-up" && index == 0)
                                 || (action == "move-down"
@@ -609,13 +642,14 @@ impl Workspace {
                     action_button(("switch-notebook", index))
                         .ghost()
                         .w_full()
-                        .label(
+                        .menu_item(
                             tab.model
                                 .project
                                 .file_name()
                                 .unwrap_or_default()
                                 .to_string_lossy()
                                 .to_string(),
+                            None,
                         )
                         .hint(tab.model.project.display().to_string())
                         .selected(index == self.active)
@@ -638,7 +672,7 @@ impl Workspace {
                     .ghost()
                     .w_full()
                     .icon(Glyph::FolderOpen)
-                    .label("Open notebook\u{2026}")
+                    .menu_item("Open notebook\u{2026}", Some("ctrl-o"))
                     .on_click(cx.listener(|v, _, window, cx| {
                         v.close_menu(window, cx);
                         v.open_dialog(&OpenNotebook, window, cx);
@@ -702,7 +736,13 @@ impl Workspace {
                     action_button(method)
                         .ghost()
                         .w_full()
-                        .label(label)
+                        .menu_item(
+                            label,
+                            match method {
+                                "interrupt" => Some("ctrl-shift-i"),
+                                _ => None,
+                            },
+                        )
                         .unavailable(action_reason(method, runtime).is_some())
                         .hint(action_reason(method, runtime).unwrap_or(label))
                         .on_click(cx.listener(move |v, _, window, cx| {
@@ -715,7 +755,7 @@ impl Workspace {
                 action_button("all-runtimes")
                     .ghost()
                     .w_full()
-                    .label("All runtimes")
+                    .menu_item("All runtimes", None)
                     .on_click(cx.listener(|v, _, window, cx| {
                         v.runtime_menu = false;
                         v.select_surface("Runtimes", cx);
@@ -728,7 +768,8 @@ impl Workspace {
                     action_button("open")
                         .ghost()
                         .w_full()
-                        .label("Open notebook\u{2026}")
+                        .debug_selector("open")
+                        .menu_item("Open notebook\u{2026}", Some("ctrl-o"))
                         .on_click(cx.listener(|v, _, window, cx| {
                             v.app_menu = false;
                             v.open_dialog(&OpenNotebook, window, cx);
@@ -738,7 +779,7 @@ impl Workspace {
                     action_button("inspect-bundle")
                         .ghost()
                         .w_full()
-                        .label("Inspect bundle\u{2026}")
+                        .menu_item("Inspect bundle\u{2026}", None)
                         .unavailable(self.tabs.is_empty())
                         .on_click(cx.listener(|v, _, window, cx| {
                             v.app_menu = false;
@@ -749,7 +790,7 @@ impl Workspace {
                     action_button("menu-notebooks")
                         .ghost()
                         .w_full()
-                        .label("Switch notebook\u{2026}")
+                        .menu_item("Switch notebook\u{2026}", None)
                         .on_click(cx.listener(|v, _, window, cx| {
                             v.close_menu(window, cx);
                             v.return_focus = window.focused(cx);
@@ -763,17 +804,29 @@ impl Workspace {
                     action_button("menu-commands")
                         .ghost()
                         .w_full()
-                        .label("Commands")
+                        .menu_item("Commands", Some("ctrl-shift-p"))
                         .on_click(cx.listener(|v, _, window, cx| {
                             v.close_menu(window, cx);
                             v.palette(&Palette, window, cx);
                         })),
                 )
                 .child(
+                    action_button("menu-assistant")
+                        .ghost()
+                        .w_full()
+                        .icon(Glyph::Sparkles)
+                        .menu_item("Assistant", None)
+                        .unavailable(self.tabs.is_empty())
+                        .on_click(cx.listener(|v, _, window, cx| {
+                            v.close_menu(window, cx);
+                            v.open_assistant(cx);
+                        })),
+                )
+                .child(
                     action_button("menu-runtime")
                         .ghost()
                         .w_full()
-                        .label("Runtime")
+                        .menu_item("Runtime", None)
                         .unavailable(self.tabs.is_empty())
                         .on_click(cx.listener(|v, _, window, cx| {
                             v.close_menu(window, cx);
@@ -790,7 +843,7 @@ impl Workspace {
                     action_button("menu-export")
                         .ghost()
                         .w_full()
-                        .label("Export notebook\u{2026}")
+                        .menu_item("Export notebook\u{2026}", Some("ctrl-shift-e"))
                         .unavailable(self.command_reason("export-menu").is_some())
                         .hint("Export notebook (Ctrl+Shift+E)")
                         .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx))),
@@ -801,7 +854,15 @@ impl Workspace {
                     action_button(surface)
                         .ghost()
                         .w_full()
-                        .label(surface)
+                        .debug_selector(surface)
+                        .menu_item(
+                            surface,
+                            match surface {
+                                "Settings" => Some("ctrl-,"),
+                                "Help" => Some("f1"),
+                                _ => None,
+                            },
+                        )
                         .unavailable(self.tabs.is_empty() && surface != "Help")
                         .on_click(cx.listener(move |v, _, window, cx| {
                             v.app_menu = false;
@@ -811,13 +872,6 @@ impl Workspace {
                 );
             }
         }
-        menu = menu.child(menu_sep(cx)).child(
-            action_button("close-menu")
-                .ghost()
-                .w_full()
-                .label("Close menu")
-                .on_click(cx.listener(|v, _, window, cx| v.close_menu(window, cx))),
-        );
         div()
             .id("workspace-menu")
             .occlude()
@@ -832,7 +886,7 @@ impl Workspace {
                     .get(&self.menu_anchor)
                     .copied()
                     .unwrap_or_default();
-                let width = px(300. * self.preferences.ui_scale)
+                let width = px(280. * self.preferences.ui_scale)
                     .min(window.viewport_size().width - px(24.));
                 let left = bounds
                     .origin
@@ -866,6 +920,7 @@ impl Workspace {
                     .into_any_element()
                 }
             })
+            .into_any_element()
     }
     pub(super) fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.app_menu = false;
@@ -873,6 +928,7 @@ impl Workspace {
         self.runtime_menu = false;
         self.notebook_menu = false;
         self.cell_menu = None;
+        self.cell_menu_assistant = false;
         self.insert_menu = None;
         if let Some(focus) = self.return_focus.take() {
             focus.focus(window, cx);

@@ -3,6 +3,7 @@
 //! publishes tracked source through the native journal. Execution history stays
 //! read-only here.
 pub mod capture;
+pub mod display;
 pub mod helper;
 pub mod ledger;
 pub mod notebook;

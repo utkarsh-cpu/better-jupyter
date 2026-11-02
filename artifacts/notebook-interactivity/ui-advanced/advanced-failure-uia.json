@@ -1,0 +1,662 @@
+[
+    {
+        "name":  "KernelLedger — notebook",
+        "role":  "ControlType.Window",
+        "id":  ""
+    },
+    {
+        "name":  "Save As",
+        "role":  "ControlType.Window",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Command Module",
+        "role":  "ControlType.ToolBar",
+        "id":  "FolderBandModuleInner"
+    },
+    {
+        "name":  "\u0026Help",
+        "role":  "ControlType.Button",
+        "id":  "HelpButton"
+    },
+    {
+        "name":  "Details",
+        "role":  "ControlType.SplitButton",
+        "id":  "ViewControl"
+    },
+    {
+        "name":  "View Slider",
+        "role":  "ControlType.Button",
+        "id":  "SplitMenuButton"
+    },
+    {
+        "name":  "Organize",
+        "role":  "ControlType.Button",
+        "id":  "{7DDC1264-7E4D-4F74-BBC0-D191987C8D0F}"
+    },
+    {
+        "name":  "New folder",
+        "role":  "ControlType.Button",
+        "id":  "{E44616AD-6DF1-4B94-85A4-E465AE8A19DB}"
+    },
+    {
+        "name":  "Control Host",
+        "role":  "ControlType.Pane",
+        "id":  "ProperTreeHost"
+    },
+    {
+        "name":  "Navigation Pane",
+        "role":  "ControlType.Pane",
+        "id":  "100"
+    },
+    {
+        "name":  "Shell Folder View",
+        "role":  "ControlType.Pane",
+        "id":  "listview"
+    },
+    {
+        "name":  "Items View",
+        "role":  "ControlType.List",
+        "id":  ""
+    },
+    {
+        "name":  "Header",
+        "role":  "ControlType.Header",
+        "id":  ""
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.SplitButton",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "Filter dropdown",
+        "role":  "ControlType.Button",
+        "id":  "DropDown"
+    },
+    {
+        "name":  ".kl",
+        "role":  "ControlType.ListItem",
+        "id":  "0"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "attachments",
+        "role":  "ControlType.ListItem",
+        "id":  "1"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "cells",
+        "role":  "ControlType.ListItem",
+        "id":  "2"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "checkpoints",
+        "role":  "ControlType.ListItem",
+        "id":  "3"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  ".gitignore",
+        "role":  "ControlType.ListItem",
+        "id":  "4"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "notebook.json",
+        "role":  "ControlType.ListItem",
+        "id":  "5"
+    },
+    {
+        "name":  "Name",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemNameDisplay"
+    },
+    {
+        "name":  "Date modified",
+        "role":  "ControlType.Edit",
+        "id":  "System.DateModified"
+    },
+    {
+        "name":  "Type",
+        "role":  "ControlType.Edit",
+        "id":  "System.ItemTypeText"
+    },
+    {
+        "name":  "Size",
+        "role":  "ControlType.Edit",
+        "id":  "System.Size"
+    },
+    {
+        "name":  "File name:",
+        "role":  "ControlType.Text",
+        "id":  "SaveDialogLabel"
+    },
+    {
+        "name":  "File name:",
+        "role":  "ControlType.Pane",
+        "id":  "FileNameControlHost"
+    },
+    {
+        "name":  "output-485bab70a13e",
+        "role":  "ControlType.Pane",
+        "id":  "1001"
+    },
+    {
+        "name":  "Save as type:",
+        "role":  "ControlType.Text",
+        "id":  "SaveDialogLabel"
+    },
+    {
+        "name":  "Save as type:",
+        "role":  "ControlType.Pane",
+        "id":  "FileTypeControlHost"
+    },
+    {
+        "name":  "Save Fields",
+        "role":  "ControlType.Tree",
+        "id":  "SaveDialogPreviewMetadataInner"
+    },
+    {
+        "name":  "Application Controls",
+        "role":  "ControlType.Tree",
+        "id":  "AppControlsModuleInner"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Save",
+        "role":  "ControlType.Pane",
+        "id":  "1"
+    },
+    {
+        "name":  "Cancel",
+        "role":  "ControlType.Pane",
+        "id":  "2"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "40965"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Navigation buttons",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Up band",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  "41477"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Address: C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Temp\\kl-ui-probe-c47ukoxv\\notebook",
+        "role":  "ControlType.Pane",
+        "id":  "1001"
+    },
+    {
+        "name":  "Address band",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Search Box",
+        "role":  "ControlType.Edit",
+        "id":  "SearchEditBox"
+    },
+    {
+        "name":  "Search",
+        "role":  "ControlType.Button",
+        "id":  "SearchBoxSearchButton"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "id":  ""
+    },
+    {
+        "name":  "Cell 6: rich_fixture = True",
+        "role":  "ControlType.ListItem",
+        "id":  ""
+    },
+    {
+        "name":  "Run widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell widgets",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell widgets",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u003cbutton: Increment; recorded snapshot, recreate after restart\u003e",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Increment: Click",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Insert cell after cell 5",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run rich_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Toggle breakpoint at caret",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: rich_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for rich_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell rich",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell rich",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell rich",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell rich",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell rich",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u003c__main__.Equation object at 0x0000019AEC6849E0\u003e",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Equation: fraction (1) over (2) + square root (x subscript (i) superscript (2))",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u0027Name\u0027 | \u0027Value\u0027\n\u0027alpha\u0027 | 42",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded table",
+        "role":  "ControlType.Table",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "\u0027Name\u0027",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "\u0027Value\u0027",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "\u0027alpha\u0027",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "42",
+        "role":  "ControlType.DataItem",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u003caudio/wav attachment, 44 bytes; playback requires a qualified media renderer. Export to play externally.\u003e",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Save audio/wav…",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "id":  ""
+    }
+]

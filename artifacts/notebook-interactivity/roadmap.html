@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KernelLedger notebook interactivity roadmap</title>
+<style>
+:root{color-scheme:light dark;--bg:#f7f9fc;--card:#fff;--fg:#172538;--muted:#53647b;--line:#d9e2ec;--accent:#245cc1;--tint:#edf3ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif}main{max-width:1050px;margin:auto;padding:28px}h1{font-size:28px;line-height:1.2;margin:8px 0 12px;letter-spacing:-.5px}h2{font-size:17px;margin:0 0 8px}p{margin:0 0 14px}.eyebrow{font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)}.muted{color:var(--muted)}.milestones{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}.card,.detail{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:17px}.card p{font-size:14px;margin:0}.tag{font-size:12px;font-weight:650;color:var(--accent);display:block;margin-bottom:5px}.phases{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}button{font:inherit;min-width:48px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);cursor:pointer}button[aria-pressed=true]{background:var(--accent);color:white;border-color:var(--accent)}button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}.detail{border-top:3px solid var(--accent);min-height:220px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:14px 0}.columns h3{font-size:13px;color:var(--muted);margin:0 0 5px;text-transform:uppercase;letter-spacing:.7px}.columns p{margin:0;font-size:14px}.gate{background:var(--tint);padding:11px 13px;border-radius:8px;font-size:14px;margin:0}.coverage{display:grid;grid-template-columns:repeat(3,1fr);gap:7px 16px;font-size:13px;color:var(--muted);padding:12px 0}.coverage span{border-bottom:1px solid var(--line);padding:5px 0}footer{font-size:13px;color:var(--muted);margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}@media(prefers-color-scheme:dark){:root{--bg:#111923;--card:#192430;--fg:#ecf2fa;--muted:#b0bed0;--line:#344355;--accent:#8bb6ff;--tint:#23364d}button[aria-pressed=true]{color:#12233e}}@media(max-width:650px){main{padding:20px}.milestones,.columns{grid-template-columns:1fr}.coverage{grid-template-columns:1fr 1fr}h1{font-size:25px}.detail{min-height:0}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">KernelLedger · coordinated draft · all phases planned</div>
+<h1>Notebook interactivity roadmap</h1>
+<p class="muted">Twelve feature areas across the Python worker, Python/Rust owners and GPUI desktop. Each increment includes implementation and acceptance work.</p>
+<div class="milestones">
+<section class="card"><span class="tag">First milestone · N0–N3</span><h2>Everyday coding</h2><p>Set contracts and the engine direction; add timing, result shortcuts, completion, documentation and passive inspection.</p></section>
+<section class="card"><span class="tag">Second milestone · N4–N6</span><h2>Interactive workflows</h2><p>Define async/task lifecycle, attach a shared console and improve tables, math, media and display updates.</p></section>
+<section class="card"><span class="tag">Advanced · N7–N10</span><h2>Ecosystem features</h2><p>Qualify debugging, widgets, Jupyter interoperability and the integrated platform/release matrix.</p></section>
+</div>
+<h2>Explore the delivery phases</h2>
+<p class="muted">Select a phase to see the work on each side and its completion gate.</p>
+<nav class="phases" aria-label="Delivery phase"></nav>
+<section class="detail" aria-live="polite" aria-atomic="true"><h2 id="phase-title"></h2><div class="columns"><div><h3>Worker and backend</h3><p id="backend"></p></div><div><h3>Desktop frontend</h3><p id="frontend"></p></div></div><p class="gate" id="gate"></p></section>
+<div class="coverage" aria-label="Feature coverage"><span>Completion and documentation</span><span>Object inspection and variables</span><span>Timing and profiling</span><span>Top-level await and tasks</span><span>Result shortcuts and history</span><span>Line and cell magics</span><span>Interactive debugger</span><span>Widgets and comms</span><span>Richer output rendering</span><span>Shared session console</span><span>Notebook workflow and access</span><span>Jupyter interoperability</span></div>
+<footer>Python remains the default owner. The custom worker remains the default engine while N0 evaluates an optional IPython adapter. Existing Rust durability, parity, stress and release gates stay open. Capabilities ship only after their own checks pass.</footer>
+</main>
+<script>
+const phases=[
+['Contracts and engine decision','Inventory existing behavior; define states, generations, budgets and provenance; compare the custom engine with an optional IPython adapter.','Map capabilities, panels, keyboard/focus behavior and busy/disconnected states.','ADR and shared contracts reviewed; compatibility fixtures and reference workloads established.'],
+['Execution conveniences','Add timing, final-result suppression, bounded optional history caches and initial capture magics.','Render timing/profiles; expose command help, history reuse and cache settings.','Preserve source provenance, aliases, checkpoint semantics, retention limits and interrupts.'],
+['Completion and documentation','Route bounded static/live reads with cancellation and explicit Unicode cursor ranges.','Add caret completion, signatures and documentation; discard stale replies.','Correct replacement ranges, keyboard operation, busy-worker behavior and measured latency.'],
+['Variable inspector','Provide passive paged metadata, bounded supported previews and generation-bound handles.','Show live/cached/recorded state, help and explicit refresh in an optional inspector.','No arbitrary Python hooks in passive mode; large-object bounds and restore invalidation verified.'],
+['Asynchronous cells','Define event loop, tasks, attribution, cancellation and checkpoint eligibility.','Show foreground and background work with accurate interrupt/stop actions.','No task/process leaks, false checkpoint eligibility or healthy-worker loss on failed restore.'],
+['Shared console','Reuse durable execution admission, the existing worker and execution queue; record console origin.','Provide console input/output/history with clear session identity and shortcut precedence.','Shared variables and ordering; retry, input-claim and multi-client behavior verified.'],
+['Richer rendering','Audit MIME folding, display updates, paging and export fallbacks; add missing typed adapters.','Improve tables, math and media; qualify an isolated active-output renderer where needed.','Bounded rendering, safe fallbacks, accessible output and real platform journeys.'],
+['Interactive debugger','Add debug adapter, source mapping, paused lifecycle and priority control while execution is suspended.','Provide breakpoints, stack, locals, current line and stepping controls.','Edited-source, paused, disconnect, stop, crash and multi-client control tests pass.'],
+['Widgets','Implement bounded comm routing, callback admission and deduplication; qualify numeric values.','Ship a declared native subset or qualified widget manager; keep recorded widgets inert.','Reconnect, repeated clicks, buffers, trust, stale handles and queue pressure verified.'],
+['Jupyter interoperability','Strengthen notebook conversions and file-command provenance; add an optional kernel adapter to the existing owner.','Provide loss-aware import/export and explicit external-client setup.','Selected external clients and round trips pass without a second writer or competing worker.'],
+['Integrated qualification','Run fault, parity, loaded performance, packaging, license and rollback matrices.','Verify full workflows, accessibility, themes and real OS behavior.','Feature gates and applicable inherited release gates pass; limits and capabilities match release notes.']];
+const nav=document.querySelector('nav');
+function select(i){const p=phases[i];document.getElementById('phase-title').textContent=`N${i} · ${p[0]}`;document.getElementById('backend').textContent=p[1];document.getElementById('frontend').textContent=p[2];document.getElementById('gate').textContent=`Completion gate: ${p[3]}`;[...nav.children].forEach((b,j)=>b.setAttribute('aria-pressed',String(i===j)));}
+phases.forEach((p,i)=>{const b=document.createElement('button');b.type='button';b.textContent=`N${i}`;b.setAttribute('aria-label',`N${i}: ${p[0]}`);b.addEventListener('click',()=>select(i));nav.appendChild(b);});select(0);
+</script></body></html>

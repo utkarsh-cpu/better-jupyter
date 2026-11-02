@@ -11,8 +11,13 @@ use std::{
 };
 use uuid::Uuid;
 pub mod assistant;
+pub mod display;
+pub mod math;
+pub mod media;
 pub mod output;
 pub mod preferences;
+pub mod recent;
+pub mod recorded;
 pub mod registry;
 pub mod service;
 

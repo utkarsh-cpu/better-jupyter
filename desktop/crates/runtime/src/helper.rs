@@ -27,12 +27,14 @@ use std::{
 
 /// Methods implemented in this process.
 pub const NATIVE: &[&str] = &[
+    "display.updates",
     "ping",
     "sessions.list",
     "executions.list",
     "executions.watermark",
     "checkpoints.list",
     "execution.get",
+    "source.execution",
     "fold.get",
     "events.list",
     "checkpoint.get",
@@ -58,7 +60,9 @@ pub const DELEGATED: &[&str] = &[
 ];
 /// Capability name -> every method it requires.
 const CAPABILITIES: &[(&str, &[&str])] = &[
+    ("display_updates", &["display.updates"]),
     ("blob_ranges", &["blob.read"]),
+    ("recorded_source", &["source.execution"]),
     ("portable_training", &["training.list", "training.inspect"]),
     ("native_snapshot_status", &["native.status"]),
     ("document_reports", &["export_document"]),
@@ -67,9 +71,11 @@ const CAPABILITIES: &[(&str, &[&str])] = &[
 /// Required fields, from `kernelledger.desktop.contracts.HELPER`.
 fn required(method: &str) -> Option<&'static [&'static str]> {
     Some(match method {
+        "display.updates" => &["after_rowid", "through_rowid"],
         "training.inspect" => &["snapshot"],
         "source.mutate" => &["action", "manifest_revision"],
         "execution.get" | "events.list" | "fold.get" => &["exec_id"],
+        "source.execution" => &["exec_id", "source_revision", "line"],
         "checkpoint.get" => &["checkpoint_id"],
         "bundle.inspect"
         | "descriptor.inspect"
@@ -120,6 +126,7 @@ pub fn validate(request: &Value) -> Result<&str> {
         "device",
         "format",
         "markdown",
+        "source_revision",
     ] {
         if map.get(key).is_some_and(|v| !v.is_string()) {
             return Err(invalid(format!("{key} must be a string")));
@@ -136,10 +143,26 @@ pub fn validate(request: &Value) -> Result<&str> {
             return Err(invalid(format!("{key} must be a nonnegative integer")));
         }
     }
+    if method == "display.updates" {
+        for key in ["after_rowid", "through_rowid"] {
+            if !map[key].as_i64().is_some_and(|n| n >= 0) {
+                return Err(invalid(format!("{key} must be a nonnegative SQLite rowid")));
+            }
+        }
+        if map["after_rowid"].as_i64() > map["through_rowid"].as_i64() {
+            return Err(invalid("after_rowid exceeds through_rowid"));
+        }
+    }
     if let Some(size) = map.get("page_size")
         && !size.as_u64().is_some_and(|s| (1..=500).contains(&s))
     {
         return Err(invalid("page_size must be between 1 and 500"));
+    }
+    if map
+        .get("line")
+        .is_some_and(|v| !v.as_u64().is_some_and(|line| (1..=100000).contains(&line)))
+    {
+        return Err(invalid("line must be between 1 and 100000"));
     }
     for key in [
         "trust",
@@ -323,6 +346,42 @@ pub struct Reply {
     pub data: Vec<u8>,
 }
 
+fn recorded_source_window(stream: &mut impl Read, line: u64) -> Result<Vec<Value>> {
+    let first = line.saturating_sub(7).max(1);
+    let last = line + 7;
+    let mut current = 1;
+    let mut length = 0;
+    let mut prefix = Vec::with_capacity(512);
+    let mut rows = Vec::new();
+    let mut buffer = [0; 8192];
+    while current <= last {
+        let count = stream.read(&mut buffer)?;
+        if count == 0 {
+            if (length > 0 || current == 1) && current >= first {
+                rows.push(json!({"line":current,"text":String::from_utf8_lossy(&prefix),"truncated":length > 512}));
+            }
+            break;
+        }
+        let mut parts = buffer[..count].split(|byte| *byte == b'\n').peekable();
+        while let Some(part) = parts.next() {
+            length += part.len();
+            prefix.extend_from_slice(&part[..part.len().min(512 - prefix.len())]);
+            if parts.peek().is_some() {
+                if current >= first {
+                    rows.push(json!({"line":current,"text":String::from_utf8_lossy(&prefix),"truncated":length > 512}));
+                }
+                current += 1;
+                length = 0;
+                prefix.clear();
+                if current > last {
+                    break;
+                }
+            }
+        }
+    }
+    Ok(rows)
+}
+
 impl Helper {
     pub fn new(root: &Path, python: Option<PathBuf>) -> Self {
         let root = root
@@ -491,6 +550,11 @@ impl Helper {
             _ => {}
         }
         let Some((ledger, immutable)) = Ledger::open(&self.root.join(".kl"))? else {
+            if method == "display.updates" {
+                return Ok(
+                    json!({"items":[],"after_rowid":request["through_rowid"],"through_rowid":request["through_rowid"],"more":false}),
+                );
+            }
             if method == "executions.watermark" {
                 return Ok(
                     json!({"executions":0,"execution_rowid":0,"events":0,"event_rowid":0,"max_end":""}),
@@ -503,6 +567,7 @@ impl Helper {
         };
         let text = |key: &str| request[key].as_str().unwrap_or_default().to_owned();
         match method {
+            "display.updates" => crate::display::updates(&ledger, request),
             "executions.watermark" => {
                 // Executions alone miss event appends and status updates that keep the same rowid.
                 let row = ledger.one(
@@ -546,6 +611,40 @@ impl Helper {
                 Ok(json!({"items": rows, "cursor": cursor, "read_only_snapshot": immutable}))
             }
             "execution.get" | "fold.get" => self.output_view(&ledger, &text("exec_id")),
+            "source.execution" => {
+                let record = ledger.one(
+                    "SELECT exec_id,cell_id,source_sha256 FROM executions WHERE exec_id=?",
+                    &[text("exec_id").into()],
+                )?;
+                let digest = record["source_sha256"]
+                    .as_str()
+                    .context("source revision")?;
+                if request["source_revision"] != digest {
+                    return Err(coded(
+                        "source_conflict",
+                        "Recorded source revision differs from this location",
+                        json!({}),
+                    ));
+                }
+                let mut file = self.blobs.open(digest)?;
+                if file.metadata()?.len() > 8 * 1024 * 1024 {
+                    return Err(coded(
+                        "too_large",
+                        "Recorded source preview is limited to 8 MiB files",
+                        json!({}),
+                    ));
+                }
+                let evidence = self.blobs.verify_file(&mut file, digest)?;
+                file.seek(SeekFrom::Start(0))?;
+                let line = request["line"].as_u64().unwrap();
+                let rows = recorded_source_window(&mut file, line)?;
+                evidence.check_current(digest)?;
+                Ok(
+                    json!({"exec_id":record["exec_id"], "cell_id":record["cell_id"], "source_revision":digest, "requested_line":line, "byte_size":evidence.size,
+                    "previous_line": if line > 8 { Some(line.saturating_sub(15).max(1)) } else { None },
+                    "next_line": if rows.last().is_some_and(|row| row["line"] == line + 7) && line + 15 <= 100000 { Some(line + 15) } else { None }, "lines":rows}),
+                )
+            }
             "events.list" => {
                 let after = request
                     .get("after_seq")
@@ -611,6 +710,13 @@ impl Helper {
         let digest = row["source_sha256"].as_str().unwrap_or_default().to_owned();
         let source = utf8(self.blobs.get(&digest)?)?;
         let events = ledger.events(exec_id, i64::MIN, None)?;
+        row.insert(
+            "origin".into(),
+            events
+                .iter()
+                .find_map(|event| event.get("origin").cloned())
+                .unwrap_or(json!("unknown")),
+        );
         row.insert("source".into(), source.into());
         row.insert(
             "output_mismatch".into(),
@@ -834,7 +940,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut native = Helper::new(dir.path(), None);
         let welcome = native.welcome(&Value::Null);
-        assert_eq!(welcome["capabilities"], json!(["blob_ranges"]));
+        assert_eq!(
+            welcome["capabilities"],
+            json!(["display_updates", "blob_ranges", "recorded_source"])
+        );
         assert!(welcome["delegated_methods"].as_array().unwrap().is_empty());
         assert_eq!(welcome["helper_implementation"], "rust");
 
@@ -843,7 +952,9 @@ mod tests {
         assert_eq!(
             welcome["capabilities"],
             json!([
+                "display_updates",
                 "blob_ranges",
+                "recorded_source",
                 "portable_training",
                 "native_snapshot_status",
                 "document_reports"

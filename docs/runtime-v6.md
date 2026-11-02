@@ -15,6 +15,11 @@ Windows Run/checkpoint/restore journeys.
 The [native release optimization report](runtime-native-optimization.md) records
 the release baseline, stage profiling, validated-result and hash-pass reuse,
 event-driven acceptance, final measurements, and regression evidence.
+The [numeric boundary qualification](runtime-native-numeric.md) covers exact
+integer hashes, unsupported-number refusal, and durable retry behavior.
+The [notebook interactivity draft](../plans/notebook-interactivity-draft.md)
+coordinates proposed IPython/Jupyter-style frontend and backend additions with
+these unfinished migration gates; it does not change current plan authority.
 
 ## Baseline and acceptance scenarios
 

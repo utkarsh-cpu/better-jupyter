@@ -14,6 +14,8 @@ uuid.workspace = true
 smol.workspace = true
 anyhow.workspace = true
 chrono = "=0.4.42"
+lsp-types = "=0.97.0"
+unicode-ident = "=1.0.26"
 
 [dev-dependencies]
 gpui-kit = { workspace = true, features = ["test-support"] }

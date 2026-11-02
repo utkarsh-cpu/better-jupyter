@@ -68,9 +68,11 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let section = self.settings_section;
+        let key = self.scroll_key();
         let settings_scroll = self.tabs[self.active]
             .scrolls
-            .entry("Settings".into())
+            .entry(key)
             .or_default()
             .clone();
         let appearance_reveal = GroupReveal::new(settings_scroll.clone());
@@ -214,7 +216,8 @@ impl Workspace {
             action_button("interpreter")
                 .outline()
                 .small()
-                .label("Choose project interpreter\u{2026}"),
+                .label("Choose interpreter\u{2026}")
+                .accessibility_label("Choose project interpreter\u{2026}"),
             runtime_reveal.clone(),
             cx,
             Rc::new(|v, window, cx| v.choose_interpreter(window, cx)),
@@ -242,7 +245,8 @@ impl Workspace {
                     action_button("copy-interpreter-path")
                         .ghost()
                         .small()
-                        .label("Copy interpreter path"),
+                        .label("Copy path")
+                        .accessibility_label("Copy interpreter path"),
                     runtime_reveal.clone(),
                     cx,
                     Rc::new(move |_, _, cx| copy_acknowledged(p_copy.clone(), cx)),
@@ -289,75 +293,63 @@ impl Workspace {
                 ),
             );
         }
-        let body = v_flex()
-            .max_w(rems(52.))
-            .gap_4()
-            .child(
-                v_flex()
-                    .gap_0p5()
-                    .child(
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Settings"),
-                    )
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground)
-                            .child("Appearance, typography, layout, and project interpreter"),
-                    ),
-            )
-            .child(
-                appearance_reveal
-                    .track(settings_group("Appearance", cx).id("settings-appearance"))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(
+        let mut groups = sheet(cx);
+        match section {
+            "appearance" => {
+                groups = groups.child(
+                    appearance_reveal
+                        .track(
+                            settings_group_with(
+                                "Appearance",
                                 "Match your operating system or choose a dedicated contrast mode.",
-                            ),
+                                cx,
+                            )
+                            .id("settings-appearance"),
+                        )
+                        .child(appearance),
+                );
+            }
+            "editor" => {
+                groups = groups.child(
+                    type_reveal
+                        .track(settings_group("Typography", cx).id("settings-typography"))
+                        .child(setting_row(
+                            "UI scale",
+                            "Scale navigation, controls, and reading surfaces.",
+                            scales,
+                            cx,
+                        ))
+                        .child(setting_row(
+                            "Editor font",
+                            "Monospace font size inside notebook cells.",
+                            sizes,
+                            cx,
+                        )),
+                );
+            }
+            "layout" => {
+                groups = groups
+                    .child(
+                        layout_reveal
+                            .track(settings_group("Layout", cx).id("settings-layout"))
+                            .child(setting_row(
+                                "Spacing",
+                                "Compact keeps cells close together. Comfortable adds room inside cells and enlarges pointer targets to at least 44 by 44 px.",
+                                density,
+                                cx,
+                            ))
+                            .child(setting_row(
+                                "Outline width",
+                                "Default width of the notebook cell outline sidebar.",
+                                widths,
+                                cx,
+                            )),
                     )
-                    .child(appearance),
-            )
-            .child(
-                type_reveal
-                    .track(settings_group("Typography", cx).id("settings-typography"))
-                    .child(setting_row(
-                        "Interface size",
-                        "Scale navigation, controls, and reading surfaces.",
-                        scales,
-                        cx,
-                    ))
-                    .child(setting_row(
-                        "Editor text size",
-                        "Monospace font size inside notebook cells.",
-                        sizes,
-                        cx,
-                    )),
-            )
-            .child(
-                layout_reveal
-                    .track(settings_group("Layout", cx).id("settings-layout"))
-                    .child(setting_row(
-                        "Spacing",
-                        "Comfortable mode enlarges pointer targets to at least 44 by 44 px.",
-                        density,
-                        cx,
-                    ))
-                    .child(setting_row(
-                        "Outline width",
-                        "Default width of the notebook cell outline sidebar.",
-                        widths,
-                        cx,
-                    )),
-            )
-            .child(
-                access_reveal.track(
-                    settings_group("Accessibility", cx)
-                        .id("settings-accessibility")
-                        .child({
+                    .child(
+                        access_reveal.track(
+                            settings_group("Accessibility", cx)
+                                .id("settings-accessibility")
+                                .child({
                             let checked = self.preferences.reduced_motion;
                             let view = cx.entity();
                             let reveal = access_reveal.clone();
@@ -385,22 +377,240 @@ impl Workspace {
                                         cx.notify();
                                     });
                                 }))
-                        }),
-                ),
-            )
-            .child(runtime_reveal.track(runtime))
-            .child(self.ai_settings(window, cx))
+                                }),
+                        ),
+                    );
+            }
+            "runtime" => {
+                groups = groups
+                    .child(runtime_reveal.track(runtime))
+                    .child(self.interactivity_settings(cx));
+            }
+            _ => {
+                groups = groups.child(self.ai_settings(window, cx));
+            }
+        }
+        let content = v_flex()
+            .flex_1()
+            .min_w_0()
+            .gap_4()
+            .child(groups)
+            .when(matches!(section, "appearance" | "editor" | "layout"), |d| {
+                d.child(self.settings_preview(cx))
+            })
+            .when(section == "runtime" && !value.is_null(), |d| {
+                d.child(self.record_details_in(value, Some(details_reveal), cx))
+            });
+        let heading = h_flex()
+            .gap_3()
+            .flex_wrap()
+            .items_center()
+            .child(page_heading("Settings", "", cx).flex_none())
             .when_some(self.preference_status.clone(), |d, message| {
                 d.child(
                     div()
+                        .id("preference-status")
+                        .role(Role::Status)
+                        .aria_label(message.clone())
                         .text_sm()
                         .text_color(cx.theme().muted_foreground)
                         .child(message),
                 )
-            })
-            .when(!value.is_null(), |d| {
-                d.child(self.record_details_in(value, Some(details_reveal), cx))
             });
+        let body = if self.compact {
+            v_flex()
+                .gap_4()
+                .child(heading)
+                .child(self.settings_selector(cx))
+                .child(content)
+        } else {
+            v_flex().gap_4().child(heading).child(
+                h_flex()
+                    .items_start()
+                    .gap_6()
+                    .child(self.settings_rail(cx))
+                    .child(content),
+            )
+        };
         self.record_page(body, cx)
     }
+
+    fn select_settings_section(&mut self, key: &'static str, cx: &mut Context<Self>) {
+        if self.settings_section != key {
+            self.settings_section = key;
+            if key == "assistant" && self.tabs[self.active].assistant.settings.is_null() {
+                self.ai("settings.get", json!({}));
+            }
+            cx.notify();
+        }
+    }
+
+    fn settings_rail(&self, cx: &mut Context<Self>) -> Div {
+        let mut rail = v_flex()
+            .id("settings-sections")
+            .role(Role::List)
+            .aria_label("Settings sections")
+            .w(rems(12.5))
+            .flex_none()
+            .gap(px(2.))
+            .p(px(3.))
+            .rounded(px(8.))
+            .bg(cx.theme().muted);
+        for (key, title, description) in SECTIONS {
+            rail = rail.child(
+                action_button(SharedString::from(format!("settings-nav-{key}")))
+                    .menu_item(title, None)
+                    .segment(self.settings_section == key)
+                    .accessibility_label(format!("{title} settings"))
+                    .hint(description)
+                    .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
+            );
+        }
+        div().child(rail)
+    }
+
+    fn settings_selector(&self, cx: &mut Context<Self>) -> Div {
+        let mut track = segmented_track(cx);
+        for (key, title, description) in SECTIONS {
+            track = track.child(
+                action_button(SharedString::from(format!("settings-nav-{key}")))
+                    .small()
+                    .label(title.split(" & ").next().unwrap_or(title))
+                    .segment(self.settings_section == key)
+                    .accessibility_label(format!("{title} settings"))
+                    .hint(description)
+                    .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
+            );
+        }
+        track
+    }
+
+    /// A static sample cell drawn with the notebook's spacing and font size. Nothing in it runs.
+    fn settings_preview(&self, cx: &App) -> Stateful<Div> {
+        let theme = cx.theme();
+        let spacing = cell_spacing(self.preferences.comfortable);
+        let size = self.preferences.editor_size;
+        let mono = theme.mono_font_family.clone();
+        let muted = theme.muted_foreground;
+        let rule = divider(cx);
+        let code = |text: &'static str| {
+            div()
+                .font_family(mono.clone())
+                .text_size(px(size))
+                .line_height(px(size * 1.5))
+                .whitespace_nowrap()
+                .child(text)
+        };
+        let cell = |index: &'static str,
+                    lines: Vec<&'static str>,
+                    result: Option<&'static str>,
+                    last: bool| {
+            v_flex()
+                .w_full()
+                .child(
+                    h_flex()
+                        .min_h(rems(spacing.header_min_h))
+                        .py(px(spacing.header_py))
+                        .px_3()
+                        .gap_2()
+                        .items_center()
+                        .text_xs()
+                        .text_color(muted)
+                        .child(div().font_family(mono.clone()).child(index))
+                        .child("Code")
+                        .child(div().flex_1())
+                        .child(Icon::new(Glyph::Play).with_size(px(12.)))
+                        .child("Run"),
+                )
+                .child(
+                    v_flex()
+                        .px_3()
+                        .pt(px(spacing.source_top + 8.))
+                        .pb(px(spacing.source_bottom + 8.))
+                        .overflow_hidden()
+                        .children(lines.into_iter().map(&code)),
+                )
+                .when_some(result, |d, result| {
+                    d.child(
+                        div()
+                            .mx_3()
+                            .py(px(spacing.output_py))
+                            .border_t_1()
+                            .border_color(rule)
+                            .font_family(mono.clone())
+                            .text_sm()
+                            .child(result),
+                    )
+                })
+                .when(!last, |d| d.child(div().h(px(spacing.boundary))))
+        };
+        v_flex()
+            .id("settings-preview")
+            .role(Role::Figure)
+            .aria_label("Preview of notebook cells with the current appearance and spacing")
+            .gap_2()
+            .child(
+                h_flex()
+                    .gap_2()
+                    .items_baseline()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("Preview"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child("Sample cells. Nothing here runs."),
+                    ),
+            )
+            .child(
+                card(cx)
+                    .py_2()
+                    .bg(theme.background)
+                    .child(cell(
+                        "[1]",
+                        vec!["quarters = [412_000, 389_500, 483_000]"],
+                        None,
+                        false,
+                    ))
+                    .child(cell(
+                        "[2]",
+                        vec!["total = sum(quarters)", "f\"{total:,}\""],
+                        Some("'1,284,500'"),
+                        true,
+                    )),
+            )
+    }
 }
+
+/// Section key, title and one-line description, in navigation order.
+pub(super) const SECTIONS: [(&str, &str, &str); 5] = [
+    (
+        "appearance",
+        "Appearance",
+        "Color theme and contrast for every surface.",
+    ),
+    (
+        "editor",
+        "Editor",
+        "Interface size and the font size used inside notebook cells.",
+    ),
+    (
+        "layout",
+        "Layout & accessibility",
+        "Cell spacing, outline width, and motion.",
+    ),
+    (
+        "runtime",
+        "Runtime",
+        "The project interpreter and optional result shortcuts.",
+    ),
+    (
+        "assistant",
+        "Assistant",
+        "Provider, model, budgets, and what may be sent.",
+    ),
+];

@@ -1,5 +1,88 @@
 use super::*;
 
+/// Field filters edited through the advanced controls rather than as free text.
+fn is_field_token(part: &str) -> bool {
+    matches!(
+        part.split(':').next(),
+        Some("cell" | "session" | "after" | "before" | "from" | "to")
+    ) && part.contains(':')
+}
+
+/// Canonical tokens of a filter: `from:`/`to:` read as `after:`/`before:`, and
+/// order, case, and repetition do not change what the filter selects.
+fn filter_tokens(filter: &str) -> Vec<String> {
+    let mut tokens = filter
+        .split_whitespace()
+        .map(|part| {
+            let part = part.to_lowercase();
+            if let Some(value) = part.strip_prefix("from:") {
+                format!("after:{value}")
+            } else if let Some(value) = part.strip_prefix("to:") {
+                format!("before:{value}")
+            } else {
+                part
+            }
+        })
+        .collect::<Vec<_>>();
+    tokens.sort();
+    tokens.dedup();
+    tokens
+}
+
+pub(super) fn same_filter(a: &str, b: &str) -> bool {
+    filter_tokens(a) == filter_tokens(b)
+}
+
+/// Dates must be real `YYYY-MM-DD` days, with every start on or before every end.
+pub(super) fn history_filter_valid(filter: &str) -> bool {
+    let tokens = filter_tokens(filter);
+    let dates = |key: &str| {
+        tokens
+            .iter()
+            .filter_map(|token| token.strip_prefix(key))
+            .map(|value| {
+                (value.len() == 10)
+                    .then(|| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+                    .flatten()
+            })
+            .collect::<Option<Vec<_>>>()
+    };
+    let (Some(after), Some(before)) = (dates("after:"), dates("before:")) else {
+        return false;
+    };
+    after
+        .iter()
+        .all(|start| before.iter().all(|end| start <= end))
+}
+
+fn format_duration(seconds: f64) -> String {
+    if seconds < 60. {
+        format!("{seconds:.2} s")
+    } else {
+        let minutes = (seconds / 60.).floor();
+        format!("{minutes:.0} min {:.0} s", seconds - minutes * 60.)
+    }
+}
+
+/// Run time and duration for an execution's detail page, in the list's terms.
+fn execution_facts(item: &Value) -> String {
+    let time = record_time(item);
+    let ran = match (time.map(relative_time), time.map(local_time)) {
+        (Some(relative), Some(exact)) if relative != exact => format!("Ran {relative} ({exact})"),
+        (_, Some(exact)) => format!("Ran {exact}"),
+        _ => "Run time unknown".into(),
+    };
+    let duration = record_duration(item)
+        .map(format_duration)
+        .unwrap_or_else(|| "Unknown".into());
+    format!("{ran} \u{00b7} Duration {duration}")
+}
+
+/// Column widths shared by the History header and execution rows.
+const OUTCOME_W: f32 = 7.;
+const TIME_W: f32 = 12.5;
+const DURATION_W: f32 = 6.;
+
 fn toggle_raw_details(v: &mut Workspace, _: &mut Window, cx: &mut Context<Workspace>) {
     let flag = v.tabs[v.active]
         .raw_details
@@ -10,29 +93,32 @@ fn toggle_raw_details(v: &mut Workspace, _: &mut Window, cx: &mut Context<Worksp
 }
 
 impl Workspace {
+    /// Settings remembers one scroll position per section; other pages use one per surface.
+    pub(super) fn scroll_key(&self) -> String {
+        if self.surface == "Settings" {
+            format!("Settings/{}", self.settings_section)
+        } else {
+            self.surface.clone()
+        }
+    }
+
     pub(super) fn record_page(&mut self, body: Div, _cx: &mut Context<Self>) -> AnyElement {
+        let key = self.scroll_key();
         div()
             .id(SharedString::from(format!("inspection-{}", self.surface)))
             .role(Role::ScrollView)
             .a11y_synthetic_children(|tree| tree.parent_node().set_clips_children())
-            .track_scroll(
-                self.tabs[self.active]
-                    .scrolls
-                    .entry(self.surface.clone())
-                    .or_default(),
-            )
+            .track_scroll(self.tabs[self.active].scrolls.entry(key).or_default())
             .size_full()
             .overflow_y_scroll()
             .child(
-                div().w_full().flex().justify_center().px_4().py_5().child(
+                div().w_full().flex().justify_center().px_5().py_5().child(
                     body.w_full()
-                        .max_w(rems(
-                            if self.surface == "Settings" || self.surface == "Help" {
-                                52.
-                            } else {
-                                76.
-                            },
-                        ))
+                        .max_w(rems(match self.surface.as_str() {
+                            "Settings" => 64.,
+                            "Help" => 52.,
+                            _ => 76.,
+                        }))
                         .min_w_0(),
                 ),
             )
@@ -60,11 +146,15 @@ impl Workspace {
             .self_start()
             .ghost()
             .small()
-            .label(if open {
+            .label("Technical details")
+            .dropdown_caret(true)
+            .selected(open)
+            .accessibility_label(if open {
                 "Hide technical details"
             } else {
                 "Technical details"
             })
+            .hint("The raw ledger record as JSON")
             .on_a11y_click(move |window, cx| {
                 let reveal = a11y_reveal.clone();
                 view.update(cx, |v, cx| match &reveal {
@@ -79,21 +169,31 @@ impl Workspace {
                     None => toggle_raw_details(v, window, cx),
                 }
             }));
+        let raw = serde_json::to_string_pretty(value).unwrap_or_default();
         let body = v_flex().gap_2().child(details).when(open, |d| {
             d.child(
-                card(cx).p_3().child(
-                    TextView::markdown(
-                        "record-raw",
-                        format!(
-                            "```json\n{}\n```",
-                            bounded(
-                                &serde_json::to_string_pretty(value).unwrap_or_default(),
-                                65536
-                            )
-                        ),
+                card(cx)
+                    .p_3()
+                    .gap_2()
+                    .child(
+                        action_button("copy-raw-details")
+                            .self_start()
+                            .ghost()
+                            .small()
+                            .label("Copy JSON")
+                            .accessibility_label("Copy technical details as JSON")
+                            .on_click(cx.listener({
+                                let raw = raw.clone();
+                                move |_, _, _, cx| copy_acknowledged(raw.clone(), cx)
+                            })),
                     )
-                    .selectable(true),
-                ),
+                    .child(
+                        TextView::markdown(
+                            "record-raw",
+                            format!("```json\n{}\n```", bounded(&raw, 65536)),
+                        )
+                        .selectable(true),
+                    ),
             )
         });
         match reveal {
@@ -107,14 +207,228 @@ impl Workspace {
             .self_start()
             .ghost()
             .small()
-            .label("Back to list")
-            .hint("Alt+Left")
+            .label("Back")
+            .accessibility_label("Back to list")
+            .hint("Back to list (Alt+Left)")
             .on_click(cx.listener(|v, _, _, cx| {
                 v.back();
                 cx.notify();
             }))
     }
 
+    /// The filter the controls currently describe, which may not be applied yet.
+    /// Field tokens typed into the search box win until the field controls sync.
+    pub(super) fn history_draft(&self, cx: &App) -> String {
+        let query = self.history_query.read(cx).value().to_string();
+        let (fields, text): (Vec<&str>, Vec<&str>) =
+            query.split_whitespace().partition(|p| is_field_token(p));
+        let mut parts = text.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        if self.history_controls.is_empty() || fields.join(" ") != self.history_fields_key {
+            parts.extend(fields.into_iter().map(str::to_owned));
+        } else {
+            for (key, input) in &self.history_controls {
+                let text = input.read(cx).value().trim().to_string();
+                if !text.is_empty() {
+                    parts.push(format!("{key}:{text}"));
+                }
+            }
+        }
+        parts.join(" ")
+    }
+
+    pub(super) fn apply_history_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.tabs.is_empty() {
+            return;
+        }
+        let draft = self.history_draft(cx);
+        if !history_filter_valid(&draft) {
+            cx.notify();
+            return;
+        }
+        self.history_query
+            .update(cx, |s, cx| s.set_value(draft.clone(), window, cx));
+        self.tabs[self.active].history_applied = draft;
+        self.record_active = 0;
+        self.inspect("executions.list", json!({}));
+        cx.notify();
+    }
+
+    /// Clear resets both the edited and the applied filter.
+    pub(super) fn clear_history_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.history_query
+            .update(cx, |s, cx| s.set_value("", window, cx));
+        for input in self.history_controls.values() {
+            input.update(cx, |s, cx| s.set_value("", window, cx));
+        }
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.history_applied.clear();
+        }
+        self.record_active = 0;
+        cx.notify();
+    }
+
+    fn history_header(&self, cx: &App) -> Div {
+        let label = |text: &'static str| {
+            div()
+                .text_xs()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(cx.theme().muted_foreground)
+                .child(text)
+        };
+        h_flex()
+            .px_3()
+            .py_1p5()
+            .gap_3()
+            .items_center()
+            .border_b_1()
+            .border_color(divider(cx))
+            .bg(cx.theme().muted.opacity(0.5))
+            .child(div().w(px(16.)).flex_none())
+            .child(label("Cell").flex_1().min_w_0())
+            .child(label("Outcome").w(rems(OUTCOME_W)).flex_none())
+            .child(label("Run time").w(rems(TIME_W)).flex_none())
+            .child(
+                h_flex()
+                    .w(rems(DURATION_W))
+                    .flex_none()
+                    .justify_end()
+                    .child(label("Duration")),
+            )
+            // Reserves the action column so headings sit over their values.
+            .child(div().w(rems(5.75)).flex_none())
+    }
+
+    /// Cell, outcome, run time, and duration as separate fields: aligned columns
+    /// on wide pages, labeled lines when the window is narrow.
+    fn execution_row(&self, item: &Value, selected: bool, cx: &App) -> Div {
+        let theme = cx.theme();
+        let muted = theme.muted_foreground;
+        let status = item["status"].as_str().unwrap_or("");
+        let title = cell_title(
+            item["source"]
+                .as_str()
+                .unwrap_or("Recorded execution (source unavailable)"),
+            "code",
+        );
+        let outcome = if status.is_empty() {
+            div().text_sm().text_color(muted).child("Unknown")
+        } else if notable_status(status) {
+            div().child(badge(outcome_label(status).to_string(), tone(status, cx)))
+        } else {
+            div()
+                .text_sm()
+                .text_color(muted)
+                .child(outcome_label(status).to_string())
+        };
+        let time = record_time(item);
+        let relative = time.map(relative_time);
+        let exact = time.map(local_time);
+        let duration = record_duration(item)
+            .map(format_duration)
+            .unwrap_or_else(|| "Unknown".into());
+        let known_duration = duration != "Unknown";
+        let base = h_flex()
+            .min_w_0()
+            .gap_3()
+            .px_3()
+            .py_1p5()
+            .items_center()
+            .border_b_1()
+            .border_color(divider(cx))
+            .when(selected, |d| d.bg(theme.list_active))
+            .hover(move |s| s.bg(theme.list_hover));
+        let glyph = Icon::new(Glyph::Terminal).small().text_color(muted);
+        let title = div()
+            .min_w_0()
+            .truncate()
+            .text_sm()
+            .font_weight(FontWeight::MEDIUM)
+            .font_family(theme.mono_font_family.clone())
+            .child(title);
+        if self.compact {
+            let field = |label: &'static str, value: AnyElement| {
+                h_flex()
+                    .gap_1p5()
+                    .items_center()
+                    .child(div().text_xs().text_color(muted).child(label))
+                    .child(value)
+            };
+            return base.child(glyph).child(
+                v_flex().flex_1().min_w_0().gap_0p5().child(title).child(
+                    h_flex()
+                        .flex_wrap()
+                        .gap_x_4()
+                        .gap_y_0p5()
+                        .child(field("Outcome", outcome.into_any_element()))
+                        .child(field(
+                            "Run time",
+                            div()
+                                .text_xs()
+                                .whitespace_normal()
+                                .child(match (&relative, &exact) {
+                                    (Some(r), Some(e)) if r != e => format!("{r} \u{00b7} {e}"),
+                                    (_, Some(e)) => e.clone(),
+                                    _ => "Unknown".into(),
+                                })
+                                .into_any_element(),
+                        ))
+                        .child(field(
+                            "Duration",
+                            div()
+                                .text_xs()
+                                .when(!known_duration, |d| d.text_color(muted))
+                                .child(duration)
+                                .into_any_element(),
+                        )),
+                ),
+            );
+        }
+        base.child(glyph)
+            .child(title.flex_1())
+            .child(
+                h_flex()
+                    .w(rems(OUTCOME_W))
+                    .flex_none()
+                    .items_center()
+                    .child(outcome),
+            )
+            .child(
+                v_flex()
+                    .w(rems(TIME_W))
+                    .flex_none()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .text_sm()
+                            .truncate()
+                            .child(relative.clone().unwrap_or_else(|| "Unknown".into())),
+                    )
+                    .when(relative != exact, |d| {
+                        d.child(
+                            div()
+                                .text_xs()
+                                .truncate()
+                                .text_color(muted)
+                                .children(exact.clone()),
+                        )
+                    }),
+            )
+            .child(
+                h_flex()
+                    .w(rems(DURATION_W))
+                    .flex_none()
+                    .justify_end()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_family(theme.mono_font_family.clone())
+                            .when(!known_duration, |d| d.text_color(muted))
+                            .child(duration),
+                    ),
+            )
+    }
+
+    #[inline(never)]
     pub(super) fn history_page(
         &mut self,
         value: &Value,
@@ -123,12 +437,16 @@ impl Workspace {
     ) -> AnyElement {
         let mut body = v_flex().gap_3();
         if value.get("exec_id").is_some() {
+            let origin = value["origin"]
+                .as_str()
+                .filter(|origin| *origin != "unknown")
+                .map(str::to_owned);
             let eid_ai = value["exec_id"].as_str().unwrap_or_default().to_string();
             let cid_ai = value["cell_id"].as_str().unwrap_or_default().to_string();
             let is_err = value["status"].as_str() == Some("error");
             body = body.child(
                 h_flex()
-                    .gap_3()
+                    .gap_2()
                     .flex_wrap()
                     .items_center()
                     .child(self.record_back(cx))
@@ -138,10 +456,22 @@ impl Workspace {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child("Recorded execution"),
                     )
-                    .child(badge(
-                        outcome_label(value["status"].as_str().unwrap_or("Unknown")).to_string(),
-                        tone(value["status"].as_str().unwrap_or(""), cx),
-                    ))
+                    .when(
+                        notable_status(value["status"].as_str().unwrap_or("")),
+                        |d| {
+                            d.child(badge(
+                                outcome_label(value["status"].as_str().unwrap_or("Unknown"))
+                                    .to_string(),
+                                tone(value["status"].as_str().unwrap_or(""), cx),
+                            ))
+                        },
+                    )
+                    .when_some(origin, |d, origin| {
+                        d.child(badge(
+                            format!("Source: {origin}"),
+                            cx.theme().muted_foreground,
+                        ))
+                    })
                     .child(div().flex_1())
                     .child(
                         action_button("history-ai-explain")
@@ -149,10 +479,16 @@ impl Workspace {
                             .small()
                             .icon(Glyph::Sparkles)
                             .label(if is_err {
+                                "Explain failure"
+                            } else {
+                                "Explain in Assistant"
+                            })
+                            .accessibility_label(if is_err {
                                 "Explain failure in Assistant"
                             } else {
                                 "Explain execution in Assistant"
                             })
+                            .hint("Open in Assistant with this execution attached")
                             .on_click(cx.listener(move |v, _, _, cx| {
                                 let tab = &mut v.tabs[v.active];
                                 if !cid_ai.is_empty() {
@@ -177,19 +513,50 @@ impl Workspace {
                 div()
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
-                    .child(record_label(value, &self.tabs[self.active].model)),
+                    .child(execution_facts(value)),
             );
             if let Some(source) = value["source"].as_str() {
+                let reused = source.to_owned();
                 body = body.child(
-                    section("Recorded source", cx).child(
-                        card(cx).p_3().child(
-                            TextView::markdown(
-                                "history-source",
-                                format!("```python\n{}\n```", bounded(source, 65536)),
-                            )
-                            .selectable(true),
+                    v_flex()
+                        .gap_2()
+                        .child(
+                            h_flex()
+                                .justify_between()
+                                .items_center()
+                                .gap_2()
+                                .flex_wrap()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(cx.theme().foreground)
+                                        .child("Recorded source"),
+                                )
+                                .child(
+                                    action_button("reuse-recorded-input")
+                                        .outline()
+                                        .small()
+                                        .icon(Glyph::Plus)
+                                        .label("Insert as cell")
+                                        .accessibility_label("Insert recorded source as a new cell")
+                                        .hint("Saves a new code cell with this recorded source without running it")
+                                        .on_click(cx.listener(move |view, _, _, cx| {
+                                            let index = view.tabs[view.active].model.order.len();
+                                            view.mutate(json!({"action":"add","type":"code","source":reused,"index":index}));
+                                            view.select_surface("Notebook", cx);
+                                        })),
+                                ),
+                        )
+                        .child(
+                            card(cx).p_3().child(
+                                TextView::markdown(
+                                    "history-source",
+                                    format!("```python\n{}\n```", bounded(source, 65536)),
+                                )
+                                .selectable(true),
+                            ),
                         ),
-                    ),
                 );
                 if let Some(current) = value["cell_id"]
                     .as_str()
@@ -207,16 +574,9 @@ impl Workspace {
                             .gap_2()
                             .flex_wrap()
                             .items_center()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child(if changed {
-                                        "Source edited since this execution"
-                                    } else {
-                                        "Current source is unchanged"
-                                    }),
-                            )
+                            .when(changed, |d| {
+                                d.child(badge("Edited since run", cx.theme().warning))
+                            })
                             .child(
                                 action_button("compare-current-source")
                                     .ghost()
@@ -274,9 +634,9 @@ impl Workspace {
                 } else {
                     body = body.child(
                         div()
-                            .text_sm()
+                            .text_xs()
                             .text_color(cx.theme().muted_foreground)
-                            .child("This cell is no longer present in the notebook."),
+                            .child("Cell removed from notebook."),
                     );
                 }
             }
@@ -297,6 +657,8 @@ impl Workspace {
                             cell_id: value["cell_id"].as_str().unwrap_or_default().into(),
                             exec_id: value["exec_id"].as_str().unwrap_or_default().into(),
                             index: i,
+                            worker_generation: None,
+                            project: Some(self.tabs[self.active].model.project.clone()),
                         }
                         .into_any_element(),
                     );
@@ -312,23 +674,7 @@ impl Workspace {
                 h_flex()
                     .gap_3()
                     .items_center()
-                    .child(
-                        v_flex()
-                            .gap_0p5()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("History"),
-                            )
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child("Sessions and executions recorded in the ledger"),
-                            ),
-                    )
-                    .child(div().flex_1())
+                    .child(page_heading("History", "", cx))
                     .child(
                         segmented_track(cx)
                             .child(
@@ -384,12 +730,11 @@ impl Workspace {
                 self.history_fields_key = fields_key;
             }
             let mut fields = h_flex().gap_2().flex_wrap();
-            let mut valid = true;
             for (key, label) in [
                 ("cell", "Cell"),
                 ("session", "Session"),
-                ("after", "From (UTC date)"),
-                ("before", "Through (UTC date)"),
+                ("after", "From (YYYY-MM-DD)"),
+                ("before", "Through (YYYY-MM-DD)"),
             ] {
                 let initial = query
                     .split_whitespace()
@@ -412,60 +757,91 @@ impl Workspace {
                         s.set_value(initial, window, cx);
                         s
                     });
-                    self.history_field_subscriptions.push(cx.subscribe(
+                    self.history_field_subscriptions.push(cx.subscribe_in(
                         &input,
-                        |_, _, event: &InputEvent, cx| {
-                            if matches!(event, InputEvent::Change) {
-                                cx.notify();
-                            }
+                        window,
+                        |v, _, event: &InputEvent, window, cx| match event {
+                            InputEvent::Change => cx.notify(),
+                            InputEvent::PressEnter { .. } => v.apply_history_filters(window, cx),
+                            _ => {}
                         },
                     ));
                     self.history_controls.insert(key.into(), input);
                 }
                 let input = self.history_controls[key].clone();
-                let text = input.read(cx).value().to_string();
-                if matches!(key, "after" | "before")
-                    && !text.is_empty()
-                    && chrono::NaiveDate::parse_from_str(&text, "%Y-%m-%d").is_err()
-                {
-                    valid = false;
-                }
                 fields = fields.child(
-                    v_flex()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .child(label),
-                        )
-                        .child(
-                            div()
-                                .w(rems(11.))
-                                .child(Input::new(&input).small().cleanable(true)),
-                        ),
+                    div()
+                        .w(rems(11.))
+                        .child(Input::new(&input).small().cleanable(true)),
                 );
             }
-            let from = self.history_controls["after"]
-                .read(cx)
-                .value()
-                .trim()
-                .to_string();
-            let through = self.history_controls["before"]
-                .read(cx)
-                .value()
-                .trim()
-                .to_string();
-            if !from.is_empty() && !through.is_empty() && from > through {
-                valid = false;
-            }
+            let draft = self.history_draft(cx);
+            let valid = history_filter_valid(&draft);
+            let applied = self.tabs[self.active].history_applied.clone();
+            let pending = !same_filter(&draft, &applied);
+            let advanced_query = query.split_whitespace().any(|p| {
+                matches!(
+                    p.split(':').next(),
+                    Some("cell" | "session" | "after" | "before" | "from" | "to")
+                )
+            });
+            let show_fields = self.history_filters_open || advanced_query || !valid;
             body = body.child(
-                card(cx)
-                    .p_3()
-                    .gap_2p5()
-                    .child(Input::new(&self.history_query).cleanable(true).small())
-                    .child(self.history_filters(cx))
-                    .child(fields)
+                v_flex()
+                    .gap_2()
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .flex_wrap()
+                            .items_center()
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w(rems(16.))
+                                    .child(Input::new(&self.history_query).cleanable(true).small()),
+                            )
+                            .child(self.history_filters(cx))
+                            .child(
+                                action_button("history-more-filters")
+                                    .ghost()
+                                    .small()
+                                    .label("Filters")
+                                    .selected(show_fields)
+                                    .accessibility_label(if show_fields {
+                                        "Hide advanced history filters"
+                                    } else {
+                                        "Show advanced history filters"
+                                    })
+                                    .on_click(cx.listener(|v, _, _, cx| {
+                                        v.history_filters_open = !v.history_filters_open;
+                                        cx.notify();
+                                    })),
+                            )
+                            .child({
+                                let apply = action_button("apply-history-filters")
+                                    .small()
+                                    .label("Apply")
+                                    .accessibility_label("Apply filters")
+                                    .hint("Apply filters (Enter)")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.apply_history_filters(window, cx)
+                                    }))
+                                    .unavailable(!valid);
+                                if pending && valid { apply.primary() } else { apply.outline() }
+                            })
+                            .child(
+                                action_button("clear-history-filters")
+                                    .ghost()
+                                    .small()
+                                    .label("Clear")
+                                    .accessibility_label("Clear filters")
+                                    .hint("Clear edited and applied filters")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.clear_history_filters(window, cx)
+                                    })),
+                            ),
+                    )
+                    .when(show_fields, |d| d.child(fields))
                     .when(!valid, |d| {
                         d.child(
                             div().text_color(cx.theme().danger).text_sm().child(
@@ -473,67 +849,43 @@ impl Workspace {
                             ),
                         )
                     })
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                action_button("apply-history-filters")
-                                    .outline()
-                                    .small()
-                                    .label("Apply filters")
-                                    .unavailable(!valid)
-                                    .on_click(cx.listener(|v, _, window, cx| {
-                                        let query = v.history_query.read(cx).value().to_string();
-                                        let mut parts = query
-                                            .split_whitespace()
-                                            .filter(|p| {
-                                                !matches!(
-                                                    p.split(':').next(),
-                                                    Some(
-                                                        "cell"
-                                                            | "session"
-                                                            | "after"
-                                                            | "before"
-                                                            | "from"
-                                                            | "to"
-                                                    )
-                                                )
-                                            })
-                                            .map(str::to_owned)
-                                            .collect::<Vec<_>>();
-                                        for (key, input) in &v.history_controls {
-                                            let text = input.read(cx).value().trim().to_string();
-                                            if !text.is_empty() {
-                                                parts.push(format!("{key}:{text}"));
-                                            }
-                                        }
-                                        v.history_query.update(cx, |s, cx| {
-                                            s.set_value(parts.join(" "), window, cx)
-                                        });
-                                        v.record_active = 0;
-                                        v.inspect("executions.list", json!({}));
-                                        cx.notify();
-                                    })),
-                            )
-                            .child(
-                                action_button("clear-history-filters")
-                                    .ghost()
-                                    .small()
-                                    .label("Clear filters")
-                                    .on_click(cx.listener(|v, _, window, cx| {
-                                        v.history_query
-                                            .update(cx, |s, cx| s.set_value("", window, cx));
-                                        for input in v.history_controls.values() {
-                                            input.update(cx, |s, cx| s.set_value("", window, cx));
-                                        }
-                                        cx.notify();
-                                    })),
+                    .child({
+                        let (text, color) = match (pending, applied.trim().is_empty()) {
+                            (true, true) => (
+                                "Filters edited, not applied. The list still shows all loaded records; press Apply or Enter to filter it.".to_string(),
+                                cx.theme().warning,
                             ),
-                    ),
+                            (true, false) => (
+                                format!("Filters edited, not applied. The list still shows loaded records matching: {applied}"),
+                                cx.theme().warning,
+                            ),
+                            (false, true) => (
+                                "Showing all loaded records.".to_string(),
+                                cx.theme().muted_foreground,
+                            ),
+                            (false, false) => (
+                                format!("Showing loaded records matching: {applied}"),
+                                cx.theme().muted_foreground,
+                            ),
+                        };
+                        h_flex()
+                            .id("history-filter-state")
+                            .role(Role::Status)
+                            .aria_label(text.clone())
+                            .gap_1p5()
+                            .items_center()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .when(pending, |d| d.child(dot(color)))
+                            .child(div().whitespace_normal().child(text))
+                    }),
             );
             let items = value["items"].as_array().cloned().unwrap_or_default();
-            let filter = self.history_query.read(cx).value().to_lowercase();
-            let mut rows = card(cx);
+            let filter = applied.to_lowercase();
+            let executions = items.iter().any(|item| item.get("exec_id").is_some());
+            let mut rows = card(cx).when(executions && !self.compact, |d| {
+                d.child(self.history_header(cx))
+            });
             let mut count = 0;
             for (i, item) in items
                 .iter()
@@ -570,26 +922,63 @@ impl Workspace {
                     )
                 };
                 let replay_id = id.clone();
-                rows = rows.child(
+                let ai_exec_id = id.clone();
+                let ai_cell_id = item["cell_id"].as_str().unwrap_or_default().to_string();
+                let ai_is_err = item["status"].as_str() == Some("error");
+                let record = if execution.is_some() {
+                    self.execution_row(item, i == self.record_active, cx)
+                } else {
                     record_row(
-                        if execution.is_some() {
-                            Glyph::Terminal
-                        } else {
-                            Glyph::Clock
-                        },
+                        Glyph::Clock,
                         &record_label(item, &self.tabs[self.active].model),
                         item["status"].as_str().unwrap_or(""),
+                        i == self.record_active,
                         cx,
                     )
-                    .when(i == self.record_active, |d| d.bg(cx.theme().list_active))
+                };
+                rows = rows.child(record.child(
+                    h_flex()
+                        .flex_none()
+                        .gap_1()
+                        .items_center()
+                        .justify_end()
+                        .when(execution.is_some() && !self.compact, |d| d.w(rems(5.75)))
+                    .when(execution.is_some(), |d| {
+                        d.child(
+                            action_button(("record-ai", i))
+                                .ghost()
+                                .small()
+                                .icon(Glyph::Sparkles)
+                                .accessibility_label("Explain execution in Assistant")
+                                .hint("Open in Assistant with this execution attached")
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    let tab = &mut v.tabs[v.active];
+                                    if !ai_cell_id.is_empty() {
+                                        tab.model.selected = Some(ai_cell_id.clone());
+                                    }
+                                    tab.assistant.exec_ids = vec![ai_exec_id.clone()];
+                                    tab.assistant.open = true;
+                                    tab.assistant.receipt = Value::Null;
+                                    let task = if ai_is_err { "error" } else { "explain" };
+                                    let prompt = if ai_is_err {
+                                        format!(
+                                            "Explain why execution {ai_exec_id} failed and propose a fix."
+                                        )
+                                    } else {
+                                        format!("Explain recorded execution {ai_exec_id} and its output.")
+                                    };
+                                    v.ai_preview(task, prompt, cx);
+                                })),
+                        )
+                    })
                     .child(
                         action_button(("record-view", i))
                             .ghost()
                             .small()
                             .label(if execution.is_some() {
-                                "View execution"
+                                "View"
                             } else {
-                                "View session"
+                                "Executions"
                             })
                             .accessibility_label(action_name)
                             .on_click(
@@ -601,7 +990,7 @@ impl Workspace {
                             action_button(("replay-session", i))
                                 .outline()
                                 .small()
-                                .label("Replay session\u{2026}")
+                                .label("Replay\u{2026}")
                                 .accessibility_label(format!(
                                     "Replay {}",
                                     record_label(item, &self.tabs[self.active].model)
@@ -613,21 +1002,24 @@ impl Workspace {
                                 })),
                         )
                     }),
-                );
+                ));
             }
             if count == 0 {
-                rows = rows.child(empty_row(
+                body = body.child(empty_row(
                     if value.is_null() {
-                        "Loading recorded history\u{2026}"
+                        "Loading history\u{2026}"
                     } else if items.is_empty() {
-                        "No recorded history in this list. Run a code cell to create history."
+                        "No recorded history yet. Run a code cell to record executions."
+                    } else if value["cursor"].is_null() {
+                        "No loaded records match the applied filters. Clear filters to see every record."
                     } else {
-                        "No records match these filters."
+                        "No records on this page match the applied filters. Later pages may contain matches."
                     },
                     cx,
                 ));
+            } else {
+                body = body.child(rows);
             }
-            body = body.child(rows);
             if !value["cursor"].is_null() {
                 let method = self.tabs[self.active]
                     .inspection_method
@@ -656,14 +1048,7 @@ impl Workspace {
     }
     pub(super) fn history_filters(&self, cx: &mut Context<Self>) -> Div {
         let query = self.history_query.read(cx).value().to_string();
-        let mut filters = h_flex().flex_wrap().gap_1p5().items_center().child(
-            div()
-                .text_xs()
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(cx.theme().muted_foreground)
-                .mr_1()
-                .child("Outcome"),
-        );
+        let mut outcomes = segmented_track(cx);
         for (value, label) in [
             ("", "All"),
             ("ok", "Succeeded"),
@@ -676,12 +1061,11 @@ impl Workspace {
             } else {
                 query.split_whitespace().any(|s| s == token)
             };
-            filters = filters.child(
+            outcomes = outcomes.child(
                 action_button(SharedString::from(format!("outcome-{value}")))
-                    .ghost()
                     .small()
                     .label(label)
-                    .selected(selected)
+                    .segment(selected)
                     .on_click(cx.listener(move |v, _, window, cx| {
                         let query = v.history_query.read(cx).value().to_string();
                         let mut parts = query
@@ -699,13 +1083,15 @@ impl Workspace {
                     })),
             );
         }
-        v_flex().gap_1p5().child(filters).child(
-            div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
-                .child(
-                    "Search source, or combine cell:, session:, after:YYYY-MM-DD and before:YYYY-MM-DD filters.",
-                ),
-        )
+        h_flex()
+            .flex_wrap()
+            .gap_2()
+            .items_center()
+            .child(outcomes)
+            .child(info_tip(
+                "history-filter-syntax-tip",
+                "Search source text, or combine cell:, session:, after:YYYY-MM-DD, and before:YYYY-MM-DD filters.",
+                cx,
+            ))
     }
 }

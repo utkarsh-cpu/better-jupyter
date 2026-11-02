@@ -10,6 +10,8 @@ pub(super) struct OutputBlock {
     pub cell_id: SharedString,
     pub exec_id: SharedString,
     pub index: usize,
+    pub worker_generation: Option<String>,
+    pub project: Option<PathBuf>,
 }
 
 #[derive(Clone)]
@@ -82,7 +84,7 @@ impl RenderOnce for OutputTools {
         action_button((ElementId::from(self.owner), "output-tools-toggle"))
             .ghost()
             .small()
-            .icon(Glyph::Ellipsis)
+            .icon(Glyph::Copy)
             .selected(open)
             .contextual(self.group, self.always || open)
             .accessibility_label(format!("Output tools: {}", self.context))
@@ -167,6 +169,19 @@ impl RenderOnce for OutputBlock {
             .pb_1()
             .border_b_1()
             .border_color(divider(cx));
+        if let Some(source) = event["bundle"]["text/latex"]["value"].as_str() {
+            let source = source.to_owned();
+            actions = actions.child(
+                action_button((ElementId::from(self.id.clone()), "copy-equation"))
+                    .ghost()
+                    .small()
+                    .label("Copy TeX")
+                    .accessibility_label("Copy TeX source")
+                    .on_click(move |_, _, cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(source.clone()))
+                    }),
+            );
+        }
         if let Some(text) = text.clone() {
             let copy_state = state.clone();
             actions = actions.child(
@@ -312,7 +327,8 @@ impl RenderOnce for OutputBlock {
             .min_w_0()
             .w_full()
             .relative()
-            .min_h(rems(1.875))
+            // Only a block that hosts its own Output tools button needs a control-height row.
+            .when(self.tools_state.is_none(), |d| d.min_h(rems(1.875)))
             .gap_1p5()
             .role(Role::Group)
             .aria_label(if error {
@@ -367,6 +383,17 @@ impl RenderOnce for OutputBlock {
                         .child("Output hidden"),
                 )
                 .into_any_element();
+        }
+        if let Some(ordinal) = event["display_update_origin"]["ordinal"].as_u64() {
+            body = body.child(
+                div()
+                    .id((ElementId::from(self.id.clone()), "display-origin"))
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .role(Role::Group)
+                    .aria_label(format!("Display updated by execution {ordinal}"))
+                    .child(format!("Updated by execution {ordinal}")),
+            );
         }
         if let Some(page) = paging.clone()
             && (page.offset > 0 || page.end < page.total)
@@ -434,7 +461,7 @@ impl RenderOnce for OutputBlock {
                             .text_xs()
                             .text_color(cx.theme().muted_foreground)
                             .child(format!(
-                                "Bytes {}–{} of {}",
+                                "Bytes {}\u{2013}{} of {}",
                                 if page.end > page.offset {
                                     page.offset + 1
                                 } else {
@@ -448,6 +475,73 @@ impl RenderOnce for OutputBlock {
         }
         if search {
             body = body.child(Input::new(&query).small().cleanable(true));
+        }
+        let mut save_row = h_flex().gap_2().flex_wrap().items_center();
+        let mut has_save = false;
+        for mime in [
+            "audio/wav",
+            "audio/mpeg",
+            "audio/ogg",
+            "video/mp4",
+            "video/webm",
+            "image/png",
+            "image/jpeg",
+        ] {
+            if let Some(digest) = event["bundle"][mime]["blob"]
+                .as_str()
+                .filter(|digest| kernelledger_client::media::valid_digest(digest))
+            {
+                has_save = true;
+                let digest = digest.to_owned();
+                let controls = commands.clone();
+                let directory = self.project.clone().unwrap_or_else(|| PathBuf::from("."));
+                let filename = format!(
+                    "output-{}.{}",
+                    &digest[..digest.len().min(12)],
+                    kernelledger_client::media::extension(mime).unwrap()
+                );
+                save_row = save_row.child(
+                    action_button(SharedString::from(format!("{}-save-{mime}", self.id)))
+                        .outline()
+                        .small()
+                        .label(format!("Save {mime}\u{2026}"))
+                        .unavailable(controls.is_none())
+                        .hint("Save a verified copy to disk; open it in your system media player after saving.")
+                        .on_click(move |_, _, cx| {
+                            let chosen = cx.prompt_for_new_path(&directory, Some(&filename));
+                            let controls = controls.clone();
+                            let digest = digest.clone();
+                            cx.spawn(async move |_| {
+                                if let Some(commands) = controls {
+                                    match chosen.await {
+                                        Ok(Ok(Some(path))) => {
+                                            let _ = commands.send(Command::SaveOutput {
+                                                path,
+                                                digest,
+                                                mime: mime.into(),
+                                            });
+                                        }
+                                        Ok(Ok(None)) => {}
+                                        Ok(Err(error)) => {
+                                            let _ = commands.send(Command::OutputError(format!(
+                                                "The save location could not be selected: {error}"
+                                            )));
+                                        }
+                                        Err(error) => {
+                                            let _ = commands.send(Command::OutputError(format!(
+                                                "The save dialog did not finish: {error}"
+                                            )));
+                                        }
+                                    }
+                                }
+                            })
+                            .detach();
+                        }),
+                );
+            }
+        }
+        if has_save {
+            body = body.child(save_row);
         }
         if error {
             let state = state.clone();
@@ -493,7 +587,107 @@ impl RenderOnce for OutputBlock {
                     ),
             );
         }
+        let widget = &event["bundle"]["application/vnd.kernelledger.widget+json"]["value"];
+        if widget["schema"] == "kernelledger.widget/1" {
+            let active = event["imported"] != true
+                && widget["worker_generation"]
+                    .as_str()
+                    .is_some_and(|generation| {
+                        self.worker_generation.as_deref() == Some(generation)
+                    });
+            let kind = widget["kind"].as_str().unwrap_or("");
+            let mut widget_row = h_flex().gap_2().flex_wrap().items_center().child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .child(widget["label"].as_str().unwrap_or("Widget").to_owned()),
+            );
+            if active {
+                if kind == "checkbox" {
+                    let model = widget.clone();
+                    let controls = commands.clone();
+                    widget_row = widget_row.child(
+                        Checkbox::new(SharedString::from(format!("{}-widget-checkbox", self.id)))
+                            .label(widget["label"].as_str().unwrap_or("Checkbox").to_owned())
+                            .checked(widget["value"] == true)
+                            .on_click(move |value: &bool, _, _| {
+                                if let Some(commands) = &controls {
+                                    let _ = commands.send(Command::WidgetEvent {
+                                        model: model.clone(),
+                                        value: json!(value),
+                                    });
+                                }
+                            }),
+                    );
+                }
+                let mut choices: Vec<(String, Value)> = Vec::new();
+                match kind {
+                    "button" => choices.push(("Click".into(), Value::Null)),
+                    "checkbox" => {}
+                    "dropdown" => {
+                        for option in widget["options"].as_array().into_iter().flatten().take(100) {
+                            if let Some(label) = option.as_str() {
+                                choices.push((label.to_owned(), option.clone()));
+                            }
+                        }
+                    }
+                    "integer_slider" => {
+                        if let Some(value) = widget["value"].as_i64() {
+                            if value > widget["lower"].as_i64().unwrap_or(0) {
+                                choices.push((format!("Decrease ({value})"), json!(value - 1)));
+                            }
+                            if value < widget["upper"].as_i64().unwrap_or(100) {
+                                choices.push((format!("Increase ({value})"), json!(value + 1)));
+                            }
+                        }
+                    }
+                    "progress" => {
+                        widget_row = widget_row.child(badge(
+                            format!("{} / {}", widget["value"], widget["upper"]),
+                            cx.theme().info,
+                        ));
+                    }
+                    _ => {}
+                }
+                for (index, (label, value)) in choices.into_iter().enumerate() {
+                    let model = widget.clone();
+                    let commands = commands.clone();
+                    widget_row = widget_row.child(
+                        action_button(SharedString::from(format!("{}-widget-{index}", self.id)))
+                            .outline()
+                            .small()
+                            .accessibility_label(format!(
+                                "{}: {label}",
+                                widget["label"].as_str().unwrap_or("Widget")
+                            ))
+                            .label(label)
+                            .on_click(move |_, _, _| {
+                                if let Some(commands) = &commands {
+                                    let _ = commands.send(Command::WidgetEvent {
+                                        model: model.clone(),
+                                        value: value.clone(),
+                                    });
+                                }
+                            }),
+                    );
+                }
+            } else {
+                widget_row = widget_row
+                    .child(badge("Recorded snapshot", cx.theme().muted_foreground))
+                    .child(info_tip(
+                        SharedString::from(format!("{}-widget-tip", self.id)),
+                        "Recorded widget snapshot. Recreate the widget in the current runtime to interact.",
+                        cx,
+                    ));
+            }
+            body = body.child(widget_row);
+        }
         let prefer_rich = image_path.is_some()
+            || event["bundle"]["text/latex"]["value"].is_string()
+            || event["bundle"]["application/vnd.kernelledger.table+json"]["value"]["rows"]
+                .is_array()
+            || event["bundle"]["application/vnd.kernelledger.profile+json"]["value"]["rows"]
+                .is_array()
             || event["bundle"]["text/html"]["rows"].is_array()
             || event["bundle"]["text/markdown"]["value"].is_string()
             || !event["bundle"]["application/json"]["value"].is_null();
@@ -538,20 +732,38 @@ impl RenderOnce for OutputBlock {
                 if let Some(page) = &paging {
                     if page.end < page.total || page.offset > 0 {
                         body = body.child(
-                            div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
+                            h_flex()
+                                .gap_1()
+                                .items_center()
                                 .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child("Page view"),
+                                )
+                                .child(info_tip(
+                                    (ElementId::from(self.id.clone()), "page-tip"),
                                     "Copy and Find use this page. Recorded output is unchanged.",
-                                ),
+                                    cx,
+                                )),
                         );
                     }
                 } else if text.len() > limit {
                     body = body.child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child("Display limited; Copy retains the complete loaded text. Recorded output is unchanged."),
+                        h_flex()
+                            .gap_1()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child("Display truncated"),
+                            )
+                            .child(info_tip(
+                                (ElementId::from(self.id.clone()), "limit-tip"),
+                                "Display limited; Copy retains the complete loaded text. Recorded output is unchanged.",
+                                cx,
+                            )),
                     );
                 }
             }
@@ -588,7 +800,7 @@ impl RenderOnce for OutputBlock {
                         div()
                             .text_xs()
                             .text_color(cx.theme().muted_foreground)
-                            .child("This figure was evicted from the image cache."),
+                            .child("Figure evicted from cache."),
                     )
                     .child(
                         action_button((ElementId::from(self.id.clone()), "show-image"))
@@ -611,7 +823,12 @@ impl RenderOnce for OutputBlock {
                     .into_any_element()
             });
         } else {
-            body = body.child(output_inner(event, self.id.to_string(), cx));
+            body = body.child(output_inner(
+                event,
+                self.id.to_string(),
+                commands.clone(),
+                cx,
+            ));
         }
         body.into_any_element()
     }
@@ -630,7 +847,12 @@ fn recorded_figure_name(event: &Value, context: &str) -> String {
     }
 }
 
-fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
+fn output_inner(
+    event: &Value,
+    id: String,
+    commands: Option<std::sync::mpsc::Sender<Command>>,
+    cx: &App,
+) -> AnyElement {
     let theme = cx.theme();
     let mono = theme.mono_font_family.clone();
     if let Some(error) = event["viewer_error"].as_str() {
@@ -702,7 +924,44 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
                 .into_any_element();
         }
     }
-    if let Some(rows) = bundle["text/html"]["rows"].as_array() {
+    if let Some(source) = bundle["text/latex"]["value"].as_str() {
+        return math_output::equation(source, id, cx);
+    }
+    let native_table = &bundle["application/vnd.kernelledger.table+json"]["value"];
+    let native_rows = native_table["rows"]
+        .as_array()
+        .map(|rows| {
+            let mut result = vec![native_table["columns"].clone()];
+            result.extend(rows.iter().take(100).cloned());
+            result
+        })
+        .or_else(|| {
+            bundle["application/vnd.kernelledger.profile+json"]["value"]["rows"]
+                .as_array()
+                .map(|rows| {
+                    let mut result = vec![json!([
+                        "Function",
+                        "Calls",
+                        "Self seconds",
+                        "Total seconds",
+                        "Source"
+                    ])];
+                    result.extend(rows.iter().take(100).map(|row| {
+                        json!([
+                            row["function"].as_str().unwrap_or(""),
+                            row["calls"].to_string(),
+                            row["self_seconds"].to_string(),
+                            row["total_seconds"].to_string(),
+                            format!("{}:{}", row["file"].as_str().unwrap_or(""), row["line"])
+                        ])
+                    }));
+                    result
+                })
+        });
+    if let Some(rows) = native_rows
+        .as_ref()
+        .or_else(|| bundle["text/html"]["rows"].as_array())
+    {
         let columns = rows
             .iter()
             .filter_map(Value::as_array)
@@ -721,26 +980,43 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
                 });
             for column in 0..columns {
                 let text = row[column].as_str().unwrap_or_default().to_string();
-                line = line.child(
-                    div()
-                        .id(SharedString::from(format!("{id}-r{index}-c{column}")))
-                        .role(if index == 0 {
-                            Role::ColumnHeader
-                        } else {
-                            Role::Cell
-                        })
-                        .aria_label(text.clone())
-                        .aria_row_index(index)
-                        .aria_column_index(column)
-                        .focusable()
-                        .w(px(160.))
-                        .flex_none()
-                        .px_3()
-                        .py_2()
-                        .whitespace_normal()
-                        .focus(|style| style.border_2().border_color(theme.ring))
-                        .child(text),
-                );
+                let mut content = div()
+                    .id(SharedString::from(format!("{id}-r{index}-c{column}")))
+                    .role(if index == 0 {
+                        Role::ColumnHeader
+                    } else {
+                        Role::Cell
+                    })
+                    .aria_label(text.clone())
+                    .aria_row_index(index)
+                    .aria_column_index(column)
+                    .focusable()
+                    .w(px(160.))
+                    .flex_none()
+                    .px_3()
+                    .py_2()
+                    .whitespace_normal()
+                    .focus(|style| style.border_2().border_color(theme.ring));
+                let location = index.checked_sub(1).filter(|_| column == 4).and_then(|row| {
+                    let value = &bundle["application/vnd.kernelledger.profile+json"]["value"]["rows"][row];
+                    kernelledger_client::recorded::Location::parse(value["file"].as_str()?, value["source_revision"].as_str()?, value["line"].as_u64()?).ok()
+                });
+                if let (Some(location), Some(controls)) = (location, commands.clone()) {
+                    content = content.child(
+                        action_button(SharedString::from(format!("{id}-source-{index}")))
+                            .ghost()
+                            .small()
+                            .label(format!("Line {}", location.line))
+                            .accessibility_label(format!("Open line {}", location.line))
+                            .hint(text)
+                            .on_click(move |_, _, _| {
+                                let _ = controls.send(Command::RecordedSource(location.clone()));
+                            }),
+                    );
+                } else {
+                    content = content.child(text);
+                }
+                line = line.child(content);
             }
             line
         };
@@ -775,12 +1051,19 @@ fn output_inner(event: &Value, id: String, cx: &App) -> AnyElement {
         );
         if rows.len() > 201 {
             table = table.child(
-                div()
+                h_flex()
                     .px_3()
                     .py_2()
+                    .gap_1()
+                    .items_center()
                     .text_xs()
                     .text_color(theme.muted_foreground)
-                    .child("Showing the first 200 data rows. Recorded data is unchanged; use the text fallback for additional rows."),
+                    .child("Showing first 200 rows")
+                    .child(info_tip(
+                        SharedString::from(format!("{id}-table-limit-tip")),
+                        "Showing the first 200 data rows. Recorded data is unchanged; use Plain text / find for additional rows.",
+                        cx,
+                    )),
             );
         }
         return div()
@@ -894,7 +1177,7 @@ pub(super) fn attachment_preview(
             div()
                 .text_xs()
                 .text_color(cx.theme().muted_foreground)
-                .child(format!("{name} · {mime}")),
+                .child(format!("{name} \u{00b7} {mime}")),
         );
     let Some(preview) = preview else {
         return block
@@ -922,9 +1205,11 @@ pub(super) fn attachment_preview(
                     ElementId::from(cell_id.clone()),
                     format!("attachment-retry-{name}"),
                 ))
+                .self_start()
                 .ghost()
                 .small()
-                .label("Try preview again")
+                .label("Retry preview")
+                .accessibility_label("Try preview again")
                 .on_click(move |_, _, _| {
                     let _ = retry.send(Command::PreviewAttachment {
                         cell_id: retry_cell.clone(),
@@ -1004,7 +1289,7 @@ pub(super) fn attachment_preview(
                         div()
                             .text_xs()
                             .text_color(cx.theme().muted_foreground)
-                            .child(format!("Bytes {}–{} of {total}", offset + 1, end)),
+                            .child(format!("Bytes {}\u{2013}{} of {total}", offset + 1, end)),
                     ),
             );
         }

@@ -442,7 +442,7 @@ fn apply(conn: &mut Connection, state: &Path, command: Mutation) -> Result<Value
                 tx.execute(
                     "UPDATE operations SET result_json=? WHERE operation_id=?",
                     params![
-                        json!({"exec_ids":ids,"session_id":session}).to_string(),
+                        json!({"exec_ids":ids,"session_id":session,"origin":request.get("origin").cloned().unwrap_or(json!("unattributed"))}).to_string(),
                         oid
                     ],
                 )?;

@@ -9,6 +9,7 @@ from ..source import SourceError
 LIMIT = 1048576
 API = "kernelledger.desktop"
 CAPABILITIES = [
+    "interactive_reads",
     "portable_training",
     "native_snapshot_status",
     "batches",

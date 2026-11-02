@@ -196,6 +196,13 @@ class Helper:
             }
         path = self.root / ".kl/ledger.sqlite"
         if not path.exists():
+            if method == "display.updates":
+                return {
+                    "items": [],
+                    "after_rowid": request["through_rowid"],
+                    "through_rowid": request["through_rowid"],
+                    "more": False,
+                }
             if method == "executions.watermark":
                 return {
                     "executions": 0,
@@ -222,6 +229,10 @@ class Helper:
         )
         ledger = Ledger(path, readonly=True, immutable=immutable)
         try:
+            if method == "display.updates":
+                from ..display import update_page
+
+                return update_page(ledger, request)
             if method == "executions.watermark":
                 # Executions alone miss event appends and status updates that keep the same rowid.
                 row = ledger.rows(
@@ -248,6 +259,17 @@ class Helper:
                 return {**listed, "read_only_snapshot": immutable}
             if method in ("execution.get", "fold.get"):
                 return output_view(self.notebook, ledger, self.blobs, request["exec_id"])
+            if method == "source.execution":
+                from .recorded_source import preview
+
+                return preview(
+                    self.blobs,
+                    ledger.one(
+                        "SELECT exec_id,cell_id,source_sha256 FROM executions WHERE exec_id=?",
+                        (request["exec_id"],),
+                    ),
+                    request,
+                )
             if method == "events.list":
                 return page(
                     [
@@ -329,6 +351,8 @@ def main() -> None:
                     "version": 1,
                     "helper_version": 2,
                     "capabilities": [
+                        "display_updates",
+                        "recorded_source",
                         "blob_ranges",
                         "portable_training",
                         "native_snapshot_status",

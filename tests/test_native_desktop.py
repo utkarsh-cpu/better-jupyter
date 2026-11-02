@@ -275,6 +275,7 @@ def test_native_desktop_run_retry_and_capability_subset(native_runtime):
     client = Client(notebook.root)
     try:
         assert set(client.welcome["capabilities"]) == {
+            "interactive_reads",
             "operations",
             "batches",
             "blob_ranges",

@@ -11,7 +11,19 @@ from pathlib import Path
 
 def report():
     dependencies = {}
-    for name in ("numpy", "pandas", "pyarrow", "matplotlib", "torch", "kernelledger", "pytest"):
+    for name in (
+        "numpy",
+        "pandas",
+        "pyarrow",
+        "matplotlib",
+        "torch",
+        "kernelledger",
+        "pytest",
+        "ipython",
+        "debugpy",
+        "jupyter-client",
+        "pyzmq",
+    ):
         try:
             dependencies[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:

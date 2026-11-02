@@ -257,7 +257,7 @@ def test_native_helper_matches_python_reads_and_does_not_write(tmp_path: Path) -
     native = NativeHelper(notebook.root)
     try:
         assert native.welcome["helper_implementation"] == "rust"
-        assert native.welcome["capabilities"] == ["blob_ranges"]
+        assert native.welcome["capabilities"] == ["display_updates", "blob_ranges", "recorded_source"]
         assert native.welcome["delegated_methods"] == []
         assert Path(native.welcome["identity"]["project_path"]) == notebook.root
         assert_match(native, notebook.root, "ping")

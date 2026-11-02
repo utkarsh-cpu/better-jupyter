@@ -159,6 +159,13 @@ def parser() -> Any:
     from .assistant.cli import add_parser
 
     add_parser(sub)
+    jupyter = sub.add_parser(
+        "jupyter-adapter", help="optional local Jupyter transport attached to this notebook owner"
+    )
+    jupyter.add_argument("--connection-file", "-f", required=True)
+    jupyter_spec = sub.add_parser("jupyter-kernelspec", help="preview a shared-session kernelspec; explicit --install writes the user Jupyter directory")
+    jupyter_spec.add_argument("--name", required=True)
+    jupyter_spec.add_argument("--install", action="store_true")
     gpu = sub.add_parser("experimental-gpu", help="isolated v5 prototypes; no runtime migration")
     gpu.add_argument("--store", default=".kl-gpu-experimental")
     gpu_commands = gpu.add_subparsers(dest="gpu_command", required=True)
@@ -308,6 +315,15 @@ def offline_mutation(root: Any, command: Any, request: Any) -> Any:
 def execute_cli(args: Any) -> Any:
     root = Path(args.project).resolve()
     notebook, command = Notebook(root), args.command
+    if command == "jupyter-adapter":
+        from .jupyter_adapter import main
+
+        main(root, Path(args.connection_file))
+        return 0
+    if command == "jupyter-kernelspec":
+        from .jupyter_adapter import kernelspec
+        print(json.dumps(kernelspec(root, args.name, args.install), indent=2))
+        return 0
     if command == "ai":
         from .assistant.cli import execute
 

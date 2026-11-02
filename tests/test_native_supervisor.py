@@ -68,9 +68,12 @@ def native_runtime(tmp_path, request):
         finally:
             ledger.close()
     flags = {"creationflags": 0x08000000} if os.name == "nt" else {}
+    command = [binary, "serve-experimental", "--project", str(tmp_path), "--python", sys.executable]
+    if worker := seed.get("worker"):
+        command.extend(["--worker", str(worker(tmp_path) if callable(worker) else worker)])
     with (tmp_path / "native.log").open("wb") as log:
         process = subprocess.Popen(
-            [binary, "serve-experimental", "--project", str(tmp_path), "--python", sys.executable],
+            command,
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=log,

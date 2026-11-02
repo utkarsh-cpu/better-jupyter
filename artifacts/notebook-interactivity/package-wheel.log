@@ -1,0 +1,38 @@
+Building wheel...
+Successfully built C:\Temp\kl-ni-final-package-8zq_a5cy\kernelledger-0.1.0-py3-none-any.whl
+Using CPython 3.12.10 interpreter at: C:\Temp\kl-ni-final-5a0c9eca\Scripts\python.exe
+Creating virtual environment at: C:\Temp\kl-ni-final-package-8zq_a5cy\env
+Activate with: C:\Temp\kl-ni-final-package-8zq_a5cy\env\Scripts\activate
+Using Python 3.12.10 environment at: C:\Temp\kl-ni-final-package-8zq_a5cy\env
+Resolved 9 packages in 231ms
+Prepared 1 package in 47ms
+Installed 9 packages in 416ms
+ + charset-normalizer==3.5.2
+ + kernelledger==0.1.0 (from file:///C:/Temp/kl-ni-final-package-8zq_a5cy/kernelledger-0.1.0-py3-none-any.whl)
+ + lxml==6.1.3
+ + markdown-it-py==4.2.0
+ + mdurl==0.1.2
+ + pillow==13.0.0
+ + python-docx==1.2.0
+ + reportlab==4.5.1
+ + typing-extensions==4.16.0
+usage: kl [-h] [--project PROJECT]
+          {ai,mcp,jupyter-adapter,jupyter-kernelspec,experimental-gpu,init,stop,status,restart,log,checkpoint,retarget,training-checkpoint,training-list,native-checkpoint,training-inspect,training-restore,gc,migrate,runtimes,operation,cancel,serve,doctor,add,rm,run,interrupt,show,restore,continue,replay,import,export,publish,fetch,pin,unpin,bundle}
+          ...
+
+Source notebooks with durable Python execution history
+
+positional arguments:
+  {ai,mcp,jupyter-adapter,jupyter-kernelspec,experimental-gpu,init,stop,status,restart,log,checkpoint,retarget,training-checkpoint,training-list,native-checkpoint,training-inspect,training-restore,gc,migrate,runtimes,operation,cancel,serve,doctor,add,rm,run,interrupt,show,restore,continue,replay,import,export,publish,fetch,pin,unpin,bundle}
+    ai                  optional ledger assistant
+    mcp                 read-only notebook MCP over stdio
+    jupyter-adapter     optional local Jupyter transport attached to this
+                        notebook owner
+    jupyter-kernelspec  preview a shared-session kernelspec; explicit
+                        --install writes the user Jupyter directory
+    experimental-gpu    isolated v5 prototypes; no runtime migration
+
+options:
+  -h, --help            show this help message and exit
+  --project PROJECT, -C PROJECT
+                        notebook directory

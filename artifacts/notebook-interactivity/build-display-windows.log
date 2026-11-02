@@ -1,0 +1,17 @@
+cargo.exe : note: did not finalize incremental compilation session directory `\\?\C:\Users\UTKARSH KAUSHIK\Documents\Pr
+ojects\KernelLedger-v6\desktop\target\debug\incremental\kernelledger_protocol-2ewgdw7ws88an\s-hnjm5t63wg-1tedsea-workin
+g`: Access is denied. (os error 5)
+At line:2 char:135
++ ... display.rs; & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' build - ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (note: did not f...d. (os error 5):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  |
+  = help: the next build will not be able to reuse work from this compilation
+
+   Compiling kernelledger-runtime v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\runtime)
+   Compiling kernelledger-daemon v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\daemon)
+    Finished `dev` profile [unoptimized] target(s) in 4.49s
