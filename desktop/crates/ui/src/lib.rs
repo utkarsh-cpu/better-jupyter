@@ -1,12 +1,15 @@
-﻿mod accessibility;
+mod accessibility;
 mod assistant;
 mod checkpoints;
 mod components;
+mod debug_source;
 mod diagnostics;
 mod help;
 mod history;
 mod images;
+mod interactive;
 mod interchange;
+mod math_output;
 mod notebook;
 mod outputs;
 mod runtime;
@@ -35,6 +38,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use kernelledger_client::{
     output::{bounded, safe_markdown},
+    recent::RecentNotebook,
     service::{Command, Event, NotebookService},
 };
 use kernelledger_models::{Mode, NotebookModel, SaveState, SourceSnapshot};
@@ -45,7 +49,22 @@ actions!(
     kernelledger,
     [Save, RunCell, RunAll, Palette, OpenNotebook, CommandMode]
 );
-const SURFACES: [(&str, Glyph, &str); 7] = [
+const SURFACES: [(&str, Glyph, &str); 10] = [
+    (
+        "Debugger",
+        Glyph::Code,
+        "Step through an immutable executed cell and inspect passive locals",
+    ),
+    (
+        "Variables",
+        Glyph::Code,
+        "Passive live metadata; refresh while the notebook is idle",
+    ),
+    (
+        "Console",
+        Glyph::Code,
+        "Execute Python in the attached notebook session",
+    ),
     ("Notebook", Glyph::NotebookPen, ""),
     (
         "Help",
@@ -78,66 +97,102 @@ const SURFACES: [(&str, Glyph, &str); 7] = [
         "Appearance and interpreter preferences",
     ),
 ];
-const COMMANDS: [(&str, &str, &str, Glyph); 48] = [
+const COMMANDS: [(&str, &str, &str, Glyph); 54] = [
+    (
+        "debugger",
+        "Debugger",
+        "Return to the paused stack and stepping controls",
+        Glyph::Code,
+    ),
+    (
+        "load-source",
+        "Load source file…",
+        "Preview a local Python file before inserting a new cell",
+        Glyph::FileText,
+    ),
+    (
+        "toggle-breakpoint",
+        "Toggle breakpoint at caret",
+        "Bind a line breakpoint to this saved source revision",
+        Glyph::Flag,
+    ),
+    (
+        "debug-cell",
+        "Debug selected cell",
+        "Run accepted source with local stepping enabled",
+        Glyph::Code,
+    ),
+    (
+        "variables",
+        "Variables",
+        "Inspect passive live namespace metadata",
+        Glyph::Code,
+    ),
+    (
+        "console",
+        "Console",
+        "Use the same notebook worker and execution queue",
+        Glyph::Code,
+    ),
     (
         "ai-explain",
         "Explain cell error",
         "Prepare recorded error context for review",
-        Glyph::Info,
+        Glyph::Sparkles,
     ),
     (
         "ai-edit",
         "Suggest cell edit",
         "Propose a revision-checked source edit",
-        Glyph::FileText,
+        Glyph::Sparkles,
     ),
     (
         "ai-refactor",
         "Refactor cell",
         "Propose a cleaner cell refactoring with base source revision",
-        Glyph::Code,
+        Glyph::Sparkles,
     ),
     (
         "ai-document",
         "Document this cell",
         "Propose documentation for the selected cell",
-        Glyph::FileText,
+        Glyph::Sparkles,
     ),
     (
         "ai-tests",
         "Generate tests for cell",
         "Propose a verification test cell",
-        Glyph::Check,
+        Glyph::Sparkles,
     ),
     (
         "ai-summary",
         "Resume-work summary",
         "Summarize notebook state with evidence",
-        Glyph::Clock,
+        Glyph::Sparkles,
     ),
     (
         "ai-repro",
         "Reproducibility review",
         "Audit stale cells, execution order, and checkpoints",
-        Glyph::Check,
+        Glyph::Sparkles,
     ),
     (
         "ai-report",
         "Generate notebook report",
         "Draft a publication-ready narrative with recorded evidence",
-        Glyph::FileText,
+        Glyph::Sparkles,
     ),
     (
         "ai-environment",
         "Explain environment",
         "Review interpreter and GPU reports",
-        Glyph::Cpu,
+        Glyph::Sparkles,
     ),
     (
         "assistant",
         "Ask assistant",
         "Review notebook context and ask a configured model",
-        Glyph::MessageCircle,
+        Glyph::Sparkles,
     ),
     (
         "notebook",
@@ -369,12 +424,22 @@ const COMMANDS: [(&str, &str, &str, Glyph); 48] = [
     ),
 ];
 
+/// Per-cell assistant actions, grouped behind the cell menu's Assistant entry.
+const CELL_ASSISTANT_ACTIONS: [(&str, &str); 5] = [
+    ("assistant", "Ask about this cell"),
+    ("ai-edit", "Suggest edit"),
+    ("ai-refactor", "Refactor cell"),
+    ("ai-document", "Document"),
+    ("ai-tests", "Generate tests"),
+];
+
 struct Tab {
     assistant: assistant::AssistantView,
     model: NotebookModel,
     service: NotebookService,
     list: ListState,
     editors: BTreeMap<String, Entity<EditorState>>,
+    debug_decorations: BTreeMap<String, gpui_kit::component::input::TextDecorationCollection>,
     subscriptions: Vec<Subscription>,
     runtime: Value,
     operations: BTreeMap<String, Value>,
@@ -388,6 +453,8 @@ struct Tab {
     selections: BTreeMap<String, usize>,
     drafts: Vec<Value>,
     history_filter: String,
+    /// The History filter the rows reflect; the search input holds the editable draft.
+    history_applied: String,
     checkpoint_notice: Option<String>,
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
@@ -401,6 +468,7 @@ pub struct Workspace {
     query: Entity<InputState>,
     palette_query: Entity<InputState>,
     prompts: BTreeMap<String, Entity<InputState>>,
+    console_editors: BTreeMap<String, Entity<EditorState>>,
     tick: Task<()>,
     python: PathBuf,
     dark: bool,
@@ -417,6 +485,7 @@ pub struct Workspace {
     history_owner: Option<usize>,
     runtime_menu: bool,
     cell_menu: Option<(String, usize)>,
+    cell_menu_assistant: bool,
     insert_menu: Option<usize>,
     menu_anchor: String,
     menu_bounds: BTreeMap<String, Bounds<Pixels>>,
@@ -430,6 +499,9 @@ pub struct Workspace {
     history_controls: BTreeMap<String, Entity<InputState>>,
     history_field_subscriptions: Vec<Subscription>,
     history_fields_key: String,
+    history_filters_open: bool,
+    history_enter: Option<Subscription>,
+    settings_section: &'static str,
     help_query: Entity<InputState>,
     record_active: usize,
     sidebar_focus: FocusHandle,
@@ -437,13 +509,15 @@ pub struct Workspace {
     dialog_focus: FocusHandle,
     dialog_open: bool,
     keys: Option<Subscription>,
-    recent: Vec<PathBuf>,
+    recent: Vec<RecentNotebook>,
+    recorded_opens: std::collections::BTreeSet<PathBuf>,
+    welcome_notice: Option<String>,
 }
 impl Workspace {
     pub fn new(
         project: Option<PathBuf>,
         appearance: &str,
-        recent: Vec<PathBuf>,
+        recent: Vec<RecentNotebook>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -492,6 +566,7 @@ impl Workspace {
             query: cx.new(|cx| InputState::new(window, cx).placeholder("Filter cells")),
             palette_query: cx.new(|cx| InputState::new(window, cx).placeholder("Type a command")),
             prompts: BTreeMap::new(),
+            console_editors: BTreeMap::new(),
             tick: Task::ready(()),
             python: std::env::var_os("KL_RUNTIME_PYTHON")
                 .map(PathBuf::from)
@@ -510,6 +585,7 @@ impl Workspace {
             history_owner: None,
             runtime_menu: false,
             cell_menu: None,
+            cell_menu_assistant: false,
             insert_menu: None,
             menu_anchor: String::new(),
             menu_bounds: BTreeMap::new(),
@@ -519,14 +595,14 @@ impl Workspace {
             compact: false,
             outline_drawer: false,
             follow_system,
-            history_query: cx.new(|cx| {
-                InputState::new(window, cx).placeholder(
-                    "Search recorded source; advanced filters: cell:, session:, after:, before:",
-                )
-            }),
+            history_query: cx
+                .new(|cx| InputState::new(window, cx).placeholder("Search recorded source")),
             history_controls: BTreeMap::new(),
             history_field_subscriptions: Vec::new(),
             history_fields_key: String::new(),
+            history_filters_open: false,
+            history_enter: None,
+            settings_section: settings::SECTIONS[0].0,
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
@@ -535,6 +611,8 @@ impl Workspace {
             dialog_open: false,
             keys: None,
             recent,
+            recorded_opens: Default::default(),
+            welcome_notice: None,
         };
         let weak = cx.entity().downgrade();
         let handle = window.window_handle();
@@ -553,12 +631,24 @@ impl Workspace {
                 });
             }
         }));
+        view.history_enter = Some(cx.subscribe_in(
+            &view.history_query,
+            window,
+            |v, _, event: &InputEvent, window, cx| match event {
+                InputEvent::PressEnter { .. } => v.apply_history_filters(window, cx),
+                InputEvent::Change => cx.notify(),
+                _ => {}
+            },
+        ));
         if let Some(project) = project {
             view.open(project, cx);
         }
         view.tick = cx.spawn_in(window, async move |view, window| {
             loop {
-                smol::Timer::after(Duration::from_millis(50)).await;
+                window
+                    .background_executor()
+                    .timer(Duration::from_millis(50))
+                    .await;
                 if view
                     .update_in(window, |view, window, cx| view.drain(window, cx))
                     .is_err()
@@ -583,6 +673,7 @@ impl Workspace {
             },
             list: ListState::new(0, ListAlignment::Top, px(200.)),
             editors: BTreeMap::new(),
+            debug_decorations: BTreeMap::new(),
             subscriptions: vec![],
             runtime: Value::Null,
             operations: BTreeMap::new(),
@@ -596,6 +687,7 @@ impl Workspace {
             selections: BTreeMap::new(),
             drafts: vec![],
             history_filter: String::new(),
+            history_applied: String::new(),
             checkpoint_notice: None,
             error: None,
             attachment_pages: BTreeMap::new(),
@@ -679,7 +771,7 @@ impl Workspace {
             }
         }
         let mut changed = false;
-        for tab in &mut self.tabs {
+        for (event_tab, tab) in self.tabs.iter_mut().enumerate() {
             while let Ok(event) = tab.service.events.try_recv() {
                 changed = true;
                 match event {
@@ -688,11 +780,19 @@ impl Workspace {
                             .draft
                             .push_str(frame["text"].as_str().unwrap_or(""));
                         tab.assistant.status =
-                            "Receiving draft; citations and proposals are being checked\u{2026}".into();
+                            "Receiving draft; citations and proposals are being checked\u{2026}"
+                                .into();
                     }
                     Event::AssistantProposal(proposal) => tab.assistant.proposals.push(proposal),
                     Event::AssistantError { method, message } => {
                         tab.assistant.busy = false;
+                        if method == "providers.test" {
+                            let message = assistant::redact_secrets(&message);
+                            tab.assistant.connection =
+                                assistant::Connection::Failed(message.clone());
+                            tab.assistant.status = format!("Provider test failed: {message}");
+                            continue;
+                        }
                         if method == "proposal"
                             && (message.contains("changed") || message.contains("revision"))
                         {
@@ -737,6 +837,7 @@ impl Workspace {
                                 }
                                 tab.assistant.status = "AI settings saved.".into();
                                 tab.assistant.receipt = Value::Null;
+                                tab.assistant.connection = assistant::Connection::Untested;
                             }
                             "policy.update" => {
                                 tab.assistant.settings["policy"] = value["policy"].clone();
@@ -790,14 +891,20 @@ impl Workspace {
                             "providers.test" => {
                                 let ok = value["streaming"].as_bool() == Some(true)
                                     || value["ok"].as_bool() == Some(true);
-                                tab.assistant.status = if ok {
-                                    "Connection verified (streaming & structured JSON qualified).".into()
+                                if ok {
+                                    tab.assistant.connection = assistant::Connection::Ready;
+                                    tab.assistant.status =
+                                        "Connection verified (streaming & structured JSON qualified)."
+                                            .into();
                                 } else {
-                                    format!(
-                                        "Provider test failed: {}",
-                                        value["error"].as_str().unwrap_or("unreachable")
-                                    )
-                                };
+                                    let message = assistant::redact_secrets(
+                                        value["error"].as_str().unwrap_or("Provider unreachable"),
+                                    );
+                                    tab.assistant.status =
+                                        format!("Provider test failed: {message}");
+                                    tab.assistant.connection =
+                                        assistant::Connection::Failed(message);
+                                }
                             }
                             "search" => {
                                 let count = value["items"]
@@ -819,7 +926,8 @@ impl Workspace {
                                 tab.assistant.status = "Assistant records purged.".into();
                             }
                             "credential.set" | "credential.delete" => {
-                                tab.assistant.status = "OS credential store updated.".into()
+                                tab.assistant.status = "OS credential store updated.".into();
+                                tab.assistant.connection = assistant::Connection::Untested;
                             }
                             _ => {
                                 tab.assistant.status =
@@ -834,24 +942,24 @@ impl Workspace {
                             let order = tab.model.order.clone();
                             tab.model.apply_snapshot(snapshot);
                             if tab.model.source_state == "ok"
-                                && !self.recent.contains(&tab.model.project)
+                                && self.recorded_opens.insert(tab.model.project.clone())
                             {
-                                self.recent.insert(0, tab.model.project.clone());
-                                self.recent.truncate(10);
-                                let recent = self.recent.clone();
-                                cx.background_executor()
-                                    .spawn(async move {
-                                        let path =
-                                            kernelledger_client::profile_path().join("recent.json");
-                                        if let Some(parent) = path.parent() {
-                                            let _ = std::fs::create_dir_all(parent);
-                                        }
-                                        let _ = std::fs::write(
-                                            path,
-                                            serde_json::to_vec(&recent).unwrap_or_default(),
-                                        );
-                                    })
-                                    .detach();
+                                kernelledger_client::recent::record(
+                                    &mut self.recent,
+                                    tab.model.project.clone(),
+                                    chrono::Utc::now().to_rfc3339(),
+                                );
+                                if !cfg!(test) {
+                                    let recent = self.recent.clone();
+                                    cx.background_executor()
+                                        .spawn(async move {
+                                            let _ = kernelledger_client::recent::save(
+                                                &kernelledger_client::profile_path(),
+                                                &recent,
+                                            );
+                                        })
+                                        .detach();
+                                }
                             }
                             if order != tab.model.order {
                                 tab.list.reset(tab.model.order.len());
@@ -884,6 +992,11 @@ impl Workspace {
                         }
                     }
                     Event::Runtime(value) => {
+                        if value["interactive"]["worker_generation"]
+                            != tab.runtime["interactive"]["worker_generation"]
+                        {
+                            tab.inspections.remove("Widget state");
+                        }
                         if tab
                             .inspections
                             .get("Technical error")
@@ -942,6 +1055,61 @@ impl Workspace {
                         }
                     }
                     Event::Inspection { method, value } => {
+                        if method == "source.execution" {
+                            tab.inspections.insert("Recorded source".into(), value);
+                            if event_tab == self.active {
+                                self.surface = "Recorded source".into();
+                            }
+                            continue;
+                        }
+                        if method == "output.saved" {
+                            tab.inspections.insert("Export result".into(), value);
+                            continue;
+                        }
+                        if method == "console.execution" {
+                            tab.inspections.insert("Console output".into(), value);
+                            continue;
+                        }
+                        if method == "display.status" {
+                            tab.inspections.insert("Display updates".into(), value);
+                            continue;
+                        }
+                        if method == "widget.state" {
+                            if value["model"]["worker_generation"]
+                                == tab.runtime["interactive"]["worker_generation"]
+                                && let Some(handle) = value["model"]["handle"].as_str()
+                            {
+                                let states = tab
+                                    .inspections
+                                    .entry("Widget state".into())
+                                    .or_insert_with(|| json!({}));
+                                states[handle] = value["model"].clone();
+                            }
+                            continue;
+                        }
+                        if method == "source.preview" {
+                            tab.inspections.insert("Source preview".into(), value);
+                            self.surface = "Source preview".into();
+                            continue;
+                        }
+                        if method == "debug.breakpoints" {
+                            tab.inspections.insert("Breakpoints".into(), value);
+                            continue;
+                        }
+                        if method.starts_with("namespace.") || method == "code.inspect" {
+                            let key = if method == "namespace.list" {
+                                "Variables"
+                            } else {
+                                "Variable preview"
+                            };
+                            if value["worker_generation"].is_null()
+                                || value["worker_generation"]
+                                    == tab.runtime["interactive"]["worker_generation"]
+                            {
+                                tab.inspections.insert(key.into(), value);
+                            }
+                            continue;
+                        }
                         if method == "bundle.inspect" {
                             let path = tab
                                 .inspections
@@ -1002,12 +1170,15 @@ impl Workspace {
                         index,
                         slot,
                         text,
+                        digest,
                         offset,
                         end,
                         total,
                     } => {
                         if let Some(cell) = tab.model.cells.get_mut(&cell_id)
+                            && cell.exec_id.as_deref() == Some(exec_id.as_str())
                             && let Some(event) = cell.output.get_mut(index)
+                            && kernelledger_client::output::matches_blob(event, &slot, &digest)
                         {
                             kernelledger_client::output::write_page(
                                 event, &slot, &text, offset, end, total,
@@ -1018,13 +1189,16 @@ impl Workspace {
                                 tab.list.splice(position..position + 1, 1);
                             }
                         }
-                        if let Some(history) = tab.inspections.get_mut("History")
-                            && history["exec_id"] == exec_id
-                            && let Some(event) = history["outputs"].get_mut(index)
-                        {
-                            kernelledger_client::output::write_page(
-                                event, &slot, &text, offset, end, total,
-                            );
+                        for surface in ["History", "Console output"] {
+                            if let Some(history) = tab.inspections.get_mut(surface)
+                                && history["exec_id"] == exec_id
+                                && let Some(event) = history["outputs"].get_mut(index)
+                                && kernelledger_client::output::matches_blob(event, &slot, &digest)
+                            {
+                                kernelledger_client::output::write_page(
+                                    event, &slot, &text, offset, end, total,
+                                );
+                            }
                         }
                     }
                     Event::ImageCached {
@@ -1033,13 +1207,15 @@ impl Workspace {
                         index,
                         mime,
                         path,
+                        digest,
                     } => {
                         let assign = |event: &mut Value| {
-                            if event["bundle"][&mime].is_object() {
+                            if event["bundle"][&mime]["blob"] == digest {
                                 event["bundle"][&mime]["local_path"] = json!(path.clone());
                             }
                         };
                         if let Some(cell) = tab.model.cells.get_mut(&cell_id)
+                            && cell.exec_id.as_deref() == Some(exec_id.as_str())
                             && let Some(event) = cell.output.get_mut(index)
                         {
                             assign(event);
@@ -1049,11 +1225,13 @@ impl Workspace {
                                 tab.list.splice(position..position + 1, 1);
                             }
                         }
-                        if let Some(history) = tab.inspections.get_mut("History")
-                            && history["exec_id"] == exec_id
-                            && let Some(event) = history["outputs"].get_mut(index)
-                        {
-                            assign(event);
+                        for surface in ["History", "Console output"] {
+                            if let Some(history) = tab.inspections.get_mut(surface)
+                                && history["exec_id"] == exec_id
+                                && let Some(event) = history["outputs"].get_mut(index)
+                            {
+                                assign(event);
+                            }
                         }
                     }
                     Event::AttachmentPreview {
@@ -1110,7 +1288,16 @@ impl Workspace {
         {
             tab.model.selected = Some(id.clone());
             tab.model.mode = Mode::Edit;
-            tab.list.scroll_to_reveal_item(index);
+            if tab.list.bounds_for_item(index).is_some() {
+                tab.list.scroll_to_reveal_item(index);
+            } else {
+                // Height estimates are absent after a structural reset. Anchor
+                // directly to an unmeasured target instead of revealing its estimate.
+                tab.list.scroll_to(ListOffset {
+                    item_ix: index,
+                    offset_in_item: px(0.),
+                });
+            }
             tab.reveal = None;
             let editor = self.editor(self.active, &id, window, cx);
             editor.update(cx, |s, cx| s.focus(window, cx));
@@ -1219,6 +1406,10 @@ impl Workspace {
         {
             if key == "escape" {
                 self.close_menu(window, cx);
+            } else if self.cell_menu.is_some() && matches!(key, "left" | "right") {
+                self.cell_menu_assistant = key == "right";
+                self.dialog_focus.focus(window, cx);
+                cx.notify();
             } else if key == "tab" {
                 if m.shift {
                     window.focus_prev(cx);
@@ -1301,6 +1492,31 @@ impl Workspace {
             cx.notify();
             return;
         }
+        // Dismiss before the editor's Escape action propagates to CommandMode.
+        // The popup may already be closed by the time that parent action runs.
+        if key == "escape"
+            && !m.control
+            && !m.alt
+            && !m.shift
+            && !m.platform
+            && self.surface == "Notebook"
+            && self.tabs.get(self.active).is_some_and(|tab| {
+                tab.model
+                    .selected
+                    .as_ref()
+                    .and_then(|id| tab.editors.get(id))
+                    .is_some_and(|editor| {
+                        let editor = editor.read(cx);
+                        editor.focus_handle(cx).is_focused(window)
+                            && (editor.completion_menu_state().open
+                                || editor.hover_popover().is_some())
+                    })
+            })
+        {
+            self.command_mode(&CommandMode, window, cx);
+            cx.stop_propagation();
+            return;
+        }
         if self.project_shortcut(event, window, cx) {
             return;
         }
@@ -1333,7 +1549,7 @@ impl Workspace {
                         self.surface != "History"
                             || history_matches(
                                 item,
-                                &self.history_query.read(cx).value().to_lowercase(),
+                                &self.tabs[self.active].history_applied.to_lowercase(),
                                 &self.tabs[self.active].model,
                             )
                     })
@@ -1463,6 +1679,9 @@ impl Workspace {
         self.send(Command::Save);
     }
     fn run(&mut self, _: &RunCell, _: &mut Window, _: &mut Context<Self>) {
+        if self.surface != "Notebook" {
+            return;
+        }
         if let Some(id) = self
             .tabs
             .get(self.active)
@@ -1478,6 +1697,9 @@ impl Workspace {
         }
     }
     fn all(&mut self, _: &RunAll, _: &mut Window, _: &mut Context<Self>) {
+        if self.surface != "Notebook" {
+            return;
+        }
         self.batch("all");
     }
     fn batch(&self, scope: &str) {
@@ -1525,6 +1747,31 @@ impl Workspace {
         cx.notify();
     }
     fn command_mode(&mut self, _: &CommandMode, window: &mut Window, cx: &mut Context<Self>) {
+        if self.surface == "Console" && !self.palette && self.confirmation.is_none() {
+            let editor = self.console_editor(window, cx);
+            editor.update(cx, |editor, cx| {
+                editor.dismiss_lsp_overlays(cx);
+                editor.focus(window, cx);
+            });
+            return;
+        }
+        if let Some(editor) = self
+            .tabs
+            .get(self.active)
+            .and_then(|tab| {
+                tab.model
+                    .selected
+                    .as_ref()
+                    .and_then(|id| tab.editors.get(id))
+            })
+            .cloned()
+            && (editor.read(cx).completion_menu_state().open
+                || editor.read(cx).hover_popover().is_some())
+        {
+            editor.update(cx, |editor, cx| editor.dismiss_lsp_overlays(cx));
+            editor.update(cx, |editor, cx| editor.focus(window, cx));
+            return;
+        }
         self.palette = false;
         self.confirmation = None;
         if let Some(tab) = self.tabs.get_mut(self.active) {
@@ -1740,6 +1987,17 @@ impl Workspace {
                 return;
             }
             "diagnostics" => self.select_surface("Diagnostics", cx),
+            "variables" => self.select_surface("Variables", cx),
+            "console" => self.select_surface("Console", cx),
+            "debugger" => self.select_surface("Debugger", cx),
+            "debug-cell" => {
+                if let Some(cell_id) = self.tabs[self.active].model.selected.clone() {
+                    self.send(Command::DebugRun { cell_id });
+                    self.select_surface("Debugger", cx);
+                }
+            }
+            "toggle-breakpoint" => self.toggle_breakpoint(window, cx),
+            "load-source" => self.load_source_dialog(window, cx),
             "runtimes" => self.select_surface("Runtimes", cx),
             "checkpoints" => self.select_surface("Checkpoints", cx),
             "help" => self.select_surface("Help", cx),
@@ -1776,6 +2034,25 @@ impl Workspace {
         cx.notify();
     }
     fn command_reason(&self, method: &str) -> Option<&'static str> {
+        if method == "toggle-breakpoint"
+            && self
+                .tabs
+                .get(self.active)
+                .is_some_and(|tab| tab.runtime["worker_state"] != "idle")
+        {
+            return Some("Set breakpoints in a saved cell while the worker is idle");
+        }
+        if matches!(method, "debug-cell" | "toggle-breakpoint")
+            && !self.tabs.get(self.active).is_some_and(|tab| {
+                tab.runtime["interactive"]["features"]
+                    .as_array()
+                    .is_some_and(|features| features.iter().any(|feature| feature == "debugger"))
+            })
+        {
+            return Some(
+                "Debugger requires an opt-in runtime started with KL_EXPERIMENTAL_INTERACTIVITY=1",
+            );
+        }
         if matches!(method, "open" | "help") {
             return None;
         }
@@ -1784,10 +2061,10 @@ impl Workspace {
         };
         if method.starts_with("ai-") {
             if tab.assistant.settings["policy"].as_str() == Some("off") {
-                return Some("Notebook AI policy is Off (change in Settings \u{2192} AI)");
+                return Some("Notebook AI policy is Off (change in Settings \u{2192} Assistant)");
             }
             if tab.assistant.settings["settings"]["enabled"].as_bool() == Some(false) {
-                return Some("Enable AI assistant in Settings \u{2192} AI");
+                return Some("Enable the Assistant in Settings \u{2192} Assistant");
             }
             if matches!(
                 method,
@@ -1937,7 +2214,8 @@ impl Workspace {
         })
         .detach();
     }
-    fn sidebar(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+    #[inline(never)]
+    fn sidebar(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         let (
             bar,
@@ -2027,7 +2305,7 @@ impl Workspace {
                     .aria_selected(selected)
                     .gap_2()
                     .px_2()
-                    .py_1p5()
+                    .py_1()
                     .items_center()
                     .rounded(radius)
                     .border_l_2()
@@ -2042,40 +2320,33 @@ impl Workspace {
                             .child(Icon::new(kind_icon(&cell.disk.kind)).small()),
                     )
                     .child(
-                        v_flex()
+                        div()
                             .flex_1()
                             .min_w_0()
-                            .gap_0p5()
-                            .child(
-                                div()
-                                    .truncate()
-                                    .text_sm()
-                                    .when(selected, |d| d.font_weight(FontWeight::MEDIUM))
-                                    .when(preview.is_none(), |d| d.italic().text_color(muted_fg))
-                                    .child(preview.unwrap_or_else(|| {
-                                        format!("Empty {} cell", cell.disk.kind)
-                                    })),
-                            )
-                            .child(
-                                h_flex()
-                                    .justify_between()
-                                    .items_center()
-                                    .gap_1()
-                                    .text_size(rems(0.6875))
-                                    .text_color(muted_fg)
-                                    .child(div().truncate().child(kind_label(&cell.disk.kind)))
-                                    .when(cell.disk.kind == "code", |d| {
-                                        d.child(
-                                            div().flex_none().font_family(mono.clone()).child(
-                                                cell.ordinal
-                                                    .map(|n| format!("[{n}]"))
-                                                    .unwrap_or_else(|| "Unrun".into()),
-                                            ),
-                                        )
-                                    }),
-                            ),
+                            .truncate()
+                            .text_sm()
+                            .when(selected, |d| d.font_weight(FontWeight::MEDIUM))
+                            .when(preview.is_none(), |d| d.italic().text_color(muted_fg))
+                            .child(preview.unwrap_or_else(|| {
+                                format!("Empty {} cell", kind_label(&cell.disk.kind))
+                            })),
                     )
-                    .when_some(marker, |d, color| d.child(dot(color)))
+                    .child(
+                        h_flex().flex_none().w(px(28.)).justify_end().child(
+                            div()
+                                .text_size(rems(0.6875))
+                                .font_family(mono.clone())
+                                .text_color(muted_fg)
+                                .child(if cell.disk.kind == "code" {
+                                    cell.ordinal
+                                        .map(|n| format!("[{n}]"))
+                                        .unwrap_or_else(|| "\u{2014}".into())
+                                } else {
+                                    String::new()
+                                }),
+                        ),
+                    )
+                    .child(dot(marker.unwrap_or(transparent)))
                     .on_click(cx.listener(move |v, _, window, cx| {
                         v.surface = "Notebook".into();
                         let t = &mut v.tabs[v.active];
@@ -2114,8 +2385,8 @@ impl Workspace {
                 h_flex()
                     .flex_none()
                     .px_3()
-                    .pt_3()
-                    .pb_2()
+                    .pt_2()
+                    .pb_1()
                     .justify_between()
                     .items_center()
                     .child(
@@ -2125,18 +2396,28 @@ impl Workspace {
                             .text_color(muted_fg)
                             .child("Cells"),
                     )
-                    .child(badge(tab.model.order.len().to_string(), muted_fg)),
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_family(mono)
+                            .text_color(muted_fg)
+                            .child(tab.model.order.len().to_string()),
+                    ),
             )
-            .child(
-                div().flex_none().px_2().pb_2().child(
-                    Input::new(&self.query)
-                        .small()
-                        .cleanable(true)
-                        .prefix(Icon::new(Glyph::Search).small().text_color(muted_fg)),
-                ),
-            )
+            .when(!tab.model.order.is_empty(), |d| {
+                d.child(
+                    div().flex_none().px_2().pb_1().child(
+                        Input::new(&self.query)
+                            .small()
+                            .cleanable(true)
+                            .prefix(Icon::new(Glyph::Search).small().text_color(muted_fg)),
+                    ),
+                )
+            })
             .child(list)
+            .into_any_element()
     }
+    #[inline(never)]
     fn empty_notebook(&self, cx: &mut Context<Self>) -> AnyElement {
         let muted_fg = cx.theme().muted_foreground;
         v_flex()
@@ -2145,12 +2426,11 @@ impl Workspace {
             .justify_center()
             .p_6()
             .child(
-                card(cx)
-                    .max_w(px(440.))
-                    .p_6()
-                    .gap_4()
+                v_flex()
+                    .max_w(px(400.))
+                    .gap_3()
                     .items_center()
-                    .child(icon_tile(Glyph::NotebookPen, 44., cx))
+                    .child(icon_tile(Glyph::NotebookPen, 40., cx))
                     .child(
                         v_flex()
                             .items_center()
@@ -2165,13 +2445,6 @@ impl Workspace {
                                 div().text_sm().text_center().text_color(muted_fg).child(
                                     "Add a cell to start writing. Nothing runs until you ask.",
                                 ),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_center()
-                                    .text_color(muted_fg)
-                                    .child("Notebook Ctrl+1, History Ctrl+2, Checkpoints Ctrl+3."),
                             ),
                     )
                     .child(
@@ -2201,56 +2474,97 @@ impl Workspace {
             )
             .into_any_element()
     }
-    fn welcome(&self, cx: &mut Context<Self>) -> Div {
+    #[inline(never)]
+    fn welcome(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
-        let (muted_fg, radius) = (theme.muted_foreground, theme.radius_lg);
-        let sep = divider(cx);
-        let mut shortcuts = v_flex()
-            .w(px(360.))
-            .max_w_full()
-            .rounded(radius)
-            .border_1()
-            .border_color(sep)
-            .bg(theme.popover)
-            .overflow_hidden();
-        let shortcut_rows = [
-            ("Open notebook", "ctrl-o"),
-            ("Command palette", "ctrl-shift-p"),
-            ("Run selected cell", "shift-enter"),
-            ("Run all cells", "ctrl-shift-enter"),
+        let muted_fg = theme.muted_foreground;
+        let shortcut_hints = [
+            ("Open", "ctrl-o"),
+            ("Commands", "ctrl-shift-p"),
+            ("Run", "shift-enter"),
             ("Save", "ctrl-s"),
-            ("Export PDF or Word", "ctrl-shift-e"),
-            ("Command mode", "escape"),
         ];
-        for (idx, (label, keys)) in shortcut_rows.into_iter().enumerate() {
-            shortcuts = shortcuts.child(
-                h_flex()
-                    .px_3p5()
-                    .py_2()
-                    .justify_between()
-                    .items_center()
-                    .when(idx + 1 < shortcut_rows.len(), |d| {
-                        d.border_b_1().border_color(sep)
-                    })
-                    .text_sm()
-                    .child(div().text_color(muted_fg).child(label))
-                    .children(kbd(keys)),
+        let warning = theme.warning;
+        let recent = self.recent.iter().take(5).enumerate().map(|(i, item)| {
+            let path = item.path.clone();
+            let name = notebook_name(&path);
+            let folder = path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default();
+            let missing = !path.is_dir();
+            let opened = item.opened.as_deref().map(relative_time);
+            let detail = match (&opened, missing) {
+                (_, true) => format!("{} \u{00b7} Not found", tail_path(&folder, 44)),
+                (Some(opened), false) => {
+                    format!("{} \u{00b7} Opened {opened}", tail_path(&folder, 44))
+                }
+                (None, false) => tail_path(&folder, 44),
+            };
+            let spoken = format!(
+                "Open {name} in {folder}{}",
+                match (&opened, missing) {
+                    (_, true) => ", folder not found".to_string(),
+                    (Some(opened), false) => format!(", opened {opened}"),
+                    (None, false) => String::new(),
+                }
             );
-        }
-        let recent = self.recent.iter().take(5).enumerate().map(|(i, path)| {
-            let path = path.clone();
-            action_button(("recent", i))
-                .outline()
-                .small()
-                .icon(Glyph::NotebookPen)
-                .label(
-                    path.file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string(),
+            let open_path = path.clone();
+            let removed = path.clone();
+            h_flex()
+                .w_full()
+                .min_w_0()
+                .gap_1()
+                .items_center()
+                .child(
+                    action_button(("recent", i))
+                        .ghost()
+                        .flex_1()
+                        .min_w_0()
+                        .icon(if missing {
+                            Glyph::TriangleAlert
+                        } else {
+                            Glyph::NotebookPen
+                        })
+                        .when(missing, |b| b.text_color(warning))
+                        .detail_row(name.clone(), detail)
+                        .accessibility_label(spoken)
+                        .hint(path.display().to_string())
+                        .on_click(cx.listener(move |v, _, _, cx| {
+                            if open_path.is_dir() {
+                                v.welcome_notice = None;
+                                v.open(open_path.clone(), cx);
+                            } else {
+                                v.welcome_notice = Some(missing_recent_message(&open_path));
+                                cx.notify();
+                            }
+                        })),
                 )
-                .hint(path.display().to_string())
-                .on_click(cx.listener(move |v, _, _, cx| v.open(path.clone(), cx)))
+                .when(missing, |row| {
+                    row.child(
+                        action_button(("recent-remove", i))
+                            .ghost()
+                            .small()
+                            .label("Remove")
+                            .accessibility_label(format!("Remove {name} from recent notebooks"))
+                            .on_click(cx.listener(move |v, _, _, cx| {
+                                kernelledger_client::recent::remove(&mut v.recent, &removed);
+                                v.welcome_notice = None;
+                                if !cfg!(test) {
+                                    let recent = v.recent.clone();
+                                    cx.background_executor()
+                                        .spawn(async move {
+                                            let _ = kernelledger_client::recent::save(
+                                                &kernelledger_client::profile_path(),
+                                                &recent,
+                                            );
+                                        })
+                                        .detach();
+                                }
+                                cx.notify();
+                            })),
+                    )
+                })
         });
         v_flex()
             .flex_1()
@@ -2258,12 +2572,12 @@ impl Workspace {
             .justify_center()
             .px_6()
             .py_6()
-            .gap_5()
+            .gap_4()
             .child(
                 v_flex()
                     .items_center()
                     .gap_1p5()
-                    .child(icon_tile(Glyph::NotebookPen, 44., cx))
+                    .child(icon_tile(Glyph::NotebookPen, 40., cx))
                     .child(
                         div()
                             .text_2xl()
@@ -2274,20 +2588,14 @@ impl Workspace {
                         div()
                             .text_sm()
                             .text_center()
+                            .max_w(px(440.))
                             .text_color(muted_fg)
-                            .child("Local-first reproducible notebooks. Source and recorded execution history stay in plain local files."),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_center()
-                            .text_color(muted_fg)
-                            .child("Open or create a notebook, then use Notebook (Ctrl+1), History (Ctrl+2), or Checkpoints (Ctrl+3)."),
+                            .child("Local-first Python notebooks. Source stays in ordinary files; execution history is recorded locally in SQLite."),
                     ),
             )
             .child(
                 h_flex()
-                    .gap_2p5()
+                    .gap_2()
                     .flex_wrap()
                     .justify_center()
                     .items_center()
@@ -2309,7 +2617,7 @@ impl Workspace {
                     )
                     .child(
                         action_button("sample")
-                            .outline()
+                            .ghost()
                             .label("Create sample notebook")
                             .on_click(cx.listener(|v, _, w, cx| v.create_dialog(true, w, cx))),
                     )
@@ -2328,19 +2636,54 @@ impl Workspace {
             .when(!self.recent.is_empty(), |d| {
                 d.child(
                     v_flex()
-                        .items_center()
-                        .gap_2()
+                        .w_full()
+                        .max_w(rems(36.))
+                        .gap_1()
                         .child(
                             div()
+                                .px_2()
                                 .text_xs()
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_color(muted_fg)
                                 .child("Recent notebooks"),
                         )
-                        .child(h_flex().gap_2().flex_wrap().justify_center().children(recent)),
+                        .child(card(cx).p_1().gap_0p5().children(recent))
+                        .when_some(self.welcome_notice.clone(), |d, notice| {
+                            d.child(
+                                div()
+                                    .id("recent-notice")
+                                    .role(Role::Alert)
+                                    .aria_label(notice.clone())
+                                    .px_2()
+                                    .py_1p5()
+                                    .text_sm()
+                                    .whitespace_normal()
+                                    .text_color(warning)
+                                    .child(notice),
+                            )
+                        }),
                 )
             })
-            .child(shortcuts)
+            .child(
+                h_flex()
+                    .gap_4()
+                    .flex_wrap()
+                    .justify_center()
+                    .items_center()
+                    .children(shortcut_hints.into_iter().map(|(label, keys)| {
+                        h_flex()
+                            .gap_1p5()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(muted_fg)
+                                    .child(label),
+                            )
+                            .children(kbd(keys))
+                    })),
+            )
+            .into_any_element()
     }
 }
 impl Render for Workspace {
@@ -2540,25 +2883,22 @@ impl Render for Workspace {
                                 )
                             },
                         )
-                        .when(
-                            self.tabs[self.active].assistant.open && self.compact,
-                            |d| {
-                                d.child(
-                                    div()
-                                        .absolute()
-                                        .right_0()
-                                        .top_0()
-                                        .bottom_0()
-                                        .w(px(420. * self.preferences.ui_scale))
-                                        .max_w_full()
-                                        .bg(cx.theme().background)
-                                        .border_l_1()
-                                        .border_color(divider(cx))
-                                        .when(!self.high_contrast, |d| d.shadow_lg())
-                                        .child(self.assistant_panel(window, cx)),
-                                )
-                            },
-                        ),
+                        .when(self.tabs[self.active].assistant.open && self.compact, |d| {
+                            d.child(
+                                div()
+                                    .absolute()
+                                    .right_0()
+                                    .top_0()
+                                    .bottom_0()
+                                    .w(px(420. * self.preferences.ui_scale))
+                                    .max_w_full()
+                                    .bg(cx.theme().background)
+                                    .border_l_1()
+                                    .border_color(divider(cx))
+                                    .when(!self.high_contrast, |d| d.shadow_lg())
+                                    .child(self.assistant_panel(window, cx)),
+                            )
+                        }),
                 )
                 .child(self.status_bar(cx));
         }
@@ -2588,7 +2928,7 @@ impl Render for Workspace {
                     .right(rems(0.75))
                     .px_3()
                     .py_2()
-                    .rounded(px(7.))
+                    .rounded(px(6.))
                     .bg(cx.theme().popover)
                     .border_1()
                     .border_color(divider(cx))
@@ -2622,6 +2962,10 @@ fn kind_icon(kind: &str) -> Glyph {
 }
 fn editor_lines(text: &str) -> usize {
     text.split('\n').count().clamp(1, 30)
+}
+fn editor_height(text: &str, font_size: f32, ui_scale: f32) -> Pixels {
+    // The editor facade reserves 8 logical pixels on each vertical edge.
+    px(editor_lines(text) as f32 * font_size * 1.5 + 18. * ui_scale)
 }
 fn tone(status: &str, cx: &App) -> Hsla {
     let theme = cx.theme();
@@ -2675,6 +3019,8 @@ fn output(
         cell_id: cell_id.to_owned().into(),
         exec_id: exec_id.to_owned().into(),
         index,
+        worker_generation: None,
+        project: None,
     }
     .into_any_element()
 }
@@ -2786,6 +3132,9 @@ fn error_message(code: &str) -> &'static str {
         "too_large" => {
             "This record exceeds the viewer limit. Recorded data is retained; inspect it with the CLI."
         }
+        "output_export" => {
+            "The output could not be saved. Choose a new filename with the matching extension in a writable folder. Details are available in Diagnostics."
+        }
         "not_found" => {
             "The requested record or file is unavailable. Reload the notebook to refresh its records."
         }
@@ -2837,21 +3186,26 @@ fn record_label(record: &Value, _model: &NotebookModel) -> String {
     } else {
         "Session".into()
     };
-    let time = ["timestamp", "start", "started", "accepted", "start_time"]
-        .iter()
-        .find_map(|key| record[*key].as_str())
-        .unwrap_or("time unavailable");
-    let time_label = relative_time(time);
-    let duration = record["duration"]
-        .as_f64()
-        .or_else(|| {
-            let start = chrono::DateTime::parse_from_rfc3339(record["start"].as_str()?).ok()?;
-            let end = chrono::DateTime::parse_from_rfc3339(record["end"].as_str()?).ok()?;
-            Some((end - start).num_milliseconds().max(0) as f64 / 1000.)
-        })
+    let time_label = relative_time(record_time(record).unwrap_or("time unavailable"));
+    let duration = record_duration(record)
         .map(|d| format!(", {d:.2}s"))
         .unwrap_or_default();
     format!("{title} \u{2014} {time_label}{duration}")
+}
+
+fn record_time(record: &Value) -> Option<&str> {
+    ["timestamp", "start", "started", "accepted", "start_time"]
+        .iter()
+        .find_map(|key| record[*key].as_str())
+}
+
+/// Seconds from the recorded duration, or from start and end; `None` when neither was recorded.
+fn record_duration(record: &Value) -> Option<f64> {
+    record["duration"].as_f64().or_else(|| {
+        let start = chrono::DateTime::parse_from_rfc3339(record["start"].as_str()?).ok()?;
+        let end = chrono::DateTime::parse_from_rfc3339(record["end"].as_str()?).ok()?;
+        Some((end - start).num_milliseconds().max(0) as f64 / 1000.)
+    })
 }
 
 fn runtime_action_available(method: &str, runtime: &Value, _surface: &str) -> bool {
@@ -2899,6 +3253,19 @@ fn history_matches(item: &Value, filter: &str, model: &NotebookModel) -> bool {
 #[cfg(test)]
 mod tests;
 
+/// First eight characters of a session identifier, for inline labels.
+///
+/// A full 36-character UUID in a heading pushes the worker state off to a
+/// second line and reads as an opaque wall in every screenshot of the live
+/// surfaces. The prefix identifies the session within a notebook, and Copy
+/// session/identifier actions keep the complete value available.
+fn short_session(value: &str) -> String {
+    if value.is_empty() {
+        return "unattached".into();
+    }
+    value.chars().take(8).collect()
+}
+
 fn local_time(value: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(value)
         .map(|date| {
@@ -2920,6 +3287,48 @@ fn relative_time(value: &str) -> String {
         86400..=604799 => format!("{} days ago", seconds / 86400),
         _ => local_time(value),
     }
+}
+
+fn notebook_name(path: &std::path::Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
+}
+
+/// Shorten a folder path to `max` characters, keeping its root and the
+/// trailing components that distinguish same-named notebooks.
+fn tail_path(path: &str, max: usize) -> String {
+    let chars: Vec<char> = path.chars().collect();
+    if chars.len() <= max {
+        return path.to_owned();
+    }
+    let is_separator = |c: &char| matches!(c, '\\' | '/');
+    let root_len = chars
+        .iter()
+        .position(is_separator)
+        .map_or(0, |i| i + 1)
+        .min(max / 3);
+    let budget = max.saturating_sub(root_len + 1);
+    let mut tail = &chars[chars.len() - budget..];
+    if let Some(boundary) = tail.iter().position(is_separator)
+        && boundary + 1 < tail.len()
+    {
+        tail = &tail[boundary..];
+    }
+    let root: String = chars[..root_len].iter().collect();
+    let tail: String = tail.iter().collect();
+    format!("{root}\u{2026}{tail}")
+}
+
+fn missing_recent_message(path: &std::path::Path) -> String {
+    format!(
+        "\u{201c}{}\u{201d} is no longer at {}. It may have been moved, renamed, or deleted. \
+         Use Open notebook to choose its new location, or remove it from this list.",
+        notebook_name(path),
+        path.parent()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| path.display().to_string())
+    )
 }
 
 fn saved_reduced_motion(profile: &std::path::Path) -> Option<bool> {

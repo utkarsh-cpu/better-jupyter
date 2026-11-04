@@ -1,0 +1,147 @@
+wsl.exe :    Compiling version_check v0.9.5
+At line:2 char:1
++ wsl.exe --cd '/mnt/c/Users/UTKARSH KAUSHIK/Documents/Projects/KernelL ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling version_check v0.9.5:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Compiling typenum v1.20.1
+   Compiling cfg-if v1.0.5
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling unicode-ident v1.0.26
+   Compiling foldhash v0.2.0
+   Compiling shlex v2.0.1
+   Compiling libc v0.2.190
+   Compiling find-msvc-tools v0.1.14
+   Compiling cpufeatures v0.2.17
+   Compiling vcpkg v0.2.15
+   Compiling zmij v1.0.23
+   Compiling getrandom v0.4.3
+   Compiling pkg-config v0.3.34
+   Compiling anyhow v1.0.104
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling bitflags v2.13.2
+   Compiling rustix v1.1.5
+   Compiling equivalent v1.0.2
+   Compiling memchr v2.8.3
+   Compiling linux-raw-sys v0.12.1
+   Compiling itoa v1.0.18
+   Compiling fallible-iterator v0.3.0
+   Compiling smallvec v1.16.2
+   Compiling once_cell v1.21.4
+   Compiling fastrand v2.5.0
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling base64 v0.22.1
+   Compiling hashbrown v0.17.1
+   Compiling cc v1.6.0
+   Compiling generic-array v0.14.7
+   Compiling indexmap v2.14.2
+   Compiling hashlink v0.12.2
+   Compiling syn v3.0.6
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling libsqlite3-sys v0.38.2
+   Compiling sha2 v0.10.9
+   Compiling kernelledger-runtime v0.1.0 (/mnt/c/Users/UTKARSH 
+KAUSHIK/Documents/Projects/KernelLedger-v6/desktop/crates/runtime)
+   Compiling tempfile v3.27.0
+   Compiling uuid v1.27.0
+   Compiling serde_derive v1.0.229
+   Compiling kernelledger-protocol v0.1.0 (/mnt/c/Users/UTKARSH 
+KAUSHIK/Documents/Projects/KernelLedger-v6/desktop/crates/protocol)
+   Compiling rusqlite v0.40.2
+   Compiling kernelledger-daemon v0.1.0 (/mnt/c/Users/UTKARSH 
+KAUSHIK/Documents/Projects/KernelLedger-v6/desktop/crates/daemon)
+    Finished `dev` profile [unoptimized] target(s) in 9.78s
+.s............................................                           [100%]
+45 passed, 1 skipped in 39.90s
+{
+  "schema": "kernelledger.debugger-spike/1",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "debugpy": "1.8.22",
+  "fixture_sha256": "1c743014465cbe71efe9405438e66aa4b3bc6baa9cf83666fa5f95970d2fb8d9",
+  "worker_sha256": "06f27bfae432d8a52be0e56de19cb3f3a02f898f1ca82c82b49fa4c5e19f7340",
+  "production_adopted": false,
+  "transport": "disposable unauthenticated loopback DAP; no notebook owner or ledger",
+  "trials": [
+    {
+      "materialized_source": false,
+      "initial_breakpoints": {
+        "breakpoints": [
+          {
+            "verified": false,
+            "id": 0,
+            "message": "Breakpoint in file that does not exist.",
+            "source": {
+              "path": "/tmp/kl-dap-spike-vaximcy4/virtual/cells/probe.py@bcb14a13-9cb2-42a4-aa90-fdf837c449dc"
+            },
+            "line": 11
+          }
+        ]
+      },
+      "stopped_line": 10,
+      "stepped_line": 11,
+      "source_reference": 1,
+      "source_response_matches": true,
+      "watch_variable_present": true,
+      "user_repr_calls_after_variables_request": 1,
+      "supports_evaluate_for_hovers": true,
+      "dap_commands": [
+        "initialize",
+        "attach",
+        "setBreakpoints",
+        "configurationDone",
+        "stackTrace",
+        "scopes",
+        "variables",
+        "source",
+        "next",
+        "stackTrace",
+        "setBreakpoints",
+        "continue"
+      ],
+      "value_after_resume": 43
+    },
+    {
+      "materialized_source": true,
+      "initial_breakpoints": {
+        "breakpoints": [
+          {
+            "verified": true,
+            "id": 0,
+            "source": {
+              "path": "/tmp/kl-dap-spike-vaximcy4/file/cells/probe.py@23b8ac29-0336-47fd-a1d1-acbb69d20cfe"
+            },
+            "line": 11
+          }
+        ]
+      },
+      "stopped_line": 10,
+      "stepped_line": 11,
+      "source_reference": 0,
+      "source_response_matches": null,
+      "watch_variable_present": true,
+      "user_repr_calls_after_variables_request": 1,
+      "supports_evaluate_for_hovers": true,
+      "dap_commands": [
+        "initialize",
+        "attach",
+        "setBreakpoints",
+        "configurationDone",
+        "stackTrace",
+        "scopes",
+        "variables",
+        "next",
+        "stackTrace",
+        "setBreakpoints",
+        "continue"
+      ],
+      "value_after_resume": 43
+    }
+  ]
+}

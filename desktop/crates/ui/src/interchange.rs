@@ -1,7 +1,19 @@
 use super::*;
 
 impl Workspace {
+    #[inline(never)]
     pub(super) fn export_notice(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let output = self
+            .tabs
+            .get(self.active)?
+            .inspections
+            .get("Export result")?["kind"]
+            == "output";
+        let title = if output {
+            "Output saved"
+        } else {
+            "Export complete"
+        };
         let path = PathBuf::from(
             self.tabs
                 .get(self.active)?
@@ -31,13 +43,8 @@ impl Workspace {
                 .border_color(divider(cx))
                 .when(!self.high_contrast, |d| d.shadow_md())
                 .role(Role::Status)
-                .aria_label(format!("Export complete: {file_name}"))
-                .child(
-                    div()
-                        .text_sm()
-                        .font_weight(FontWeight::MEDIUM)
-                        .child("Export complete"),
-                )
+                .aria_label(format!("{title}: {file_name}"))
+                .child(div().text_sm().font_weight(FontWeight::MEDIUM).child(title))
                 .child(
                     div()
                         .text_xs()
@@ -164,6 +171,7 @@ impl Workspace {
         .detach();
     }
 
+    #[inline(never)]
     pub(super) fn bundle_review(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let tab = self.tabs.get(self.active)?;
         let value = tab.inspections.get("Bundle review")?;
@@ -187,10 +195,20 @@ impl Workspace {
             .p_4()
             .gap_2()
             .child(
-                div()
-                    .text_sm()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(file_name),
+                h_flex()
+                    .gap_1p5()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(file_name),
+                    )
+                    .child(info_tip(
+                        "bundle-review-tip",
+                        "Import copies recorded sessions and checkpoints into this notebook without running code or replacing notebook source. Checkpoint values and recorded input may contain secrets.",
+                        cx,
+                    )),
             )
             .child(
                 div()
@@ -200,11 +218,7 @@ impl Workspace {
                     .child(path.to_owned()),
             );
         if pending {
-            card_body = card_body.child(
-                div()
-                    .text_sm()
-                    .child("Reading the bundle. Nothing has been imported."),
-            );
+            card_body = card_body.child(div().text_sm().child("Reading bundle\u{2026}"));
         } else if let Some(code) = value["error"]["code"].as_str() {
             card_body = card_body.child(
                 div()
@@ -222,7 +236,7 @@ impl Workspace {
                     .text_sm()
                     .text_color(cx.theme().danger)
                     .whitespace_normal()
-                    .child("This bundle schema is not supported. Nothing was imported."),
+                    .child("Unsupported bundle schema. Nothing was imported."),
             );
         } else {
             let sessions = value["session_ids"].as_array().map(Vec::len).unwrap_or(0);
@@ -232,7 +246,7 @@ impl Workspace {
                 .unwrap_or(0);
             card_body = card_body.child(
                 div().text_sm().whitespace_normal().child(format!(
-                    "{sessions} recorded sessions and {checkpoints} checkpoints. Import copies them into this notebook and keeps local records with the same identifiers."
+                    "{sessions} recorded sessions \u{00b7} {checkpoints} checkpoints (notebook source unchanged)"
                 )),
             );
             if let Some(external) = value["external"].as_array()
@@ -251,7 +265,7 @@ impl Workspace {
                     div()
                         .text_sm()
                         .whitespace_normal()
-                        .child(format!("External files named in the bundle: {names}")),
+                        .child(format!("External files: {names}")),
                 );
             }
             if let Some(items) = mismatches
@@ -269,20 +283,11 @@ impl Workspace {
                         .text_color(cx.theme().danger)
                         .whitespace_normal()
                         .child(format!(
-                            "Import is unavailable. {} file hash mismatches: {names}",
+                            "Import unavailable ({} hash mismatches): {names}",
                             items.len()
                         )),
                 );
             }
-            card_body = card_body.child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .whitespace_normal()
-                    .child(
-                        "Provenance is the selected bundle. Saved code does not run during import. Checkpoint values and recorded input may contain secrets.",
-                    ),
-            );
         }
         if let Some(note) = source_conflict_note(&tab.model) {
             card_body = card_body.child(
@@ -291,14 +296,6 @@ impl Workspace {
                     .whitespace_normal()
                     .text_color(cx.theme().warning)
                     .child(note),
-            );
-        } else if !pending {
-            card_body = card_body.child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .whitespace_normal()
-                    .child("Notebook source is not replaced."),
             );
         }
         card_body = card_body.child(
@@ -309,7 +306,8 @@ impl Workspace {
                     action_button("import-bundle-history")
                         .outline()
                         .small()
-                        .label("Import recorded history\u{2026}")
+                        .label("Import history\u{2026}")
+                        .accessibility_label("Import recorded history\u{2026}")
                         .unavailable(!clean)
                         .on_click(cx.listener(move |v, _, _, cx| {
                             if v.tabs.get(v.active).is_some_and(|tab| {

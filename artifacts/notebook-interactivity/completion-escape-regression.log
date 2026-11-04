@@ -1,0 +1,16 @@
+cargo.exe :    Compiling kernelledger-ui v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\ui)
+At line:2 char:126
++ ... src/lib.rs; & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' test -- ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling ke...ktop\crates\ui):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Finished `test` profile [unoptimized] target(s) in 4.22s
+     Running unittests src\lib.rs (desktop\target\debug\deps\kernelledger_ui-93ca4bbf48bbdcff.exe)
+
+running 1 test
+test tests::escape_dismisses_completion_before_command_mode_and_preserves_editing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.12s
+

@@ -1,14 +1,14 @@
 use super::*;
 
 impl Workspace {
-    pub(super) fn palette_overlay(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+    #[inline(never)]
+    pub(super) fn palette_overlay(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
-        let (popover, popover_fg, muted_fg, overlay, radius) = (
+        let (popover, popover_fg, muted_fg, overlay) = (
             theme.popover,
             theme.popover_foreground,
             theme.muted_foreground,
             theme.overlay,
-            theme.radius_lg,
         );
         let sep = divider(cx);
         let query = self.palette_query.read(cx).value().to_lowercase();
@@ -19,17 +19,10 @@ impl Workspace {
             })
             .collect::<Vec<_>>();
         let items = if commands.is_empty() {
-            div()
-                .px_3()
-                .py_6()
-                .text_center()
-                .text_sm()
-                .text_color(muted_fg)
-                .child("No matching commands")
-                .into_any_element()
+            empty_row("No matching commands", cx).into_any_element()
         } else {
             let view = cx.entity();
-            let height = (commands.len() as f32 * 3.25 + 0.75).min(16.);
+            let height = (commands.len() as f32 * 3.0 + 0.75).min(16.);
             // Lay out only the viewport's rows; hidden commands need no text or icon layout.
             uniform_list("command-results", commands.len(), move |range, _, cx| {
                 view.update(cx, |view, cx| {
@@ -49,15 +42,15 @@ impl Workspace {
             .role(Role::Dialog)
             .aria_label("Commands")
             .occlude()
-            .w(rems(36.))
+            .w(rems(34.))
             .max_w_full()
             .h_auto()
             .flex_none()
             .self_start()
             .max_h(rems(26.))
-            .rounded(radius)
+            .rounded(px(8.))
             .border_1()
-            .border_color(sep)
+            .border_color(surface_edge(cx))
             .bg(popover)
             .text_color(popover_fg)
             .when(!self.high_contrast, |d| d.shadow_xl())
@@ -113,6 +106,7 @@ impl Workspace {
                     )
                     .into_any_element()
             })
+            .into_any_element()
     }
     fn palette_item(
         &self,
@@ -131,7 +125,8 @@ impl Workspace {
         let reason = self.command_reason(method);
         let available = reason.is_none();
         let description = reason.unwrap_or(description);
-        div().h(rems(3.25)).pb_0p5().child(
+        let view = cx.entity();
+        div().h(rems(3.)).pb_0p5().child(
             h_flex()
                 .id(SharedString::from(format!("cmd-{method}")))
                 .role(Role::Button)
@@ -151,7 +146,7 @@ impl Workspace {
                 .px_3()
                 .py_2()
                 .items_center()
-                .rounded(px(7.))
+                .rounded(px(5.))
                 .cursor_pointer()
                 .when(!available, |d| d.opacity(0.6))
                 .when(is_active, |d| d.bg(active_bg))
@@ -169,25 +164,30 @@ impl Workspace {
                         .child(div().text_xs().text_color(muted_fg).child(description)),
                 )
                 .children(command_shortcut(method).and_then(kbd))
+                .when(available, |d| {
+                    d.on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+                        view.update(cx, |v, cx| v.run_command(method, window, cx))
+                    })
+                })
                 .on_click(cx.listener(move |v, _, window, cx| v.run_command(method, window, cx))),
         )
     }
+    #[inline(never)]
     pub(super) fn confirm_overlay(
         &self,
         method: String,
         fields: Value,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Stateful<Div> {
+    ) -> AnyElement {
         let theme = cx.theme();
-        let (popover, popover_fg, muted, muted_fg, overlay, warning, radius) = (
+        let (popover, popover_fg, muted, muted_fg, overlay, warning) = (
             theme.popover,
             theme.popover_foreground,
             theme.muted,
             theme.muted_foreground,
             theme.overlay,
             theme.warning,
-            theme.radius_lg,
         );
         let sep = divider(cx);
         let mono = theme.mono_font_family.clone();
@@ -229,8 +229,8 @@ impl Workspace {
                         .bg(popover)
                         .text_color(popover_fg)
                         .border_1()
-                        .border_color(sep)
-                        .rounded(radius)
+                        .border_color(surface_edge(cx))
+                        .rounded(px(8.))
                         .when(!self.high_contrast, |d| d.shadow_xl())
                         .child(
                             v_flex()
@@ -288,7 +288,8 @@ impl Workspace {
                                         ),
                                 ),
                         ),
-                );
+                )
+                .into_any_element();
         }
         let (title, consequence, verb) = confirmation_copy(&method);
         let target = self.target_summary(&fields);
@@ -514,9 +515,9 @@ impl Workspace {
             .min_w_0()
             .whitespace_normal()
             .p_5()
-            .rounded(radius)
+            .rounded(px(8.))
             .border_1()
-            .border_color(sep)
+            .border_color(surface_edge(cx))
             .bg(popover)
             .text_color(popover_fg)
             .when(!self.high_contrast, |d| d.shadow_xl())
@@ -547,5 +548,6 @@ impl Workspace {
                     )
                     .into_any_element()
             })
+            .into_any_element()
     }
 }

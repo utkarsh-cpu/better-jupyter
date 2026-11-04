@@ -1,0 +1,332 @@
+{
+  "schema": 1,
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]"
+  },
+  "worker_sha256": "c72c03c19debd38ad01affceccd0c0a0ba4f452c8f30ab9492aa4d30a5e55c61",
+  "interleaved_trials": [
+    {
+      "engine": "custom",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.1217891000014788,
+      "rss_bytes": 35655680,
+      "private_bytes": 21032960,
+      "uss_bytes": 18829312,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        }
+      ],
+      "module_count": 200,
+      "default_adopted": false,
+      "process_wall_seconds": 0.8920739000022877
+    },
+    {
+      "engine": "ipython",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.39565809999839985,
+      "rss_bytes": 45793280,
+      "private_bytes": 30584832,
+      "uss_bytes": 28856320,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "__builtins__",
+          "type": "module",
+          "path": "__builtins__",
+          "reason": "denylisted"
+        },
+        {
+          "name": "get_ipython",
+          "type": "builtins.method",
+          "path": "get_ipython",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "exit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "exit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "quit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "quit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "open",
+          "type": "builtins.function",
+          "path": "open",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "square",
+          "type": "builtins.function",
+          "path": "square",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "timed",
+          "type": "builtins.function",
+          "path": "timed",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "future",
+          "type": "builtins.function",
+          "path": "future",
+          "reason": "source_unavailable"
+        }
+      ],
+      "module_count": 368,
+      "default_adopted": false,
+      "dependency_version": "9.17.1",
+      "process_wall_seconds": 2.884416800003237
+    },
+    {
+      "engine": "custom",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.0769959999997809,
+      "rss_bytes": 33939456,
+      "private_bytes": 18640896,
+      "uss_bytes": 17129472,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        }
+      ],
+      "module_count": 200,
+      "default_adopted": false,
+      "process_wall_seconds": 0.7942289999991772
+    },
+    {
+      "engine": "ipython",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.19925359999979264,
+      "rss_bytes": 43356160,
+      "private_bytes": 28983296,
+      "uss_bytes": 26365952,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "__builtins__",
+          "type": "module",
+          "path": "__builtins__",
+          "reason": "denylisted"
+        },
+        {
+          "name": "get_ipython",
+          "type": "builtins.method",
+          "path": "get_ipython",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "exit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "exit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "quit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "quit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "open",
+          "type": "builtins.function",
+          "path": "open",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "square",
+          "type": "builtins.function",
+          "path": "square",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "timed",
+          "type": "builtins.function",
+          "path": "timed",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "future",
+          "type": "builtins.function",
+          "path": "future",
+          "reason": "source_unavailable"
+        }
+      ],
+      "module_count": 368,
+      "default_adopted": false,
+      "dependency_version": "9.17.1",
+      "process_wall_seconds": 2.5940528999999515
+    },
+    {
+      "engine": "custom",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.08319120000305702,
+      "rss_bytes": 34177024,
+      "private_bytes": 18960384,
+      "uss_bytes": 17399808,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        }
+      ],
+      "module_count": 200,
+      "default_adopted": false,
+      "process_wall_seconds": 0.7589291999975103
+    },
+    {
+      "engine": "ipython",
+      "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+      "startup_seconds": 0.20996780000132276,
+      "rss_bytes": 43573248,
+      "private_bytes": 29351936,
+      "uss_bytes": 26673152,
+      "outcomes": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ValueError"
+      ],
+      "checkpoint_exclusions": [
+        {
+          "name": "__builtins__",
+          "type": "module",
+          "path": "__builtins__",
+          "reason": "denylisted"
+        },
+        {
+          "name": "get_ipython",
+          "type": "builtins.method",
+          "path": "get_ipython",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "exit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "exit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "quit",
+          "type": "IPython.core.autocall.ExitAutocall",
+          "path": "quit",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "open",
+          "type": "builtins.function",
+          "path": "open",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "square",
+          "type": "builtins.function",
+          "path": "square",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "timed",
+          "type": "builtins.function",
+          "path": "timed",
+          "reason": "source_unavailable"
+        },
+        {
+          "name": "annotations",
+          "type": "__future__._Feature",
+          "path": "annotations",
+          "reason": "unsupported_type"
+        },
+        {
+          "name": "future",
+          "type": "builtins.function",
+          "path": "future",
+          "reason": "source_unavailable"
+        }
+      ],
+      "module_count": 368,
+      "default_adopted": false,
+      "dependency_version": "9.17.1",
+      "process_wall_seconds": 2.605885600001784
+    }
+  ]
+}

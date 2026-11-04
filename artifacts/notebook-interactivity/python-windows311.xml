@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="49" time="29.081" timestamp="2026-10-25T22:02:26.222261+05:30" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42;-True]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42; # comment-True]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[';'-False]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[42 # ;-False]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[&quot;&quot;&quot;;\n;&quot;&quot;&quot;-False]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_suppression_tokens[x = 1; x\n-False]" time="0.000" /><testcase classname="tests.test_interactive_worker" name="test_execution_conveniences_and_original_source" time="1.933" /><testcase classname="tests.test_interactive_worker" name="test_timing_errors_capture_and_exact_writefile" time="1.310" /><testcase classname="tests.test_interactive_worker" name="test_history_collision_alias_and_checkpoint" time="1.689" /><testcase classname="tests.test_interactive_worker" name="test_async_future_flags_and_cleanup" time="1.200" /><testcase classname="tests.test_interactive_worker" name="test_passive_metadata_does_not_call_user_hooks" time="0.001" /><testcase classname="tests.test_interactive_worker" name="test_recorded_file_bytes_and_mime_metadata" time="1.152" /><testcase classname="tests.test_interactive_worker" name="test_live_read_payloads_never_use_durable_envelopes" time="0.024" /><testcase classname="tests.test_interactive_worker" name="test_live_reads_unicode_staleness_and_no_history" time="1.037" /><testcase classname="tests.test_interactive_worker" name="test_busy_reads_do_not_block_interrupt" time="1.194" /><testcase classname="tests.test_worker_debug" name="test_debug_pause_step_claim_and_interrupt" time="0.966" /><testcase classname="tests.test_widget_protocol" name="test_widget_callbacks_are_durable_and_retry_deduplicated" time="1.199" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('integer_slider', 0.5)]" time="0.963" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('integer_slider', float('nan'))]" time="0.980" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('checkbox', 1)]" time="1.088" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('dropdown', 'missing', options=['yes'])]" time="1.029" /><testcase classname="tests.test_widget_protocol" name="test_widget_subset_rejects_invalid_and_unqualified_values[widget('button', label='x' * 2000)]" time="1.085" /><testcase classname="tests.test_shell" name="test_token_aware_escapes_preserve_strings_comments_and_python_operators" time="0.001" /><testcase classname="tests.test_shell" name="test_windows_shell_paths_preserve_drive_and_network_targets" time="0.000" /><testcase classname="tests.test_shell" name="test_mixed_shell_output_capture_and_original_source_are_recorded" time="1.604" /><testcase classname="tests.test_shell" name="test_shell_failure_is_visible_and_runtime_remains_usable" time="1.149" /><testcase classname="tests.test_shell" name="test_pip_installs_into_selected_standalone_environment[False]" time="1.569"><failure message="subprocess.CalledProcessError: Command '['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmplBbfsg\\Scripts\\python.exe', '-m', 'venv', 'C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Temp\\pytest-of-UTKARSH KAUSHIK\\pytest-193\\test_pip_installs_into_selecte0\\selected environment']' returned non-zero exit status 1.">notebook = &lt;kernelledger.notebook.Notebook object at 0x0000016ED5447AD0&gt;
+tmp_path = WindowsPath('C:/Users/UTKARSH KAUSHIK/AppData/Local/Temp/pytest-of-UTKARSH KAUSHIK/pytest-193/test_pip_installs_into_selecte0')
+extended_paths = False
+
+    @pytest.mark.parametrize(
+        "extended_paths",
+        [
+            False,
+            pytest.param(
+                True, marks=pytest.mark.skipif(os.name != "nt", reason="Windows path namespace")
+            ),
+        ],
+    )
+    def test_pip_installs_into_selected_standalone_environment(notebook, tmp_path, extended_paths):
+        environment = tmp_path / "selected environment"
+        options = ["--without-pip"] if extended_paths else []
+&gt;       subprocess.run(
+            [sys.executable, "-m", "venv", *options, str(environment)], check=True, timeout=90
+        )
+
+tests\test_shell.py:137: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = None, capture_output = False, timeout = 90, check = True
+popenargs = (['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmplBbfsg\\Scripts\\python.exe', '-m', 'venv', '...\AppData\\Local\\Temp\\pytest-of-UTKARSH KAUSHIK\\pytest-193\\test_pip_installs_into_selecte0\\selected environment'],)
+kwargs = {}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+    
+        If timeout is given, and the process takes too long, a TimeoutExpired
+        exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\uv\\cache\\builds-v0\\.tmplBbfsg\\Scripts\\python.exe', '-m', 'venv', 'C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Temp\\pytest-of-UTKARSH KAUSHIK\\pytest-193\\test_pip_installs_into_selecte0\\selected environment']' returned non-zero exit status 1.
+
+..\..\..\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\subprocess.py:571: CalledProcessError</failure></testcase><testcase classname="tests.test_shell" name="test_pip_installs_into_selected_standalone_environment[True]" time="2.966"><failure message="AssertionError: [{'kind': 'status', 'state': 'running', 'seq': 1, 'timestamp': '2026-10-25T16:32:49.105287Z'}, {'kind': 'stdout', 'tex...er_sys=True)\&#10;  \']\' returned non-zero exit status 1.\r&#10;  ', 'seq': 6, 'timestamp': '2026-10-25T16:32:50.693712Z'}, ...]&#10;assert 'error' == 'ok'&#10;  &#10;  - ok&#10;  + error">notebook = &lt;kernelledger.notebook.Notebook object at 0x0000016ED4304090&gt;
+tmp_path = WindowsPath('C:/Users/UTKARSH KAUSHIK/AppData/Local/Temp/pytest-of-UTKARSH KAUSHIK/pytest-193/test_pip_installs_into_selecte1')
+extended_paths = True
+
+    @pytest.mark.parametrize(
+        "extended_paths",
+        [
+            False,
+            pytest.param(
+                True, marks=pytest.mark.skipif(os.name != "nt", reason="Windows path namespace")
+            ),
+        ],
+    )
+    def test_pip_installs_into_selected_standalone_environment(notebook, tmp_path, extended_paths):
+        environment = tmp_path / "selected environment"
+        options = ["--without-pip"] if extended_paths else []
+        subprocess.run(
+            [sys.executable, "-m", "venv", *options, str(environment)], check=True, timeout=90
+        )
+        python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        wheel = tmp_path / "kl_shell_probe-1.0-py3-none-any.whl"
+        info = "kl_shell_probe-1.0.dist-info"
+        files = {
+            "kl_shell_probe.py": "VALUE = 'installed in notebook environment'\n",
+            f"{info}/METADATA": "Metadata-Version: 2.1\nName: kl-shell-probe\nVersion: 1.0\n",
+            f"{info}/WHEEL": "Wheel-Version: 1.0\nGenerator: kernelledger-test\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        }
+        files[f"{info}/RECORD"] = "".join(f"{name},,\n" for name in [*files, f"{info}/RECORD"])
+        with zipfile.ZipFile(wheel, "w") as archive:
+            for name, content in files.items():
+                archive.writestr(name, content)
+        root = type(notebook.root)("\\\\?\\" + str(notebook.root)) if extended_paths else notebook.root
+        interpreter = "\\\\?\\" + str(python) if extended_paths else str(python)
+        ensure_supervisor(root, interpreter)
+        successful(
+            notebook,
+            "import os\ndirectories = !cd\nassert os.path.samefile(directories[0], os.getcwd())"
+            if os.name == "nt"
+            else "!pwd",
+        )
+&gt;       successful(notebook, "!pip install --no-index --no-deps " + command([str(wheel)]))
+
+tests\test_shell.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+notebook = &lt;kernelledger.notebook.Notebook object at 0x0000016ED4304090&gt;
+source = '!pip install --no-index --no-deps "C:\\Users\\UTKARSH KAUSHIK\\AppData\\Local\\Temp\\pytest-of-UTKARSH KAUSHIK\\pytest-193\\test_pip_installs_into_selecte1\\kl_shell_probe-1.0-py3-none-any.whl"'
+
+    def successful(notebook, source):
+        result, events = execute(notebook, source)
+&gt;       assert result["status"] == "ok", events
+E       AssertionError: [{'kind': 'status', 'state': 'running', 'seq': 1, 'timestamp': '2026-10-25T16:32:49.105287Z'}, {'kind': 'stdout', 'tex...er_sys=True)\
+E         \']\' returned non-zero exit status 1.\r
+E         ', 'seq': 6, 'timestamp': '2026-10-25T16:32:50.693712Z'}, ...]
+E       assert 'error' == 'ok'
+E         
+E         - ok
+E         + error
+
+tests\test_shell.py:45: AssertionError</failure></testcase><testcase classname="tests.test_shell" name="test_directory_magics_and_shell_functions_survive_checkpoint_restore" time="1.787" /><testcase classname="tests.test_shell" name="test_interrupt_stops_shell_child_and_preserves_worker" time="1.677" /><testcase classname="tests.test_source" name="test_invalid_ids[CON]" time="0.001" /><testcase classname="tests.test_source" name="test_invalid_ids[con]" time="0.001" /><testcase classname="tests.test_source" name="test_invalid_ids[NUL]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[COM1]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[a/b]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[../a]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[_start]" time="0.000" /><testcase classname="tests.test_source" name="test_invalid_ids[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]" time="0.000" /><testcase classname="tests.test_source" name="test_ipynb_round_trip_and_clone" time="0.168" /><testcase classname="tests.test_source" name="test_doctor_and_explicit_repair" time="0.131" /><testcase classname="tests.test_source" name="test_attachment_with_multiple_mimes" time="0.097" /><testcase classname="tests.test_desktop_contracts" name="test_shared_protocol_fixtures_and_schema_generation" time="0.569" /><testcase classname="tests.test_desktop_contracts" name="test_invalid_requests_are_typed_errors[message0]" time="0.001" /><testcase classname="tests.test_desktop_contracts" name="test_invalid_requests_are_typed_errors[message1]" time="0.001" /><testcase classname="tests.test_desktop_contracts" name="test_invalid_requests_are_typed_errors[message2]" time="0.000" /><testcase classname="tests.test_desktop_contracts" name="test_invalid_requests_are_typed_errors[message3]" time="0.001" /><testcase classname="tests.test_desktop_contracts" name="test_invalid_requests_are_typed_errors[message4]" time="0.000" /><testcase classname="tests.test_desktop_contracts" name="test_ledger_v2_inspection_schema_matches_sql_columns" time="0.075" /></testsuite></testsuites>

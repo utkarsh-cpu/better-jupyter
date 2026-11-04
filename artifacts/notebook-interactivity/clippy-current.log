@@ -1,0 +1,14 @@
+cargo.exe :     Checking kernelledger-client v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\client)
+At line:5 char:1
++ & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' clippy --manifest-p ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Checking ke...\crates\client):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Checking kernelledger-models v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\models)
+    Checking kernelledger-ui v0.1.0 (C:\Users\UTKARSH KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\ui)
+    Checking kernelledger-desktop v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\app)
+    Finished `dev` profile [unoptimized] target(s) in 2.70s

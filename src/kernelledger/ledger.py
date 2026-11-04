@@ -372,7 +372,6 @@ def fold(events: Any) -> Any:
                         and visible[i].get("display_id") == event["display_id"]
                     ):
                         visible[i] = {**event, "kind": "display"}
-                        break
             else:
                 visible.append(event)
     return visible

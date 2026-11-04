@@ -1,0 +1,332 @@
+[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "37,21,56,60"
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "101,21,192,60"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "309,21,166,60"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "479,21,128,60"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "611,21,192,60"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1809,21,56,60"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1921,21,148,60"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2079,21,56,60"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2143,21,56,60"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2207,21,56,60"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2271,21,56,60"
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "29,193,406,48"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "393,205,24,24"
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "bounds":  "13,257,438,1368"
+    },
+    {
+        "name":  "Cell 6: rich_fixture = True",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "bounds":  "29,257,406,109"
+    },
+    {
+        "name":  "Run widget_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "511,-20,56,60"
+    },
+    {
+        "name":  "Output tools: widget_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2259,-20,56,60"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2323,-20,56,60"
+    },
+    {
+        "name":  "More actions for widget_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2387,-20,56,60"
+    },
+    {
+        "name":  "Breakpoints for cell widgets",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "507,62,48,330"
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell widgets",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,101,56,60"
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell widgets",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,143,56,60"
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell widgets",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,185,56,60"
+    },
+    {
+        "name":  "code cell widgets",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "555,62,1896,330"
+    },
+    {
+        "name":  "Recorded output: \u003cbutton: Increment; recorded snapshot, recreate after restart\u003e",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "519,426,1916,174"
+    },
+    {
+        "name":  "Increment: Click",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "519,483,1916,60"
+    },
+    {
+        "name":  "Insert cell after cell 5",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1381,622,192,60"
+    },
+    {
+        "name":  "Run rich_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "511,692,56,60"
+    },
+    {
+        "name":  "Toggle breakpoint at caret",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2195,692,56,60"
+    },
+    {
+        "name":  "Output tools: rich_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2259,692,56,60"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2323,692,56,60"
+    },
+    {
+        "name":  "More actions for rich_fixture = True",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2387,692,56,60"
+    },
+    {
+        "name":  "Breakpoints for cell rich",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "507,774,48,330"
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell rich",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,813,56,60"
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell rich",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,855,56,60"
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell rich",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "507,897,56,60"
+    },
+    {
+        "name":  "code cell rich",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "bounds":  "555,774,1896,330"
+    },
+    {
+        "name":  "Recorded output: \u003c__main__.Equation object at 0x0000011EFE7C7020\u003e",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "519,1138,1916,158"
+    },
+    {
+        "name":  "Equation: fraction (1) over (2) + square root (x subscript (i) superscript (2))",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "519,1138,1916,158"
+    },
+    {
+        "name":  "Recorded output: \u0027Name\u0027 | \u0027Value\u0027\n\u0027alpha\u0027 | 42",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "519,1312,1916,150"
+    },
+    {
+        "name":  "Recorded table",
+        "role":  "ControlType.Table",
+        "enabled":  true,
+        "bounds":  "519,1312,1916,150"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "521,1314,1912,73"
+    },
+    {
+        "name":  "\u0027Name\u0027",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "521,1314,320,71"
+    },
+    {
+        "name":  "\u0027Value\u0027",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "841,1314,320,71"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "521,1387,1912,73"
+    },
+    {
+        "name":  "\u0027alpha\u0027",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "521,1387,320,71"
+    },
+    {
+        "name":  "42",
+        "role":  "ControlType.DataItem",
+        "enabled":  true,
+        "bounds":  "841,1387,320,71"
+    },
+    {
+        "name":  "Recorded output: \u003caudio/wav attachment, 44 bytes; playback requires a qualified media renderer. Export to play externally.\u003e",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "bounds":  "519,1478,1916,117"
+    },
+    {
+        "name":  "Save audio/wav…",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "519,1478,1916,60"
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1391,1617,172,60"
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2341,1627,182,60"
+    },
+    {
+        "name":  "Output saved: output-485bab70a13e.wav",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "bounds":  "1939,1379,584,228"
+    },
+    {
+        "name":  "Open file",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "1965,1521,154,60"
+    },
+    {
+        "name":  "Show in folder",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2135,1521,218,60"
+    },
+    {
+        "name":  "Dismiss",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "bounds":  "2369,1521,128,60"
+    }
+]

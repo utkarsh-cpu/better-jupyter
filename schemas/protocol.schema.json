@@ -32,7 +32,10 @@
         "stdin_request",
         "status",
         "checkpoint_offer",
-        "restore_result"
+        "restore_result",
+        "interactive_read",
+        "interactive_reply",
+        "interactive_state"
       ]
     }
   },
@@ -180,6 +183,18 @@
           },
           "cwd": {
             "type": "string"
+          },
+          "engine": {
+            "type": "object"
+          },
+          "worker_generation": {
+            "type": "string"
+          },
+          "interactive_features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -216,6 +231,18 @@
           },
           "source": {
             "type": "string"
+          },
+          "debug": {
+            "type": "boolean"
+          },
+          "origin": {
+            "enum": [
+              "notebook",
+              "unattributed",
+              "console",
+              "widget",
+              "jupyter"
+            ]
           }
         }
       }
@@ -393,6 +420,25 @@
               "running",
               "idle"
             ]
+          },
+          "origin": {
+            "enum": [
+              "notebook",
+              "unattributed",
+              "console",
+              "widget",
+              "jupyter"
+            ]
+          },
+          "namespace_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "background_tasks": {
+            "type": "boolean"
+          },
+          "history_cache": {
+            "type": "boolean"
           }
         }
       }
@@ -420,6 +466,76 @@
           },
           "notes": {
             "type": "array"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "interactive_read"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "request_id",
+          "request"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "request": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "interactive_reply"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "request_id",
+          "worker_generation"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worker_generation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "interactive_state"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "debug"
+        ],
+        "properties": {
+          "debug": {
+            "type": [
+              "object",
+              "null"
+            ]
           }
         }
       }

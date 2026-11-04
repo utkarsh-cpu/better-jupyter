@@ -2,7 +2,6 @@
 
 import ctypes
 import os
-import re
 import signal
 from pathlib import Path
 from typing import Any, ClassVar
@@ -13,6 +12,18 @@ DETACHED_PROCESS = 0x00000008
 CREATE_NEW_PROCESS_GROUP = 0x00000200
 CREATE_NO_WINDOW = 0x08000000
 HIDDEN_CONSOLE = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+
+
+def subprocess_kwargs() -> dict[str, Any]:
+    """Hide the console on Windows and detach the process group elsewhere.
+
+    The Windows flag is built before the platform test so typechecking on
+    either operating system still sees it used.
+    """
+    kwargs: dict[str, Any] = {"creationflags": HIDDEN_CONSOLE}
+    if os.name != "nt":
+        return {"start_new_session": True}
+    return kwargs
 
 
 class DirectoryLock:
@@ -62,7 +73,9 @@ class DirectoryLock:
 
 class ProcessTree:
     def __init__(self, pid: Any) -> None:
-        self.pid, self.job = pid, None
+        self.pid = pid
+        self.job: Any = None
+        self.kernel: Any = None
         if os.name != "nt":
             return
         from ctypes import wintypes as w
@@ -193,9 +206,8 @@ def secure_token(path: Any, verify: bool = False) -> bool:
         ctypes.POINTER(w.DWORD),
     ]
 
-    advapi.SetFileSecurityW.argtypes = [w.LPCWSTR, w.DWORD, ctypes.c_void_p]
     token, size = w.HANDLE(), w.DWORD()
-    sid_text, descriptor, actual_text = w.LPWSTR(), ctypes.c_void_p(), w.LPWSTR()
+    sid_text, descriptor = w.LPWSTR(), ctypes.c_void_p()
     if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 8, ctypes.byref(token)):
         raise OSError("cannot read current user token")
     try:
@@ -211,6 +223,86 @@ def secure_token(path: Any, verify: bool = False) -> bool:
             sddl, 1, ctypes.byref(descriptor), None
         ):
             raise OSError("cannot build token ACL")
+        # FILE_ALL_ACCESS is what SDDL "FA" stores. GENERIC_ALL is the other
+        # full-control mask Windows may persist for the same grant.
+        full_control = {0x1F01FF, 0x10000000}
+
+        class AceHeader(ctypes.Structure):
+            _fields_ = (
+                ("AceType", ctypes.c_ubyte),
+                ("AceFlags", ctypes.c_ubyte),
+                ("AceSize", ctypes.c_ushort),
+            )
+
+        def dacl_of(security: ctypes.c_void_p) -> ctypes.c_void_p:
+            present, defaulted, acl = w.BOOL(), w.BOOL(), ctypes.c_void_p()
+            advapi.GetSecurityDescriptorDacl.argtypes = [
+                ctypes.c_void_p,
+                ctypes.POINTER(w.BOOL),
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.POINTER(w.BOOL),
+            ]
+            advapi.GetSecurityDescriptorDacl.restype = w.BOOL
+            if not advapi.GetSecurityDescriptorDacl(
+                security, ctypes.byref(present), ctypes.byref(acl), ctypes.byref(defaulted)
+            ):
+                raise OSError("cannot read token DACL")
+            if not present.value or not acl.value:
+                raise OSError("token DACL is missing")
+            return acl
+
+        def user_only(security: ctypes.c_void_p) -> bool:
+            # SE_DACL_PRESENT | SE_DACL_PROTECTED. Inheritance must be broken
+            # so a parent directory cannot add another reader.
+            control, revision = ctypes.c_ushort(), w.DWORD()
+            advapi.GetSecurityDescriptorControl.argtypes = [
+                ctypes.c_void_p,
+                ctypes.POINTER(ctypes.c_ushort),
+                ctypes.POINTER(w.DWORD),
+            ]
+            advapi.GetSecurityDescriptorControl.restype = w.BOOL
+            if not advapi.GetSecurityDescriptorControl(
+                security, ctypes.byref(control), ctypes.byref(revision)
+            ):
+                raise OSError("cannot read token security control")
+            if (control.value & 0x1004) != 0x1004:
+                return False
+
+            class AclSize(ctypes.Structure):
+                _fields_ = (
+                    ("AceCount", w.DWORD),
+                    ("AclBytesInUse", w.DWORD),
+                    ("AclBytesFree", w.DWORD),
+                )
+
+            info = AclSize()
+            advapi.GetAclInformation.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                w.DWORD,
+                ctypes.c_int,
+            ]
+            advapi.GetAclInformation.restype = w.BOOL
+            acl = dacl_of(security)
+            if not advapi.GetAclInformation(acl, ctypes.byref(info), ctypes.sizeof(info), 2):
+                raise OSError("cannot read token ACL")
+            if info.AceCount != 1:
+                return False
+            ace = ctypes.c_void_p()
+            advapi.GetAce.argtypes = [ctypes.c_void_p, w.DWORD, ctypes.POINTER(ctypes.c_void_p)]
+            advapi.GetAce.restype = w.BOOL
+            if not advapi.GetAce(acl, 0, ctypes.byref(ace)) or not ace.value:
+                raise OSError("cannot read token ACE")
+            header = AceHeader.from_address(ace.value)
+            mask = w.DWORD.from_address(ace.value + ctypes.sizeof(AceHeader)).value
+            # ACCESS_ALLOWED_ACE_TYPE is 0. Any inherit flag means the entry
+            # did not come from the protected DACL written above.
+            if header.AceType != 0 or header.AceFlags != 0 or mask not in full_control:
+                return False
+            advapi.EqualSid.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+            advapi.EqualSid.restype = w.BOOL
+            return bool(advapi.EqualSid(ace.value + 8, sid))
+
         if verify:
             advapi.GetFileSecurityW.argtypes = [
                 w.LPCWSTR,
@@ -219,30 +311,30 @@ def secure_token(path: Any, verify: bool = False) -> bool:
                 w.DWORD,
                 ctypes.POINTER(w.DWORD),
             ]
-            advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [
-                ctypes.c_void_p,
-                w.DWORD,
-                w.DWORD,
-                ctypes.POINTER(w.LPWSTR),
-                ctypes.POINTER(w.DWORD),
-            ]
             required = w.DWORD()
             advapi.GetFileSecurityW(str(path), 4, None, 0, ctypes.byref(required))
             actual = ctypes.create_string_buffer(required.value)
             if not advapi.GetFileSecurityW(str(path), 4, actual, required, ctypes.byref(required)):
                 raise OSError("cannot read token ACL")
-            if not advapi.ConvertSecurityDescriptorToStringSecurityDescriptorW(
-                actual, 1, 4, ctypes.byref(actual_text), None
-            ):
-                raise OSError("cannot inspect token ACL")
-            text = str(actual_text.value)
-            entries = re.findall(r"\(([^()]*)\)", text)
-            return text.startswith("D:P") and entries in (
-                [f"A;;FA;;;{sid_text.value}"],
-                [f"A;;0x1f01ff;;;{sid_text.value}"],
-            )
-        if not advapi.SetFileSecurityW(str(path), 4 | 0x80000000, descriptor):
-            raise OSError("cannot restrict token ACL")
+            return user_only(ctypes.cast(actual, ctypes.c_void_p))
+        # SetFileSecurity ignores PROTECTED_DACL_SECURITY_INFORMATION, so an
+        # inherited parent ACE can survive. SetNamedSecurityInfo applies it.
+        advapi.SetNamedSecurityInfoW.argtypes = [
+            w.LPWSTR,
+            w.DWORD,
+            w.DWORD,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+        ]
+        advapi.SetNamedSecurityInfoW.restype = w.DWORD
+        name = ctypes.create_unicode_buffer(str(path))
+        status = advapi.SetNamedSecurityInfoW(
+            name, 1, 4 | 0x80000000, None, None, dacl_of(descriptor), None
+        )
+        if status:
+            raise OSError(status, "cannot restrict token ACL")
         return True
     finally:
         kernel.CloseHandle(token)
@@ -250,5 +342,3 @@ def secure_token(path: Any, verify: bool = False) -> bool:
             kernel.LocalFree(sid_text)
         if descriptor:
             kernel.LocalFree(descriptor)
-        if actual_text:
-            kernel.LocalFree(actual_text)

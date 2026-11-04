@@ -1,0 +1,53 @@
+uv : Installed 34 packages in 9.76s
+At line:2 char:1
++ uv run --no-project --python 3.12 --with-editable '.[dev,jupyter]' py ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Installed 34 packages in 9.76s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+........................................................................ [ 18%]
+.....................................F......................F........... [ 37%]
+.....................................s.......................sssssssssss [ 55%]
+......................ssssssssssssssssssssssssssssssssssssssssssssssss.. [ 74%]
+.............sssssssssssssssssssssssssssss........s............ss....... [ 93%]
+.........................s.                                              [100%]
+================================== FAILURES ===================================
+____________________________ test_generated_graphs ____________________________
+
+    @given(values)
+>   @settings(max_examples=80)
+                   ^^^
+E   hypothesis.errors.FailedHealthCheck: Input generation is slow: Hypothesis only generated 5 valid inputs after 1.84 seconds (2 inputs which exceeded the maximum allowed entropy).
+E   
+E             count | fraction |    slowest draws (seconds)
+E     value |    7  |    100%  |      --   0.001,  0.001,  0.001,  1.835
+E   
+E   This could be for a few reasons:
+E   1. This strategy could be generating too much data per input. Try decreasing the amount of data generated, for example by decreasing the minimum size of collection strategies like st.lists().
+E   2. Some other expensive computation could be running during input generation. For example, if @st.composite or st.data() is interspersed with an expensive computation, HealthCheck.too_slow is likely to trigger. If this computation is unrelated to input generation, move it elsewhere. Otherwise, try making it more efficient, or disable this health check if that is not possible.
+E   
+E   If you expect input generation to take this long, you can disable this health check with @settings(suppress_health_check=[HealthCheck.too_slow]). See https://hypothesis.readthedocs.io/en/latest/reference/api.html#hypothesis.HealthCheck for details.
+
+tests\test_checkpoint.py:184: FailedHealthCheck
+--------------------------------- Hypothesis ----------------------------------
+You can reproduce this failure by adding @seed(286056558449742577288387375062024648635) to this test, or by running pytest with --hypothesis-seed=286056558449742577288387375062024648635.
+_____________ test_shared_protocol_fixtures_and_schema_generation _____________
+
+    def test_shared_protocol_fixtures_and_schema_generation():
+        fixture = json.loads((ROOT / "tests/fixtures/desktop/contract.json").read_text())
+        for helper in (False, True):
+            name = "desktop-helper" if helper else "desktop-protocol"
+            contract = json.loads((ROOT / "schemas" / (name + ".schema.json")).read_text())
+>           assert contract == schema(helper)
+E           AssertionError: assert {'$schema': '...uid'}}}, ...]} == {'$schema': '..., ...}}, ...]}
+E             
+E             Omitting 2 identical items, use -vv to show
+E             Differing items:
+E             {'oneOf': [{'type': 'object', 'required': ['method'], 'properties': {'method': {'const': 'runtime.status'}, 'request_i...start'}, 'request_id': {'type': ['string', 'null']}, 'client_request_id': {'type': 'string', 'format': 'uuid'}}}, ...]} != {'oneOf': [{'type': 'object', 'required': ['method'], 'properties': {'method': {'const': 'runtime.status'}, 'request_i...id': {'type': ['string', 'null']}, 'worker_generation': {'type': 'string'}, 'command': {'type': 'string'}, ...}}, ...]}
+E             Use -v to get more diff
+
+tests\test_desktop_contracts.py:19: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_checkpoint.py::test_generated_graphs - hypothesis.errors.Fa...
+FAILED tests/test_desktop_contracts.py::test_shared_protocol_fixtures_and_schema_generation
+2 failed, 292 passed, 93 skipped in 422.40s (0:07:02)

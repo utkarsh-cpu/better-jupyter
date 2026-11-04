@@ -1,0 +1,11 @@
+cargo.exe :    Compiling kernelledger-ui v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\ui)
+At line:2 char:401
++ ... EXITCODE }; & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' build - ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling ke...ktop\crates\ui):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   Compiling kernelledger-desktop v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\app)
+    Finished `dev` profile [unoptimized] target(s) in 6.61s

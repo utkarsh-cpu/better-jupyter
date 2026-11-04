@@ -1,7 +1,8 @@
 use super::*;
 
 impl Workspace {
-    pub(super) fn banners(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
+    #[inline(never)]
+    pub(super) fn banners(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
         let (danger, warning, info, success, muted_fg) = (
             theme.danger,
@@ -11,6 +12,27 @@ impl Workspace {
             theme.muted_foreground,
         );
         let mut banners = v_flex().flex_none();
+        if let Some(note) = self.tabs[self.active]
+            .inspections
+            .get("Display updates")
+            .and_then(|value| value["note"].as_str())
+            .filter(|note| !note.is_empty())
+        {
+            banners = banners.child(
+                banner(warning, Glyph::Info)
+                    .id("display-update-status")
+                    .role(Role::Group)
+                    .aria_label(note.to_owned())
+                    .child(div().flex_1().text_sm().child(note.to_owned()))
+                    .child(
+                        action_button("refresh-display-updates")
+                            .outline()
+                            .small()
+                            .label("Reload outputs")
+                            .on_click(cx.listener(|view, _, _, _| view.send(Command::Refresh))),
+                    ),
+            );
+        }
         if let Some(id) = self.tabs[self.active].checkpoint_notice.clone() {
             banners = banners.child(
                 banner(success, Glyph::Flag)
@@ -72,7 +94,7 @@ impl Workspace {
                             .child(message),
                     )
                     .child(badge(
-                        format!("Session {}", session.chars().take(8).collect::<String>()),
+                        format!("Session {}", short_session(&session)),
                         muted_fg,
                     ))
                     .child(div().flex_1())
@@ -80,7 +102,8 @@ impl Workspace {
                         action_button("restoration-return")
                             .outline()
                             .small()
-                            .label("Return to notebook")
+                            .label("Notebook")
+                            .accessibility_label("Return to notebook")
                             .on_click(cx.listener(|v, _, window, cx| {
                                 v.select_surface("Notebook", cx);
                                 v.focus.focus(window, cx);
@@ -90,14 +113,16 @@ impl Workspace {
                         action_button("restoration-copy-session")
                             .ghost()
                             .small()
-                            .label("Copy session identifier")
+                            .label("Copy session ID")
+                            .accessibility_label("Copy session identifier")
                             .on_click(move |_, _, cx| copy_acknowledged(session.clone(), cx)),
                     )
                     .child(
                         action_button("dismiss-restoration")
                             .ghost()
                             .small()
-                            .label("Dismiss restored session notice")
+                            .label("Dismiss")
+                            .accessibility_label("Dismiss restored session notice")
                             .on_click(cx.listener(|v, _, _, cx| {
                                 v.tabs[v.active].inspections.remove("Restoration result");
                                 cx.notify();
@@ -143,13 +168,14 @@ impl Workspace {
                             .flex_1()
                             .text_sm()
                             .whitespace_normal()
-                            .child("This directory is not an initialized notebook. Initialize it to add cells, or choose another directory."),
+                            .child("Directory is not an initialized notebook."),
                     )
                     .child(
                         action_button("initialize")
                             .small()
                             .outline()
-                            .label("Initialize as notebook")
+                            .label("Initialize")
+                            .accessibility_label("Initialize as notebook")
                             .on_click(cx.listener(|v, _, _, _| {
                                 v.send(Command::Initialize { sample: false })
                             })),
@@ -159,9 +185,9 @@ impl Workspace {
                             .small()
                             .ghost()
                             .label("Choose another")
-                            .on_click(cx.listener(|v, _, w, cx| {
-                                v.open_dialog(&OpenNotebook, w, cx)
-                            })),
+                            .on_click(
+                                cx.listener(|v, _, w, cx| v.open_dialog(&OpenNotebook, w, cx)),
+                            ),
                     ),
             );
         } else if source_state != "ok" {
@@ -181,7 +207,7 @@ impl Workspace {
                             .flex_1()
                             .min_w_0()
                             .text_sm()
-                            .child(format!("Recovered an unsaved draft for {id}")),
+                            .child(format!("Recovered unsaved draft for {id}")),
                     )
                     .child(
                         action_button(("restore-draft", index))
@@ -239,16 +265,18 @@ impl Workspace {
                 .clone();
             let notice =
                 if password && self.tabs[self.active].runtime["record_secret_input"] != true {
-                    "Not recorded"
+                    "Not recorded in history"
                 } else {
                     "Your reply is recorded in history and included in bundles"
                 };
             banners = banners.child(
                 banner(info, Glyph::Terminal)
                     .child(
-                        v_flex()
+                        h_flex()
                             .flex_none()
                             .max_w(px(320.))
+                            .gap_1p5()
+                            .items_center()
                             .child(
                                 div()
                                     .text_sm()
@@ -256,7 +284,11 @@ impl Workspace {
                                     .truncate()
                                     .child(input["prompt"].as_str().unwrap_or("Input").to_string()),
                             )
-                            .child(div().text_xs().text_color(muted_fg).child(notice)),
+                            .child(info_tip(
+                                SharedString::from(format!("input-tip-{iid}")),
+                                notice,
+                                cx,
+                            )),
                     )
                     .child(
                         div()
@@ -287,14 +319,14 @@ impl Workspace {
                     ),
             );
         }
-        banners
+        banners.into_any_element()
     }
-    pub(super) fn status_bar(&self, cx: &mut Context<Self>) -> Div {
+    #[inline(never)]
+    pub(super) fn status_bar(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
-        let (bar, muted_fg, primary, success, info) = (
+        let (bar, muted_fg, success, info) = (
             theme.status_bar,
             theme.muted_foreground,
-            theme.primary,
             theme.success,
             theme.info,
         );
@@ -318,10 +350,10 @@ impl Workspace {
 
         h_flex()
             .flex_none()
-            .min_h(rems(1.625))
+            .min_h(rems(1.75))
             .flex_wrap()
             .px_3()
-            .gap_4()
+            .gap_2()
             .items_center()
             .bg(bar)
             .border_t_1()
@@ -329,22 +361,19 @@ impl Workspace {
             .text_xs()
             .text_color(muted_fg)
             .when(self.surface == "Notebook", |d| {
-                d.child(
-                    div()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(if edit { primary } else { muted_fg })
-                        .child(if edit {
-                            "Editing"
-                        } else {
-                            "Cell navigation"
-                        }),
-                )
+                d.child(if edit {
+                    "Editing"
+                } else {
+                    "Cell navigation"
+                })
+                .child(status_rule(cx))
             })
             .child(format!(
                 "{} cell{}",
                 tab.model.order.len(),
                 if tab.model.order.len() == 1 { "" } else { "s" }
             ))
+            .child(status_rule(cx))
             .child(
                 h_flex()
                     .id("runtime-status")
@@ -370,6 +399,7 @@ impl Workspace {
                         worker_label(state)
                     }),
             )
+            .child(status_rule(cx))
             .child(
                 if tab
                     .model
@@ -386,30 +416,24 @@ impl Workspace {
             )
             .child(div().flex_1())
             .when(tab.assistant.busy, |d| {
-                d.child(
+                let provider = if ai_provider.is_empty() {
+                    "AI"
+                } else {
+                    ai_provider
+                };
+                d.child(status_rule(cx)).child(
                     h_flex()
                         .gap_1p5()
                         .items_center()
-                        .child(badge(
-                            format!(
-                                "{} \u{00b7} {}",
-                                if ai_provider.is_empty() {
-                                    "AI"
-                                } else {
-                                    ai_provider
-                                },
-                                ai_dest_label
-                            ),
-                            if ai_dest_local { success } else { info },
-                        ))
-                        .child("Working\u{2026}"),
+                        .child(dot(if ai_dest_local { success } else { info }))
+                        .child(format!("{provider} \u{00b7} {ai_dest_label} \u{00b7} Working\u{2026}")),
                 )
             })
             .child(
                 action_button("status-assistant")
                     .ghost()
                     .small()
-                    .icon(Glyph::MessageCircle)
+                    .icon(Glyph::Sparkles)
                     .label("Assistant")
                     .selected(tab.assistant.open)
                     .on_a11y_click(move |_, cx| {
@@ -426,5 +450,6 @@ impl Workspace {
                         .on_click(cx.listener(|v, _, _, _| v.send(Command::AssistantCancel))),
                 )
             })
+            .into_any_element()
     }
 }

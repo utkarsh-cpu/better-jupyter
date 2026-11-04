@@ -117,7 +117,7 @@ pub fn copy_blob(mut reader: impl Read, mut writer: impl Write, header: &Value) 
 
 /// Exact Python request hashing for the admitted integer/string subset only.
 /// Floats and integers outside serde_json's exact range are explicitly unsupported.
-/// This prototype never admits durable operations; expand using golden fixtures first.
+/// Durable admission rejects unqualified numeric forms before creating an operation.
 pub fn request_hash(value: &Value) -> Result<String> {
     ensure!(value.is_object(), "request must be an object");
     let mut request = value.clone();

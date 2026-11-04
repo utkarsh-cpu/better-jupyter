@@ -1,0 +1,176 @@
+{
+  "schema": "kernelledger.interactivity-gates/1",
+  "default_owner": "python",
+  "default_engine": "custom",
+  "advanced_opt_in": "KL_EXPERIMENTAL_INTERACTIVITY=1",
+  "phases": [
+    {
+      "phase": 0,
+      "status": "partial",
+      "evidence": [
+        "docs/notebook-engine-adr.md",
+        "artifacts/notebook-interactivity/engine-spike.json"
+      ],
+      "remaining": [
+        "Review the chosen custom-engine contracts and publish coordinated runtime/frontend plans"
+      ]
+    },
+    {
+      "phase": 1,
+      "status": "partial",
+      "evidence": [
+        "tests/test_interactive_worker.py",
+        "tests/test_interactive_native.py"
+      ],
+      "remaining": [
+        "Release-scale retained-memory and adversarial load measurements"
+      ]
+    },
+    {
+      "phase": 2,
+      "status": "partial",
+      "evidence": [
+        "desktop/crates/ui/src/interactive.rs",
+        "tests/test_interactive_worker.py",
+        "desktop/crates/ui/src/tests.rs",
+        "artifacts/notebook-interactivity/ui-display-python/probe-light.json",
+        "artifacts/notebook-interactivity/ui-display-native/probe-light.json"
+      ],
+      "remaining": [
+        "Native popup IME/screen-reader, broader keyboard and Linux graphical qualification; Windows live Enter/Escape journeys pass with both owners",
+        "Release-build idle/loaded completion latency against frozen baseline"
+      ]
+    },
+    {
+      "phase": 3,
+      "status": "partial",
+      "evidence": [
+        "tests/test_interactive_worker.py",
+        "scripts/desktop_ui_probe.py"
+      ],
+      "remaining": [
+        "Large array/table codec and platform accessibility matrix beyond qualified passive subset"
+      ]
+    },
+    {
+      "phase": 4,
+      "status": "partial",
+      "evidence": [
+        "tests/test_interactive_worker.py",
+        "tests/test_interactive_native.py",
+        "tests/test_interrupt_delivery.py",
+        "artifacts/notebook-interactivity/interrupt-startup-windows312.xml",
+        "artifacts/notebook-interactivity/display-linux312.xml"
+      ],
+      "remaining": [
+        "Sustained cancellation/process-tree/executor shutdown stress",
+        "Surviving tasks intentionally require restart; background task execution is unsupported"
+      ]
+    },
+    {
+      "phase": 5,
+      "status": "partial",
+      "evidence": [
+        "tests/test_desktop.py",
+        "scripts/desktop_ui_probe.py"
+      ],
+      "remaining": [
+        "Two-window console/input handoff and fault/unknown-outcome graphical journeys"
+      ]
+    },
+    {
+      "phase": 6,
+      "status": "partial",
+      "evidence": [
+        "tests/test_notebook_interactivity_interchange.py",
+        "desktop/crates/ui/src/outputs.rs",
+        "desktop/crates/client/src/math.rs",
+        "desktop/crates/client/src/media.rs",
+        "docs/notebook-display-updates.md",
+        "tests/test_display_updates.py",
+        "desktop/crates/client/src/display.rs",
+        "artifacts/notebook-interactivity/ui-display-python/probe-light.json",
+        "artifacts/notebook-interactivity/ui-display-native/probe-light.json",
+        "artifacts/notebook-interactivity/ui-display-dark/probe-dark.json",
+        "artifacts/notebook-interactivity/ui-display-contrast/probe-contrast.json",
+        "artifacts/notebook-interactivity/ui-advanced/probe-light.json",
+        "artifacts/notebook-interactivity/ui-advanced-native/probe-light.json",
+        "artifacts/notebook-interactivity/ui-advanced-dark/probe-dark.json",
+        "artifacts/notebook-interactivity/ui-advanced-contrast/probe-contrast.json"
+      ],
+      "remaining": [
+        "Release-scale display replay/retention and runtime control-latency stress",
+        "Isolated active-chart/webview platform spike; active output remains unavailable",
+        "Native media save/system-open and renderer accessibility qualification on Linux; embedded playback remains unavailable",
+        "OS renderer and untrusted-output accessibility matrix beyond Windows UIA"
+      ]
+    },
+    {
+      "phase": 7,
+      "status": "partial",
+      "evidence": [
+        "tests/test_worker_debug.py",
+        "tests/test_interactive_native.py",
+        "desktop/crates/ui/src/debug_source.rs",
+        "tests/test_recorded_source.py",
+        "docs/notebook-debugger-adr.md",
+        "artifacts/notebook-interactivity/debugger-spike.json",
+        "artifacts/notebook-interactivity/debugger-spike-linux312.json",
+        "artifacts/notebook-interactivity/ui-advanced/probe-light.json",
+        "artifacts/notebook-interactivity/ui-advanced-native/probe-light.json"
+      ],
+      "remaining": [
+        "Paused disconnect/crash recovery graphical journeys on Windows and Linux",
+        "Linux graphical stepping, gutter and changed-source navigation; Windows journeys pass with both owners",
+        "DAP and arbitrary frame evaluation remain unsupported; native passive bdb subset only"
+      ]
+    },
+    {
+      "phase": 8,
+      "status": "partial",
+      "evidence": [
+        "tests/test_widget_protocol.py",
+        "tests/test_interactive_native.py",
+        "artifacts/notebook-interactivity/ui-advanced/probe-light.json",
+        "artifacts/notebook-interactivity/ui-advanced-native/probe-light.json"
+      ],
+      "remaining": [
+        "Two-window/reconnect and sustained callback-pressure desktop journeys",
+        "General ipywidgets manager, comms, floats and binary models unsupported; native JSON integer subset only"
+      ]
+    },
+    {
+      "phase": 9,
+      "status": "partial",
+      "evidence": [
+        "tests/test_jupyter_adapter.py",
+        "tests/test_notebook_interactivity_interchange.py"
+      ],
+      "remaining": [
+        "Pinned Notebook, JupyterLab and VS Code round-trip/client matrix",
+        "External debug/comms unsupported",
+        "Kernelspec clean-machine packaging and stale-file lifecycle qualification"
+      ]
+    },
+    {
+      "phase": 10,
+      "status": "partial",
+      "evidence": [
+        "docs/notebook-interactivity.md",
+        ".github/workflows/runtime-qualification.yml",
+        "docs/notebook-interactivity-qualification.md",
+        "artifacts/notebook-interactivity/python-display-windows312.xml",
+        "artifacts/notebook-interactivity/native-display-windows312.xml",
+        "artifacts/notebook-interactivity/display-linux312.xml",
+        "artifacts/notebook-interactivity/rust-display-workspace.log"
+      ],
+      "remaining": [
+        "Every feature exit gate",
+        "Linux graphical, Windows IME/NVDA, reduced-motion and remaining owner/theme combinations for advanced features",
+        "Frozen release-build performance/large-history/memory/fault matrix",
+        "Clean-machine install/upgrade/uninstall, rollback and complete license texts",
+        "Applicable inherited runtime-v6-gates.json exits and coordinated release notes"
+      ]
+    }
+  ]
+}

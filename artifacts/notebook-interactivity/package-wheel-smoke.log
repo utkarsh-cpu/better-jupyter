@@ -1,0 +1,27 @@
+uv : Installed 9 packages in 190ms
+At line:27 char:1
++ uv run --no-project --python 3.12 --with $wheelPath kl --help > artif ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Installed 9 packages in 190ms:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+usage: kl [-h] [--project PROJECT]
+          {ai,mcp,jupyter-adapter,jupyter-kernelspec,experimental-gpu,init,stop,status,restart,log,checkpoint,retarget,training-checkpoint,training-list,native-checkpoint,training-inspect,training-restore,gc,migrate,runtimes,operation,cancel,serve,doctor,add,rm,run,interrupt,show,restore,continue,replay,import,export,publish,fetch,pin,unpin,bundle}
+          ...
+
+Source notebooks with durable Python execution history
+
+positional arguments:
+  {ai,mcp,jupyter-adapter,jupyter-kernelspec,experimental-gpu,init,stop,status,restart,log,checkpoint,retarget,training-checkpoint,training-list,native-checkpoint,training-inspect,training-restore,gc,migrate,runtimes,operation,cancel,serve,doctor,add,rm,run,interrupt,show,restore,continue,replay,import,export,publish,fetch,pin,unpin,bundle}
+    ai                  optional ledger assistant
+    mcp                 read-only notebook MCP over stdio
+    jupyter-adapter     optional local Jupyter transport attached to this
+                        notebook owner
+    jupyter-kernelspec  preview a shared-session kernelspec; explicit
+                        --install writes the user Jupyter directory
+    experimental-gpu    isolated v5 prototypes; no runtime migration
+
+options:
+  -h, --help            show this help message and exit
+  --project PROJECT, -C PROJECT
+                        notebook directory

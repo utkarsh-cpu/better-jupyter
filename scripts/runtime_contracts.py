@@ -43,6 +43,10 @@ def fixtures():
         ("float", {"value": 1.0, "small": 1e-7, "large": 1e20}, False),
         ("big_integer", {"value": 2**100}, False),
     ]
+    for value in [-(2**63), -(2**63) + 1, -(2**53) - 1, 2**53 + 1, 2**63, 2**64 - 1]:
+        cases.append((f"exact_integer_{value}", {"nested": [{"value": value}]}, True))
+    for value in [-(2**63) - 1, 2**64, -(2**100), 0.0, 1e-308, 5e-324, 1.7976931348623157e308]:
+        cases.append((f"unsupported_numeric_{value}", {"nested": [{"value": value}]}, False))
     result = []
     for name, request, supported in cases:
         admitted = {k: v for k, v in request.items() if k != "request_id"}

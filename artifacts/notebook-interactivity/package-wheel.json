@@ -1,0 +1,16 @@
+{
+  "wheel": "kernelledger-0.1.0-py3-none-any.whl",
+  "sha256": "a6442afec470ec6486d53d283883d364e9899a40b9b0dc94ed2443a6b73a7609",
+  "worker_sha256": "06f27bfae432d8a52be0e56de19cb3f3a02f898f1ca82c82b49fa4c5e19f7340",
+  "worker_matches": true,
+  "display_replay_sha256": "c3264df4d0b82e57e3026e4039984fe925c6ca127bf4d0dcc5f209d3e0d9bb1a",
+  "display_replay_matches": true,
+  "supervisor_sha256": "caa2adcebad682f7af079fd1793be732e29f0afb173161aa8b4117ea4bef2a0f",
+  "supervisor_matches": true,
+  "source_worker_sha256": "06f27bfae432d8a52be0e56de19cb3f3a02f898f1ca82c82b49fa4c5e19f7340",
+  "standalone_worker_matches": true,
+  "jupyter_adapter_included": true,
+  "recorded_source_included": true,
+  "display_replay_included": true,
+  "installed_cli_smoke": "passed"
+}

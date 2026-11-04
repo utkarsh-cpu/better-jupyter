@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.362" timestamp="2026-10-25T14:35:51.216269+00:00" hostname="DESKTOP-F4RLGMI"><testcase classname="tests.test_native_numeric" name="test_numeric_admission_and_retry_boundaries" time="3.759" /></testsuite></testsuites>

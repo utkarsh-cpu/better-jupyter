@@ -63,7 +63,9 @@ class DesktopServer:
         s = self.s
         return {
             **self.identity(),
-            "worker_state": "waiting_input"
+            "worker_state": "paused"
+            if s.debug_snapshot
+            else "waiting_input"
             if self.pending
             else "running"
             if s.active
@@ -71,8 +73,19 @@ class DesktopServer:
             if s.process
             else "absent",
             "session_id": s.session,
+            "worker_start_stage": getattr(s, "start_stage", None),
+            "debug": s.debug_snapshot,
+            "background_tasks": s.background_tasks,
+            "checkpoint_eligible": getattr(s, "start_stage", None) == "ready"
+            and not (s.active or s.debug_snapshot or s.background_tasks),
             "capabilities": protocol.CAPABILITIES,
             "interpreter": getattr(s, "environment", {}),
+            "interactive": {
+                "namespace_epoch": s.namespace_epoch,
+                "engine": getattr(s, "environment", {}).get("engine"),
+                "worker_generation": getattr(s, "environment", {}).get("worker_generation"),
+                "features": getattr(s, "environment", {}).get("interactive_features", []),
+            },
             "active_execution": s.active,
             "attached_client_count": len({c["client_id"] for c in self.clients.values()}),
             "record_secret_input": s.config.get("record_secret_input", False),
@@ -165,6 +178,12 @@ class DesktopServer:
         )
 
     async def accept(self, request: Any, client: Any, legacy: Any = None) -> Any:
+        if (self.s.debug_snapshot or self.s.background_tasks) and request.get("method") in (
+            "checkpoint",
+            "restore",
+            "continue",
+        ):
+            raise SourceError("busy", "Resume or stop debugging before checkpoint or restore")
         s = self.s
         request = {k: v for k, v in request.items() if k != "request_id"}
         method = request["method"]
@@ -249,6 +268,12 @@ class DesktopServer:
                                     {
                                         "exec_ids": [e["exec_id"] for e in executions],
                                         "session_id": s.session,
+                                        "origin": request.get(
+                                            "origin",
+                                            "notebook"
+                                            if request.get("cell_id")
+                                            else "unattributed",
+                                        ),
                                     }
                                 ),
                                 oid,
@@ -312,7 +337,12 @@ class DesktopServer:
                                 "busy", "accepted worker session is no longer available"
                             )
                         result = await s.execute(
-                            execution["source"], execution["id"], legacy, accepted=execution
+                            execution["source"],
+                            execution["id"],
+                            legacy,
+                            accepted=execution,
+                            debug=request.get("debug", False),
+                            origin=request.get("origin"),
                         )
                         results.append(result)
                         if result["status"] == "aborted" or (
@@ -360,6 +390,10 @@ class DesktopServer:
                         )
                     else:
                         result = mutate(method, request, s.notebook, s.ledger, s.blobs)
+                if method == "run":
+                    result["origin"] = request.get(
+                        "origin", "notebook" if request.get("cell_id") else "unattributed"
+                    )
                 s.ledger.operation_state(oid, "completed", result)
         except Exception as exception:
             for execution in executions:
@@ -529,6 +563,21 @@ class DesktopServer:
             async with write_lock:
                 await asyncio.wait_for(protocol.send(writer, frame), 5)
 
+        async def read_interactive(request: Any) -> None:
+            try:
+                result = await self.s.interactive_read(request, str(id(writer)))
+                await send(
+                    {"kind": "response", "request_id": request.get("request_id"), "result": result}
+                )
+            except Exception as error:
+                await send(
+                    {
+                        "kind": "error",
+                        "request_id": request.get("request_id"),
+                        "error": protocol.error(error),
+                    }
+                )
+
         try:
             greeting = await asyncio.wait_for(protocol.read(reader), 5)
             protocol.hello(greeting)
@@ -586,6 +635,20 @@ class DesktopServer:
                         )
                     if method == "runtime.status":
                         result = self.status()
+                    elif method in (
+                        "code.complete",
+                        "code.inspect",
+                        "namespace.list",
+                        "namespace.preview",
+                        "debug.control",
+                        "debug.breakpoints",
+                        "widget.state",
+                    ):
+                        if len([task for task in tasks if not task.done()]) >= 4:
+                            raise SourceError("busy", "At most four pending reads per connection")
+                        tasks = [task for task in tasks if not task.done()]
+                        tasks.append(asyncio.create_task(read_interactive(request)))
+                        continue
                     elif method == "training.list":
                         result = self.s.training_list()
                     elif method == "training.inspect":

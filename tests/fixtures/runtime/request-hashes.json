@@ -82,5 +82,174 @@
     "canonical": "{\"value\":1267650600228229401496703205376}",
     "sha256": "df155315d1ba71b33402ba95679634279dceb633369d890eea39afbc1df30ba6",
     "native_supported": false
+  },
+  {
+    "name": "exact_integer_-9223372036854775808",
+    "request": {
+      "nested": [
+        {
+          "value": -9223372036854775808
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":-9223372036854775808}]}",
+    "sha256": "80b64a1eb3820bba1840698c95a31418c5c757a76e4939197518a90c968bc1f4",
+    "native_supported": true
+  },
+  {
+    "name": "exact_integer_-9223372036854775807",
+    "request": {
+      "nested": [
+        {
+          "value": -9223372036854775807
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":-9223372036854775807}]}",
+    "sha256": "9497aedb760918d9b2f1acc1bfb889582bc6b258700a71d1b9ccff6f71bc601e",
+    "native_supported": true
+  },
+  {
+    "name": "exact_integer_-9007199254740993",
+    "request": {
+      "nested": [
+        {
+          "value": -9007199254740993
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":-9007199254740993}]}",
+    "sha256": "197bf218f42303b77efba3675462d8ec2dd36e0d377023aa2effea8a4d04eca4",
+    "native_supported": true
+  },
+  {
+    "name": "exact_integer_9007199254740993",
+    "request": {
+      "nested": [
+        {
+          "value": 9007199254740993
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":9007199254740993}]}",
+    "sha256": "1692ac22996ec9696352825a28d28de91fc889bfbfd1606c223c631a9899b411",
+    "native_supported": true
+  },
+  {
+    "name": "exact_integer_9223372036854775808",
+    "request": {
+      "nested": [
+        {
+          "value": 9223372036854775808
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":9223372036854775808}]}",
+    "sha256": "d818bf8068c4a00be3895abb625775bf06f9900dbf23e399758160e39bfa1cf4",
+    "native_supported": true
+  },
+  {
+    "name": "exact_integer_18446744073709551615",
+    "request": {
+      "nested": [
+        {
+          "value": 18446744073709551615
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":18446744073709551615}]}",
+    "sha256": "00eea0b5772f9dd4352e7ce69394c85f8ad619e3023863e511b539d02144c101",
+    "native_supported": true
+  },
+  {
+    "name": "unsupported_numeric_-9223372036854775809",
+    "request": {
+      "nested": [
+        {
+          "value": -9223372036854775809
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":-9223372036854775809}]}",
+    "sha256": "d339154d14374b55d1eba6857b2d973aa12b93df2d837d6543e3c9819d1264ec",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_18446744073709551616",
+    "request": {
+      "nested": [
+        {
+          "value": 18446744073709551616
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":18446744073709551616}]}",
+    "sha256": "2a052a2df6580c3c323f2e16aa10d80d050ae482c6326da3f570b39c0ac06317",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_-1267650600228229401496703205376",
+    "request": {
+      "nested": [
+        {
+          "value": -1267650600228229401496703205376
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":-1267650600228229401496703205376}]}",
+    "sha256": "421f475376129d053226f7def65575e2bbfdde8efe02cea23055698e72a0bb7a",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_0.0",
+    "request": {
+      "nested": [
+        {
+          "value": 0.0
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":0.0}]}",
+    "sha256": "b4b4e996ffe47549f69f8eac82f33751546f3e6dc8baf783c52a110504c9fabc",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_1e-308",
+    "request": {
+      "nested": [
+        {
+          "value": 1e-308
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":1e-308}]}",
+    "sha256": "f863d1eeb2d129bd9af6367c93268a16abe392a282a7986b4f2a790455e4e1af",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_5e-324",
+    "request": {
+      "nested": [
+        {
+          "value": 5e-324
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":5e-324}]}",
+    "sha256": "bae1375dd9b557ba610d017718bf9364b17d337b12d8314d8acbc23b20922b71",
+    "native_supported": false
+  },
+  {
+    "name": "unsupported_numeric_1.7976931348623157e+308",
+    "request": {
+      "nested": [
+        {
+          "value": 1.7976931348623157e+308
+        }
+      ]
+    },
+    "canonical": "{\"nested\":[{\"value\":1.7976931348623157e+308}]}",
+    "sha256": "7cdcaaef8162037d842d8ce0197794294de55948ad6f9ea2153c3b858514e490",
+    "native_supported": false
   }
 ]

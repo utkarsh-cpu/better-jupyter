@@ -1,0 +1,19 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "runtime_implementation": "python",
+  "screens": [],
+  "failures": [
+    {
+      "name": "source-preview",
+      "description": "Read-only source preview",
+      "error": "argument 4: TypeError: Don't know how to convert parameter 4"
+    }
+  ],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

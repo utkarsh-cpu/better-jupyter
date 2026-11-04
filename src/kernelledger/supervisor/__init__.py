@@ -16,7 +16,7 @@ from ..blobs import BUFFER_SIZE, BlobStore, VerifiedBlob, blob_io, check_hash, r
 from ..ledger import Ledger, now, uid
 from ..notebook import Notebook, write_json
 from ..worker import INLINE, json_bytes, validate_checkpoint
-from .platform import HIDDEN_CONSOLE, DirectoryLock, ProcessTree, secure_token
+from .platform import DirectoryLock, ProcessTree, secure_token, subprocess_kwargs
 
 
 async def read_message(reader: Any, blobs: Any) -> Any:
@@ -177,6 +177,8 @@ class Supervisor:
         )
         self.process, self.tree, self.writer, self.session = None, None, None, None
         self.active = None
+        self.interrupt_ready: str | None = None
+        self.pending_interrupt: str | None = None
         self.command_lock = asyncio.Lock()
         self.worker_send_lock = asyncio.Lock()
         self.stopping = asyncio.Event()
@@ -191,6 +193,57 @@ class Supervisor:
         self.retained_tasks = set()
         self.client_writers: set[Any] = set()
         self.publish_hook: Any = None
+        self.interactive_pending: dict[str, tuple[Any, str, str]] = {}
+        self.debug_snapshot: Any = None
+        self.namespace_epoch = 0
+        self.background_tasks = False
+
+    async def interactive_read(self, request: Any, client: str) -> Any:
+        from ..source import SourceError
+
+        if self.process is None or self.writer is None:
+            raise SourceError(
+                "disconnected", "Run a cell to start a runtime before live inspection"
+            )
+        if getattr(self, "start_stage", None) != "ready":
+            raise SourceError("busy", "Worker lifecycle transition in progress")
+        if request.get("worker_generation") != self.environment.get("worker_generation"):
+            raise SourceError("stale_generation", "The worker was replaced; refresh runtime status")
+        if self.active and request.get("method") != "debug.control":
+            raise SourceError("busy", "Live reads are available when the execution thread is idle")
+        if len(json_bytes(request)) > 60000:
+            raise SourceError("too_large", "Interactive requests are limited to 60000 bytes")
+        method = request["method"]
+        if method == "code.complete":
+            for key, (future, owner, previous_method) in list(self.interactive_pending.items()):
+                if owner == client and previous_method == method:
+                    future.set_exception(
+                        SourceError("superseded", "A newer completion replaced this request")
+                    )
+                    self.interactive_pending.pop(key, None)
+        if (
+            len(self.interactive_pending) >= 32
+            or sum(owner == client for _, owner, _ in self.interactive_pending.values()) >= 4
+        ):
+            raise SourceError("busy", "Interactive read queue is full")
+        read_id = uid()
+        future = asyncio.get_running_loop().create_future()
+        self.interactive_pending[read_id] = (future, client, method)
+        try:
+            async with asyncio.timeout(2):
+                await self.send_worker("interactive_read", request_id=read_id, request=request)
+                result = await future
+            if result.get("worker_generation") != self.environment.get("worker_generation"):
+                raise SourceError("stale_generation", "The worker changed while reading")
+            result["request_id"] = request.get("request_id")
+            result["session_id"] = self.session
+            return result
+        except TimeoutError:
+            raise SourceError(
+                "timeout", "Interactive read expired; refresh when the worker is idle"
+            ) from None
+        finally:
+            self.interactive_pending.pop(read_id, None)
 
     def spawn_task(self, coroutine: Any) -> Any:
         task = asyncio.create_task(coroutine)
@@ -202,6 +255,9 @@ class Supervisor:
         async with self.worker_send_lock:
             if self.writer is None:
                 raise ValueError("worker is down")
+            if kind == "interrupt" and self.active and self.interrupt_ready != self.active:
+                self.pending_interrupt = self.active
+                return
             await send_message(self.writer, kind, **fields)
 
     def record_blob(self, digest: Any) -> Any:
@@ -267,8 +323,23 @@ class Supervisor:
                 eid = message.pop("exec_id", None)
                 if kind == "blob":
                     continue
+                if kind == "interactive_reply":
+                    pending = self.interactive_pending.get(message.get("request_id"))
+                    if pending is not None and not pending[0].done():
+                        pending[0].set_result(message)
+                    continue
+                if kind == "interactive_state":
+                    self.debug_snapshot = message.get("debug")
+                    continue
                 if kind == "status" and eid:
+                    self.namespace_epoch = message.get("namespace_epoch", self.namespace_epoch)
+                    self.background_tasks = message.get("background_tasks", self.background_tasks)
                     if message["state"] == "running":
+                        if self.active == eid:
+                            self.interrupt_ready = eid
+                            if self.pending_interrupt == eid:
+                                self.pending_interrupt = None
+                                await self.send_worker("interrupt")
                         self.ledger.write(
                             "UPDATE executions SET status='running' WHERE exec_id=?", (eid,)
                         )
@@ -291,11 +362,14 @@ class Supervisor:
                             (message["outcome"], now(), eid),
                         )
                         self.active = None
+                        self.interrupt_ready = self.pending_interrupt = None
                         if self.waiter and not self.waiter.done():
                             self.waiter.set_result({"exec_id": eid, "status": message["outcome"]})
                 elif kind == "restore_result":
                     self.restore_report = message
                 elif kind in ("ready", "checkpoint_offer", "training_result"):
+                    if kind == "ready":
+                        self.namespace_epoch = message.get("namespace_epoch", self.namespace_epoch)
                     if self.waiter and not self.waiter.done():
                         self.waiter.set_result(
                             self.restore_report
@@ -401,9 +475,7 @@ class Supervisor:
             "KL_TRAINING_TEMP_ROOT": self.worker_temporary.name,
             **launch_env,
         }
-        kwargs: dict[str, Any] = (
-            {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
-        )
+        kwargs = subprocess_kwargs()
         try:
             self.process = await asyncio.create_subprocess_exec(
                 launch_python,
@@ -456,6 +528,9 @@ class Supervisor:
         )
         await asyncio.wait_for(self.waiter, 20)
         self.environment = hello
+        self.namespace_epoch = 0
+        self.background_tasks = False
+        self.debug_snapshot = None
         self.start_stage = "ready"
 
     async def end_worker(self, state: Any = "closed") -> Any:
@@ -503,6 +578,8 @@ class Supervisor:
         inputs: Any = None,
         notify: Any = None,
         accepted: Any = None,
+        debug: bool = False,
+        origin: str | None = None,
     ) -> Any:
         empty = not self.process
         if empty:
@@ -523,12 +600,19 @@ class Supervisor:
                     (now(), accepted["exec_id"]),
                 )
             eid = self.ledger.execution(self.session, cid, digest)
+        self.interrupt_ready = self.pending_interrupt = None
         self.active = eid
         self.input_client, self.replay_inputs = client, inputs
         self.bytes_recorded, self.bytes_dropped = 0, 0
         self.waiter = asyncio.get_running_loop().create_future()
         await self.send_worker(
-            "execute", exec_id=eid, cell_id=cid, source_sha256=digest, source=source
+            "execute",
+            exec_id=eid,
+            cell_id=cid,
+            source_sha256=digest,
+            source=source,
+            debug=debug,
+            origin=origin or ("notebook" if cid else "unattributed"),
         )
         result = await self.waiter
         return {**result, "new_empty_session": empty, "session_id": self.session}
@@ -627,11 +711,13 @@ class Supervisor:
             await self.end_worker()
             raise ValueError("Python major.minor mismatch; pass --allow-python-mismatch")
         self.waiter = asyncio.get_running_loop().create_future()
+        self.start_stage = "restore"
         async with self.worker_send_lock:
             for digest in hashes:
                 await send_stored_blob(self.writer, self.blobs, digest)
             await send_message(self.writer, "restore", manifest=manifest)
         result = await self.waiter
+        self.start_stage = "ready"
         self.ledger.session_event(self.session, "restore_result", result)
         return {
             "session_id": self.session,
@@ -754,6 +840,7 @@ class Supervisor:
             for name in ("process", "tree", "writer", "session", "active", "waiter", "stream"):
                 setattr(candidate, name, None)
             candidate.retained_tasks = set()
+            candidate.interactive_pending = {}
             candidate.worker_send_lock = asyncio.Lock()
             candidate.desktop = DesktopServer(candidate)
             try:
@@ -788,6 +875,9 @@ class Supervisor:
                 "worker_temporary",
                 "environment",
                 "start_stage",
+                "namespace_epoch",
+                "background_tasks",
+                "debug_snapshot",
             ):
                 setattr(self, name, getattr(candidate, name))
             candidate._admitted_to = self
@@ -806,6 +896,10 @@ class Supervisor:
 
     async def dispatch(self, request: Any, reader: Any, writer: Any) -> Any:
         command = request["command"]
+        if self.debug_snapshot and command in ("checkpoint", "restore", "continue"):
+            return {"refused": "paused_debugging"}
+        if self.background_tasks and command in ("checkpoint", "restore", "continue"):
+            return {"refused": "background_tasks"}
         if command == "training-list":
             return self.training_list()
         if command == "training-inspect":
