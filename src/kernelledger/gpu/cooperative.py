@@ -6,6 +6,7 @@ because it restores process-global RNG and framework settings.
 """
 
 import hashlib
+import importlib
 import json
 import threading
 from collections.abc import Callable, Generator, Mapping
@@ -122,9 +123,7 @@ class CooperativeCheckpointPlugin:
         if drain is not None and not callable(drain):
             raise ValueError("drain must be a callable")
         # Registration is explicit; inspection and entry-point discovery remain stdlib-only.
-        import torch
-
-        torch_module: Any = torch
+        torch_module: Any = importlib.import_module("torch")
         if not isinstance(registered["model"], torch_module.nn.Module) or not isinstance(
             registered["optimizer"], torch_module.optim.Optimizer
         ):

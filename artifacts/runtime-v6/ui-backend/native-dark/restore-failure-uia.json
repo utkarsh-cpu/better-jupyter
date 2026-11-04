@@ -1,0 +1,82 @@
+[
+    {
+        "name":  "KernelLedger — notebook",
+        "role":  "ControlType.Window",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Checkpoints, current destination",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "View checkpoint",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Dismiss",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "id":  ""
+    },
+    {
+        "name":  "Create checkpoint",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Back to list",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Restore checkpoint…",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "id":  ""
+    }
+]

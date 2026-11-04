@@ -1,0 +1,11 @@
+cargo.exe :    Compiling kernelledger-runtime v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\runtime)
+At line:2 char:235
++ ... EXITCODE }; & 'C:/Users/UTKARSH KAUSHIK/.cargo/bin/cargo.exe' clippy  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compiling ke...crates\runtime):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Checking kernelledger-daemon v0.1.0 (C:\Users\UTKARSH 
+KAUSHIK\Documents\Projects\KernelLedger-v6\desktop\crates\daemon)
+    Finished `dev` profile [unoptimized] target(s) in 5.92s

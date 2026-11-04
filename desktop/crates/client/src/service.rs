@@ -1,5 +1,6 @@
 //! One offline helper per canonical notebook, persistent operation keys and background I/O.
 use super::*;
+use anyhow::Context as _;
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::{Read, Seek, SeekFrom},
@@ -9,6 +10,30 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    OutputError(String),
+    RecordedSource(crate::recorded::Location),
+    SaveOutput {
+        path: PathBuf,
+        digest: String,
+        mime: String,
+    },
+    LoadSourcePreview {
+        path: PathBuf,
+    },
+    Interactive {
+        method: String,
+        fields: Value,
+    },
+    Console {
+        source: String,
+    },
+    DebugRun {
+        cell_id: String,
+    },
+    WidgetEvent {
+        model: Value,
+        value: Value,
+    },
     Assistant {
         method: String,
         fields: Value,
@@ -99,6 +124,7 @@ pub enum Event {
         index: usize,
         slot: String,
         text: String,
+        digest: String,
         offset: u64,
         end: u64,
         total: u64,
@@ -109,6 +135,7 @@ pub enum Event {
         index: usize,
         mime: String,
         path: String,
+        digest: String,
     },
     AttachmentPreview {
         cell_id: String,
@@ -136,45 +163,143 @@ struct Edit {
 struct OutputWatch {
     watermark: Option<Value>,
     signatures: BTreeMap<String, String>,
+    display: crate::display::Views,
+    display_after: u64,
+    cells: Option<BTreeSet<String>>,
+    note: String,
+    supports_updates: bool,
 }
 impl OutputWatch {
+    fn follow_source(&mut self, snapshot: &Value) {
+        let cells = snapshot["cells"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|cell| cell["id"].as_str().map(str::to_owned))
+            .collect();
+        if self.cells.as_ref() != Some(&cells) {
+            self.cells = Some(cells);
+            self.watermark = None;
+        }
+    }
     fn poll(
         &mut self,
         mut request: impl FnMut(&str, Value) -> Result<Value>,
     ) -> Result<Vec<Value>> {
+        let supports_updates = self.supports_updates;
         let mark = request("executions.watermark", json!({}))?;
-        if self.watermark.as_ref() == Some(&mark) {
-            return Ok(Vec::new());
+        let through = mark["event_rowid"].as_u64().unwrap_or(0);
+        if through < self.display_after {
+            self.watermark = None;
+            self.signatures.clear();
+            self.display = crate::display::Views::default();
+            self.display_after = 0;
         }
-        self.watermark = Some(mark);
-        let items = all_pages(|mut page| {
-            page["latest_per_cell"] = json!(true);
-            request("executions.list", page)
-        })?;
         let mut changed = Vec::new();
-        let mut live = BTreeSet::new();
-        for row in items {
-            let Some(eid) = row["exec_id"].as_str() else {
-                continue;
-            };
-            live.insert(eid.to_string());
-            let signature = format!(
-                "{}:{}:{}",
-                row["status"].as_str().unwrap_or(""),
-                row["fold_events"].as_u64().unwrap_or(0),
-                row["fold_seq"].as_u64().unwrap_or(0)
+        if self.watermark.as_ref() != Some(&mark) {
+            let items = all_pages(|mut page| {
+                page["latest_per_cell"] = json!(true);
+                request("executions.list", page)
+            })?;
+            let mut live = BTreeSet::new();
+            self.display.retain(
+                &items
+                    .iter()
+                    .filter(|row| {
+                        self.cells.as_ref().is_none_or(|cells| {
+                            row["cell_id"].as_str().is_some_and(|id| cells.contains(id))
+                        })
+                    })
+                    .filter_map(|row| row["exec_id"].as_str().map(str::to_owned))
+                    .collect(),
             );
-            if self.signatures.get(eid) == Some(&signature) {
-                continue;
+            for row in items {
+                if self.cells.as_ref().is_some_and(|cells| {
+                    !row["cell_id"].as_str().is_some_and(|id| cells.contains(id))
+                }) {
+                    continue;
+                }
+                let Some(eid) = row["exec_id"].as_str() else {
+                    continue;
+                };
+                live.insert(eid.to_string());
+                let signature = format!(
+                    "{}:{}:{}",
+                    row["status"].as_str().unwrap_or(""),
+                    row["fold_events"].as_u64().unwrap_or(0),
+                    row["fold_seq"].as_u64().unwrap_or(0)
+                );
+                if self.signatures.get(eid) == Some(&signature) {
+                    continue;
+                }
+                let view = request("fold.get", json!({"exec_id": eid}))?;
+                changed.push(if supports_updates {
+                    self.display.register(view)
+                } else {
+                    view
+                });
+                self.signatures.insert(eid.to_string(), signature);
             }
-            changed.push(request("fold.get", json!({"exec_id": eid}))?);
-            self.signatures.insert(eid.to_string(), signature);
+            self.signatures.retain(|id, _| live.contains(id));
+            self.display.retain(&live);
+            self.watermark = Some(mark);
         }
-        self.signatures.retain(|id, _| live.contains(id));
-        Ok(changed)
+        if supports_updates && self.display_after < through {
+            let page = request(
+                "display.updates",
+                json!({"after_rowid":self.display_after,"through_rowid":through}),
+            )?;
+            let after = page["after_rowid"]
+                .as_u64()
+                .context("Missing display replay cursor")?;
+            ensure!(
+                page["through_rowid"] == through && after > self.display_after && after <= through,
+                "Invalid display replay cursor"
+            );
+            let mut updates = BTreeMap::new();
+            for update in page["items"]
+                .as_array()
+                .context("Missing display replay items")?
+            {
+                if let (Some(session), Some(id)) = (
+                    update["session_id"].as_str(),
+                    update["event"]["display_id"].as_str(),
+                ) {
+                    let key = (session.to_owned(), id.to_owned());
+                    let order = (update["ordinal"].as_u64(), update["seq"].as_u64());
+                    let entry = updates.entry(key).or_insert(update);
+                    if order > (entry["ordinal"].as_u64(), entry["seq"].as_u64()) {
+                        *entry = update;
+                    }
+                } else {
+                    changed.extend(self.display.update(update));
+                }
+            }
+            for update in updates.into_values() {
+                changed.extend(self.display.update(update));
+            }
+            self.display_after = after;
+        }
+        self.note = if self.display.limited {
+            "Some display updates could not be followed within the viewer limits. Current outputs may be stale; original events remain in History.".into()
+        } else if supports_updates && self.display_after < through {
+            "Catching up with recorded display updates…".into()
+        } else {
+            String::new()
+        };
+        let mut latest = BTreeMap::new();
+        for view in changed {
+            let key = view["cell_id"].as_str().unwrap_or("@console").to_owned();
+            latest.insert(key, view);
+        }
+        Ok(latest.into_values().collect())
     }
 }
 fn poll_outputs(watch: &mut OutputWatch, helper: &mut HelperClient) -> Result<Vec<Value>> {
+    let supported = helper.welcome["capabilities"]
+        .as_array()
+        .is_some_and(|caps| caps.iter().any(|v| v == "display_updates"));
+    watch.supports_updates = supported;
     watch.poll(|method, fields| helper.request(method, fields))
 }
 
@@ -227,8 +352,9 @@ struct Session {
     events: Sender<Event>,
     last_poll: Instant,
     last_source: Instant,
-    folds: BTreeMap<String, Value>,
+    folds: BTreeMap<String, String>,
     output_watch: OutputWatch,
+    display_note: String,
     last_status: Value,
     stopping_since: Option<Instant>,
     stopped: bool,
@@ -262,6 +388,7 @@ impl Session {
             last_source: Instant::now(),
             folds: BTreeMap::new(),
             output_watch: OutputWatch::default(),
+            display_note: String::new(),
             last_status: Value::Null,
             stopping_since: None,
             stopped: false,
@@ -330,6 +457,7 @@ impl Session {
     fn refresh(&mut self) -> Result<()> {
         let snapshot = self.helper.request("source.read", json!({}))?;
         if snapshot != self.snapshot {
+            self.output_watch.follow_source(&snapshot);
             self.snapshot = snapshot.clone();
             let _ = self.events.send(Event::Source(snapshot));
         }
@@ -365,6 +493,7 @@ impl Session {
                 }
             }
         };
+        self.output_watch.follow_source(&snapshot);
         self.snapshot = snapshot.clone();
         self.edits.remove(id);
         self.conflicts.remove(id);
@@ -454,6 +583,136 @@ impl Session {
     }
     fn handle(&mut self, command: Command) -> Result<bool> {
         match command {
+            Command::OutputError(message) => {
+                let _ = self.events.send(Event::Error {
+                    code: "output_export".into(),
+                    message,
+                });
+            }
+            Command::RecordedSource(location) => {
+                ensure!(
+                    self.helper.welcome["capabilities"]
+                        .as_array()
+                        .is_some_and(|caps| caps.iter().any(|cap| cap == "recorded_source")),
+                    "This helper does not support bounded recorded source windows"
+                );
+                let mut value = self.helper.request("source.execution", json!({"exec_id":location.exec_id,"source_revision":location.revision,"line":location.line}))?;
+                ensure!(
+                    value["cell_id"].as_str() == location.cell_id.as_deref(),
+                    "Recorded source cell differs from this location"
+                );
+                value["file"] = json!(location.file);
+                let _ = self.events.send(Event::Inspection {
+                    method: "source.execution".into(),
+                    value,
+                });
+            }
+            Command::SaveOutput { path, digest, mime } => {
+                let permit = crate::media::reserve_transfer()?;
+                let project = self.project.clone();
+                let python = self.python.clone();
+                let identity = self.identity.clone();
+                let events = self.events.clone();
+                std::thread::Builder::new().name("kl-output-export".into()).spawn(move || {
+                    let _permit = permit;
+                    let result = (|| -> Result<Value> {
+                        let mut helper = HelperClient::start(&python, &project, &identity)?;
+                        let size = crate::media::save(&path, &digest, &mime, |digest, offset, length| helper.blob_range(digest, offset, length))?;
+                        Ok(json!({"kind":"output", "path":path, "mime":mime, "sha256":digest, "byte_size":size}))
+                    })();
+                    match result {
+                        Ok(value) => { let _ = events.send(Event::Inspection { method: "output.saved".into(), value }); }
+                        Err(error) => { let _ = events.send(Event::Error { code: "output_export".into(), message: error.to_string() }); }
+                    }
+                })?;
+            }
+            Command::LoadSourcePreview { path } => {
+                let file = fs::File::open(&path)?;
+                let mut bytes = Vec::new();
+                file.take(65537).read_to_end(&mut bytes)?;
+                ensure!(bytes.len() <= 65536, "Source preview is limited to 64 KiB");
+                let source = String::from_utf8(bytes)?;
+                let _ = self.events.send(Event::Inspection {
+                    method: "source.preview".into(),
+                    value: json!({"path":path,"source":source,"sha256":hash(source.as_bytes())}),
+                });
+            }
+            Command::Interactive { method, fields } => {
+                // A dedicated short-lived control connection keeps live reads out
+                // of the durable queue and leaves interrupt/stop responsive.
+                ensure!(
+                    self.runtime.is_some(),
+                    "Run a cell before using live inspection"
+                );
+                let project = self.project.clone();
+                let identity = self.identity.clone();
+                let events = self.events.clone();
+                std::thread::spawn(move || {
+                    let result = (|| -> Result<Value> {
+                        let mut runtime = RuntimeClient::connect(&project, &identity, "control")?;
+                        ensure!(
+                            runtime.welcome["capabilities"]
+                                .as_array()
+                                .is_some_and(|caps| caps
+                                    .iter()
+                                    .any(|cap| cap == "interactive_reads")),
+                            "Owner does not support live reads"
+                        );
+                        runtime.request(&method, fields.clone())
+                    })();
+                    let mut value = result
+                        .unwrap_or_else(|error| json!({"error":{"message":error.to_string()}}));
+                    value["_context"] = fields;
+                    let _ = events.send(Event::Inspection { method, value });
+                });
+            }
+            Command::Console { source } => {
+                ensure!(source.len() <= 65536, "Console source is limited to 64 KiB");
+                let source = source
+                    .trim_start_matches('\u{feff}')
+                    .replace("\r\n", "\n")
+                    .replace('\r', "\n");
+                self.submit("run", json!({"source":source,"expected_sha256":hash(source.as_bytes()),"origin":"console"}))?;
+            }
+            Command::DebugRun { cell_id } => {
+                self.save_all()?;
+                self.refresh()?;
+                ensure!(
+                    !self.conflicts.contains(&cell_id),
+                    "Resolve source conflicts before debugging"
+                );
+                let cell = self.snapshot["cells"]
+                    .as_array()
+                    .and_then(|cells| cells.iter().find(|cell| cell["id"] == cell_id))
+                    .ok_or_else(|| anyhow::anyhow!("Selected cell was removed"))?;
+                let revision = cell["revision"].clone();
+                self.submit(
+                    "run",
+                    json!({"cell_id":cell_id,"expected_sha256":revision,"debug":true}),
+                )?;
+            }
+            Command::WidgetEvent { model, value } => {
+                ensure!(
+                    self.runtime.is_some(),
+                    "Recreate this widget in a live notebook"
+                );
+                let runtime = self
+                    .runtime
+                    .as_mut()
+                    .unwrap()
+                    .request("runtime.status", json!({}))?;
+                ensure!(
+                    model["worker_generation"] == runtime["interactive"]["worker_generation"],
+                    "Widget belongs to a replaced worker; recreate it"
+                );
+                let source = format!(
+                    "__kl_widget_event__({}, {}, __import__('json').loads({}))",
+                    serde_json::to_string(&model["worker_generation"])?,
+                    serde_json::to_string(&model["handle"])?,
+                    serde_json::to_string(&value.to_string())?
+                );
+                self.submit("run", json!({"source":source,"expected_sha256":hash(source.as_bytes()),"origin":"widget","widget_handle":model["handle"],"worker_generation":model["worker_generation"]}))?;
+            }
             Command::Assistant { method, fields } => {
                 self.assistant.requests.send((method, fields))?;
             }
@@ -466,6 +725,7 @@ impl Session {
                     let snapshot = self
                         .helper
                         .request("source.mutate", resolution["mutation"].clone())?;
+                    self.output_watch.follow_source(&snapshot);
                     self.snapshot = snapshot.clone();
                     let _ = self.events.send(Event::Source(snapshot.clone()));
                     json!({"manifest_revision":snapshot["manifest_revision"]})
@@ -566,6 +826,7 @@ impl Session {
                         ),
                     ] {
                         let snapshot = self.helper.request("source.mutate", json!({"action":"add","type":kind,"source":source,"manifest_revision":self.snapshot["manifest_revision"]}))?;
+                        self.output_watch.follow_source(&snapshot);
                         self.snapshot = snapshot;
                     }
                     let _ = self.events.send(Event::Source(self.snapshot.clone()));
@@ -582,6 +843,7 @@ impl Session {
                         fs::remove_file(self.draft_path(&id))?;
                     }
                 }
+                self.output_watch.follow_source(&snapshot);
                 self.snapshot = snapshot.clone();
                 let _ = self.events.send(Event::Source(snapshot));
             }
@@ -708,6 +970,16 @@ impl Session {
                 });
             }
             Command::Refresh => {
+                let cells = self.output_watch.cells.clone();
+                let console = self.output_watch.display.console();
+                self.output_watch = OutputWatch {
+                    cells,
+                    ..Default::default()
+                };
+                if let Some(console) = console {
+                    self.output_watch.display.register(console);
+                }
+                self.folds.clear();
                 self.refresh()?;
                 self.runtime =
                     RuntimeClient::connect(&self.project, &self.identity, "control").ok();
@@ -734,6 +1006,7 @@ impl Session {
                     index,
                     slot,
                     text,
+                    digest,
                     offset: start,
                     end,
                     total: page.total,
@@ -764,6 +1037,7 @@ impl Session {
                     index,
                     mime,
                     path: path.to_string_lossy().into_owned(),
+                    digest,
                 });
             }
             Command::PreviewAttachment {
@@ -935,6 +1209,7 @@ impl Session {
     }
     fn poll(&mut self) -> Result<()> {
         self.last_poll = Instant::now();
+        let mut console_outputs = Vec::new();
         if let Some(runtime) = &mut self.runtime {
             let status = match runtime.request("runtime.status", json!({})) {
                 Ok(status) => status,
@@ -977,6 +1252,18 @@ impl Session {
                         self.operations.get_mut(&key).unwrap()["operation_id"] =
                             operation["operation_id"].clone();
                         operation["request"] = self.operations[&key]["request"].clone();
+                        if operation["state"] == "completed"
+                            && operation["request"]["origin"] == "console"
+                            && let Some(eid) = operation["result"]["exec_id"].as_str()
+                        {
+                            console_outputs.push(eid.to_owned());
+                        }
+                        if operation["state"] == "completed"
+                            && operation["request"]["origin"] == "widget"
+                            && let Ok(value) = runtime.request("widget.state", json!({"worker_generation":operation["request"]["worker_generation"], "handle":operation["request"]["widget_handle"]}))
+                        {
+                            let _ = self.events.send(Event::Inspection { method: "widget.state".into(), value });
+                        }
                         let _ = self.events.send(Event::Operation(operation));
                     }
                     Err(error)
@@ -1004,7 +1291,25 @@ impl Session {
             self.persist_operations()?;
         }
         // Skip the fold walk while the ledger watermark is unchanged.
+        for eid in console_outputs {
+            let mut value = self
+                .helper
+                .request("execution.get", json!({"exec_id":eid}))?;
+            value = self.output_watch.display.register(value);
+            self.resolve_outputs(&mut value);
+            let _ = self.events.send(Event::Inspection {
+                method: "console.execution".into(),
+                value,
+            });
+        }
         let changed = poll_outputs(&mut self.output_watch, &mut self.helper)?;
+        if self.display_note != self.output_watch.note {
+            self.display_note = self.output_watch.note.clone();
+            let _ = self.events.send(Event::Inspection {
+                method: "display.status".into(),
+                value: json!({"note":self.display_note}),
+            });
+        }
         for mut fold in changed {
             if let Some(outputs) = fold["outputs"].as_array_mut() {
                 for event in outputs {
@@ -1020,11 +1325,22 @@ impl Session {
             let Some(eid) = fold["exec_id"].as_str() else {
                 continue;
             };
-            if self.folds.get(eid) != Some(&fold) {
-                self.folds.insert(eid.to_string(), fold.clone());
-                let _ = self.events.send(Event::Output(fold));
+            let signature = hash(&serde_json::to_vec(&fold)?);
+            if self.folds.get(eid) != Some(&signature) {
+                self.folds.insert(eid.to_string(), signature);
+                let event = if fold["cell_id"].is_null() && fold["origin"] == "console" {
+                    Event::Inspection {
+                        method: "console.execution".into(),
+                        value: fold,
+                    }
+                } else {
+                    Event::Output(fold)
+                };
+                let _ = self.events.send(event);
             }
         }
+        self.folds
+            .retain(|id, _| self.output_watch.signatures.contains_key(id));
         Ok(())
     }
     fn mark_stopped(&mut self) -> Result<()> {
@@ -1192,5 +1508,76 @@ mod tests {
             .unwrap();
         assert!(changed.is_empty());
         assert_eq!(calls, vec!["executions.watermark".to_string()]);
+    }
+
+    #[test]
+    fn display_backlog_advances_without_rewalking_unchanged_executions() {
+        let mut watch = OutputWatch {
+            supports_updates: true,
+            ..Default::default()
+        };
+        let mut polls = 0;
+        let mut calls = Vec::new();
+        for expected in ["original", "updated", "updated"] {
+            let changed = watch.poll(|method, fields| {
+                calls.push(method.to_owned());
+                match method {
+                    "executions.watermark" => Ok(json!({"event_rowid":300})),
+                    "executions.list" => Ok(json!({"items":[{"cell_id":"cell","exec_id":"exec","status":"ok","fold_seq":1}],"cursor":null})),
+                    "fold.get" => Ok(json!({"cell_id":"cell","exec_id":"exec","session_id":"s","ordinal":1,"outputs":[{"kind":"display","display_id":"d","seq":1,"timestamp":"t","bundle":{"text/plain":{"value":"original"}}}]})),
+                    "display.updates" => {
+                        let after = fields["after_rowid"].as_u64().unwrap();
+                        polls += 1;
+                        Ok(json!({"after_rowid":(after+128).min(300),"through_rowid":300,"items":if after>0 {json!([{"session_id":"s","exec_id":"update","ordinal":2,"seq":1,"timestamp":"later","event":{"display_id":"d","bundle":{"text/plain":{"value":"updated"}}}}])} else {json!([])}}))
+                    }
+                    _ => bail!("unexpected request"),
+                }
+            }).unwrap();
+            if let Some(view) = changed.last() {
+                assert_eq!(
+                    view["outputs"][0]["bundle"]["text/plain"]["value"],
+                    expected
+                );
+            }
+        }
+        assert_eq!(polls, 3);
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|name| name.as_str() == "executions.list")
+                .count(),
+            1
+        );
+        assert!(watch.note.is_empty());
+        let result = watch
+            .poll(|method, _| {
+                assert_eq!(method, "executions.watermark");
+                Ok(json!({"event_rowid":300}))
+            })
+            .unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn source_membership_changes_reload_current_outputs_without_new_ledger_events() {
+        let mut watch = OutputWatch::default();
+        let mut folds = Vec::new();
+        for cells in [
+            json!([{"id":"a"},{"id":"b"}]),
+            json!([{"id":"b"}]),
+            json!([{"id":"a"},{"id":"b"}]),
+        ] {
+            watch.follow_source(&json!({"cells":cells}));
+            watch.poll(|method, fields| match method {
+                "executions.watermark" => Ok(json!({"event_rowid":1})),
+                "executions.list" => Ok(json!({"items":[{"cell_id":"a","exec_id":"a","fold_seq":1},{"cell_id":"b","exec_id":"b","fold_seq":1}],"cursor":null})),
+                "fold.get" => {
+                    folds.push(fields["exec_id"].as_str().unwrap().to_owned());
+                    Ok(json!({"cell_id":fields["exec_id"],"exec_id":fields["exec_id"],"outputs":[]}))
+                },
+                _ => bail!("Unexpected request"),
+            }).unwrap();
+        }
+        assert_eq!(folds, vec!["a", "b", "a"]);
     }
 }

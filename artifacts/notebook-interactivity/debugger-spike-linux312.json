@@ -1,0 +1,86 @@
+{
+  "schema": "kernelledger.debugger-spike/1",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "debugpy": "1.8.22",
+  "fixture_sha256": "1c743014465cbe71efe9405438e66aa4b3bc6baa9cf83666fa5f95970d2fb8d9",
+  "worker_sha256": "06f27bfae432d8a52be0e56de19cb3f3a02f898f1ca82c82b49fa4c5e19f7340",
+  "production_adopted": false,
+  "transport": "disposable unauthenticated loopback DAP; no notebook owner or ledger",
+  "trials": [
+    {
+      "materialized_source": false,
+      "initial_breakpoints": {
+        "breakpoints": [
+          {
+            "verified": false,
+            "id": 0,
+            "message": "Breakpoint in file that does not exist.",
+            "source": {
+              "path": "/tmp/kl-dap-spike-vaximcy4/virtual/cells/probe.py@bcb14a13-9cb2-42a4-aa90-fdf837c449dc"
+            },
+            "line": 11
+          }
+        ]
+      },
+      "stopped_line": 10,
+      "stepped_line": 11,
+      "source_reference": 1,
+      "source_response_matches": true,
+      "watch_variable_present": true,
+      "user_repr_calls_after_variables_request": 1,
+      "supports_evaluate_for_hovers": true,
+      "dap_commands": [
+        "initialize",
+        "attach",
+        "setBreakpoints",
+        "configurationDone",
+        "stackTrace",
+        "scopes",
+        "variables",
+        "source",
+        "next",
+        "stackTrace",
+        "setBreakpoints",
+        "continue"
+      ],
+      "value_after_resume": 43
+    },
+    {
+      "materialized_source": true,
+      "initial_breakpoints": {
+        "breakpoints": [
+          {
+            "verified": true,
+            "id": 0,
+            "source": {
+              "path": "/tmp/kl-dap-spike-vaximcy4/file/cells/probe.py@23b8ac29-0336-47fd-a1d1-acbb69d20cfe"
+            },
+            "line": 11
+          }
+        ]
+      },
+      "stopped_line": 10,
+      "stepped_line": 11,
+      "source_reference": 0,
+      "source_response_matches": null,
+      "watch_variable_present": true,
+      "user_repr_calls_after_variables_request": 1,
+      "supports_evaluate_for_hovers": true,
+      "dap_commands": [
+        "initialize",
+        "attach",
+        "setBreakpoints",
+        "configurationDone",
+        "stackTrace",
+        "scopes",
+        "variables",
+        "next",
+        "stackTrace",
+        "setBreakpoints",
+        "continue"
+      ],
+      "value_after_resume": 43
+    }
+  ]
+}

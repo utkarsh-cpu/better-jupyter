@@ -4,6 +4,7 @@ Call capture only at an application-owned idle boundary. This prototype does not
 change the standalone v4 worker's checkpoint or busy-refusal contract.
 """
 
+import importlib
 import io
 import math
 import sys
@@ -24,9 +25,7 @@ class PortableEncoder:
         owner: str | None = None,
         gradient_ids: set[int] | None = None,
     ) -> None:
-        import torch
-
-        self.torch: Any = torch
+        self.torch: Any = importlib.import_module("torch")
         self.store, self.max_bytes = store, max_bytes
         self.owner, self.storage_owner = owner, uuid.uuid4().hex
         self.gradient_ids = gradient_ids or set()
@@ -209,9 +208,7 @@ def restore_values(
 
     if not re.fullmatch(r"cpu|cuda:\d+", device):
         raise ValueError("unsupported restore device")
-    import torch
-
-    torch_module: Any = torch
+    torch_module: Any = importlib.import_module("torch")
     if device != "cpu" and (
         not torch_module.cuda.is_available()
         or int(device.split(":")[1]) >= torch_module.cuda.device_count()

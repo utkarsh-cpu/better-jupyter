@@ -26,6 +26,17 @@ impl Workspace {
             s
         });
         let id = id.to_string();
+        if kind == "code" {
+            let provider = std::rc::Rc::new(interactive::NotebookCompletion {
+                view: cx.entity().downgrade(),
+                tab: tab_index,
+                editor: editor.downgrade(),
+            });
+            editor.update(cx, |editor, _| {
+                editor.lsp_mut().completion_provider = Some(provider.clone());
+                editor.lsp_mut().hover_provider = Some(provider);
+            });
+        }
         let subscription = cx.subscribe(&editor, {
             let id = id.clone();
             move |view, editor, event: &InputEvent, cx| {
@@ -57,9 +68,12 @@ impl Workspace {
             }
         });
         self.tabs[tab_index].subscriptions.push(subscription);
+        let observed = cx.observe(&editor, |_, _, cx| cx.notify());
+        self.tabs[tab_index].subscriptions.push(observed);
         self.tabs[tab_index].editors.insert(id, editor.clone());
         editor
     }
+    #[inline(never)]
     pub(super) fn cell(
         &mut self,
         index: usize,
@@ -70,18 +84,19 @@ impl Workspace {
             return div().into_any_element();
         };
         let editor = self.editor(self.active, &id, window, cx);
+        self.debug_editor_markers(&id, &editor, cx);
+        let gutter = self.debug_gutter(&id, &editor, cx);
         let editor_focused = editor.read(cx).focus_handle(cx).is_focused(window);
         let tab = &self.tabs[self.active];
         let cell = tab.model.cells[&id].clone();
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (muted, muted_fg, primary, background, transparent) = (
-            theme.muted,
+        let (muted_fg, primary, transparent, popover) = (
             theme.muted_foreground,
             theme.primary,
-            theme.background,
             theme.transparent,
+            theme.popover,
         );
         let mono = theme.mono_font_family.clone();
         let (warning, danger, info) = (theme.warning, theme.danger, theme.info);
@@ -95,7 +110,30 @@ impl Workspace {
         let group: SharedString = format!("cell-{id}").into();
         let tools_owner: SharedString = format!("notebook-{}-{id}", self.active).into();
         let tools_state = outputs::cell_tools(tools_owner.clone(), window, cx);
+        let has_error = matches!(cell.outcome.as_str(), "error" | "failed")
+            || cell.output.iter().any(|e| e["kind"] == "error");
         let mut actions = h_flex().flex_none().gap_1().items_center();
+        if selected
+            && cell.disk.kind == "code"
+            && tab.runtime["interactive"]["features"]
+                .as_array()
+                .is_some_and(|features| features.iter().any(|feature| feature == "debugger"))
+        {
+            let id = id.clone();
+            actions = actions.child(
+                action_button(("breakpoint", index))
+                    .ghost()
+                    .small()
+                    .icon(Glyph::Flag)
+                    .accessibility_label("Toggle breakpoint at caret")
+                    .hint("Bind a breakpoint to the saved source at the caret")
+                    .unavailable(cell.save != SaveState::Saved)
+                    .on_click(cx.listener(move |view, _, window, cx| {
+                        view.tabs[view.active].model.selected = Some(id.clone());
+                        view.toggle_breakpoint(window, cx);
+                    })),
+            );
+        }
         let run_action = if cell.disk.kind == "code" {
             Some(
                 action_button(("run", index))
@@ -188,6 +226,28 @@ impl Workspace {
                     })),
             );
         }
+        if !has_error {
+            actions = actions.child(
+                action_button(("cell-assistant", index))
+                    .ghost()
+                    .small()
+                    .icon(Glyph::Sparkles)
+                    .contextual(group.clone(), selected || self.preferences.comfortable)
+                    .hint("Ask Assistant about this cell")
+                    .accessibility_label(format!(
+                        "Ask Assistant about {}",
+                        cell_title(&cell.text, &cell.disk.kind)
+                    ))
+                    .on_click(cx.listener({
+                        let id = id.clone();
+                        move |v, _, _, cx| {
+                            v.tabs[v.active].model.selected = Some(id.clone());
+                            v.tabs[v.active].assistant.selected_cells = vec![id.clone()];
+                            v.open_assistant(cx);
+                        }
+                    })),
+            );
+        }
         let key = format!("cell-more-{id}");
         actions = actions.child(
             self.anchored(
@@ -205,8 +265,10 @@ impl Workspace {
                     .on_click(cx.listener({
                         let id = id.clone();
                         move |v, _, window, cx| {
+                            // Snapshot before close_menu restores the previous menu's focus.
+                            let opener = window.focused(cx);
                             v.close_menu(window, cx);
-                            v.return_focus = window.focused(cx);
+                            v.return_focus = opener;
                             v.cell_menu = Some((id.clone(), index));
                             v.menu_anchor = key.clone();
                             v.dialog_focus.focus(window, cx);
@@ -216,44 +278,39 @@ impl Workspace {
                 cx,
             ),
         );
-        let has_error = matches!(cell.outcome.as_str(), "error" | "failed")
-            || cell.output.iter().any(|e| e["kind"] == "error");
+        let show_header = self.high_contrast
+            || cell.disk.kind == "code"
+            || selected
+            || self.preferences.comfortable
+            || save.is_some()
+            || has_error
+            || cell.stale();
+        let notable_outcome = notable_status(&cell.outcome);
+        let spacing = cell_spacing(self.preferences.comfortable);
         let header = h_flex()
-            .min_h(rems(if self.preferences.comfortable {
-                2.75
-            } else {
-                2.0
-            }))
+            .min_h(rems(spacing.header_min_h))
             .px_3()
-            .gap_2()
+            .gap_1p5()
             .items_center()
-            .bg(if self.high_contrast {
-                cx.theme().popover
-            } else {
-                muted.opacity(0.42)
-            })
             .flex_wrap()
-            .py_1()
+            .py(px(spacing.header_py))
             .when_some(run_action, |d, button| d.child(button))
-            .border_b_1()
-            .border_color(divider(cx))
-            .when(cell.disk.kind == "code", |d| {
+            .when(selected || self.high_contrast, |d| {
+                d.border_b_1().border_color(divider(cx))
+            })
+            .when_some(cell.ordinal.filter(|_| cell.disk.kind == "code"), |d, n| {
                 d.child(
                     div()
                         .flex_none()
+                        .min_w(px(28.))
                         .font_family(mono.clone())
                         .text_xs()
                         .text_color(muted_fg)
-                        .child(
-                            cell.ordinal
-                                .map(|n| format!("[{n}]"))
-                                .unwrap_or_else(|| "[ ]".into()),
-                        ),
+                        .child(format!("[{n}]")),
                 )
             })
-            .child(badge(kind_label(&cell.disk.kind), muted_fg))
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
-            .when(!cell.outcome.is_empty(), |d| {
+            .when(notable_outcome, |d| {
                 d.child(badge(
                     outcome_label(&cell.outcome).to_string(),
                     tone(&cell.outcome, cx),
@@ -265,6 +322,7 @@ impl Workspace {
                     action_button(("explain-error", index))
                         .ghost()
                         .small()
+                        .icon(Glyph::Sparkles)
                         .label("Explain error")
                         .on_click(cx.listener(move |v, _, window, cx| {
                             v.tabs[v.active].model.selected = Some(err_cell_id.clone());
@@ -295,12 +353,32 @@ impl Workspace {
             .id(SharedString::from(id.clone()))
             .w_full()
             .group(group)
+            .relative()
             .border_1()
-            .rounded(px(10.))
-            .border_color(if selected { primary } else { divider(cx) })
-            .bg(cx.theme().popover)
-            .when(!self.high_contrast && selected, |d| d.shadow_sm())
+            .rounded(cx.theme().radius_lg)
+            .border_color(if self.high_contrast {
+                if selected { primary } else { edge(cx) }
+            } else {
+                transparent
+            })
+            .bg(if selected || self.high_contrast {
+                popover
+            } else {
+                transparent
+            })
+            .when(!selected && !self.high_contrast, |d| {
+                d.hover(move |s| s.bg(popover))
+            })
             .overflow_hidden()
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .top_0()
+                    .bottom_0()
+                    .w(px(2.))
+                    .bg(if selected { primary } else { transparent }),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener({
@@ -314,7 +392,7 @@ impl Workspace {
                     }
                 }),
             )
-            .child(header)
+            .when(show_header, |d| d.child(header))
             .when(
                 cell.disk.kind != "markdown" || (selected && tab.model.mode == Mode::Edit),
                 |d| {
@@ -327,106 +405,40 @@ impl Workspace {
                             .w_full()
                             .max_w(rems(64.))
                             .mx_auto()
-                            .px_2()
-                            .py_1p5()
+                            .px_3()
+                            .pt(px(spacing.source_top))
+                            .pb(px(spacing.source_bottom))
                             .border_l_2()
-                            .border_color(if editor_focused { primary } else { transparent })
+                            .border_color(if editor_focused {
+                                primary.opacity(0.7)
+                            } else {
+                                transparent
+                            })
                             .child(
-                                Editor::new(&editor)
-                                    .text_size(px(self.preferences.editor_size))
-                                    .line_height(px(self.preferences.editor_size * 1.5))
-                                    .aria_label(format!("{} cell {id}", cell.disk.kind))
-                                    .h(px(editor_lines(&cell.text) as f32
-                                        * self.preferences.editor_size
-                                        * 1.5
-                                        + 12.))
-                                    .bordered(false),
+                                h_flex().relative().w_full().child(gutter).child(
+                                    Editor::new(&editor)
+                                        .flex_1()
+                                        .min_w_0()
+                                        .text_size(px(self.preferences.editor_size))
+                                        .line_height(px(self.preferences.editor_size * 1.5))
+                                        .aria_label(format!("{} cell {id}", cell.disk.kind))
+                                        .h(editor_height(
+                                            &cell.text,
+                                            self.preferences.editor_size,
+                                            self.preferences.ui_scale,
+                                        ))
+                                        .bordered(false),
+                                ),
                             ),
                     )
                 },
             );
         if cell.save == SaveState::Conflict {
-            card = card.child(
-                v_flex()
-                    .gap_2()
-                    .px_4()
-                    .py_3()
-                    .border_t_1()
-                    .border_color(danger.opacity(0.3))
-                    .bg(danger.opacity(0.06))
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(danger)
-                            .child(Icon::new(Glyph::TriangleAlert).small())
-                            .child("Conflict \u{2014} both versions are preserved"),
-                    )
-                    .child(
-                        div()
-                            .p_2()
-                            .rounded(px(6.))
-                            .bg(background)
-                            .border_1()
-                            .border_color(divider(cx))
-                            .font_family(mono.clone())
-                            .text_xs()
-                            .child(bounded(&cell.disk.source, 4096)),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                action_button(("disk", index))
-                                    .small()
-                                    .outline()
-                                    .label("Take disk")
-                                    .on_click(cx.listener({
-                                        let id = id.clone();
-                                        move |v, _, window, cx| {
-                                            let t = &mut v.tabs[v.active];
-                                            t.model.take_disk(&id);
-                                            let _ = t
-                                                .service
-                                                .commands
-                                                .send(Command::DiscardDraft(id.clone()));
-                                            if let Some(e) = t.editors.get(&id) {
-                                                e.update(cx, |s, cx| {
-                                                    s.set_value(
-                                                        t.model.cells[&id].text.clone(),
-                                                        window,
-                                                        cx,
-                                                    )
-                                                });
-                                            }
-                                            cx.notify();
-                                        }
-                                    })),
-                            )
-                            .child(
-                                action_button(("mine", index))
-                                    .small()
-                                    .primary()
-                                    .label("Take mine")
-                                    .on_click(cx.listener({
-                                        let id = id.clone();
-                                        move |v, _, _, _| {
-                                            if let Some(r) =
-                                                v.tabs[v.active].model.overwrite_request(&id)
-                                            {
-                                                v.send(Command::Mutate(r));
-                                            }
-                                        }
-                                    })),
-                            ),
-                    ),
-            );
+            card = card.child(self.cell_conflict_banner(index, &id, &cell.disk.source, cx));
         }
         if cell.disk.kind == "markdown" && !(selected && tab.model.mode == Mode::Edit) {
             card = card.child(
-                div().px_4().py_3().max_w(rems(52.)).child(
+                div().px_5().py_3().max_w(rems(52.)).child(
                     TextView::markdown(("preview", index), safe_markdown(&cell.text))
                         .on_link_click(safe_link),
                 ),
@@ -481,12 +493,11 @@ impl Workspace {
             card = card.child(if cell.collapsed {
                 h_flex()
                     .px_4()
-                    .py_2()
+                    .py_1p5()
                     .gap_2()
                     .items_center()
                     .border_t_1()
                     .border_color(divider(cx))
-                    .bg(muted.opacity(0.45))
                     .text_xs()
                     .text_color(muted_fg)
                     .child(Icon::new(Glyph::EyeOff).xsmall())
@@ -498,12 +509,16 @@ impl Workspace {
             } else {
                 v_flex()
                     .px_4()
-                    .py_2p5()
-                    .gap_2()
+                    .py(px(spacing.output_py))
+                    .gap(px(spacing.output_gap))
                     .border_t_1()
                     .border_color(divider(cx))
-                    .bg(muted.opacity(0.55))
                     .children(cell.output.iter().enumerate().map(|(i, e)| {
+                        let mut e = e.clone();
+                        if let Some(handle) = e["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["handle"].as_str().map(str::to_owned)
+                            && let Some(model) = self.tabs[self.active].inspections.get("Widget state").and_then(|states| states.get(&handle)) {
+                                e["bundle"]["application/vnd.kernelledger.widget+json"]["value"] = model.clone();
+                        }
                         outputs::OutputBlock {
                             tools_state: Some(tools_state.clone()),
                             id: format!("{id}-{i}").into(),
@@ -517,8 +532,13 @@ impl Workspace {
                             .into(),
                             commands: Some(self.tabs[self.active].service.commands.clone()),
                             cell_id: id.clone().into(),
+                            project: Some(self.tabs[self.active].model.project.clone()),
                             exec_id: cell.exec_id.clone().unwrap_or_default().into(),
                             index: i,
+                            worker_generation:
+                                self.tabs[self.active].runtime["interactive"]["worker_generation"]
+                                    .as_str()
+                                    .map(str::to_owned),
                         }
                         .into_any_element()
                     }))
@@ -540,16 +560,16 @@ impl Workspace {
             }))
             .mx_auto()
             .px_4()
-            .pt(px(if index == 0 { 14. } else { 0. }))
-            .pb(px(if last { 24. } else { 0. }))
+            .pt(px(if index == 0 { 12. } else { 0. }))
+            .pb(px(if last { 20. } else { 0. }))
             .child(card)
             .child(
                 h_flex()
                     .group(SharedString::from(format!("boundary-{id}")))
-                    .h(rems(if self.preferences.comfortable {
-                        2.75
+                    .h(px(if last {
+                        spacing.boundary_last
                     } else {
-                        1.875
+                        spacing.boundary
                     }))
                     .items_center()
                     .justify_center()
@@ -560,7 +580,7 @@ impl Workspace {
                                 .ghost()
                                 .small()
                                 .icon(Glyph::Plus)
-                                .label(if last { "Add cell" } else { "Insert cell" })
+                                .when(last, |b| b.label("Add cell"))
                                 .text_color(muted_fg)
                                 .contextual(
                                     SharedString::from(format!("boundary-{id}")),
@@ -584,6 +604,88 @@ impl Workspace {
                                 })),
                             cx,
                         ),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    #[inline(never)]
+    fn cell_conflict_banner(
+        &self,
+        index: usize,
+        id: &str,
+        disk_source: &str,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme();
+        let (danger, background) = (theme.danger, theme.background);
+        let mono = theme.mono_font_family.clone();
+        let id = id.to_owned();
+        v_flex()
+            .gap_2()
+            .px_4()
+            .py_3()
+            .border_t_1()
+            .border_color(danger.opacity(0.3))
+            .bg(danger.opacity(0.06))
+            .child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(danger)
+                    .child(Icon::new(Glyph::TriangleAlert).small())
+                    .child("Conflict \u{2014} both versions are preserved"),
+            )
+            .child(
+                div()
+                    .p_2()
+                    .rounded(px(6.))
+                    .bg(background)
+                    .border_1()
+                    .border_color(divider(cx))
+                    .font_family(mono)
+                    .text_xs()
+                    .child(bounded(disk_source, 4096)),
+            )
+            .child(
+                h_flex()
+                    .gap_2()
+                    .child(
+                        action_button(("disk", index))
+                            .small()
+                            .outline()
+                            .label("Take disk")
+                            .on_click(cx.listener({
+                                let id = id.clone();
+                                move |v, _, window, cx| {
+                                    let t = &mut v.tabs[v.active];
+                                    t.model.take_disk(&id);
+                                    let _ =
+                                        t.service.commands.send(Command::DiscardDraft(id.clone()));
+                                    if let Some(e) = t.editors.get(&id) {
+                                        e.update(cx, |s, cx| {
+                                            s.set_value(t.model.cells[&id].text.clone(), window, cx)
+                                        });
+                                    }
+                                    cx.notify();
+                                }
+                            })),
+                    )
+                    .child(
+                        action_button(("mine", index))
+                            .small()
+                            .primary()
+                            .label("Take mine")
+                            .on_click(cx.listener({
+                                let id = id.clone();
+                                move |v, _, _, _| {
+                                    if let Some(r) = v.tabs[v.active].model.overwrite_request(&id) {
+                                        v.send(Command::Mutate(r));
+                                    }
+                                }
+                            })),
                     ),
             )
             .into_any_element()

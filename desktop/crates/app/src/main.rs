@@ -73,10 +73,7 @@ fn main() {
     let profile = kernelledger_client::profile_path();
     let appearance =
         std::fs::read_to_string(profile.join("appearance.txt")).unwrap_or_else(|_| "system".into());
-    let recent = std::fs::read(profile.join("recent.json"))
-        .ok()
-        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-        .unwrap_or_default();
+    let recent = kernelledger_client::recent::load(&profile);
     gpui_kit::application()
         .with_assets(AppAssets)
         .run(move |cx| {

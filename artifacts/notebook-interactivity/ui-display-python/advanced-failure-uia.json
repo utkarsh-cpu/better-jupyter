@@ -1,0 +1,322 @@
+[
+    {
+        "name":  "KernelLedger — notebook",
+        "role":  "ControlType.Window",
+        "id":  ""
+    },
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "id":  ""
+    },
+    {
+        "name":  "Cell 4: display_fixture = True",
+        "role":  "ControlType.ListItem",
+        "id":  ""
+    },
+    {
+        "name":  "Run answ",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Compare",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Toggle breakpoint at caret",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: answ",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for answ",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell d7bdc7efd992496292e0597e7cbf4317",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell d7bdc7efd992496292e0597e7cbf4317",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell d7bdc7efd992496292e0597e7cbf4317",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u0027New cell output\u0027",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Insert cell after cell 5",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run update_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for update_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell display_update",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell display_update",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell display_update",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell display_update",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Insert cell after cell 6",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run debug_value = 99",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Compare",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: debug_value = 99",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for debug_value = 99",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell debug",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell debug",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell debug",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell debug",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: Debugger finished\n",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Insert cell after cell 7",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Run widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Output tools: widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "More actions for widget_fixture = True",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Breakpoints for cell widgets",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 3 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 4 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell widgets",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "code cell widgets",
+        "role":  "ControlType.Edit",
+        "id":  ""
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Recorded output: \u003cbutton: Increment; recorded snapshot, recreate after restart\u003e",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Display updated by execution 10",
+        "role":  "ControlType.Group",
+        "id":  ""
+    },
+    {
+        "name":  "Increment: Click",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Insert cell after cell 8",
+        "role":  "ControlType.Button",
+        "id":  ""
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "id":  ""
+    }
+]

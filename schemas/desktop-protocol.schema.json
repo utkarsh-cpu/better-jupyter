@@ -23,6 +23,194 @@
       "type": "object",
       "required": [
         "method",
+        "worker_generation",
+        "source",
+        "source_revision",
+        "cursor"
+      ],
+      "properties": {
+        "method": {
+          "const": "code.complete"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_revision": {
+          "type": "string"
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation",
+        "name"
+      ],
+      "properties": {
+        "method": {
+          "const": "code.inspect"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation"
+      ],
+      "properties": {
+        "method": {
+          "const": "namespace.list"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation",
+        "handle"
+      ],
+      "properties": {
+        "method": {
+          "const": "namespace.preview"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation",
+        "command",
+        "controller_id"
+      ],
+      "properties": {
+        "method": {
+          "const": "debug.control"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "controller_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation",
+        "breakpoints"
+      ],
+      "properties": {
+        "method": {
+          "const": "debug.breakpoints"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "breakpoints": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "worker_generation",
+        "handle"
+      ],
+      "properties": {
+        "method": {
+          "const": "widget.state"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "worker_generation": {
+          "type": "string"
+        },
+        "handle": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
         "expected_sha256",
         "client_request_id"
       ],
@@ -43,6 +231,17 @@
         "expected_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "origin": {
+          "enum": [
+            "notebook",
+            "console",
+            "widget",
+            "jupyter"
+          ]
+        },
+        "debug": {
+          "type": "boolean"
         }
       }
     },

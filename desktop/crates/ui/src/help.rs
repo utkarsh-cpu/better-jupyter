@@ -3,7 +3,11 @@ use super::*;
 impl Workspace {
     pub(super) fn help_content(&self, cx: &mut Context<Self>) -> Div {
         let query = self.help_query.read(cx).value().to_lowercase();
-        let source = include_str!("../../../../docs/desktop/help.md");
+        let source = include_str!("../../../../docs/desktop/help.md")
+            .trim_start()
+            .strip_prefix("# Help and shortcuts")
+            .unwrap_or(include_str!("../../../../docs/desktop/help.md"))
+            .trim_start();
         let content = if query.trim().is_empty() {
             source.to_owned()
         } else {

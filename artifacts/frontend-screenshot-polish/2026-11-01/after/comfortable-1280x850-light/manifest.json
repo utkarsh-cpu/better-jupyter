@@ -1,0 +1,268 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "build": {
+    "source_revision": "6a62fa8b2bfad347aea51856ee470875ea10b40d",
+    "dirty_tree": true,
+    "dirty_paths": 122,
+    "executable": "artifacts\\frontend-screenshot-polish\\2026-11-01\\after\\bin\\kernelledger-desktop.exe",
+    "executable_sha256": "54cdeeb07ee7bf332c191542962410d38475bd479d579eb640c754f588185e08"
+  },
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "ui_scale": 1.0,
+  "editor_size": 14.0,
+  "density": "comfortable",
+  "runtime_implementation": "python",
+  "measurements": {
+    "notebook": {
+      "cell_pitch_logical_px": [
+        209.0,
+        214.0
+      ],
+      "anchors": [
+        "Run print('Hello, KernelLedger')",
+        "Run 1 / 0",
+        "Run display_fixture = True"
+      ],
+      "run_to_source_logical_px": 8.0
+    },
+    "cell_menu_keyboard": {
+      "opener_focused": "More actions for print('Hello, KernelLedger')",
+      "menu_open": true,
+      "editing_before_assistant": true,
+      "assistant_items_hidden_until_entered": true,
+      "right_enters_assistant": true,
+      "left_returns_to_editing": true,
+      "escape_closes_from_assistant": true,
+      "focused_after_escape": "More actions for print('Hello, KernelLedger')"
+    }
+  },
+  "screens": [
+    {
+      "name": "notebook",
+      "file": "notebook.png",
+      "description": "Notebook with outline, cells, outputs and status bar"
+    },
+    {
+      "name": "component-title-bar",
+      "file": "component-title-bar.png",
+      "description": "Application title bar: outline toggle, notebook switcher, destinations, commands, runtime, run, export, settings and menu (2538x100 px crop)"
+    },
+    {
+      "name": "component-outline",
+      "file": "component-outline.png",
+      "description": "Notebook outline with the cell filter and cell list (441x1445 px crop)"
+    },
+    {
+      "name": "component-cell-header",
+      "file": "component-cell-header.png",
+      "description": "Cell header: run control, ordinal, language and outcome, with output tools (2538x100 px crop)"
+    },
+    {
+      "name": "component-cell-error",
+      "file": "component-cell-error.png",
+      "description": "Failed cell header and its recorded error output (2538x361 px crop)"
+    },
+    {
+      "name": "component-status-bar",
+      "file": "component-status-bar.png",
+      "description": "Status bar: mode, cell count, runtime state, save state and assistant toggle (2538x93 px crop)"
+    },
+    {
+      "name": "overlay-command-palette",
+      "file": "overlay-command-palette.png",
+      "description": "Command palette over the notebook"
+    },
+    {
+      "name": "overlay-application-menu",
+      "file": "overlay-application-menu.png",
+      "description": "Workspace menu with files and destinations"
+    },
+    {
+      "name": "overlay-runtime-menu",
+      "file": "overlay-runtime-menu.png",
+      "description": "Runtime menu with worker state and controls"
+    },
+    {
+      "name": "overlay-confirmation",
+      "file": "overlay-confirmation.png",
+      "description": "Destructive confirmation dialog"
+    },
+    {
+      "name": "overlay-notebook-switcher",
+      "file": "overlay-notebook-switcher.png",
+      "description": "Notebook switcher menu"
+    },
+    {
+      "name": "overlay-export-menu",
+      "file": "overlay-export-menu.png",
+      "description": "Export menu: PDF, Word, Jupyter and bundle"
+    },
+    {
+      "name": "overlay-insert-menu",
+      "file": "overlay-insert-menu.png",
+      "description": "Insert-cell type menu"
+    },
+    {
+      "name": "overlay-cell-actions",
+      "file": "overlay-cell-actions.png",
+      "description": "Per-cell actions menu"
+    },
+    {
+      "name": "overlay-cell-actions-assistant",
+      "file": "overlay-cell-actions-assistant.png",
+      "description": "Assistant group inside the cell actions menu, with Back"
+    },
+    {
+      "name": "notebook-traceback",
+      "file": "notebook-traceback.png",
+      "description": "Failed cell with full traceback expanded"
+    },
+    {
+      "name": "notebook-widget",
+      "file": "notebook-widget.png",
+      "description": "Native widget output with recorded snapshot"
+    },
+    {
+      "name": "notebook-rich-output",
+      "file": "notebook-rich-output.png",
+      "description": "Rendered equation, table and media attachment"
+    },
+    {
+      "name": "history-list",
+      "file": "history-list.png",
+      "description": "History list with filters and recorded executions"
+    },
+    {
+      "name": "history-filter-pending",
+      "file": "history-filter-pending.png",
+      "description": "History search edited but not applied"
+    },
+    {
+      "name": "history-no-results",
+      "file": "history-no-results.png",
+      "description": "History search applied with no matching records"
+    },
+    {
+      "name": "history-detail",
+      "file": "history-detail.png",
+      "description": "Recorded execution detail with source and outputs"
+    },
+    {
+      "name": "checkpoints",
+      "file": "checkpoints.png",
+      "description": "Checkpoint list with creation controls"
+    },
+    {
+      "name": "checkpoints-inspect",
+      "file": "checkpoints-inspect.png",
+      "description": "Checkpoint inspection report"
+    },
+    {
+      "name": "runtimes",
+      "file": "runtimes.png",
+      "description": "Known workers and interpreters"
+    },
+    {
+      "name": "diagnostics",
+      "file": "diagnostics.png",
+      "description": "Health checks, in-flight operations and recovery tools"
+    },
+    {
+      "name": "help",
+      "file": "help.png",
+      "description": "Shortcuts, terminology and build information"
+    },
+    {
+      "name": "overlay-about",
+      "file": "overlay-about.png",
+      "description": "About dialog with support information"
+    },
+    {
+      "name": "settings",
+      "file": "settings.png",
+      "description": "Appearance, type, layout and interpreter settings"
+    },
+    {
+      "name": "settings-editor",
+      "file": "settings-editor.png",
+      "description": "Editor settings section"
+    },
+    {
+      "name": "settings-layout-accessibility",
+      "file": "settings-layout-accessibility.png",
+      "description": "Layout & accessibility settings section"
+    },
+    {
+      "name": "settings-runtime",
+      "file": "settings-runtime.png",
+      "description": "Runtime settings section"
+    },
+    {
+      "name": "settings-assistant",
+      "file": "settings-assistant.png",
+      "description": "Assistant settings section"
+    },
+    {
+      "name": "variables",
+      "file": "variables.png",
+      "description": "Passive live namespace metadata"
+    },
+    {
+      "name": "console",
+      "file": "console.png",
+      "description": "Console sharing the notebook worker"
+    },
+    {
+      "name": "assistant",
+      "file": "assistant.png",
+      "description": "Assistant inspector with evidence and composer"
+    },
+    {
+      "name": "assistant-provider-settings",
+      "file": "assistant-provider-settings.png",
+      "description": "Connect a provider leads to the Assistant settings section"
+    },
+    {
+      "name": "source-preview",
+      "file": "source-preview.png",
+      "description": "Read-only preview of a local Python file"
+    },
+    {
+      "name": "debugger",
+      "file": "debugger.png",
+      "description": "Debugger paused on a live frame with stepping controls"
+    },
+    {
+      "name": "debugger-stepped",
+      "file": "debugger-stepped.png",
+      "description": "Debugger after stepping to the next line"
+    },
+    {
+      "name": "recorded-source",
+      "file": "recorded-source.png",
+      "description": "Immutable recorded source page for a changed cell"
+    },
+    {
+      "name": "notebook-empty",
+      "file": "notebook-empty.png",
+      "description": "Notebook with no cells yet"
+    },
+    {
+      "name": "welcome",
+      "file": "welcome.png",
+      "description": "Welcome screen before a notebook is open"
+    },
+    {
+      "name": "welcome-help",
+      "file": "welcome-help.png",
+      "description": "Help surface from the welcome screen"
+    }
+  ],
+  "failures": [],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

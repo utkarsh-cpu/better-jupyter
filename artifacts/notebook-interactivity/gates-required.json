@@ -1,0 +1,130 @@
+{
+  "default_owner": "python",
+  "default_engine": "custom",
+  "through": 10,
+  "passed": false,
+  "blockers": [
+    {
+      "phase": 0,
+      "remaining": [
+        "Review the chosen custom-engine contracts and publish coordinated runtime/frontend plans"
+      ]
+    },
+    {
+      "phase": 1,
+      "remaining": [
+        "Release-scale retained-memory and adversarial load measurements"
+      ]
+    },
+    {
+      "phase": 2,
+      "remaining": [
+        "Native popup keyboard/IME and screen-reader qualification",
+        "Release-build idle/loaded completion latency against frozen baseline"
+      ]
+    },
+    {
+      "phase": 3,
+      "remaining": [
+        "Large array/table codec and platform accessibility matrix beyond qualified passive subset"
+      ]
+    },
+    {
+      "phase": 4,
+      "remaining": [
+        "Sustained cancellation/process-tree/executor shutdown stress",
+        "Surviving tasks intentionally require restart; background task execution is unsupported"
+      ]
+    },
+    {
+      "phase": 5,
+      "remaining": [
+        "Two-window console/input handoff and fault/unknown-outcome graphical journeys"
+      ]
+    },
+    {
+      "phase": 6,
+      "remaining": [
+        "Cross-cell display-ID update lifetime",
+        "Isolated active-chart/webview platform spike; active output remains unavailable",
+        "Native media save/system-open and renderer accessibility qualification on Linux; embedded playback remains unavailable",
+        "OS renderer and untrusted-output accessibility matrix beyond Windows UIA"
+      ]
+    },
+    {
+      "phase": 7,
+      "remaining": [
+        "Paused disconnect/crash recovery graphical journeys on Windows and Linux",
+        "Linux graphical stepping, gutter and changed-source navigation; Windows journeys pass with both owners",
+        "DAP and arbitrary frame evaluation remain unsupported; native passive bdb subset only"
+      ]
+    },
+    {
+      "phase": 8,
+      "remaining": [
+        "Two-window/reconnect and sustained callback-pressure desktop journeys",
+        "General ipywidgets manager, comms, floats and binary models unsupported; native JSON integer subset only"
+      ]
+    },
+    {
+      "phase": 9,
+      "remaining": [
+        "Pinned Notebook, JupyterLab and VS Code round-trip/client matrix",
+        "External debug/comms unsupported",
+        "Kernelspec clean-machine packaging and stale-file lifecycle qualification"
+      ]
+    },
+    {
+      "phase": 10,
+      "remaining": [
+        "Every feature exit gate",
+        "Linux graphical, Windows IME/NVDA, reduced-motion and remaining owner/theme combinations for advanced features",
+        "Frozen release-build performance/large-history/memory/fault matrix",
+        "Clean-machine install/upgrade/uninstall, rollback and complete license texts",
+        "Applicable inherited runtime-v6-gates.json exits and coordinated release notes"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 3: Exact malformed-input error parity; Large-history memory measurements; Desktop browsing qualification"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 4: Real disk-full and permission-failure matrix; All crash-publication boundaries; Windows reparse-point and long-path matrix; Schema-1 verified migration backup path"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 5: Desktop admission/cancellation fault-injection and sustained-load qualification; Complete numeric request-hash qualification; Expanded input disconnect/reconnect and worker-delivery failure qualification; Expanded feed fan-out, reconnect, heartbeat, and slow-reader stress qualification; Overlapping background-output and process-tree stress qualification; Grouped stream commits and end-to-end queue byte budgets"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 6: Replay/continue full behavior parity; Pins, GC, bundle and import mutations under native ownership; Training capture/restore and candidate admission; Complete assistant and export interoperability inventory; Cross-version and optional-codec qualification"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 7: Clean-machine Windows/Linux installation, upgrade, uninstall; Complete third-party license texts; Rollback rehearsal across the full capability inventory; Release artifact signing/integrity and update coexistence qualification"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Phase 8: Every preceding phase exit gate; Two qualified opt-in release candidates; Measured material benefit with no unexplained regressions; Plan publication and assistant draft reconciliation; Subsequent-release Python rollback retention"
+      ]
+    },
+    {
+      "phase": "inherited-native",
+      "remaining": [
+        "Default switch: two distinct qualified Windows/Linux opt-in candidates required"
+      ]
+    }
+  ]
+}

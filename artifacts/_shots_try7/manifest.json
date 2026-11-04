@@ -1,0 +1,19 @@
+{
+  "os": "Windows-11-10.0.26200-SP0",
+  "theme": "light",
+  "logical_size": [
+    1280,
+    850
+  ],
+  "dpi": 192,
+  "runtime_implementation": "python",
+  "screens": [
+    {
+      "name": "source-preview",
+      "file": "source-preview.png",
+      "description": "Read-only preview of a local Python file"
+    }
+  ],
+  "failures": [],
+  "limit": "Windows Graphics Capture restricted to the disposable probe HWND. Navigation uses only this application's UI Automation tree."
+}

@@ -170,6 +170,15 @@ pub fn write_page(event: &mut Value, slot: &str, text: &str, offset: u64, end: u
     }
 }
 
+pub fn matches_blob(event: &Value, slot: &str, digest: &str) -> bool {
+    let node = if slot.is_empty() {
+        event
+    } else {
+        &event["bundle"][slot]
+    };
+    node["blob"] == digest
+}
+
 pub fn validate_attachment(cell_id: &str, name: &str) -> Result<()> {
     ensure!(
         !cell_id.is_empty()

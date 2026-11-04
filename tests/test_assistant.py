@@ -152,6 +152,13 @@ def test_receipt_exact_messages_are_sent_and_records_are_separate(assistant, not
         "stop",
         "import_ipynb",
         "../token",
+        "code.complete",
+        "code.inspect",
+        "namespace.list",
+        "namespace.preview",
+        "debug.control",
+        "debug.breakpoints",
+        "widget.state",
     ],
 )
 def test_effectful_helper_methods_are_unreachable(notebook, method):
@@ -686,24 +693,28 @@ def test_new_tasks_task_models_approvals_and_status_summary(assistant):
     assert "analysis" in status and "usage" in status
     assert not (assistant.root / ".kl/ledger.sqlite").exists()
 
-    updated = assistant.dispatch({
-        "method": "settings.update",
-        "settings": {
-            "task_models": {"refactor": "custom-refactor-model"},
-            "approvals": {"create_cell": True, "edit_cell": False},
-        },
-    })
+    updated = assistant.dispatch(
+        {
+            "method": "settings.update",
+            "settings": {
+                "task_models": {"refactor": "custom-refactor-model"},
+                "approvals": {"create_cell": True, "edit_cell": False},
+            },
+        }
+    )
     assert updated["settings"]["task_models"]["refactor"] == "custom-refactor-model"
     assert assistant.is_auto_approved("create_cell") is True
     assert assistant.is_auto_approved("edit_cell") is False
 
     for task in ("refactor", "stale", "anomaly", "checkpoint", "explore"):
-        receipt = assistant.dispatch({
-            "method": "context.preview",
-            "task": task,
-            "question": f"Test {task}",
-            "cell_ids": ["first"],
-        })
+        receipt = assistant.dispatch(
+            {
+                "method": "context.preview",
+                "task": task,
+                "question": f"Test {task}",
+                "cell_ids": ["first"],
+            }
+        )
         assert receipt["task"] == task
         if task == "refactor":
             assert receipt["model"] == "custom-refactor-model"

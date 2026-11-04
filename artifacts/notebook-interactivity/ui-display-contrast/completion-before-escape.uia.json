@@ -1,0 +1,392 @@
+[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Notebook switcher: notebook",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Cell 4: display_fixture = True",
+        "role":  "ControlType.ListItem",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Run answ",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Compare",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Toggle breakpoint at caret",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Output tools: answ",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "More actions for answ",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Breakpoints for cell 2ecccede9337476da08f7eb861063f79",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell 2ecccede9337476da08f7eb861063f79",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "code cell 2ecccede9337476da08f7eb861063f79",
+        "role":  "ControlType.Edit",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Recorded output: \u0027New cell output\u0027",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Insert cell after cell 5",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Run update_fixture = True",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "More actions for update_fixture = True",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Breakpoints for cell display_update",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell display_update",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell display_update",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "code cell display_update",
+        "role":  "ControlType.Edit",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Insert cell after cell 6",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Run debug_value = 99",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Compare",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Output tools: debug_value = 99",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "More actions for debug_value = 99",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Breakpoints for cell debug",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell debug",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell debug",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "code cell debug",
+        "role":  "ControlType.Edit",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Recorded output: Debugger finished\n",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Insert cell after cell 7",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Run widget_fixture = True",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Output tools: widget_fixture = True",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "More actions for widget_fixture = True",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Breakpoints for cell widgets",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 1 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 2 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 3 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 4 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 5 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 6 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Add breakpoint at line 7 in cell widgets",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "code cell widgets",
+        "role":  "ControlType.Edit",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Recorded output: \u003cbutton: Increment; recorded snapshot, recreate after restart\u003e",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Display updated by execution 10",
+        "role":  "ControlType.Group",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Increment: Click",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Insert cell after cell 8",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.List",
+        "focused":  false,
+        "offscreen":  false
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.ListItem",
+        "focused":  false,
+        "offscreen":  false
+    }
+]

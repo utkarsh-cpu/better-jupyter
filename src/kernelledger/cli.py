@@ -58,9 +58,17 @@ def rpc(root: Any, request: Any) -> Any:
                         if message.get("password")
                         else input(message["prompt"])
                     )
-                    channel.send("stdin_reply", text=text)
+                    channel.send(
+                        "stdin_reply",
+                        text=text,
+                        **({"input_id": message["input_id"]} if "input_id" in message else {}),
+                    )
                 except EOFError:
-                    channel.send("stdin_reply", error="input was required but stdin is closed")
+                    channel.send(
+                        "stdin_reply",
+                        error="input was required but stdin is closed",
+                        **({"input_id": message["input_id"]} if "input_id" in message else {}),
+                    )
                 continue
             if "error" in message:
                 raise ValueError(message["error"])
@@ -76,24 +84,50 @@ def alive(root: Any) -> Any:
         return None
 
 
+def runtime_command(
+    root: Path, python: Any = None, *, distribution: str = "installed", launch: str = "terminal"
+) -> list[str]:
+    mode = os.environ.get("KERNELLEDGER_RUNTIME", "python") or "python"
+    if mode not in ("python", "native"):
+        raise ValueError("KERNELLEDGER_RUNTIME must be python or native")
+    if mode == "python":
+        command = [sys.executable, "-m", "kernelledger", "--project", str(root), "serve"]
+        if python:
+            command.extend(["--python", str(python)])
+        return command
+    binary = Path(os.environ.get("KERNELLEDGER_DAEMON", ""))
+    if not binary.is_absolute() or not binary.is_file():
+        raise ValueError(
+            "Native startup requires an absolute KERNELLEDGER_DAEMON path to an installed binary"
+        )
+    from .supervisor import interpreter
+
+    config_path = root / ".kl/config.json"
+    config: dict[str, Any] = json.loads(config_path.read_text()) if config_path.exists() else {}
+    selected, _ = interpreter(root, python, config, distribution, launch)
+    return [
+        str(binary),
+        "serve-experimental",
+        "--project",
+        str(root.resolve()),
+        "--python",
+        os.path.abspath(selected),
+    ]
+
+
 def ensure_supervisor(root: Any, python: Any = None) -> Any:
     if alive(root):
         return
     Notebook(root).read()
     state = root / ".kl"
     state.mkdir(exist_ok=True)
-    args: list[Any]
-    args = [sys.executable, "-m", "kernelledger", "--project", str(root), "serve"]
-    if python:
-        args.extend(["--python", python])
+    args = runtime_command(root, python)
     env: dict[Any, Any]
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(__file__).parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
-    from .supervisor.platform import HIDDEN_CONSOLE
+    from .supervisor.platform import subprocess_kwargs
 
-    kwargs: dict[str, Any] = (
-        {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
-    )
+    kwargs = subprocess_kwargs()
     with (state / "supervisor.log").open("ab") as log:
         process = subprocess.Popen(
             args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, **kwargs
@@ -123,6 +157,16 @@ def parser() -> Any:
     from .assistant.cli import add_parser
 
     add_parser(sub)
+    jupyter = sub.add_parser(
+        "jupyter-adapter", help="optional local Jupyter transport attached to this notebook owner"
+    )
+    jupyter.add_argument("--connection-file", "-f", required=True)
+    jupyter_spec = sub.add_parser(
+        "jupyter-kernelspec",
+        help="preview a shared-session kernelspec; explicit --install writes the user Jupyter directory",
+    )
+    jupyter_spec.add_argument("--name", required=True)
+    jupyter_spec.add_argument("--install", action="store_true")
     gpu = sub.add_parser("experimental-gpu", help="isolated v5 prototypes; no runtime migration")
     gpu.add_argument("--store", default=".kl-gpu-experimental")
     gpu_commands = gpu.add_subparsers(dest="gpu_command", required=True)
@@ -272,6 +316,16 @@ def offline_mutation(root: Any, command: Any, request: Any) -> Any:
 def execute_cli(args: Any) -> Any:
     root = Path(args.project).resolve()
     notebook, command = Notebook(root), args.command
+    if command == "jupyter-adapter":
+        from .jupyter_adapter import main
+
+        main(root, Path(args.connection_file))
+        return 0
+    if command == "jupyter-kernelspec":
+        from .jupyter_adapter import kernelspec
+
+        print(json.dumps(kernelspec(root, args.name, args.install), indent=2))
+        return 0
     if command == "ai":
         from .assistant.cli import execute
 
@@ -321,6 +375,12 @@ def execute_cli(args: Any) -> Any:
                 emit({"snapshot": args.snapshot, "destination": args.destination})
         return 0
     if command == "serve":
+        if os.environ.get("KERNELLEDGER_RUNTIME", "python") not in ("", "python"):
+            return subprocess.call(
+                runtime_command(
+                    root, args.python, distribution=args.distribution, launch=args.launch
+                )
+            )
         from .supervisor import main
 
         main(root, args.python, args.distribution, args.launch)

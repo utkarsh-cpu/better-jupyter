@@ -1,0 +1,27 @@
+........................................................................ [ 18%]
+.....................................F.................................. [ 37%]
+.....................................s.......................sssssssssss [ 55%]
+......................ssssssssssssssssssssssssssssssssssssssssssssssss.. [ 74%]
+.............sssssssssssssssssssssssssssss........s............ss....... [ 93%]
+.........................s.                                              [100%]
+================================== FAILURES ===================================
+____________________________ test_generated_graphs ____________________________
+
+    @given(values)
+>   @settings(max_examples=80)
+                   ^^^
+E   hypothesis.errors.FailedHealthCheck: Input generation is slow: Hypothesis only generated 5 valid inputs after 1.61 seconds (2 inputs which exceeded the maximum allowed entropy).
+E   
+E             count | fraction |    slowest draws (seconds)
+E     value |    7  |    100%  |      --      --      --      --   1.612
+E   
+E   This could be for a few reasons:
+E   1. This strategy could be generating too much data per input. Try decreasing the amount of data generated, for example by decreasing the minimum size of collection strategies like st.lists().
+E   2. Some other expensive computation could be running during input generation. For example, if @st.composite or st.data() is interspersed with an expensive computation, HealthCheck.too_slow is likely to trigger. If this computation is unrelated to input generation, move it elsewhere. Otherwise, try making it more efficient, or disable this health check if that is not possible.
+E   
+E   If you expect input generation to take this long, you can disable this health check with @settings(suppress_health_check=[HealthCheck.too_slow]). See https://hypothesis.readthedocs.io/en/latest/reference/api.html#hypothesis.HealthCheck for details.
+
+tests\test_checkpoint.py:184: FailedHealthCheck
+=========================== short test summary info ===========================
+FAILED tests/test_checkpoint.py::test_generated_graphs - hypothesis.errors.Fa...
+1 failed, 293 passed, 93 skipped in 327.62s (0:05:27)

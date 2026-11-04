@@ -1,5 +1,49 @@
 use super::*;
 
+/// Vertical rhythm of a notebook cell, shared by the notebook and the Settings preview.
+///
+/// Compact tightens the space inside a cell; the gap between cells stays larger
+/// than any gap within one, so successive cells still read as separate units.
+/// Pointer targets are owned by `action_button`, never by these values.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct CellSpacing {
+    /// Header row minimum height, in rems.
+    pub header_min_h: f32,
+    pub header_py: f32,
+    pub source_top: f32,
+    pub source_bottom: f32,
+    pub output_py: f32,
+    pub output_gap: f32,
+    pub boundary: f32,
+    pub boundary_last: f32,
+}
+
+pub(crate) fn cell_spacing(comfortable: bool) -> CellSpacing {
+    if comfortable {
+        CellSpacing {
+            header_min_h: 2.75,
+            header_py: 2.,
+            source_top: 6.,
+            source_bottom: 6.,
+            output_py: 8.,
+            output_gap: 8.,
+            boundary: 28.,
+            boundary_last: 44.,
+        }
+    } else {
+        CellSpacing {
+            header_min_h: 1.75,
+            header_py: 0.,
+            source_top: 2.,
+            source_bottom: 2.,
+            output_py: 4.,
+            output_gap: 6.,
+            boundary: 14.,
+            boundary_last: 32.,
+        }
+    }
+}
+
 pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, cx: &mut App) {
     Theme::change(
         if dark || high_contrast {
@@ -10,9 +54,8 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         Some(window),
         cx,
     );
-    // Grounded ledger palette: archival warm paper and precision cobalt in light mode,
-    // deep obsidian slate and luminous sky blue in dark mode.
-    let accent: Hsla = rgb(if dark { 0x58A6FF } else { 0x0066CC }).into();
+    // Quiet ledger: warm paper canvas, precision cobalt, chrome that recedes.
+    let accent: Hsla = rgb(if dark { 0x6CB6FF } else { 0x0B5CAB }).into();
     let on_accent = if dark {
         hsla(215. / 360., 0.50, 0.09, 1.)
     } else {
@@ -24,23 +67,24 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     };
     let theme = Theme::global_mut(cx);
     let colors = &mut theme.colors;
-    colors.background = rgb(if dark { 0x13161A } else { 0xF8F8F5 }).into();
-    colors.foreground = rgb(if dark { 0xEAECEF } else { 0x1B2024 }).into();
+    colors.background = rgb(if dark { 0x101317 } else { 0xF3F2ED }).into();
+    colors.foreground = rgb(if dark { 0xECEEF1 } else { 0x161B21 }).into();
     colors.muted_foreground = rgb(if dark { 0xA6B0B9 } else { 0x505A62 }).into();
-    colors.muted = rgb(if dark { 0x1A1E24 } else { 0xEFEFEB }).into();
+    colors.muted = rgb(if dark { 0x171B21 } else { 0xE8E6E0 }).into();
     colors.danger = rgb(if dark { 0xFF9A9A } else { 0xB4232C }).into();
     colors.success = rgb(if dark { 0x8ED6A4 } else { 0x1E6F43 }).into();
     colors.warning = rgb(if dark { 0xE8C078 } else { 0x7D5200 }).into();
     colors.info = accent;
-    colors.sidebar = colors.muted;
+    // Sidebars, title, and status share the canvas. Hairlines carry hierarchy.
+    colors.sidebar = colors.background;
     colors.sidebar_foreground = colors.foreground;
-    colors.border = rgb(if dark { 0x687582 } else { 0x7E8A94 }).into();
+    colors.border = rgb(if dark { 0x6B7784 } else { 0x7A868F }).into();
     colors.sidebar_border = colors.border;
-    colors.title_bar = colors.muted;
+    colors.title_bar = colors.background;
     colors.title_bar_border = colors.border;
-    colors.status_bar = colors.muted;
+    colors.status_bar = colors.background;
     colors.status_bar_border = colors.border;
-    colors.popover = rgb(if dark { 0x20252C } else { 0xFFFFFF }).into();
+    colors.popover = rgb(if dark { 0x1A1F25 } else { 0xFFFEFB }).into();
     colors.popover_foreground = colors.foreground;
     colors.primary = accent;
     colors.primary_hover = shade(-0.05);
@@ -90,7 +134,11 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         colors.button_primary_active = white;
         colors.ring = yellow;
         colors.link = yellow;
-        colors.list_active = hsla(0., 0., 0.2, 1.);
+        // Selected and hovered rows are dark bands. They are never the only
+        // selection cue: list rows draw a 2px accent left border, because a
+        // neutral fill cannot clear 3:1 against black in both directions
+        // (yellow text needs a dark fill, a dark fill cannot read as a band).
+        colors.list_active = hsla(0., 0., 0.22, 1.);
         colors.list_active_border = yellow;
         colors.list_hover = hsla(0., 0., 0.18, 1.);
         colors.danger = hsla(0., 1., 0.75, 1.);
@@ -146,9 +194,9 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     theme.font_family = "Segoe UI".into();
     theme.mono_font_family = "Consolas".into();
     theme.font_size = px(14.);
-    theme.mono_font_size = px(14.);
+    theme.mono_font_size = px(13.);
     theme.radius = px(6.);
-    theme.radius_lg = px(10.);
+    theme.radius_lg = px(8.);
     theme.shadow = !high_contrast;
     theme.tokens = ThemeTokens::from(&theme.colors);
     Theme::sync_base(cx);

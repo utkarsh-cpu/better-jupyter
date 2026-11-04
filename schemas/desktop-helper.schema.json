@@ -5,6 +5,38 @@
     {
       "type": "object",
       "required": [
+        "method",
+        "after_rowid",
+        "through_rowid"
+      ],
+      "properties": {
+        "method": {
+          "const": "display.updates"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "after_rowid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "through_rowid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "session_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
         "method"
       ],
       "properties": {
@@ -202,6 +234,37 @@
         },
         "exec_id": {
           "type": "string"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "method",
+        "exec_id",
+        "source_revision",
+        "line"
+      ],
+      "properties": {
+        "method": {
+          "const": "source.execution"
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exec_id": {
+          "type": "string"
+        },
+        "source_revision": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
         }
       }
     },

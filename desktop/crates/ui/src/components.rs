@@ -102,7 +102,7 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
                 window.prevent_default();
                 cx.stop_propagation();
             })
-            .rounded(px(7.))
+            .rounded(px(6.))
             .font_weight(FontWeight::MEDIUM)
             .min_h(rems(1.875))
             .min_w(rems(1.75))
@@ -112,6 +112,7 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
         name: None,
         treatment: ButtonTreatment::Secondary,
         a11y_click: None,
+        full_row: false,
     }
 }
 
@@ -127,6 +128,7 @@ pub(super) struct WorkbenchButton {
     name: Option<SharedString>,
     treatment: ButtonTreatment,
     a11y_click: Option<AccessibilityClick>,
+    full_row: bool,
 }
 enum ButtonTreatment {
     Secondary,
@@ -176,13 +178,77 @@ impl WorkbenchButton {
         self.inner = self.inner.label(text);
         self
     }
-    pub fn menu_label(mut self, label: impl Into<SharedString>) -> Self {
+    #[allow(dead_code)]
+    pub fn menu_label(self, label: impl Into<SharedString>) -> Self {
+        self.menu_item(label, None)
+    }
+
+    pub fn menu_item(mut self, label: impl Into<SharedString>, shortcut: Option<&str>) -> Self {
         let text = label.into();
         self.name = Some(text.clone());
+        self.full_row = true;
+        let shortcut = shortcut.and_then(super::kbd);
+        // gpui-component centers Button contents. A stretching child is what
+        // makes the label sit on the leading edge and the shortcut on the trailing
+        // edge, the way a desktop menu row is supposed to read.
         self.inner = self
             .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .compact()
+            .px_2()
             .accessibility_label(text.clone())
-            .child(div().w_full().text_left().child(text));
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .justify_between()
+                    .items_center()
+                    .gap_3()
+                    .child(div().flex_1().min_w_0().text_left().child(text))
+                    .when_some(shortcut, |row, keys| {
+                        row.child(div().flex_none().text_xs().opacity(0.72).child(keys))
+                    }),
+            );
+        self
+    }
+    /// A full-width row: the label truncates on the leading side, quieter
+    /// detail text sits on the trailing edge.
+    pub fn detail_row(
+        mut self,
+        label: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
+    ) -> Self {
+        let text = label.into();
+        self.name = Some(text.clone());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .px_2()
+            .accessibility_label(text.clone())
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .justify_between()
+                    .items_center()
+                    .gap_4()
+                    .child(div().flex_1().min_w_0().text_left().truncate().child(text))
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_xs()
+                            .font_weight(FontWeight::NORMAL)
+                            .opacity(0.78)
+                            .child(detail.into()),
+                    ),
+            );
         self
     }
     pub fn accessibility_label(mut self, label: impl Into<SharedString>) -> Self {
@@ -231,7 +297,7 @@ impl WorkbenchButton {
             .ghost()
             .selected(false)
             .toggled(selected)
-            .rounded(px(6.));
+            .rounded(px(5.));
         self
     }
     pub fn dropdown_caret(mut self, value: bool) -> Self {
@@ -276,11 +342,7 @@ impl RenderOnce for WorkbenchButton {
                             .shadow(!high_contrast),
                     )
                     .border_1()
-                    .border_color(if high_contrast {
-                        theme.border
-                    } else {
-                        divider(cx)
-                    });
+                    .border_color(edge(cx));
             }
             ButtonTreatment::Segment(selected) => {
                 self.inner = self
@@ -311,11 +373,7 @@ impl RenderOnce for WorkbenchButton {
                     .when(selected && !high_contrast, |button| button.shadow_sm())
                     .border_1()
                     .border_color(if selected {
-                        if high_contrast {
-                            theme.ring
-                        } else {
-                            divider(cx)
-                        }
+                        if high_contrast { theme.ring } else { edge(cx) }
                     } else {
                         theme.transparent
                     });
@@ -328,8 +386,10 @@ impl RenderOnce for WorkbenchButton {
         {
             self.inner = self.inner.min_h(rems(2.75)).min_w(rems(2.75));
         }
+        let align_self = self.inner.style().align_self;
         let a11y_click = self.a11y_click.take();
         let a11y_name = self.name.clone();
+        let full_row = self.full_row;
         let segment_selected = matches!(self.treatment, ButtonTreatment::Segment(true));
         if self.disabled {
             // Unavailable actions use neutral colors rather than looking selected.
@@ -341,7 +401,7 @@ impl RenderOnce for WorkbenchButton {
                     .active(theme.muted)
                     .shadow(false),
             );
-            div()
+            let mut wrapper = div()
                 .id((self.id, "disabled-state"))
                 .occlude()
                 .on_mouse_down(MouseButton::Left, |_, window, cx| {
@@ -352,13 +412,14 @@ impl RenderOnce for WorkbenchButton {
                 .role(Role::Button)
                 .aria_label(self.name.unwrap_or_else(|| "Unavailable action".into()))
                 .a11y_synthetic_children(|tree| tree.parent_node().set_disabled())
-                .child(self.inner.role(None))
-                .into_any_element()
+                .when(full_row, |d| d.w_full());
+            wrapper.style().align_self = align_self;
+            wrapper.child(self.inner.role(None)).into_any_element()
         } else if let Some(listener) = a11y_click {
             // Invoke is handled here because this button type cannot register
             // an accessibility action on its own node. The visible button keeps
             // pointer and test identity; this node is what UI Automation invokes.
-            div()
+            let mut wrapper = div()
                 .id((self.id, "invoke"))
                 .flex_none()
                 .role(Role::Button)
@@ -376,8 +437,9 @@ impl RenderOnce for WorkbenchButton {
                 .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
                     listener(window, cx);
                 })
-                .child(self.inner.role(None))
-                .into_any_element()
+                .when(full_row, |d| d.w_full());
+            wrapper.style().align_self = align_self;
+            wrapper.child(self.inner.role(None)).into_any_element()
         } else {
             self.inner.into_any_element()
         }
@@ -389,17 +451,40 @@ impl Render for WorkbenchHint {
         let high_contrast = cx.theme().background.l == 0.;
         div()
             .px_2p5()
-            .py_1()
+            .py_1p5()
             .max_w(px(360.))
             .rounded(px(6.))
             .bg(cx.theme().popover)
             .text_color(cx.theme().popover_foreground)
             .border_1()
-            .border_color(divider(cx))
+            .border_color(edge(cx))
             .when(!high_contrast, |d| d.shadow_sm())
             .text_xs()
+            .line_height(rems(1.15))
             .child(self.0.clone())
     }
+}
+
+pub(super) fn info_tip(
+    id: impl Into<ElementId>,
+    tip: impl Into<SharedString>,
+    cx: &App,
+) -> Stateful<Div> {
+    let tip = tip.into();
+    let muted = cx.theme().muted_foreground;
+    div()
+        .id(id.into())
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(px(18.))
+        .rounded_full()
+        .cursor_default()
+        .text_color(muted)
+        .hover(move |s| s.bg(muted.opacity(0.12)))
+        .child(Icon::new(Glyph::Info).with_size(px(13.)))
+        .tooltip(move |_, cx| cx.new(|_| WorkbenchHint(tip.clone())).into())
 }
 
 pub(super) fn divider(cx: &App) -> Hsla {
@@ -409,7 +494,27 @@ pub(super) fn divider(cx: &App) -> Hsla {
     if cx.theme().background.l == 0. {
         color
     } else {
-        color.opacity(0.24)
+        color.opacity(0.18)
+    }
+}
+
+/// Boundary of an interactive control (button, input, segmented track).
+///
+/// Decorative rules may fade to `divider`. A control edge is what tells a user
+/// where the control begins, so it uses the border token at full strength:
+/// 3.3:1 in light and 3.8:1 in dark, over background, muted, and popover alike.
+pub(super) fn edge(cx: &App) -> Hsla {
+    cx.theme().border
+}
+
+/// Quiet outline for panels and records. Selection and focus use `edge` or the
+/// accent bar; resting cards should not compete with the content they hold.
+pub(super) fn surface_edge(cx: &App) -> Hsla {
+    let color = cx.theme().border;
+    if cx.theme().background.l == 0. {
+        color
+    } else {
+        color.opacity(0.22)
     }
 }
 
@@ -418,6 +523,8 @@ pub(super) fn outcome_label(value: &str) -> &str {
         "ok" => "Succeeded",
         "error" => "Failed",
         "complete" => "Complete",
+        "partial" => "Partial",
+        "interrupted" => "Interrupted",
         "idle" => "Ready",
         "running" => "Running",
         "verified" => "Active",
@@ -425,37 +532,87 @@ pub(super) fn outcome_label(value: &str) -> &str {
     }
 }
 
+/// Success is the expected resting state. Surface only outcomes that ask
+/// for attention so lists and cell headers stay quiet.
+pub(super) fn notable_status(value: &str) -> bool {
+    !matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "" | "ok"
+            | "success"
+            | "succeeded"
+            | "complete"
+            | "completed"
+            | "unknown"
+            | "idle"
+            | "ready"
+    )
+}
+
 pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Div {
     h_flex()
         .flex_none()
-        .min_h(rems(1.125))
+        .min_h(px(18.))
         .px(px(6.))
-        .py(px(1.5))
-        .rounded(px(5.))
-        .bg(color.opacity(0.11))
-        .border_1()
-        .border_color(color.opacity(0.22))
+        .py(px(1.))
+        .rounded(px(4.))
+        .bg(color.opacity(0.12))
         .items_center()
         .text_color(color)
-        .text_size(rems(0.75))
+        .text_size(rems(0.6875))
+        .line_height(rems(1.))
         .font_weight(FontWeight::MEDIUM)
         .child(label.into())
 }
 pub(super) fn dot(color: Hsla) -> Div {
     div().flex_none().size(px(7.)).rounded_full().bg(color)
 }
+pub(super) fn status_rule(cx: &App) -> Div {
+    div()
+        .flex_none()
+        .w(px(1.))
+        .h(px(12.))
+        .rounded_full()
+        .bg(divider(cx))
+}
+pub(super) fn page_heading(
+    title: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    cx: &App,
+) -> Div {
+    let description = description.into();
+    v_flex()
+        .min_w_0()
+        .flex_1()
+        .gap_0p5()
+        .child(
+            div()
+                .text_lg()
+                .font_weight(FontWeight::SEMIBOLD)
+                .child(title.into()),
+        )
+        .when(!description.is_empty(), |d| {
+            d.child(
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().muted_foreground)
+                    .whitespace_normal()
+                    .max_w(rems(42.))
+                    .child(description),
+            )
+        })
+}
 pub(super) fn icon_tile(glyph: Glyph, size: f32, cx: &App) -> Div {
     let primary = cx.theme().primary;
     div()
         .flex_none()
         .size(px(size))
-        .rounded(px(size / 4.))
+        .rounded(px((size / 4.).max(8.)))
         .flex()
         .items_center()
         .justify_center()
         .bg(primary.opacity(0.10))
         .border_1()
-        .border_color(primary.opacity(0.20))
+        .border_color(primary.opacity(0.16))
         .text_color(primary)
         .child(Icon::new(glyph).with_size(px(size / 2.)))
 }
@@ -479,9 +636,9 @@ pub(super) fn banner(color: Hsla, glyph: Glyph) -> Div {
 pub(super) fn section(title: &str, cx: &App) -> Div {
     v_flex().gap_2().child(
         div()
-            .text_sm()
+            .text_xs()
             .font_weight(FontWeight::SEMIBOLD)
-            .text_color(cx.theme().foreground)
+            .text_color(cx.theme().muted_foreground)
             .child(title.to_string()),
     )
 }
@@ -489,10 +646,24 @@ pub(super) fn card(cx: &App) -> Div {
     let theme = cx.theme();
     v_flex()
         .border_1()
-        .rounded(px(10.))
-        .border_color(divider(cx))
+        .rounded(theme.radius_lg)
+        .border_color(surface_edge(cx))
         .bg(theme.popover)
         .overflow_hidden()
+}
+
+/// One grouped surface for stacked settings or inspector sections.
+///
+/// Unlike `card`, this must not clip: settings groups measure themselves with
+/// an absolutely positioned tracker, and focus rings sit on the control edge.
+pub(super) fn sheet(cx: &App) -> Div {
+    let theme = cx.theme();
+    v_flex()
+        .border_1()
+        .rounded(theme.radius_lg)
+        .border_color(surface_edge(cx))
+        .bg(theme.popover)
+        .gap_0()
 }
 
 /// Wraps native buttons so keyboard activation and selected state stay intact.
@@ -503,23 +674,46 @@ pub(super) fn segmented_track(cx: &App) -> Div {
         .min_w_0()
         .flex_wrap()
         .gap(px(2.))
-        .p(px(3.))
-        .rounded(px(8.))
+        .p(px(2.))
+        .rounded(px(6.))
         .bg(cx.theme().muted)
-        .border_1()
-        .border_color(divider(cx))
+        .when(cx.theme().background.l == 0., |d| {
+            d.border_1().border_color(edge(cx))
+        })
 }
 
 pub(super) fn settings_group(title: &str, cx: &App) -> Div {
-    section(title, cx)
+    settings_group_with(title, "", cx)
+}
+
+pub(super) fn settings_group_with(title: &str, description: &str, cx: &App) -> Div {
+    v_flex()
         .w_full()
         .min_w_0()
-        .p_4()
-        .gap_3()
-        .rounded(px(10.))
-        .bg(cx.theme().popover)
-        .border_1()
+        .px_4()
+        .py_3()
+        .gap_2()
+        .border_b_1()
         .border_color(divider(cx))
+        .child(
+            v_flex()
+                .gap_0p5()
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(title.to_string()),
+                )
+                .when(!description.is_empty(), |d| {
+                    d.child(
+                        div()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .whitespace_normal()
+                            .child(description.to_string()),
+                    )
+                }),
+        )
 }
 
 pub(super) fn setting_row(
@@ -528,33 +722,48 @@ pub(super) fn setting_row(
     control: impl IntoElement,
     cx: &App,
 ) -> Div {
-    v_flex()
+    // A fixed label column keeps controls aligned; narrow pages wrap the control below.
+    h_flex()
         .w_full()
         .min_w_0()
-        .gap_1p5()
+        .items_start()
+        .flex_wrap()
+        .gap_x_4()
+        .gap_y_1p5()
         .pt_2()
         .border_t_1()
         .border_color(divider(cx))
         .child(
-            v_flex()
-                .gap_0p5()
+            h_flex()
+                .w(rems(11.))
+                .flex_none()
+                .min_h(rems(1.875))
+                .gap_1p5()
+                .items_center()
                 .child(
                     div()
+                        .min_w_0()
+                        .whitespace_normal()
                         .text_sm()
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(cx.theme().foreground)
                         .child(label.to_string()),
                 )
                 .when(!description.is_empty(), |d| {
-                    d.child(
-                        div()
-                            .text_xs()
-                            .text_color(cx.theme().muted_foreground)
-                            .child(description.to_string()),
-                    )
+                    d.child(info_tip(
+                        SharedString::from(format!("setting-tip-{label}")),
+                        description.to_string(),
+                        cx,
+                    ))
                 }),
         )
-        .child(control)
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w(rems(14.))
+                .max_w(rems(36.))
+                .child(control),
+        )
 }
 
 pub(super) fn row(cx: &App) -> Div {
@@ -562,23 +771,25 @@ pub(super) fn row(cx: &App) -> Div {
         .flex_wrap()
         .min_w_0()
         .gap_3()
-        .px_4()
-        .py_2p5()
+        .px_3()
+        .py_2()
         .items_center()
         .border_b_1()
         .border_color(divider(cx))
 }
 pub(super) fn empty_row(text: &str, cx: &App) -> Div {
     div()
-        .px_4()
-        .py_5()
+        .px_1()
+        .py_6()
         .text_sm()
         .text_color(cx.theme().muted_foreground)
+        .whitespace_normal()
         .child(text.to_string())
 }
-pub(super) fn record_row(glyph: Glyph, id: &str, status: &str, cx: &App) -> Div {
+pub(super) fn record_row(glyph: Glyph, id: &str, status: &str, selected: bool, cx: &App) -> Div {
     let theme = cx.theme();
     row(cx)
+        .when(selected, |d| d.bg(theme.list_active))
         .hover(move |s| s.bg(theme.list_hover))
         .child(Icon::new(glyph).small().text_color(theme.muted_foreground))
         .child(
@@ -591,7 +802,7 @@ pub(super) fn record_row(glyph: Glyph, id: &str, status: &str, cx: &App) -> Div 
                 .font_weight(FontWeight::MEDIUM)
                 .child(id.to_string()),
         )
-        .when(!status.is_empty(), |d| {
+        .when(notable_status(status), |d| {
             d.child(badge(outcome_label(status).to_string(), tone(status, cx)))
         })
 }

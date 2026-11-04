@@ -155,6 +155,14 @@ Output tools reveals Copy, Find, Hide output, and display-size controls. A large
 
 History provides text search, outcome buttons, and Cell, Session, From, and Through fields. Dates use YYYY-MM-DD; Apply stays unavailable for invalid dates or a reversed range. Advanced cell:, session:, after:YYYY-MM-DD, and before:YYYY-MM-DD queries remain supported. Filters apply to loaded records; Search executions loads all recorded executions, which is not yet bounded for large histories. Next page follows the recorded list cursor; Back restores the previous page or list. Details show recorded source once. Changed source reveals a comparison; unchanged source can be compared on request. Return to cell returns to the notebook editor. Filters and list scroll belong to each notebook.
 
+`display(value, display_id='status')` gives an output a session-scoped ID.
+`update_display(value, 'status')` updates matching displays across cells in the
+current notebook view. Updated outputs name the updating execution; History
+retains each execution's own evidence. Rerunning a cell replaces its old targets,
+and restarting/restoring isolates the new session. `.ipynb` export includes the
+updated view and its provenance. If replay or cache limits leave outputs stale,
+the notice offers Reload outputs without running code.
+
 ## Save and restore a checkpoint
 
 Choose Create checkpoint on Checkpoints when the runtime is ready. After completion, View checkpoint opens the coverage report. Review exclusions before Restore or Continue. Missing saved-value counts and creation context are reported as unknown. These actions change live state and require confirmation. Coverage is not proof of complete process recovery or environment compatibility. Trust remains an explicit decision; a Python version override appears only after a reported mismatch for that checkpoint. Successful restore identifies the new session and offers Return to notebook. Technical details retain the raw report and identifiers. Advanced checkpoint types contains experimental training actions.
@@ -162,3 +170,58 @@ Choose Create checkpoint on Checkpoints when the runtime is ready. After complet
 ## Export and diagnose
 
 Commands offers Export notebook and Export bundle, each with a native save dialog. Source is saved through the notebook service before export. Bundles require recorded history. The result appears in Diagnostics for the originating notebook. Run health check refreshes findings; Copy redacted diagnostics excludes source text, paths, environment values, and raw errors.
+
+## Interactive Python
+
+The editor offers completion and passive documentation. Source names remain
+available offline; live names require an idle worker. Escape dismisses suggestions
+and help without running the cell. Commands → Variables opens an inspector:
+Refresh live variables reads a bounded snapshot, and selecting a variable opens
+its first value page. Refresh after running or restoring. Passive previews do not
+call user properties, `repr`, or `dir`; unsupported types show their type only.
+
+Commands → Console opens an input in the same notebook session. Its Run button
+submits ordinary recorded work. Enter edits the input. History labels console
+runs and can insert recorded source into a new cell for review before execution.
+Commands → Load source file previews up to 64 KiB before insertion.
+
+End an expression with `;` to suppress its result. `%time`, `%%time`, `%timeit`
+and `%prun` report bounded timings/profiles. Repeated timing repeats side effects.
+`%%capture [fresh_name]` captures text. `%history on` enables the optional bounded
+`In`, `Out`, `_`, `__`, `___` cache; it refuses existing names. `%history clear`
+and `%history off` release cached references. Settings has the same controls.
+`%commands` lists supported commands. `name?` shows help; `name??` adds recorded
+source when available. Top-level `await` works; tasks are canceled after each cell.
+A task that refuses cancellation requires a runtime restart before more execution
+or checkpoints. Future-import settings reset on namespace restore.
+
+`%run path.py` records the file bytes, path, hash and working directory, then
+executes in this namespace. `%%writefile path` writes the exact cell body; `-a`
+appends. Shell cells use `%%sh`/`%%bash` on POSIX or `%%cmd` on Windows. These
+commands have normal external effects. Restoring a namespace does not undo files
+or packages.
+
+Debugger and native widgets are experimental. Start the desktop/owner with
+`KL_EXPERIMENTAL_INTERACTIVITY=1` to enable them. Commands → Debug selected cell
+pauses at entry. Gutter controls and Toggle breakpoint at caret bind to the saved
+cell revision while the worker is idle. The paused line has an arrow and highlight.
+Commands → Debugger shows stack/locals and stepping controls; after an exception,
+post-mortem inspection offers Continue or Stop. Checkpoints are unavailable while
+paused. One client owns controls until execution ends; terminate remains available
+if that client disconnects.
+
+Stack and profile source links return to the matching cell and caret. When that
+cell has changed, they open a read-only recorded source window and preserve your
+edits. Previous/next controls page the recorded source.
+
+`widget('button', label='Run', callback=lambda value: print(value))` creates a
+native control. Supported kinds are button, checkbox, dropdown, integer_slider
+(stepper) and read-only progress. Callbacks are recorded executions. Historical
+and imported widget snapshots stay inert. This subset does not load ipywidgets or
+execute JavaScript. Static tables use `display_table(rows, columns=...)`; media
+attachments use `display_media(data, mime)`. Save chooses a new filename, verifies
+the complete content and offers Open file in the system application. Files over
+32 MiB and existing destinations are refused. Nothing plays automatically.
+Equations support native fractions, roots, scripts and common symbols; unsupported
+TeX remains visible as source. See docs/notebook-interactivity.md for limits and
+the optional local Jupyter adapter setup.

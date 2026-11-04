@@ -143,6 +143,9 @@ schema(
                 "status",
                 "checkpoint_offer",
                 "restore_result",
+                "interactive_read",
+                "interactive_reply",
+                "interactive_state",
             ]
         }
     },
@@ -345,6 +348,9 @@ def protocol_contract(doc):
         "stdin_request": {"prompt": STRING, "password": {"type": "boolean"}},
         "status": {"state": {"enum": ["running", "idle"]}},
         "restore_result": {"installed": ARRAY, "excluded": ARRAY, "notes": ARRAY},
+        "interactive_read": {"request_id": ID, "request": OBJECT},
+        "interactive_reply": {"request_id": ID, "worker_generation": STRING},
+        "interactive_state": {"debug": {"type": ["object", "null"]}},
     }
     doc["allOf"] = [
         {
@@ -353,6 +359,26 @@ def protocol_contract(doc):
         }
         for kind, properties in fields.items()
     ]
+    optional = {
+        "hello": {
+            "engine": OBJECT,
+            "worker_generation": STRING,
+            "interactive_features": {"type": "array", "items": STRING},
+        },
+        "execute": {
+            "debug": {"type": "boolean"},
+            "origin": {"enum": ["notebook", "unattributed", "console", "widget", "jupyter"]},
+        },
+        "status": {
+            "origin": {"enum": ["notebook", "unattributed", "console", "widget", "jupyter"]},
+            "namespace_epoch": {"type": "integer", "minimum": 0},
+            "background_tasks": {"type": "boolean"},
+            "history_cache": {"type": "boolean"},
+        },
+    }
+    for rule in doc["allOf"]:
+        kind = rule["if"]["properties"]["kind"]["const"]
+        rule["then"]["properties"].update(optional.get(kind, {}))
     for kind, options in {
         "response": ["result", "error"],
         "stdin_reply": ["text", "error"],
@@ -370,6 +396,7 @@ def protocol_contract(doc):
 
 def ledger_contract(doc):
     import sqlite3
+
     from kernelledger.ledger import DDL, TABLES
 
     db = sqlite3.connect(":memory:")

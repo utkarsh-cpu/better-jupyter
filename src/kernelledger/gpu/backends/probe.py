@@ -1,6 +1,7 @@
 """Disposable active probe. Invoked by absolute path with an isolated interpreter."""
 
 import hashlib
+import importlib
 import json
 import platform
 import sys
@@ -12,9 +13,7 @@ from typing import Any
 def run(device: str) -> dict[str, Any]:
     # -I deliberately excludes project paths; add only the installed package source.
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-    import torch
-
-    torch_module: Any = torch
+    torch_module: Any = importlib.import_module("torch")
     from kernelledger.artifacts import ArtifactStore
     from kernelledger.gpu.portable import PortableEncoder, restore_values
 
