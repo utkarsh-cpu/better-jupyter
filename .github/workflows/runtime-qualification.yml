@@ -20,7 +20,7 @@ jobs:
           allow-prereleases: false
       - run: python -m pip install -e ".[dev]" --report core-resolution.json
       - if: matrix.codecs
-        run: python -m pip install --only-binary=:all: -e ".[codecs,plots]" --report codec-resolution.json
+        run: 'python -m pip install --only-binary=:all: -e ".[codecs,plots]" --report codec-resolution.json'
       - run: python scripts/python_qualification.py --out environment.json
       - run: python -m pytest -q --junitxml=qualification.xml
       - if: always()

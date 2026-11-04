@@ -878,6 +878,7 @@ dependencies = [
     { name = "markdown-it-py" },
     { name = "python-docx" },
     { name = "reportlab" },
+    { name = "tzdata" },
 ]
 
 [package.optional-dependencies]
@@ -934,6 +935,7 @@ requires-dist = [
     { name = "python-docx", specifier = ">=1.2,<2" },
     { name = "pyzmq", marker = "extra == 'jupyter'", specifier = ">=26,<28" },
     { name = "reportlab", specifier = ">=4.4,<5" },
+    { name = "tzdata", specifier = ">=2024.1" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "torch", marker = "extra == 'gpu'", specifier = "==2.12.0" },
 ]
