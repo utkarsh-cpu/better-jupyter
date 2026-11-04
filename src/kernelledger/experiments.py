@@ -4,6 +4,7 @@ Factories are supplied by the caller at restore, never deserialized from bytes.
 The caller owns the idle training boundary and dataset cursor/drain rule.
 """
 
+import importlib
 import os
 import platform
 import random
@@ -278,10 +279,8 @@ def _capture_training(
         raise ValueError("training capture requires an application-owned idle boundary")
     if type(step) is not int or step < 0 or cursor is None:
         raise ValueError("required step and sampler cursor are missing")
-    import numpy as np
-    import torch
-
-    torch_module: Any = torch
+    numpy_module: Any = importlib.import_module("numpy")
+    torch_module: Any = importlib.import_module("torch")
     if not isinstance(model, torch_module.nn.Module) or not isinstance(
         optimizer, torch_module.optim.Optimizer
     ):
@@ -301,7 +300,7 @@ def _capture_training(
         with resolved.open("rb") as stream:
             captured_files[name] = {"blob": store.put_stream(stream, kind="input", owner=owner)}
     model_state = model.state_dict()
-    numpy_rng = np.random.get_state()
+    numpy_rng = numpy_module.random.get_state()
     state: dict[str, Any] = {
         "model": dict(model_state),
         "model_metadata": dict(getattr(model_state, "_metadata", {})),
@@ -422,10 +421,8 @@ def restore_training(
         raise ValueError("an explicit seed is required for reseeding")
     if not isinstance(cast(Any, device), str) or not re.fullmatch(r"cpu|cuda:\d+", device):
         raise ValueError("unsupported restore device")
-    import numpy as np
-    import torch
-
-    torch_module: Any = torch
+    numpy_module: Any = importlib.import_module("numpy")
+    torch_module: Any = importlib.import_module("torch")
     if device != "cpu" and (
         not torch_module.cuda.is_available()
         or int(device.split(":")[1]) >= torch_module.cuda.device_count()
@@ -522,13 +519,19 @@ def restore_training(
     if rng_policy == "strict":
         random.setstate(state["python_rng"])
         numpy_rng = state["numpy_rng"]
-        np.random.set_state((numpy_rng[0], np.array(numpy_rng[1], dtype=np.uint32), *numpy_rng[2:]))
+        numpy_module.random.set_state(
+            (
+                numpy_rng[0],
+                numpy_module.array(numpy_rng[1], dtype=numpy_module.uint32),
+                *numpy_rng[2:],
+            )
+        )
         torch_module.set_rng_state(state["torch_rng"])
         if device_count:
             torch_module.cuda.set_rng_state(state["device_rng"][0], device=device)
     else:
         random.seed(seed)
-        np.random.seed(seed % 2**32)  # type: ignore[operator]
+        numpy_module.random.seed(seed % 2**32)  # type: ignore[operator]
         torch_module.manual_seed(seed)
     return {
         "objects": registered,
