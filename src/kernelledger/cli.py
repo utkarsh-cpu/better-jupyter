@@ -163,7 +163,10 @@ def parser() -> Any:
         "jupyter-adapter", help="optional local Jupyter transport attached to this notebook owner"
     )
     jupyter.add_argument("--connection-file", "-f", required=True)
-    jupyter_spec = sub.add_parser("jupyter-kernelspec", help="preview a shared-session kernelspec; explicit --install writes the user Jupyter directory")
+    jupyter_spec = sub.add_parser(
+        "jupyter-kernelspec",
+        help="preview a shared-session kernelspec; explicit --install writes the user Jupyter directory",
+    )
     jupyter_spec.add_argument("--name", required=True)
     jupyter_spec.add_argument("--install", action="store_true")
     gpu = sub.add_parser("experimental-gpu", help="isolated v5 prototypes; no runtime migration")
@@ -322,6 +325,7 @@ def execute_cli(args: Any) -> Any:
         return 0
     if command == "jupyter-kernelspec":
         from .jupyter_adapter import kernelspec
+
         print(json.dumps(kernelspec(root, args.name, args.install), indent=2))
         return 0
     if command == "ai":

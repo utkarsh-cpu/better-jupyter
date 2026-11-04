@@ -78,8 +78,11 @@ def notebook_outputs(ledger: Any, blobs: Any, sid: Any) -> Any:
                 output = {
                     "output_type": "execute_result" if kind == "result" else "display_data",
                     "data": data,
-                    "metadata": payload(event["metadata"]["kernelledger"]["original_metadata"], blobs)
-                    if isinstance(event.get("metadata", {}).get("kernelledger", {}), dict) and "original_metadata" in event.get("metadata", {}).get("kernelledger", {})
+                    "metadata": payload(
+                        event["metadata"]["kernelledger"]["original_metadata"], blobs
+                    )
+                    if isinstance(event.get("metadata", {}).get("kernelledger", {}), dict)
+                    and "original_metadata" in event.get("metadata", {}).get("kernelledger", {})
                     else event.get("metadata", {}),
                 }
                 if kind == "result":
@@ -444,8 +447,13 @@ def mutate(command: Any, request: Any, notebook: Any, ledger: Any, blobs: Any) -
     if command == "bundle_import":
         return import_bundle(notebook, ledger, blobs, request["path"])
     if command == "import_outputs":
+
         def stored(value: Any) -> Any:
-            data = value.encode() if isinstance(value, str) else json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
+            data = (
+                value.encode()
+                if isinstance(value, str)
+                else json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
+            )
             if len(data) <= 32768:
                 return {"value": value}
             digest = blobs.put(data)
@@ -483,29 +491,43 @@ def mutate(command: Any, request: Any, notebook: Any, ledger: Any, blobs: Any) -
                             "video/mp4",
                             "video/webm",
                         ):
-                            encoded = "".join(cast(list[str], value)) if isinstance(value, list) else value
+                            encoded = (
+                                "".join(cast(list[str], value))
+                                if isinstance(value, list)
+                                else value
+                            )
                             if len(encoded) > 48 * 1024 * 1024:
-                                raise ValueError("Imported media exceeds the 32 MiB binary attachment limit")
+                                raise ValueError(
+                                    "Imported media exceeds the 32 MiB binary attachment limit"
+                                )
                             data = base64.b64decode(
                                 encoded,
                                 validate=True,
                             )
                             if len(data) > 32 * 1024 * 1024:
-                                raise ValueError("Imported media exceeds the 32 MiB binary attachment limit")
+                                raise ValueError(
+                                    "Imported media exceeds the 32 MiB binary attachment limit"
+                                )
                             digest = blobs.put(data)
                             ledger.blob(digest, len(data))
                             bundle[mime] = {"blob": digest, "encoding": "binary"}
                         else:
                             bundle[mime] = stored(
                                 "".join(cast(list[str], value))
-                                if isinstance(value, list) and (mime.startswith("text/") or mime == "image/svg+xml")
+                                if isinstance(value, list)
+                                and (mime.startswith("text/") or mime == "image/svg+xml")
                                 else value
                             )
                     metadata = output.get("metadata", {})
                     if type(metadata) is not dict:
                         raise ValueError("Imported output metadata must be an object")
                     if len(json.dumps(metadata, ensure_ascii=False).encode()) > 65536:
-                        metadata = {"kernelledger": {"metadata_truncated": True, "original_metadata": stored(metadata)}}
+                        metadata = {
+                            "kernelledger": {
+                                "metadata_truncated": True,
+                                "original_metadata": stored(metadata),
+                            }
+                        }
                     ledger.event(
                         eid,
                         "result"

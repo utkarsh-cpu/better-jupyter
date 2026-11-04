@@ -1,4 +1,5 @@
 """Interchange keeps data, reports unknown output, and never executes an import."""
+
 import base64
 import json
 
@@ -15,14 +16,37 @@ def test_roundtrip_unknown_fields_media_and_bounded_imported_outputs(tmp_path):
     unknown = {"output_type": "vendor_unknown", "payload": "private" * 10000}
     metadata = {"vendor": "m" * 70000}
     original = {
-        "nbformat": 4, "nbformat_minor": 5, "metadata": {}, "vendor_top": {"keep": True},
-        "cells": [{"id": "example", "cell_type": "code", "source": "raise RuntimeError('must never run on import')",
-                   "metadata": {}, "execution_count": 12, "vendor_cell": [1, 2], "outputs": [
-                       {"output_type": "stream", "name": "stdout", "text": "x" * 100000},
-                       {"output_type": "display_data", "data": {"audio/wav": base64.b64encode(audio).decode(), "text/plain": "Audio"}, "metadata": {}},
-                       {"output_type": "display_data", "data": {"application/vnd.test+json": [1, {"a": 2}], "text/plain": "JSON"}, "metadata": metadata},
-                       unknown,
-                   ]}]
+        "nbformat": 4,
+        "nbformat_minor": 5,
+        "metadata": {},
+        "vendor_top": {"keep": True},
+        "cells": [
+            {
+                "id": "example",
+                "cell_type": "code",
+                "source": "raise RuntimeError('must never run on import')",
+                "metadata": {},
+                "execution_count": 12,
+                "vendor_cell": [1, 2],
+                "outputs": [
+                    {"output_type": "stream", "name": "stdout", "text": "x" * 100000},
+                    {
+                        "output_type": "display_data",
+                        "data": {
+                            "audio/wav": base64.b64encode(audio).decode(),
+                            "text/plain": "Audio",
+                        },
+                        "metadata": {},
+                    },
+                    {
+                        "output_type": "display_data",
+                        "data": {"application/vnd.test+json": [1, {"a": 2}], "text/plain": "JSON"},
+                        "metadata": metadata,
+                    },
+                    unknown,
+                ],
+            }
+        ],
     }
     path = tmp_path / "input.ipynb"
     path.write_text(json.dumps(original), encoding="utf-8")
@@ -47,7 +71,10 @@ def test_roundtrip_unknown_fields_media_and_bounded_imported_outputs(tmp_path):
         assert base64.b64decode(cell["outputs"][1]["data"]["audio/wav"]) == audio
         assert cell["outputs"][2]["data"]["application/vnd.test+json"] == [1, {"a": 2}]
         assert cell["outputs"][2]["metadata"] == metadata
-        assert cell["outputs"][3]["data"]["application/vnd.kernelledger.imported-output+json"] == unknown
+        assert (
+            cell["outputs"][3]["data"]["application/vnd.kernelledger.imported-output+json"]
+            == unknown
+        )
         assert not (notebook.root / ".kl/supervisor.json").exists()
     finally:
         ledger.close()

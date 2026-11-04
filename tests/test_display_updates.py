@@ -162,7 +162,10 @@ def test_export_folds_one_read_snapshot_during_a_live_append(tmp_path, monkeypat
         views = list(session_views(reader, session))
         assert appended
         assert views[0]["outputs"][0]["bundle"]["text/plain"]["value"] == "before"
-        assert list(session_views(writer, session))[0]["outputs"][0]["bundle"]["text/plain"]["value"] == "after"
+        assert (
+            list(session_views(writer, session))[0]["outputs"][0]["bundle"]["text/plain"]["value"]
+            == "after"
+        )
     finally:
         reader.close()
         writer.close()
