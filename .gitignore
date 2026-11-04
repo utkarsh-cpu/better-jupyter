@@ -1,13 +1,57 @@
+# Notebook runtime state and local scratch notebooks
 .kl/
 .kl-gpu-experimental/
+/analysis/
+.kl-pyright.json
+
+# Python environments, caches, packaging and test output (at any depth)
 .venv/
-.venv-gpu-qualification/
+.venv-*/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .ruff_cache/
 .hypothesis/
+.mypy_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 dist/
+build/
 *.egg-info/
-desktop/target/
-.kl-pyright.json
+
+# Rust build output, including the standalone native capture utility
+target/
+
+# Installed assistant tooling belongs to this workstation
+/.agents/
+/.claude/
+/skills-lock.json
+
+# Machine-specific editor settings and credentials
+/.vscode/
+/.idea/
+.env
+.env.*
+!.env.example
+!.env.template
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.pid
+*.swp
+*.swo
+*~
+
+# CI qualification output; curated results live in docs/ or benchmarks/
+/*resolution.json
+/*environment.json
+/qualification.xml
+/native-probe.xml
+/mixed-worker.xml

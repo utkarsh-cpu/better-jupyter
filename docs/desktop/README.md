@@ -6,9 +6,11 @@ The application closes by detaching; Stop runtime is a separate action.
 
 The [bars and buttons polish](frontend-bars-polish.md) documents the unified
 title bar, contextual cell controls, and native alignment verification.
+Earlier assessments and testing proposals are indexed under [historical UI reports](reviews/README.md).
 
 ```powershell
 python -m pip install -e ".[dev]"
+kl -C analysis init
 cd desktop
 cargo run --locked -- ../analysis
 ```

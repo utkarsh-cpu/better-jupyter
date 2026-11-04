@@ -1,1 +1,0 @@
-C:\Users\UTKARSH\ KAUSHIK\Documents\Projects\KernelLedger\artifacts/frontend-bars-polish/capture/target\debug\kl-window-capture.exe: C:\Users\UTKARSH\ KAUSHIK\Documents\Projects\KernelLedger\artifacts\frontend-bars-polish\capture\src\main.rs

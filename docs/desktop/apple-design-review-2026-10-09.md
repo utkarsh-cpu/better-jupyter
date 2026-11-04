@@ -2,7 +2,7 @@
 
 **Superseded assessment:** After running and interacting with the native app, the [live review](apple-design-live-review-2026-10-09.md) revises the overall judgment to 4.9/10 and visual quality to 4/10. The preliminary 6.1/10 below remains historical evidence, not the current rating.
 
-Date: 2026-10-09. Scope: KernelLedger's current, uncommitted native GPUI frontend v5 implementation. Method: the repository's [apple-design skill](../../.agents/skills/apple-design/SKILL.md), applied to captured native views, source, and recorded qualification evidence.
+Date: 2026-10-09. Scope: KernelLedger's current, uncommitted native GPUI frontend v5 implementation. Method: the locally installed apple-design skill, applied to captured native views, source, and recorded qualification evidence. Installed skills remain local; see the [repository layout](../repository-layout.md).
 
 ## Verdict
 
