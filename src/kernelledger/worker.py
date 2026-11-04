@@ -1527,11 +1527,12 @@ class CustomEngine:
             header = next(row for row, line in enumerate(lines) if line.startswith("%%"))
             script = "".join(lines[header + 1 :])
             if name in ("sh", "bash"):
-                if os.name == "nt" or not shutil.which(name):
+                shell = shutil.which(name)
+                if os.name == "nt" or shell is None:
                     raise ValueError(
                         f"%%{name} requires a qualified POSIX shell; use %%cmd on Windows"
                     )
-                return self.worker.notebook_command(shlex.join([shutil.which(name), "-c", script]))
+                return self.worker.notebook_command(shlex.join([shell, "-c", script]))
             if os.name != "nt":
                 raise ValueError("%%cmd is available only on Windows")
             with tempfile.NamedTemporaryFile(

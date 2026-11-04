@@ -14,6 +14,18 @@ CREATE_NO_WINDOW = 0x08000000
 HIDDEN_CONSOLE = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 
 
+def subprocess_kwargs() -> dict[str, Any]:
+    """Hide the console on Windows and detach the process group elsewhere.
+
+    The Windows flag is built before the platform test so typechecking on
+    either operating system still sees it used.
+    """
+    kwargs: dict[str, Any] = {"creationflags": HIDDEN_CONSOLE}
+    if os.name != "nt":
+        return {"start_new_session": True}
+    return kwargs
+
+
 class DirectoryLock:
     def __init__(self, state: Any) -> None:
         self.path = Path(state) / "lock"
@@ -61,7 +73,9 @@ class DirectoryLock:
 
 class ProcessTree:
     def __init__(self, pid: Any) -> None:
-        self.pid, self.job = pid, None
+        self.pid = pid
+        self.job: Any = None
+        self.kernel: Any = None
         if os.name != "nt":
             return
         from ctypes import wintypes as w

@@ -125,11 +125,9 @@ def ensure_supervisor(root: Any, python: Any = None) -> Any:
     env: dict[Any, Any]
     env = dict(os.environ)
     env["PYTHONPATH"] = str(Path(__file__).parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
-    from .supervisor.platform import HIDDEN_CONSOLE
+    from .supervisor.platform import subprocess_kwargs
 
-    kwargs: dict[str, Any] = (
-        {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
-    )
+    kwargs = subprocess_kwargs()
     with (state / "supervisor.log").open("ab") as log:
         process = subprocess.Popen(
             args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=env, **kwargs

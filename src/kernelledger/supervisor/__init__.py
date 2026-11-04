@@ -16,7 +16,7 @@ from ..blobs import BUFFER_SIZE, BlobStore, VerifiedBlob, blob_io, check_hash, r
 from ..ledger import Ledger, now, uid
 from ..notebook import Notebook, write_json
 from ..worker import INLINE, json_bytes, validate_checkpoint
-from .platform import HIDDEN_CONSOLE, DirectoryLock, ProcessTree, secure_token
+from .platform import DirectoryLock, ProcessTree, secure_token, subprocess_kwargs
 
 
 async def read_message(reader: Any, blobs: Any) -> Any:
@@ -475,9 +475,7 @@ class Supervisor:
             "KL_TRAINING_TEMP_ROOT": self.worker_temporary.name,
             **launch_env,
         }
-        kwargs: dict[str, Any] = (
-            {"creationflags": HIDDEN_CONSOLE} if os.name == "nt" else {"start_new_session": True}
-        )
+        kwargs = subprocess_kwargs()
         try:
             self.process = await asyncio.create_subprocess_exec(
                 launch_python,
