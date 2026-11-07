@@ -1,9 +1,13 @@
 use super::*;
 use gpui_kit::component::ElementExt;
 
-/// Native caption buttons stay 102 logical pixels wide. Interface scale grows
-/// app controls; it does not grow minimize, maximize, and close.
+/// Native caption buttons on Windows stay about 102 logical pixels wide.
+/// Interface scale grows app controls; it does not grow minimize/maximize/close.
+/// Non-Windows title bars do not reserve that right-edge strip in GPUI tests.
+#[cfg(windows)]
 pub(crate) const CAPTION_GUTTER: f32 = 102.;
+#[cfg(not(windows))]
+pub(crate) const CAPTION_GUTTER: f32 = 8.;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HeaderCollapse {
@@ -15,6 +19,8 @@ pub(crate) struct HeaderCollapse {
     pub runtime: bool,
     pub export: bool,
     pub settings: bool,
+    /// When true, the product wordmark shortens to "KL" so Run all stays labeled.
+    pub wordmark_short: bool,
 }
 
 // These are also applied to the rendered controls. The only flexible control
@@ -34,6 +40,9 @@ pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> Head
         runtime: false,
         export: false,
         settings: false,
+        // Title-bar mark is always the short "KL"; the full name lives in the
+        // status bar so Run all / Menu keep their caption clearance.
+        wordmark_short: true,
     };
     for step in 0..8 {
         if header_fits(width, scale, comfortable, c) {
@@ -63,6 +72,8 @@ fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> 
     let button = if comfortable { 44. } else { 28. } * scale;
     let gap = if compact { 4. } else { 8. } * scale;
     let mut items = vec![button]; // Outline, including on other destinations as a conservative reserve.
+    // Compact product mark ("KL") — full "KernelLedger" is in the status bar.
+    items.push(24. * scale);
     if !c.switcher {
         items.push(c.switcher_width);
     }
@@ -240,15 +251,23 @@ impl Workspace {
                 v.dialog_focus.focus(window, cx);
                 cx.notify();
             }));
-        if self.tabs.is_empty() {
-            header = header.child(
-                h_flex().gap_2().items_center().child(
-                    div()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("KernelLedger"),
-                ),
-            );
-        } else {
+        // Compact mark in the title bar; full name is in the status bar so
+        // identity survives cropping the OS title (live UX A / LD-02).
+        header = header.child(
+            div()
+                .id("product-wordmark")
+                .role(Role::Label)
+                .aria_label("KernelLedger")
+                .flex_none()
+                .px_1()
+                .rounded(cx.theme().radius)
+                .bg(cx.theme().primary.opacity(0.12))
+                .text_color(cx.theme().primary)
+                .font_weight(FontWeight::BOLD)
+                .text_xs()
+                .child("KL"),
+        );
+        if !self.tabs.is_empty() {
             if self.surface == "Notebook" {
                 header = header.child(
                     action_button("outline-toggle")

@@ -416,11 +416,12 @@ impl Workspace {
             })
             .role(Role::Group)
             .aria_label(format!(
-                "Cell {}, {}{}{}",
+                "Cell {}, {}{}{}{}",
                 index + 1,
                 cell.disk.kind,
                 if selected { ", selected" } else { "" },
-                if editor_focused { ", editing" } else { "" }
+                if editor_focused { ", editing" } else { "" },
+                if has_error { ", failed" } else { "" }
             ))
             .group(group)
             .relative()
@@ -428,6 +429,9 @@ impl Workspace {
             .rounded(cx.theme().radius_lg)
             .border_color(if selected {
                 primary.opacity(if self.high_contrast { 1. } else { 0.55 })
+            } else if has_error {
+                // Failure cue independent of color-only badges (live UX D).
+                danger.opacity(if self.high_contrast { 1. } else { 0.45 })
             } else if self.high_contrast {
                 edge(cx)
             } else {
@@ -449,7 +453,13 @@ impl Workspace {
                     .top_0()
                     .bottom_0()
                     .w(px(2.))
-                    .bg(if selected { primary } else { transparent }),
+                    .bg(if selected {
+                        primary
+                    } else if has_error {
+                        danger
+                    } else {
+                        transparent
+                    }),
             )
             .on_mouse_down(
                 MouseButton::Left,

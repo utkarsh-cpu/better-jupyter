@@ -1411,7 +1411,19 @@ fn caption_gutter_preserves_run_label_before_secondary_chrome() {
     }
     let roomy = super::shell::header_collapse(1440., 1., false);
     assert!(!roomy.export && !roomy.navigation);
+    assert!(roomy.wordmark_short);
     assert_eq!(roomy.switcher_width, 240.);
+}
+
+#[test]
+fn product_mark_keeps_run_label_at_standard_compact_width() {
+    let tight = super::shell::header_collapse(800., 1., false);
+    assert!(
+        !tight.run_label && tight.wordmark_short,
+        "Run all stays labeled at 800/100% with the compact KL mark: {tight:?}"
+    );
+    let roomy = super::shell::header_collapse(1440., 1., false);
+    assert!(!roomy.run_label);
 }
 
 #[gpui_kit::test]

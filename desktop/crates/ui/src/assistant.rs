@@ -1302,7 +1302,7 @@ impl Workspace {
                                     .text_xs()
                                     .font_family(mono.clone())
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .child("CONTEXT RECEIPT"),
+                                    .child("Context receipt"),
                             )
                             .child(badge(
                                 r_label.to_string(),

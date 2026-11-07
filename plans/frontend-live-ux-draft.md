@@ -3,7 +3,7 @@
 | Item | Decision |
 | --- | --- |
 | Date | 2026-11-07 |
-| Status | Draft; not authoritative. Does not replace `FRONTEND_PLAN.md`. |
+| Status | Draft; not authoritative. Does not replace `FRONTEND_PLAN.md`. Phase 0–2 code for A/B/D/G started on branch `cursor/live-ux-plan-4765` (see [frontend-live-ux.md](../docs/desktop/frontend-live-ux.md)). |
 | Scope | Everything still open after the live Linux GPUI walkthrough, prior v6 gates, screenshot polish, UI follow-up, and assistant reliability work. |
 | Evidence | Live build + interaction on Ubuntu XFCE (`DISPLAY=:1`, Mesa llvmpipe): [/opt/cursor/artifacts/ui-live/](../artifacts/) session captures under `ui-live/`; prior Windows native sets in `artifacts/frontend-v6/`, `artifacts/frontend-bars-polish/`, `artifacts/ui-candidates-2026-11-05/`. |
 | Related | [frontend-v6](../docs/desktop/frontend-v6.md), [ui-review-followup-plan](ui-review-followup-plan.md), [ui-review-followup](../docs/desktop/ui-review-followup.md), [assistant-reliability-draft](assistant-reliability-draft.md), [platforms](../docs/desktop/platforms.md), [ux-scorecard](../docs/desktop/ux-scorecard.md). |
