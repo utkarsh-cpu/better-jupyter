@@ -9,9 +9,11 @@ title bar, contextual cell controls, and native alignment verification. The
 [screenshot polish](frontend-screenshot-polish.md) documents compact spacing,
 the editing-first cell menu, assistant setup, history, checkpoints, settings,
 and recent notebooks.
+Earlier assessments and testing proposals are indexed under [historical UI reports](reviews/README.md).
 
 ```powershell
 python -m pip install -e ".[dev]"
+kl -C analysis init
 cd desktop
 cargo run --locked -- ../analysis
 ```

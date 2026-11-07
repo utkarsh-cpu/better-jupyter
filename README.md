@@ -98,6 +98,9 @@ process group and a `0600` token. A failed ACL setup is reported by `doctor`.
 
 For development:
 
+See the [repository layout](docs/repository-layout.md) for what belongs in Git
+and what stays local, including environments, generated runs, and scratch notebooks.
+
 ```sh
 python -m pip install -e ".[dev,codecs]"
 # Alternatively: uv sync --all-extras, then uv run pytest
