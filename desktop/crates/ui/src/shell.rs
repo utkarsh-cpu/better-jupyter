@@ -5,122 +5,125 @@ use gpui_kit::component::ElementExt;
 /// app controls; it does not grow minimize, maximize, and close.
 pub(crate) const CAPTION_GUTTER: f32 = 102.;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HeaderCollapse {
-    /// Export shows its icon only; its label returns when room allows.
     pub export_label: bool,
-    /// Run all shows its icon only, with the same accessible name and tooltip.
     pub run_label: bool,
+    pub navigation: bool,
     pub switcher: bool,
+    pub switcher_width: f32,
     pub runtime: bool,
     pub export: bool,
     pub settings: bool,
 }
 
-/// Shorten, then hide, trailing actions in this order until Menu clears the
-/// caption gutter: Export's label, Run all's label, Export (still in Menu),
-/// runtime, switcher, Settings. Comfortable windows already drop the switcher,
-/// runtime, and Export below 560 rem-scaled pixels; that set stays collapsed.
+// These are also applied to the rendered controls. The only flexible control
+// is the notebook identity, which receives all spare room up to 240 scaled px.
 pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> HeaderCollapse {
-    let mut collapse = HeaderCollapse {
-        export_label: false,
-        run_label: false,
-        switcher: false,
-        runtime: false,
-        export: false,
-        settings: false,
-    };
-    if comfortable && width < 560. * scale {
-        collapse.export_label = true;
-        collapse.run_label = true;
-        collapse.switcher = true;
-        collapse.runtime = true;
-        collapse.export = true;
-    }
-    for _ in 0..6 {
-        if header_fits(width, scale, comfortable, collapse) {
-            break;
-        }
-        if !collapse.export_label {
-            collapse.export_label = true;
-        } else if !collapse.run_label {
-            collapse.run_label = true;
-        } else if !collapse.export {
-            collapse.export = true;
-        } else if !collapse.runtime {
-            collapse.runtime = true;
-        } else if !collapse.switcher {
-            collapse.switcher = true;
-        } else {
-            collapse.settings = true;
-            break;
-        }
-    }
-    collapse
-}
-
-pub(crate) fn header_fits(
-    width: f32,
-    scale: f32,
-    comfortable: bool,
-    collapse: HeaderCollapse,
-) -> bool {
     let scale = if scale.is_finite() && scale > 0. {
         scale
     } else {
         1.
     };
-    let rem = 16. * scale;
+    let mut c = HeaderCollapse {
+        export_label: false,
+        run_label: false,
+        navigation: false,
+        switcher: false,
+        switcher_width: 96. * scale,
+        runtime: false,
+        export: false,
+        settings: false,
+    };
+    for step in 0..8 {
+        if header_fits(width, scale, comfortable, c) {
+            break;
+        }
+        match step {
+            0 => c.export_label = true,
+            1 => c.navigation = true,
+            2 => c.export = true,
+            3 => c.runtime = true,
+            4 => c.settings = true,
+            5 => c.switcher = true,
+            _ => c.run_label = true,
+        }
+    }
+    if !c.switcher {
+        c.switcher_width += (width - CAPTION_GUTTER - header_used(width, scale, comfortable, c))
+            .max(0.)
+            .min(144. * scale);
+    }
+    c
+}
+
+fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> f32 {
     let compact = width < 1280. * scale;
     let tight = compact && (scale > 1. || comfortable);
-    let gap = rem * if compact { 0.25 } else { 0.5 };
-    let button = rem * if comfortable { 2.75 } else { 1.75 };
-    let mut used = 0.;
-    let mut count = 0u32;
-    let mut push = |item: f32| {
-        if count > 0 {
-            used += gap;
-        }
-        used += item;
-        count += 1;
-    };
-    push(button);
-    if !collapse.switcher {
-        push(if tight { button } else { 96. * scale });
+    let button = if comfortable { 44. } else { 28. } * scale;
+    let gap = if compact { 4. } else { 8. } * scale;
+    let mut items = vec![button]; // Outline, including on other destinations as a conservative reserve.
+    if !c.switcher {
+        items.push(c.switcher_width);
     }
-    let destination = if tight { button } else { 83. * scale };
-    push(8. + destination * 3. + 4.);
-    push(rem * 0.5);
-    if !tight {
-        push(button);
-    }
-    if !collapse.runtime {
-        let word = if tight {
-            8. * scale * 4. + 12. * scale
-        } else {
-            74. * scale
-        };
-        push(rem * 0.625 + 7. + rem * 0.375 + button.max(word) + 2.);
-    }
-    push(if collapse.run_label {
-        button
+    items.push(if c.navigation {
+        128. * scale
     } else {
-        button.max(92. * scale)
+        300. * scale
     });
-    if !collapse.export {
-        push(if collapse.export_label {
-            button
-        } else {
-            button.max(86. * scale)
-        });
+    items.push(8. * scale); // Native window drag region.
+    if !tight {
+        items.push(button);
     }
-    if !collapse.settings {
-        push(button);
+    if !c.runtime {
+        items.push(116. * scale);
     }
-    push(button);
-    used += rem * 0.5;
-    // The title-bar inset is a little wider than the summed control minimums.
-    used + 24. <= width - CAPTION_GUTTER
+    items.push(if c.run_label { button } else { 92. * scale });
+    if !c.export {
+        items.push(if c.export_label { button } else { 86. * scale });
+    }
+    if !c.settings {
+        items.push(button);
+    }
+    items.push(button);
+    items.iter().sum::<f32>() + gap * (items.len() - 1) as f32 + 32. * scale
+}
+
+pub(crate) fn header_fits(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> bool {
+    header_used(width, scale, comfortable, c) <= width - CAPTION_GUTTER + 0.01
+}
+
+/// Keep a distinguishing suffix; ask the actual text shaper, not a character budget.
+pub(crate) fn middle_ellipsis(name: &str, budget: f32, measure: impl Fn(&str) -> f32) -> String {
+    if measure(name) <= budget {
+        return name.to_owned();
+    }
+    let chars: Vec<_> = name.chars().collect();
+    // Allocate by shaped width on both sides: a wide prefix must not crowd out
+    // the suffix that distinguishes otherwise similar notebook names.
+    let ellipsis = measure("\u{2026}");
+    let mut prefix = String::new();
+    for c in &chars {
+        let next = format!("{prefix}{c}");
+        if measure(&next) > (budget - ellipsis).max(0.) * 0.4 {
+            break;
+        }
+        prefix = next;
+    }
+    let prefix_count = prefix.chars().count();
+    let mut suffix = String::new();
+    for c in chars[prefix_count..].iter().rev() {
+        let next = format!("{c}{suffix}");
+        if measure(&format!("{prefix}\u{2026}{next}")) > budget {
+            break;
+        }
+        suffix = next;
+    }
+    if !prefix.is_empty() || !suffix.is_empty() {
+        return format!("{prefix}\u{2026}{suffix}");
+    }
+
+    "\u{2026}".into()
 }
 
 fn runtime_compact_word(connection_lost: bool, state: Option<&str>) -> &'static str {
@@ -187,13 +190,48 @@ impl Workspace {
                     .to_string()
             })
             .unwrap_or_default();
-        let name_limit = if compact { 8 } else { 20 };
-        let mut notebooks = action_button("notebook-switcher")
+        let path = self
+            .tabs
+            .get(self.active)
+            .map(|tab| tab.model.project.display().to_string())
+            .unwrap_or_default();
+        let measure = |text: &str| {
+            window
+                .text_system()
+                .shape_line(
+                    text.to_owned().into(),
+                    px(14. * scale),
+                    &[TextRun {
+                        len: text.len(),
+                        font: Font {
+                            family: cx.theme().font_family.clone(),
+                            weight: FontWeight::MEDIUM,
+                            ..Default::default()
+                        },
+                        color: cx.theme().foreground,
+                        background_color: None,
+                        underline: None,
+                        strikethrough: None,
+                    }],
+                    None,
+                )
+                .width
+                / px(1.)
+        };
+        let label = middle_ellipsis(
+            &name,
+            (collapse.switcher_width - 36. * scale).max(0.),
+            measure,
+        );
+        let notebooks = action_button("notebook-switcher")
             .debug_selector("notebook-switcher")
             .ghost()
             .small()
-            .hint(format!("{name} \u{2014} switch or open notebook"))
-            .accessibility_label(format!("Notebook switcher: {name}"))
+            .w(px(collapse.switcher_width))
+            .hint(format!("{path} \u{2014} switch or open notebook"))
+            .accessibility_label(format!("Notebook switcher: {path}"))
+            .dropdown_caret(true)
+            .label(label)
             .on_click(cx.listener(|v, _, window, cx| {
                 v.close_menu(window, cx);
                 v.return_focus = window.focused(cx);
@@ -202,21 +240,6 @@ impl Workspace {
                 v.dialog_focus.focus(window, cx);
                 cx.notify();
             }));
-        if tight {
-            notebooks = notebooks.icon(Glyph::NotebookPen);
-        } else {
-            notebooks =
-                notebooks
-                    .dropdown_caret(true)
-                    .label(if name.chars().count() > name_limit {
-                        format!(
-                            "{}\u{2026}",
-                            name.chars().take(name_limit).collect::<String>()
-                        )
-                    } else {
-                        name.clone()
-                    });
-        }
         if self.tabs.is_empty() {
             header = header.child(
                 h_flex().gap_2().items_center().child(
@@ -256,11 +279,21 @@ impl Workspace {
                 header = header.child(self.anchored("switcher", notebooks, cx));
             }
             let mut destinations = segmented_track(cx).self_center().flex_none().flex_nowrap();
-            for (surface, icon) in [
+            for (surface, _icon) in [
                 ("Notebook", Glyph::NotebookPen),
                 ("History", Glyph::Clock),
                 ("Checkpoints", Glyph::Flag),
             ] {
+                if collapse.navigation
+                    && self.surface != surface
+                    && !(surface == "Notebook"
+                        && !matches!(
+                            self.surface.as_str(),
+                            "Notebook" | "History" | "Checkpoints"
+                        ))
+                {
+                    continue;
+                }
                 let mut button = action_button(surface)
                     .debug_selector(surface)
                     .small()
@@ -273,23 +306,37 @@ impl Workspace {
                             ""
                         }
                     ))
-                    .hint(format!(
-                        "{} ({})",
-                        surface,
-                        match surface {
-                            "Notebook" => "Ctrl+1",
-                            "History" => "Ctrl+2",
-                            _ => "Ctrl+3",
-                        }
-                    ))
+                    .hint(if collapse.navigation {
+                        "Destinations: Notebook, History, Checkpoints (Ctrl+1/2/3)".to_owned()
+                    } else {
+                        format!(
+                            "{} ({})",
+                            surface,
+                            match surface {
+                                "Notebook" => "Ctrl+1",
+                                "History" => "Ctrl+2",
+                                _ => "Ctrl+3",
+                            }
+                        )
+                    })
                     .on_click(cx.listener(move |v, _, window, cx| {
-                        v.select_surface(surface, cx);
-                        v.focus.focus(window, cx);
+                        if collapse.navigation {
+                            v.close_menu(window, cx);
+                            v.return_focus = window.focused(cx);
+                            v.menu_anchor = "application".into();
+                            v.app_menu = true;
+                            v.dialog_focus.focus(window, cx);
+                            cx.notify();
+                        } else {
+                            v.select_surface(surface, cx);
+                            v.focus.focus(window, cx);
+                        }
                     }));
-                if tight {
-                    button = button.icon(icon);
-                } else {
-                    button = button.label(surface);
+                button = button
+                    .label(surface)
+                    .w(px(if collapse.navigation { 116. } else { 96. } * scale));
+                if collapse.navigation {
+                    button = button.dropdown_caret(true);
                 }
                 destinations = destinations.child(button);
             }
@@ -349,6 +396,8 @@ impl Workspace {
             if !collapse.runtime {
                 header = header.child(
                     h_flex()
+                        .w(px(116. * scale))
+                        .flex_none()
                         .pl_1()
                         .gap_1()
                         .items_center()
@@ -372,7 +421,15 @@ impl Workspace {
                 if !collapse.run_label {
                     run = run.label("Run all");
                 }
-                header = header.child(run);
+                header = header.child(run.w(px(if collapse.run_label {
+                    if self.preferences.comfortable {
+                        44.
+                    } else {
+                        28.
+                    }
+                } else {
+                    92.
+                } * scale)));
             }
             if !collapse.export {
                 let mut export = action_button("export-notebook")
@@ -387,7 +444,19 @@ impl Workspace {
                 if !collapse.export_label {
                     export = export.label("Export");
                 }
-                header = header.child(self.anchored("export", export, cx));
+                header = header.child(self.anchored(
+                    "export",
+                    export.w(px(if collapse.export_label {
+                        if self.preferences.comfortable {
+                            44.
+                        } else {
+                            28.
+                        }
+                    } else {
+                        86.
+                    } * scale)),
+                    cx,
+                ));
             }
         }
         let settings = action_button("settings-button")
@@ -638,21 +707,48 @@ impl Workspace {
             }
         } else if self.notebook_menu {
             for (index, tab) in self.tabs.iter().enumerate() {
+                let basename = tab
+                    .model
+                    .project
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy();
+                let duplicate = self
+                    .tabs
+                    .iter()
+                    .filter(|other| {
+                        other.model.project.file_name() == tab.model.project.file_name()
+                    })
+                    .count()
+                    > 1;
+                let label = if duplicate {
+                    format!(
+                        "{basename} \u{2014} {}",
+                        tab.model
+                            .project
+                            .parent()
+                            .unwrap_or(&tab.model.project)
+                            .display()
+                    )
+                } else {
+                    basename.to_string()
+                };
                 menu = menu.child(
                     action_button(("switch-notebook", index))
                         .ghost()
                         .w_full()
-                        .menu_item(
-                            tab.model
-                                .project
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string(),
-                            None,
-                        )
+                        .menu_item(label, None)
+                        .accessibility_label(format!(
+                            "Notebook: {}{}",
+                            tab.model.project.display(),
+                            if index == self.active {
+                                ", current notebook"
+                            } else {
+                                ""
+                            }
+                        ))
                         .hint(tab.model.project.display().to_string())
-                        .selected(index == self.active)
+                        .segment(index == self.active)
                         .on_click(cx.listener(move |v, _, window, cx| {
                             if let Some(tab) = v.tabs.get_mut(v.active) {
                                 tab.selections.insert(v.surface.clone(), v.record_active);
@@ -847,6 +943,33 @@ impl Workspace {
                         .unavailable(self.command_reason("export-menu").is_some())
                         .hint("Export notebook (Ctrl+Shift+E)")
                         .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx))),
+                );
+            }
+            for (surface, shortcut) in [
+                ("Notebook", "ctrl-1"),
+                ("History", "ctrl-2"),
+                ("Checkpoints", "ctrl-3"),
+            ] {
+                menu = menu.child(
+                    action_button(SharedString::from(format!("destination-{surface}")))
+                        .debug_selector(surface)
+                        .ghost()
+                        .w_full()
+                        .menu_item(surface, Some(shortcut))
+                        .segment(self.surface == surface)
+                        .accessibility_label(format!(
+                            "{surface}{}",
+                            if self.surface == surface {
+                                ", current destination"
+                            } else {
+                                ""
+                            }
+                        ))
+                        .on_click(cx.listener(move |v, _, window, cx| {
+                            v.close_menu(window, cx);
+                            v.select_surface(surface, cx);
+                            v.focus.focus(window, cx);
+                        })),
                 );
             }
             for surface in ["Settings", "Help", "Diagnostics", "Runtimes"] {

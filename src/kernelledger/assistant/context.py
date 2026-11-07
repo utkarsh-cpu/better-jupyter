@@ -7,6 +7,7 @@ from typing import Any, cast
 from ..source import SourceError
 from . import PROMPT_VERSION
 from .analysis import diff_executions, duration_statistics, reproducibility, stale_cells
+from .profile import inference_profile
 from .prompts import TASKS
 from .redact import clean, redact
 from .tools import RESPONSE_SCHEMA, ReadTools
@@ -32,6 +33,7 @@ def preview(
             "source_invalid", "resolve notebook source issues before asking the assistant"
         )
     items: list[Any] = []
+    omitted: list[Any] = []
     used = 0
     selected: Any = request.get("cell_ids", [])
     if not isinstance(selected, list):
@@ -43,9 +45,10 @@ def preview(
         text = packed(clean(data, denylist, secrets))
         original_size = len(text.encode())
         budget = min(limit, settings["context_bytes"] - used)
-        if budget <= 0:
-            return
         if budget < 64:
+            omitted.append(
+                {"kind": kind, "id": identity, "reason": "context byte budget exhausted"}
+            )
             return
         raw = text.encode()
         if len(raw) > budget:
@@ -155,8 +158,24 @@ def preview(
         "bytes": len(packed(messages).encode()),
         "messages": messages,
         "manifest_revision": snapshot["manifest_revision"],
+        "profile": inference_profile(settings, task),
+        "omitted": omitted,
+        "selection": {
+            "cells": len(selected or cells),
+            "executions": len(request.get("exec_ids", [])),
+            "checkpoints": len(request.get("checkpoint_ids", [])),
+            "included": len(items),
+            "omitted": len(omitted),
+            "truncated": sum(bool(i["truncated"]) for i in items),
+        },
     }
     receipt["token_estimate"] = (receipt["bytes"] + 2) // 3
+    window = receipt["profile"]["context_window"]
+    if window and receipt["token_estimate"] + settings["max_output_tokens"] > window:
+        raise SourceError(
+            "context_limit",
+            "Estimated input plus output allowance exceeds the configured context window; select less context or lower the output allowance",
+        )
     receipt["hash"] = hashlib.sha256(packed(receipt).encode()).hexdigest()
     if len(packed(receipt).encode()) > 900000:
         raise SourceError(

@@ -318,6 +318,25 @@ impl WorkbenchButton {
         self.a11y_click = Some(Rc::new(listener));
         self
     }
+
+    /// Semantic activation for assistant controls, including those scrolled off screen.
+    /// Preserve a caller's more specific native action when one was supplied.
+    pub fn on_click_accessible(
+        mut self,
+        listener: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        let listener = Rc::new(listener);
+        let pointer = listener.clone();
+        self.inner = self
+            .inner
+            .on_click(move |event, window, cx| pointer(event, window, cx));
+        if self.a11y_click.is_none() {
+            self.a11y_click = Some(Rc::new(move |window, cx| {
+                listener(&ClickEvent::default(), window, cx);
+            }));
+        }
+        self
+    }
 }
 impl Styled for WorkbenchButton {
     fn style(&mut self) -> &mut StyleRefinement {

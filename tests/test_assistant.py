@@ -309,10 +309,11 @@ def test_invalid_or_effectful_model_response_never_becomes_proposal(assistant, m
     model_response(
         monkeypatch, {"answer": "I applied it", "citations": [], "proposals": [{"kind": "restart"}]}
     )
-    with pytest.raises(SourceError, match="invalid response"):
-        respond(assistant)
+    result = respond(assistant)
+    assert result["answer"] == "I applied it"
+    assert result["warnings"][0]["code"] == "invalid_proposal"
     assert assistant.store.rows("SELECT * FROM proposals") == []
-    assert assistant.store.rows("SELECT status FROM requests")[0]["status"] == "error"
+    assert assistant.store.rows("SELECT status FROM requests")[0]["status"] == "done"
 
 
 def test_citations_resolve_or_are_marked_unverified(assistant, monkeypatch):
@@ -703,7 +704,7 @@ def test_new_tasks_task_models_approvals_and_status_summary(assistant):
         }
     )
     assert updated["settings"]["task_models"]["refactor"] == "custom-refactor-model"
-    assert assistant.is_auto_approved("create_cell") is True
+    assert assistant.is_auto_approved("create_cell") is False  # Global legacy grants are ignored.
     assert assistant.is_auto_approved("edit_cell") is False
 
     for task in ("refactor", "stale", "anomaly", "checkpoint", "explore"):

@@ -368,15 +368,17 @@ impl Workspace {
                 })
                 .child(status_rule(cx))
             })
-            .child(format!(
+            .child(div().id("cell-count").role(Role::Label).aria_label(format!("{} cells", tab.model.order.len())).child(format!(
                 "{} cell{}",
                 tab.model.order.len(),
                 if tab.model.order.len() == 1 { "" } else { "s" }
-            ))
+            )))
             .child(status_rule(cx))
             .child(
                 h_flex()
                     .id("runtime-status")
+                    .role(Role::Status)
+                    .aria_label(if tab.runtime["connection_lost"] == true { "Runtime connection lost; execution state unknown".to_owned() } else { format!("Runtime: {}", worker_label(state)) })
                     .tooltip(|_, cx| {
                         cx.new(|_| {
                             WorkbenchHint(
@@ -400,20 +402,12 @@ impl Workspace {
                     }),
             )
             .child(status_rule(cx))
-            .child(
-                if tab
-                    .model
-                    .cells
-                    .values()
-                    .any(|c| matches!(c.save, SaveState::Failed | SaveState::Conflict))
-                {
+            .child({
+                let save = if tab.model.cells.values().any(|c| matches!(c.save, SaveState::Failed | SaveState::Conflict)) {
                     "Edits retained \u{2014} save needs attention"
-                } else if tab.model.cells.values().any(|c| c.save != SaveState::Saved) {
-                    "Saving\u{2026}"
-                } else {
-                    "Saved"
-                },
-            )
+                } else if tab.model.cells.values().any(|c| c.save != SaveState::Saved) { "Saving\u{2026}" } else { "Saved" };
+                div().id("save-status").role(Role::Label).aria_label(save).child(save)
+            })
             .child(div().flex_1())
             .when(tab.assistant.busy, |d| {
                 let provider = if ai_provider.is_empty() {

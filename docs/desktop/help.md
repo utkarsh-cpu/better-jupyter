@@ -225,3 +225,12 @@ the complete content and offers Open file in the system application. Files over
 Equations support native fractions, roots, scripts and common symbols; unsupported
 TeX remains visible as source. See docs/notebook-interactivity.md for limits and
 the optional local Jupyter adapter setup.
+
+
+## Experimental debugging: technical details
+
+Experimental debugging is disabled unless the runtime advertises debugger support.
+To opt in, start KernelLedger and its runtime with `KL_EXPERIMENTAL_INTERACTIVITY=1`
+in the launching environment. Restart an already running runtime after changing
+that environment. Then use **Debug selected cell** in Commands. There is no
+Settings switch for this runtime capability. Breakpoints require saved source.

@@ -46,6 +46,8 @@ p.add_argument("--only", default="", help="Comma separated capture names; defaul
 p.add_argument("--ui-scale", type=float, default=1.0, choices=[1.0, 1.25, 1.5, 2.0])
 p.add_argument("--editor-size", type=float, default=14.0)
 p.add_argument("--comfortable", action="store_true", help="Comfortable density")
+p.add_argument("--standard-runtime", action="store_true", help="Disable experimental interactivity to capture the standard Compact gutter")
+p.add_argument("--show-cell-duration", action="store_true", help="Seed the optional recorded cell duration preference")
 args = p.parse_args()
 if os.name != "nt":
     raise SystemExit("Windows native capture only")
@@ -464,6 +466,7 @@ def main():
                     "ui_scale": args.ui_scale,
                     "comfortable": args.comfortable,
                     "editor_size": args.editor_size,
+                    "show_cell_duration": args.show_cell_duration,
                 }
             )
         )
@@ -478,7 +481,10 @@ def main():
         seed_recents(root, profile, project)
         empty = root / "empty"
         Notebook(empty).init()
-        env = {"KL_EXPERIMENTAL_INTERACTIVITY": "1", "KL_RUNTIME_PYTHON": sys.executable}
+        env = {
+            "KL_EXPERIMENTAL_INTERACTIVITY": "0" if args.standard_runtime else "1",
+            "KL_RUNTIME_PYTHON": sys.executable,
+        }
         os.environ.update(env)
         ensure_supervisor(project, sys.executable)
         for cell in ("hello", "error", "displays", "widgets", "rich"):
@@ -519,6 +525,8 @@ def main():
             "ui_scale": args.ui_scale,
             "editor_size": args.editor_size,
             "density": "comfortable" if args.comfortable else "compact",
+            "experimental_interactivity": not args.standard_runtime,
+            "show_cell_duration": args.show_cell_duration,
             "runtime_implementation": status.get("implementation", "python"),
             "measurements": report.measurements,
             "screens": report.screens,

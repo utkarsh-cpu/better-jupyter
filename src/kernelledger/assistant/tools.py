@@ -182,7 +182,7 @@ def check_schema(value: Any, schema: Any) -> None:
         raise ValueError("integer below minimum")
 
 
-def validate_proposal(proposal: Any, snapshot: Any) -> None:
+def validate_proposal(proposal: Any, snapshot: Any, supplied: dict[str, str] | None = None) -> None:
     check_schema(proposal, {"anyOf": PROPOSAL_SCHEMAS})
     cells = {c["id"]: c for c in snapshot.get("cells", [])}
     targets = (
@@ -193,11 +193,24 @@ def validate_proposal(proposal: Any, snapshot: Any) -> None:
         else []
     )
     for target in targets:
+        if supplied is not None:
+            if target["cell_id"] not in supplied:
+                raise SourceError(
+                    "invalid_target",
+                    "Generated proposal target was not supplied in the approved context",
+                )
+            if supplied[target["cell_id"]] != target["source_sha256"]:
+                raise SourceError(
+                    "invalid_base_hash",
+                    "Generated proposal does not use the supplied base hash; notebook source has not necessarily changed",
+                )
         cell = cells.get(target["cell_id"])
         if cell is None or cell["revision"] != target["source_sha256"]:
             raise SourceError("stale", "proposal source has changed or cell is missing")
         if proposal["kind"] == "run_cells" and cell["type"] != "code":
             raise SourceError("invalid_request", "only code cells can run")
+        if proposal["kind"] == "edit_cell" and cell["source"] == proposal["source"]:
+            raise SourceError("no_change", "Generated edit is identical to current source")
     if proposal["kind"] == "run_cells" and not targets:
         raise SourceError("invalid_request", "run proposal is empty")
     if proposal["kind"] == "insert_cells" and (

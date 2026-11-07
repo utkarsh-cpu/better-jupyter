@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, mpsc};
 pub struct AssistantService {
     pub requests: mpsc::Sender<(String, Value)>,
     process: Arc<Mutex<Option<Child>>>,
+    generation: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl AssistantService {
@@ -13,9 +14,19 @@ impl AssistantService {
         let (requests, receive) = mpsc::channel::<(String, Value)>();
         let process = Arc::new(Mutex::new(None::<Child>));
         let child = process.clone();
+        let generation = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let worker_generation = generation.clone();
         std::thread::spawn(move || {
             let mut transport: Option<(ChildStdin, ChildStdout)> = None;
             while let Ok((method, mut fields)) = receive.recv() {
+                let generation = worker_generation.load(std::sync::atomic::Ordering::SeqCst);
+                let publish = |event| {
+                    if worker_generation.load(std::sync::atomic::Ordering::SeqCst) == generation {
+                        events.send(event).map_err(|_| ())
+                    } else {
+                        Ok(())
+                    }
+                };
                 let result = (|| -> Result<()> {
                     if method == "credential.set" || method == "credential.delete" {
                         let provider = fields["provider"].as_str().unwrap_or("openai");
@@ -41,7 +52,7 @@ impl AssistantService {
                             let _ = old.kill();
                             let _ = old.wait();
                         }
-                        let _ = events.send(Event::AssistantDone {
+                        let _ = publish(Event::AssistantDone {
                             method: method.clone(),
                             value: json!({"stored":true}),
                         });
@@ -108,21 +119,33 @@ impl AssistantService {
                     fields["request_id"] = json!(request_id);
                     write_frame(stdin, &fields)?;
                     loop {
-                        let frame = checked_response(read_frame(&mut *stdout)?)?;
+                        let raw = read_frame(&mut *stdout)?;
+                        if raw["kind"] == "error" {
+                            ensure!(
+                                raw["request_id"] == request_id,
+                                "Assistant request id mismatch"
+                            );
+                            let _ = publish(Event::AssistantDone {
+                                method: method.clone(),
+                                value: json!({"assistant_error":raw["error"]}),
+                            });
+                            break;
+                        }
+                        let frame = checked_response(raw)?;
                         ensure!(
                             frame["request_id"] == request_id,
                             "Assistant request id mismatch"
                         );
                         match frame["kind"].as_str() {
                             Some("delta") => {
-                                let _ = events.send(Event::AssistantDelta(frame));
+                                let _ = publish(Event::AssistantDelta(frame));
                             }
                             Some("proposal") => {
-                                let _ = events
-                                    .send(Event::AssistantProposal(frame["proposal"].clone()));
+                                let _ =
+                                    publish(Event::AssistantProposal(frame["proposal"].clone()));
                             }
                             Some("done") => {
-                                let _ = events.send(Event::AssistantDone {
+                                let _ = publish(Event::AssistantDone {
                                     method: method.clone(),
                                     value: frame["result"].clone(),
                                 });
@@ -147,7 +170,7 @@ impl AssistantService {
                         let _ = old.kill();
                         let _ = old.wait();
                     }
-                    let _ = events.send(Event::AssistantError {
+                    let _ = publish(Event::AssistantError {
                         method,
                         message: if error.downcast_ref::<keyring::Error>().is_some() {
                             "OS credential store is unavailable or the credential cannot be decoded"
@@ -163,10 +186,16 @@ impl AssistantService {
                 let _ = old.wait();
             }
         });
-        Self { requests, process }
+        Self {
+            requests,
+            process,
+            generation,
+        }
     }
 
     pub fn cancel(&self) {
+        self.generation
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         if let Some(process) = self.process.lock().unwrap().as_mut() {
             let _ = process.kill();
         }

@@ -5,7 +5,7 @@ import sqlite3
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..source import SourceError
 from ..supervisor.platform import DirectoryLock
@@ -34,8 +34,31 @@ class Store:
             CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY, request_id TEXT REFERENCES requests(id) ON DELETE CASCADE, payload TEXT, state TEXT, manifest_revision TEXT);
             CREATE TABLE IF NOT EXISTS applications(id TEXT PRIMARY KEY, proposal_id TEXT REFERENCES proposals(id) ON DELETE CASCADE, result TEXT, created REAL);
             CREATE TABLE IF NOT EXISTS capabilities(key TEXT PRIMARY KEY, result TEXT, created REAL);
+            CREATE TABLE IF NOT EXISTS application_intents(proposal_id TEXT PRIMARY KEY REFERENCES proposals(id) ON DELETE CASCADE, id TEXT UNIQUE, state TEXT, expected TEXT, created REAL);
             CREATE VIRTUAL TABLE IF NOT EXISTS history_index USING fts5(kind UNINDEXED, identity UNINDEXED, text);
         """)
+        columns = {row[1] for row in self.db.execute("PRAGMA table_info(requests)")}
+        if "warnings" not in columns:
+            self.db.execute("ALTER TABLE requests ADD COLUMN warnings TEXT NOT NULL DEFAULT '[]'")
+        # Older builds recorded successful applications without updating proposal state.
+        for row in self.db.execute(
+            "SELECT p.id,a.result FROM proposals p JOIN applications a ON p.id=a.proposal_id WHERE p.state='accepted'"
+        ).fetchall():
+            try:
+                result = json.loads(row[1])
+            except (ValueError, TypeError):
+                result = {}
+            if not isinstance(result, dict):
+                result = {}
+            result = cast(dict[str, Any], result)
+            if result.get("manifest_revision") or result.get("client_request_id"):
+                self.db.execute("UPDATE proposals SET state='applied' WHERE id=?", (row[0],))
+        self.db.execute(
+            "INSERT OR IGNORE INTO application_intents SELECT id,id,'unknown',payload,? FROM proposals WHERE state='accepted'",
+            (time.time(),),
+        )
+        # Never repeat an effect whose process ended before recording its outcome.
+        self.db.execute("UPDATE application_intents SET state='unknown' WHERE state='applying'")
         self.db.execute(
             "UPDATE requests SET status='interrupted', error='assistant process ended' WHERE status='running'"
         )
@@ -96,8 +119,8 @@ class Store:
         manifest = self.db.execute("SELECT receipt FROM requests WHERE id=?", (rid,)).fetchone()
         with self.db:
             self.db.execute(
-                "UPDATE requests SET status='done',usage=?,finished=? WHERE id=?",
-                (json.dumps(usage), time.time(), rid),
+                "UPDATE requests SET status='done',usage=?,finished=?,warnings=? WHERE id=?",
+                (json.dumps(usage), time.time(), json.dumps(response.get("warnings", [])), rid),
             )
             self.db.execute(
                 "INSERT INTO messages VALUES(?,?,?,?,?)",
@@ -124,23 +147,45 @@ class Store:
                 proposals.append({"id": pid, "payload": proposal, "state": "proposed"})
         return proposals
 
-    def fail(self, rid: str, code: str) -> None:
+    def fail(self, rid: str, code: str, usage: Any = None) -> None:
         with self.db:
             self.db.execute(
-                "UPDATE requests SET status=?,error=?,finished=? WHERE id=?",
-                ("cancelled" if code == "cancelled" else "error", code, time.time(), rid),
+                "UPDATE requests SET status=?,error=?,finished=?,usage=? WHERE id=?",
+                (
+                    "cancelled" if code == "cancelled" else "error",
+                    code,
+                    time.time(),
+                    json.dumps(usage or {}),
+                    rid,
+                ),
             )
 
     def conversation(self, cid: str) -> Any:
         requests = self.rows(
             "SELECT * FROM requests WHERE conversation=? ORDER BY created LIMIT 200", (cid,)
         )
+        for request in requests:
+            request["warnings"] = json.loads(request["warnings"])
+        messages = self.rows(
+            "SELECT m.* FROM messages m JOIN requests r ON m.request_id=r.id WHERE r.conversation=? ORDER BY r.created,m.rowid LIMIT 400",
+            (cid,),
+        )
+        for message in messages:
+            message["citations"] = json.loads(message["citations"])
+        proposals = self.rows(
+            "SELECT p.*,i.state AS application_state FROM proposals p JOIN requests r ON p.request_id=r.id LEFT JOIN application_intents i ON p.id=i.proposal_id WHERE r.conversation=? ORDER BY r.created,p.rowid LIMIT 400",
+            (cid,),
+        )
+        for proposal in proposals:
+            proposal["payload"] = json.loads(proposal["payload"])
+            if proposal["application_state"] == "unknown":
+                proposal["state"] = "unknown"
         return {
+            "conversation_id": cid,
+            "has_more": len(requests) == 200,
             "requests": requests,
-            "messages": self.rows(
-                "SELECT m.* FROM messages m JOIN requests r ON m.request_id=r.id WHERE r.conversation=? ORDER BY r.created,m.rowid LIMIT 400",
-                (cid,),
-            ),
+            "messages": messages,
+            "proposals": proposals,
         }
 
     def search(self, query: str) -> Any:

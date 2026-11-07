@@ -92,7 +92,11 @@ impl Workspace {
             .bg(overlay)
             .on_click(cx.listener(|v, _, window, cx| {
                 v.palette = false;
-                v.focus.focus(window, cx);
+                if let Some(focus) = v.return_focus.take() {
+                    focus.focus(window, cx);
+                } else {
+                    v.focus.focus(window, cx);
+                }
                 cx.notify();
             }))
             .child(if self.preferences.reduced_motion {

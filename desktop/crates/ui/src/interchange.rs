@@ -86,6 +86,33 @@ impl Workspace {
         )
     }
 
+    pub(super) fn export_answer_dialog(
+        &mut self,
+        format: &'static str,
+        markdown: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let commands = tab.service.commands.clone();
+        let directory = tab.model.project.clone();
+        let path = cx.prompt_for_new_path(&directory, Some(&format!("assistant-report.{format}")));
+        cx.spawn_in(window, async move |_, _| {
+            if let Ok(Ok(Some(mut path))) = path.await {
+                if path.extension().is_none() {
+                    path.set_extension(format);
+                }
+                let _ = commands.send(Command::Inspect {
+                    method: "export_document".into(),
+                    fields: json!({"path":path,"format":format,"markdown":markdown}),
+                });
+            }
+        })
+        .detach();
+    }
+
     pub(super) fn export_dialog(
         &mut self,
         format: &'static str,

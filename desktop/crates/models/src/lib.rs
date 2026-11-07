@@ -81,6 +81,8 @@ pub struct CellModel {
     pub executed_revision: Option<String>,
     pub exec_id: Option<String>,
     pub ordinal: Option<u64>,
+    /// Recorded duration of `exec_id`, never a UI clock or an estimate.
+    pub execution_seconds: Option<f64>,
     pub outcome: String,
     pub collapsed: bool,
 }
@@ -95,6 +97,7 @@ impl CellModel {
             executed_revision: None,
             exec_id: None,
             ordinal: None,
+            execution_seconds: None,
             outcome: String::new(),
             collapsed: false,
         }

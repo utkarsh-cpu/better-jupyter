@@ -84,7 +84,7 @@ impl RenderOnce for OutputTools {
         action_button((ElementId::from(self.owner), "output-tools-toggle"))
             .ghost()
             .small()
-            .icon(Glyph::Copy)
+            .icon(Glyph::Settings)
             .selected(open)
             .contextual(self.group, self.always || open)
             .accessibility_label(format!("Output tools: {}", self.context))

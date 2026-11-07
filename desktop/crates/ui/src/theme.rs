@@ -168,7 +168,10 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     highlight.style.editor_background = Some(background);
     highlight.style.editor_foreground = Some(foreground);
     highlight.style.editor_gutter_background = Some(background);
-    highlight.style.editor_active_line = Some(muted);
+    // Pinned Kit 0.7 paints the active line even in unfocused editors and
+    // offers no per-Editor override. The caret and source focus rail carry
+    // editing focus; suppress the misleading persistent row wash.
+    highlight.style.editor_active_line = None;
     highlight.style.editor_line_number = Some(muted_foreground);
     highlight.style.editor_active_line_number = Some(foreground);
     // Audit every Kit syntax style against the source canvas and active line.

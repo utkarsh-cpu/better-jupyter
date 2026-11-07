@@ -22,6 +22,8 @@ METHODS = {
     "application.record": ["proposal_id", "result"],
     "search": ["query"],
     "purge": [],
+    "prune": [],
+    "approval.revoke": [],
 }
 
 

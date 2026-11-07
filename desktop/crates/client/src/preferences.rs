@@ -11,6 +11,7 @@ pub struct Preferences {
     pub editor_size: f32,
     pub comfortable: bool,
     pub reduced_motion: bool,
+    pub show_cell_duration: bool,
     pub ui_scale: f32,
 }
 
@@ -23,6 +24,7 @@ impl Default for Preferences {
             editor_size: 14.,
             comfortable: false,
             reduced_motion: false,
+            show_cell_duration: false,
             ui_scale: 1.,
         }
     }
@@ -91,6 +93,7 @@ mod tests {
         assert_eq!(p.editor_size, 12.);
         assert!(!p.outline_visible);
         assert!(!p.comfortable);
+        assert!(!p.show_cell_duration);
     }
     #[test]
     fn schema_one_migrates_without_losing_layout_and_scale_is_normalized() {
@@ -130,6 +133,7 @@ mod tests {
         prefs.save(&directory).unwrap();
         prefs.outline_visible = false;
         prefs.editor_size = 18.;
+        prefs.show_cell_duration = true;
         prefs.save(&directory).unwrap();
         assert_eq!(Preferences::load(&directory).unwrap(), prefs);
         assert_eq!(std::fs::read_to_string(&appearance).unwrap(), "contrast");

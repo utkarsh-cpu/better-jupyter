@@ -232,7 +232,14 @@ impl OutputWatch {
                 if self.signatures.get(eid) == Some(&signature) {
                     continue;
                 }
-                let view = request("fold.get", json!({"exec_id": eid}))?;
+                let mut view = request("fold.get", json!({"exec_id": eid}))?;
+                if view["exec_id"] == row["exec_id"] {
+                    for key in ["duration", "start", "end"] {
+                        if !row[key].is_null() {
+                            view[key] = row[key].clone();
+                        }
+                    }
+                }
                 changed.push(if supports_updates {
                     self.display.register(view)
                 } else {
@@ -533,7 +540,10 @@ impl Session {
         }
         Ok(())
     }
-    fn submit(&mut self, method: &str, mut fields: Value) -> Result<String> {
+    fn submit(&mut self, method: &str, fields: Value) -> Result<String> {
+        self.submit_with_key(method, fields, Uuid::new_v4().to_string())
+    }
+    fn submit_with_key(&mut self, method: &str, mut fields: Value, key: String) -> Result<String> {
         self.ensure_runtime()?;
         if matches!(method, "training-checkpoint" | "training-restore") {
             ensure!(
@@ -543,7 +553,6 @@ impl Session {
                 "This runtime does not advertise portable training checkpoints"
             );
         }
-        let key = Uuid::new_v4().to_string();
         fields["client_request_id"] = json!(key);
         self.operations.insert(
             key.clone(),
@@ -718,51 +727,65 @@ impl Session {
             }
             Command::AssistantCancel => self.assistant.cancel(),
             Command::AssistantApply(resolution) => {
-                self.save_all()?;
-                self.refresh()?;
                 let pid = resolution["proposal_id"].clone();
-                let result = if resolution["mutation"].is_object() {
-                    let snapshot = self
-                        .helper
-                        .request("source.mutate", resolution["mutation"].clone())?;
-                    self.output_watch.follow_source(&snapshot);
-                    self.snapshot = snapshot.clone();
-                    let _ = self.events.send(Event::Source(snapshot.clone()));
-                    json!({"manifest_revision":snapshot["manifest_revision"]})
-                } else if resolution["payload"]["kind"] == "run_cells" {
-                    let cells = resolution["payload"]["cells"]
-                        .as_array()
-                        .ok_or_else(|| anyhow::anyhow!("Invalid run proposal"))?;
-                    let mut hashes = serde_json::Map::new();
-                    let mut ids = Vec::new();
-                    for cell in cells {
-                        let id = cell["cell_id"]
-                            .as_str()
-                            .ok_or_else(|| anyhow::anyhow!("Missing proposal cell"))?;
-                        ensure!(
-                            self.snapshot["cells"]
-                                .as_array()
-                                .is_some_and(|rows| rows.iter().any(|c| c["id"] == id
-                                    && c["revision"] == cell["source_sha256"]
-                                    && c["type"] == "code")),
-                            "Proposal is stale; regenerate it"
-                        );
-                        hashes.insert(id.to_owned(), cell["source_sha256"].clone());
-                        ids.push(id.to_owned());
+                let applied = (|| -> Result<Value> {
+                    self.save_all()?;
+                    self.refresh()?;
+                    let result = if resolution["mutation"].is_object() {
+                        let snapshot = self
+                            .helper
+                            .request("source.mutate", resolution["mutation"].clone())?;
+                        self.output_watch.follow_source(&snapshot);
+                        self.snapshot = snapshot.clone();
+                        let _ = self.events.send(Event::Source(snapshot.clone()));
+                        json!({"manifest_revision":snapshot["manifest_revision"]})
+                    } else if resolution["payload"]["kind"] == "run_cells" {
+                        let cells = resolution["payload"]["cells"]
+                            .as_array()
+                            .ok_or_else(|| anyhow::anyhow!("Invalid run proposal"))?;
+                        let mut hashes = serde_json::Map::new();
+                        let mut ids = Vec::new();
+                        for cell in cells {
+                            let id = cell["cell_id"]
+                                .as_str()
+                                .ok_or_else(|| anyhow::anyhow!("Missing proposal cell"))?;
+                            ensure!(
+                                self.snapshot["cells"].as_array().is_some_and(|rows| rows
+                                    .iter()
+                                    .any(|c| c["id"] == id
+                                        && c["revision"] == cell["source_sha256"]
+                                        && c["type"] == "code")),
+                                "Proposal is stale; regenerate it"
+                            );
+                            hashes.insert(id.to_owned(), cell["source_sha256"].clone());
+                            ids.push(id.to_owned());
+                        }
+                        ensure!(!ids.is_empty(), "Empty run proposal");
+                        let key = self.submit_with_key(
+                            "batch",
+                            json!({"cell_ids":ids,"expected_sha256":hashes,"on_error":"stop"}),
+                            resolution["application_id"]
+                                .as_str()
+                                .ok_or_else(|| anyhow::anyhow!("Missing application identity"))?
+                                .to_owned(),
+                        )?;
+                        json!({"client_request_id":key})
+                    } else {
+                        bail!("Commands are copy-only");
+                    };
+                    Ok(result)
+                })();
+                let result = match &applied {
+                    Ok(value) => value.clone(),
+                    Err(_) => {
+                        json!({"status":"unknown","message":"Application outcome not confirmed; inspect source/runtime state before requesting another change"})
                     }
-                    ensure!(!ids.is_empty(), "Empty run proposal");
-                    let key = self.submit(
-                        "batch",
-                        json!({"cell_ids":ids,"expected_sha256":hashes,"on_error":"stop"}),
-                    )?;
-                    json!({"client_request_id":key})
-                } else {
-                    bail!("Commands are copy-only");
                 };
                 self.assistant.requests.send((
                     "application.record".into(),
                     json!({"proposal_id":pid,"result":result}),
                 ))?;
+                applied?;
             }
             Command::Detach => return Ok(false),
             Command::DiscardDraft(id) => {
@@ -1461,6 +1484,52 @@ fn report(events: &Sender<Event>, error: anyhow::Error) {
 mod tests {
     use super::*;
     use anyhow::bail;
+
+    #[test]
+    fn recorded_timing_joins_only_the_matching_execution_without_extra_reads() {
+        for updates in [false, true] {
+            for matching in [false, true] {
+                let mut watch = OutputWatch {
+                    supports_updates: updates,
+                    ..Default::default()
+                };
+                let mut calls = Vec::new();
+                let changed = watch.poll(|method, _| {
+                    calls.push(method.to_owned());
+                    match method {
+                        "executions.watermark" => Ok(json!({"executions":1,"event_rowid":0})),
+                        "executions.list" => Ok(json!({"items":[{"exec_id":"run-1","cell_id":"cell","status":"ok","start":"2026-11-05T00:00:00Z","end":"2026-11-05T00:00:02Z"}]})),
+                        "fold.get" => Ok(json!({"exec_id":if matching { "run-1" } else { "other" },"cell_id":"cell","outputs":[]})),
+                        other => bail!("Unexpected request {other}"),
+                    }
+                }).unwrap();
+                assert_eq!(changed.len(), 1);
+                assert_eq!(
+                    changed[0]["end"].as_str(),
+                    matching.then_some("2026-11-05T00:00:02Z")
+                );
+                assert_eq!(
+                    calls,
+                    vec!["executions.watermark", "executions.list", "fold.get"]
+                );
+                calls.clear();
+                assert!(
+                    watch
+                        .poll(|method, _| {
+                            calls.push(method.to_owned());
+                            if method == "executions.watermark" {
+                                Ok(json!({"executions":1,"event_rowid":0}))
+                            } else {
+                                bail!("Unexpected repeated request {method}")
+                            }
+                        })
+                        .unwrap()
+                        .is_empty()
+                );
+                assert_eq!(calls, vec!["executions.watermark"]);
+            }
+        }
+    }
 
     #[test]
     fn unchanged_watermark_does_not_call_fold_get() {

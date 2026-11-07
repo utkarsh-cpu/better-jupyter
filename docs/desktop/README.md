@@ -5,7 +5,10 @@ frontend plan 3. Opening source/history uses an offline helper and starts no wor
 The application closes by detaching; Stop runtime is a separate action.
 
 The [bars and buttons polish](frontend-bars-polish.md) documents the unified
-title bar, contextual cell controls, and native alignment verification.
+title bar, contextual cell controls, and native alignment verification. The
+[screenshot polish](frontend-screenshot-polish.md) documents compact spacing,
+the editing-first cell menu, assistant setup, history, checkpoints, settings,
+and recent notebooks.
 
 ```powershell
 python -m pip install -e ".[dev]"

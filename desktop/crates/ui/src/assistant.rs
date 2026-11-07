@@ -5,6 +5,12 @@ use super::*;
 pub(super) struct AssistantView {
     pub open: bool,
     pub busy: bool,
+    pub error: bool,
+    pub rebuild: bool,
+    pub started: Option<std::time::Instant>,
+    pub purge_armed: bool,
+    pub receipt_state: ReceiptState,
+    pub payload_expanded: bool,
     pub show_history: bool,
     pub status: String,
     pub task: String,
@@ -22,6 +28,98 @@ pub(super) struct AssistantView {
     #[allow(dead_code)]
     pub task_group: String,
     pub connection: Connection,
+    pub tested_profile: Value,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) enum ReceiptState {
+    #[default]
+    Empty,
+    Prepared,
+    Sending,
+    Consumed,
+}
+
+pub(super) fn effective_model(settings: &Value, task: &str) -> String {
+    settings["settings"]["task_models"][task]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .or_else(|| settings["settings"]["model"].as_str())
+        .unwrap_or("")
+        .to_owned()
+}
+
+pub(super) fn merge_provider(config: &mut Value, provider: &str, endpoint: String) {
+    if !config["providers"].is_object() {
+        config["providers"] = json!({});
+    }
+    if !config["providers"][provider].is_object() {
+        config["providers"][provider] = json!({});
+    }
+    config["providers"][provider]["base_url"] = json!(endpoint);
+}
+
+pub(super) fn answer_report(answer: &Value) -> String {
+    let mut text = answer["answer"].as_str().unwrap_or("").to_owned();
+    text.push_str("\n\n## Citation targets\n\nTarget existence is not fact checking.\n");
+    if let Some(items) = answer["citations"].as_array() {
+        for item in items {
+            text.push_str(&format!(
+                "\n- {}: {} (target found: {}; in approved context: {})",
+                item["kind"].as_str().unwrap_or("record"),
+                item["id"].as_str().unwrap_or(""),
+                item["verified"] == true,
+                item["in_context"] == true
+            ));
+        }
+    }
+    if let Some(warnings) = answer["warnings"]
+        .as_array()
+        .filter(|items| !items.is_empty())
+    {
+        text.push_str("\n\n## Proposal warnings\n");
+        for warning in warnings {
+            text.push_str(&format!(
+                "\n- {}: {}",
+                warning["code"].as_str().unwrap_or("invalid"),
+                warning["message"].as_str().unwrap_or("Proposal rejected")
+            ));
+        }
+    }
+    text
+}
+
+pub(super) fn receipt_text(item: &Value) -> String {
+    let raw = item["text"].as_str().unwrap_or("");
+    let Ok(data) = serde_json::from_str::<Value>(raw) else {
+        return raw.to_owned();
+    };
+    if let Some(source) = data["source"].as_str()
+        && item["kind"] == "cell"
+    {
+        return format!("Source:\n\n```\n{source}\n```");
+    }
+    if let Some(outputs) = data["outputs"].as_array() {
+        let mut result = String::new();
+        for output in outputs {
+            if output["kind"] == "error" {
+                result.push_str(&format!(
+                    "{}: {}\n\n",
+                    output["ename"].as_str().unwrap_or("Exception"),
+                    output["evalue"].as_str().unwrap_or("")
+                ));
+                if let Some(trace) = output["traceback"].as_array() {
+                    for line in trace {
+                        result.push_str(line.as_str().unwrap_or(""));
+                    }
+                }
+            } else {
+                result.push_str(&serde_json::to_string_pretty(output).unwrap_or_default());
+            }
+        }
+        return result;
+    }
+    serde_json::to_string_pretty(&data).unwrap_or_else(|_| raw.to_owned())
 }
 
 /// Result of the last explicit provider test; any settings change makes it stale.
@@ -131,8 +229,16 @@ impl Workspace {
     pub(super) fn test_provider(&mut self, cx: &mut Context<Self>) {
         let ai = &mut self.tabs[self.active].assistant;
         ai.connection = Connection::Testing;
+        ai.busy = true;
+        ai.error = false;
+        ai.started = Some(std::time::Instant::now());
+        let task = if ai.task.is_empty() {
+            "ask".to_owned()
+        } else {
+            ai.task.clone()
+        };
         ai.status = "Testing provider (no notebook context)\u{2026}".into();
-        self.ai("providers.test", json!({}));
+        self.ai("providers.test", json!({"task":task}));
         cx.notify();
     }
 
@@ -244,7 +350,9 @@ impl Workspace {
                                     } else {
                                         "Test connection"
                                     })
-                                    .on_click(cx.listener(|v, _, _, cx| v.test_provider(cx))),
+                                    .on_click_accessible(
+                                        cx.listener(|v, _, _, cx| v.test_provider(cx)),
+                                    ),
                             )
                         })
                         .child({
@@ -253,7 +361,9 @@ impl Workspace {
                                 .icon(Glyph::Settings)
                                 .label("Open provider settings")
                                 .unavailable(testing)
-                                .on_click(cx.listener(|v, _, _, cx| v.open_provider_settings(cx)));
+                                .on_click_accessible(
+                                    cx.listener(|v, _, _, cx| v.open_provider_settings(cx)),
+                                );
                             if can_test {
                                 button.outline()
                             } else {
@@ -298,7 +408,16 @@ impl Workspace {
     pub(super) fn ai_preview(&mut self, task: &str, question: String, cx: &mut Context<Self>) {
         let tab = &mut self.tabs[self.active];
         tab.assistant.busy = true;
+        tab.assistant.error = false;
+        tab.assistant.rebuild = false;
+        tab.assistant.receipt_state = ReceiptState::Empty;
+        tab.assistant.started = Some(std::time::Instant::now());
         tab.assistant.task = task.to_owned();
+        if tab.assistant.tested_profile["model"].as_str()
+            != Some(effective_model(&tab.assistant.settings, task).as_str())
+        {
+            tab.assistant.connection = Connection::Untested;
+        }
         tab.assistant.last_question = question.clone();
         tab.assistant.status = "Preparing context for review\u{2026}".into();
         tab.assistant.receipt = Value::Null;
@@ -323,7 +442,9 @@ impl Workspace {
                 .and_then(|id| tab.model.cells.get(id))
                 .and_then(|c| c.exec_id.as_ref())
         {
+            let id = id.clone();
             fields["exec_ids"] = json!([id]);
+            tab.assistant.exec_ids = vec![id];
         }
         self.ai("context.preview", fields);
         cx.notify();
@@ -335,6 +456,10 @@ impl Workspace {
             return;
         }
         ai.busy = true;
+        ai.error = false;
+        ai.rebuild = false;
+        ai.receipt_state = ReceiptState::Sending;
+        ai.started = Some(std::time::Instant::now());
         ai.status = "Request started; generating a draft\u{2026}".into();
         ai.answer = Value::Null;
         self.ai(
@@ -396,7 +521,8 @@ impl Workspace {
         );
         let policy = settings_root["policy"].as_str().unwrap_or("allowed");
         let provider_name = settings_root["settings"]["provider"].as_str().unwrap_or("");
-        let model_name = settings_root["settings"]["model"].as_str().unwrap_or("");
+        let active_model = effective_model(&settings_root, &state.task);
+        let model_name = active_model.as_str();
         let dest_label = settings_root["destination"]["label"]
             .as_str()
             .unwrap_or("Local");
@@ -452,7 +578,7 @@ impl Workspace {
                             .accessibility_label("New")
                             .hint("New conversation")
                             .unavailable(busy)
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 let ai = &mut v.tabs[v.active].assistant;
                                 ai.conversation = None;
                                 ai.transcript.clear();
@@ -473,7 +599,7 @@ impl Workspace {
                             .accessibility_label("Conversations")
                             .hint("Search history & saved conversations")
                             .unavailable(busy)
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 let next = !v.tabs[v.active].assistant.show_history;
                                 v.tabs[v.active].assistant.show_history = next;
                                 if next {
@@ -490,7 +616,7 @@ impl Workspace {
                             .accessibility_label("Proposals")
                             .hint("List cell and code proposals")
                             .unavailable(busy)
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.ai("proposals.list", json!({}));
                                 cx.notify();
                             })),
@@ -502,7 +628,9 @@ impl Workspace {
                             .icon(Glyph::Settings)
                             .accessibility_label("Assistant provider settings")
                             .hint("AI provider, models, and privacy settings")
-                            .on_click(cx.listener(|v, _, _, cx| v.open_provider_settings(cx))),
+                            .on_click_accessible(
+                                cx.listener(|v, _, _, cx| v.open_provider_settings(cx)),
+                            ),
                     )
                     .child(
                         action_button("assistant-close")
@@ -511,7 +639,7 @@ impl Workspace {
                             .icon(Glyph::X)
                             .accessibility_label("Close")
                             .hint("Close assistant panel")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.tabs[v.active].assistant.open = false;
                                 cx.notify();
                             })),
@@ -578,7 +706,7 @@ impl Workspace {
                                     .icon(Glyph::Sparkles)
                                     .label("Review stale")
                                     .unavailable(busy)
-                                    .on_click(cx.listener(|v, _, _, cx| {
+                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                                         v.ai_preview(
                                             "stale",
                                             "Identify stale or out-of-order cells and recommend the minimal safe rerun or checkpoint recovery.".into(),
@@ -595,7 +723,7 @@ impl Workspace {
                                     .icon(Glyph::Sparkles)
                                     .label("Audit repro")
                                     .unavailable(busy)
-                                    .on_click(cx.listener(|v, _, _, cx| {
+                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                                         v.ai_preview(
                                             "reproducibility",
                                             "Review reproducibility from recorded evidence.".into(),
@@ -637,7 +765,7 @@ impl Workspace {
                     .accessibility_label(format!("Remove {title} from context"))
                     .hint(format!("{title} \u{2014} remove from context"))
                     .unavailable(busy)
-                    .on_click(cx.listener(move |v, _, _, cx| {
+                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
                         v.tabs[v.active]
                             .assistant
                             .selected_cells
@@ -673,7 +801,7 @@ impl Workspace {
                         ))
                         .accessibility_label(format!("Remove {kind} {id} from context"))
                         .unavailable(busy)
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             let ai = &mut v.tabs[v.active].assistant;
                             if kind == "execution" {
                                 ai.exec_ids.retain(|item| item != &identity);
@@ -697,7 +825,7 @@ impl Workspace {
                     .accessibility_label(format!("Add {title} to context"))
                     .hint("Add the selected cell to the context for review")
                     .unavailable(busy)
-                    .on_click(cx.listener(move |v, _, _, cx| {
+                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
                         let cells = &mut v.tabs[v.active].assistant.selected_cells;
                         if !cells.contains(&id) {
                             cells.push(id.clone());
@@ -715,7 +843,7 @@ impl Workspace {
                     .small()
                     .label("Clear")
                     .unavailable(busy)
-                    .on_click(cx.listener(|v, _, _, cx| {
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                         let ai = &mut v.tabs[v.active].assistant;
                         ai.selected_cells.clear();
                         ai.exec_ids.clear();
@@ -736,7 +864,7 @@ impl Workspace {
                     .accessibility_label("Compare selected executions")
                     .hint("Compare these two recorded runs and separate observed changes from suggested causes")
                     .unavailable(busy)
-                    .on_click(cx.listener(|v, _, _, cx| {
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                         v.ai_preview(
                             "compare",
                             "Compare these recorded runs. Separate observed changes from suggested causes.".into(),
@@ -748,9 +876,9 @@ impl Workspace {
 
         let count = selected_cells.len() + exec_ids.len() + checkpoint_ids.len();
         let summary = match count {
-            0 => "Context: no items selected".to_string(),
-            1 => "Context: 1 item".to_string(),
-            n => format!("Context: {n} items"),
+            0 => "Selected context: no items".to_string(),
+            1 => "Selected context: 1 item".to_string(),
+            n => format!("Selected context: {n} items"),
         };
         Some(
             v_flex()
@@ -810,7 +938,7 @@ impl Workspace {
                                 );
                             });
                         })
-                        .on_click(cx.listener(|v, _, _, cx| {
+                        .on_click_accessible(cx.listener(|v, _, _, cx| {
                             v.ai_preview(
                                 "summary",
                                 "Summarize this notebook's recorded state and what I can continue from. Cite every recorded fact.".into(),
@@ -836,7 +964,7 @@ impl Workspace {
                                     );
                                 });
                             })
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.ai_preview(
                                     "explain",
                                     "Explain this cell's recorded error and propose a fix.".into(),
@@ -861,7 +989,7 @@ impl Workspace {
                                 );
                             });
                         })
-                        .on_click(cx.listener(|v, _, _, cx| {
+                        .on_click_accessible(cx.listener(|v, _, _, cx| {
                             v.ai_preview(
                                 "reproducibility",
                                 "Review reproducibility from recorded evidence.".into(),
@@ -897,10 +1025,8 @@ impl Workspace {
             state.task.clone()
         };
         let settings_root = state.settings.clone();
-        let model_name = settings_root["settings"]["model"]
-            .as_str()
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned);
+        let model_name =
+            Some(effective_model(&settings_root, &active_task)).filter(|s| !s.is_empty());
         let dest_local = settings_root["destination"]["local"]
             .as_bool()
             .unwrap_or(true);
@@ -971,12 +1097,14 @@ impl Workspace {
                                     .on_a11y_click(move |_, cx| {
                                         let question = input_for_a11y.read(cx).value().to_string();
                                         view_for_preview.update(cx, |v, cx| {
-                                            v.ai_preview("ask", question, cx);
+                                            let task = v.tabs[v.active].assistant.task.clone();
+                                            v.ai_preview(if task.is_empty() { "ask" } else { &task }, question, cx);
                                         });
                                     })
-                                    .on_click(cx.listener(move |v, _, _, cx| {
+                                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
                                         let question = input_for_click.read(cx).value().to_string();
-                                        v.ai_preview("ask", question, cx);
+                                        let task = v.tabs[v.active].assistant.task.clone();
+                                        v.ai_preview(if task.is_empty() { "ask" } else { &task }, question, cx);
                                     })),
                             ),
                     ),
@@ -998,7 +1126,16 @@ impl Workspace {
     fn assistant_status_section(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let state = &self.tabs[self.active].assistant;
         let busy = state.busy;
-        let status_text = state.status.clone();
+        let status_text = if busy {
+            format!(
+                "{}; {} s elapsed; final answer may follow model reasoning",
+                state.status,
+                state.started.map(|s| s.elapsed().as_secs()).unwrap_or(0)
+            )
+        } else {
+            state.status.clone()
+        };
+        let rebuild = state.rebuild && !busy;
         let draft = state.draft.clone();
         if status_text.is_empty() && !busy {
             return None;
@@ -1011,10 +1148,7 @@ impl Workspace {
             theme.danger,
             theme.info,
         );
-        let is_err = status_text.contains("error")
-            || status_text.contains("Error")
-            || status_text.contains("disabled")
-            || status_text.contains("failed");
+        let is_err = state.error;
         let status_color = if is_err {
             danger
         } else if busy {
@@ -1025,7 +1159,7 @@ impl Workspace {
         let mut col = v_flex().gap_2().child(
             card(cx)
                 .id("assistant-status-card")
-                .role(Role::Status)
+                .role(if is_err { Role::Alert } else { Role::Status })
                 .aria_label(status_text.clone())
                 .p_2p5()
                 .gap_2()
@@ -1049,6 +1183,8 @@ impl Workspace {
                                         .text_xs()
                                         .font_weight(FontWeight::MEDIUM)
                                         .whitespace_normal()
+                                        .min_w_0()
+                                        .flex_1()
                                         .child(status_text),
                                 ),
                         )
@@ -1060,11 +1196,15 @@ impl Workspace {
                                     .icon(Glyph::Square)
                                     .label("Cancel")
                                     .accessibility_label("Cancel request")
-                                    .on_click(cx.listener(|v, _, _, cx| {
+                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                                         v.send(Command::AssistantCancel);
                                         let ai = &mut v.tabs[v.active].assistant;
                                         ai.busy = false;
                                         ai.receipt = Value::Null;
+                                        ai.receipt_state = ReceiptState::Consumed;
+                                        ai.started = None;
+                                        ai.error = false;
+                                        ai.rebuild = true;
                                         ai.status =
                                             "Cancelled; prepare fresh context to continue.".into();
                                         cx.notify();
@@ -1073,6 +1213,20 @@ impl Workspace {
                         }),
                 ),
         );
+        if rebuild {
+            col = col.child(
+                action_button("assistant-rebuild")
+                    .primary()
+                    .label("Rebuild context")
+                    .accessibility_label("Rebuild context after failed send")
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {
+                        let ai = &v.tabs[v.active].assistant;
+                        let task = ai.task.clone();
+                        let question = ai.last_question.clone();
+                        v.ai_preview(&task, question, cx);
+                    })),
+            );
+        }
         if !draft.is_empty() && busy {
             col = col.child(
                 card(cx)
@@ -1120,6 +1274,7 @@ impl Workspace {
         let r_model = receipt["model"].as_str().unwrap_or("");
         let r_hash = receipt["hash"].as_str().unwrap_or("").to_owned();
         let auto_approved = receipt["auto_approved"] == true;
+        let sendable = state.receipt_state == ReceiptState::Prepared;
 
         let mut receipt_card = card(cx)
             .p_3()
@@ -1175,10 +1330,25 @@ impl Workspace {
                     )),
             );
 
+        receipt_card = receipt_card.child(div().text_xs().whitespace_normal().child(format!("Question: {}\nIncluded records: {}; omitted: {}; truncated: {}\nOutput allowance: {} tokens; context window: {} (configured; unknown if null)", receipt["question"].as_str().unwrap_or(""), receipt["selection"]["included"], receipt["selection"]["omitted"], receipt["selection"]["truncated"], receipt["profile"]["max_output_tokens"], receipt["profile"]["context_window"])));
+        if let Some(omitted) = receipt["omitted"].as_array() {
+            for item in omitted {
+                receipt_card = receipt_card.child(
+                    div()
+                        .text_xs()
+                        .whitespace_normal()
+                        .text_color(warning)
+                        .child(format!(
+                            "Omitted {} {}: {}",
+                            item["kind"], item["id"], item["reason"]
+                        )),
+                );
+            }
+        }
         if let Some(items) = receipt["items"].as_array() {
             let mut items_col = v_flex().gap_1p5();
             for (index, item) in items.iter().enumerate() {
-                let text = item["text"].as_str().unwrap_or("").to_owned();
+                let text = receipt_text(item);
                 let kind = item["kind"].as_str().unwrap_or("item");
                 let id = item["id"].as_str().unwrap_or("");
                 let redacted = item["redacted"] == true;
@@ -1247,6 +1417,31 @@ impl Workspace {
         }
 
         let full = serde_json::to_string_pretty(&receipt).unwrap_or_default();
+        let expanded = state.payload_expanded;
+        receipt_card = receipt_card.child(
+            action_button("assistant-exact-payload")
+                .outline()
+                .small()
+                .label(if expanded {
+                    "Hide exact payload and system prompt"
+                } else {
+                    "Show exact payload and system prompt"
+                })
+                .on_click_accessible(cx.listener(|v, _, _, cx| {
+                    v.tabs[v.active].assistant.payload_expanded =
+                        !v.tabs[v.active].assistant.payload_expanded;
+                    cx.notify();
+                })),
+        );
+        if expanded {
+            receipt_card = receipt_card.child(
+                TextView::markdown(
+                    "assistant-exact-json",
+                    safe_markdown(&format!("```json\n{full}\n```")),
+                )
+                .selectable(true),
+            );
+        }
         let a11y_hash = r_hash.clone();
         let click_hash = r_hash;
         let view = cx.entity();
@@ -1271,11 +1466,11 @@ impl Workspace {
                         .icon(Glyph::Sparkles)
                         .label("Approve & send")
                         .accessibility_label("Approve context and send")
-                        .unavailable(busy)
+                        .unavailable(busy || !sendable)
                         .on_a11y_click(move |_, cx| {
                             view.update(cx, |v, cx| v.ai_send(a11y_hash.clone(), cx));
                         })
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             v.ai_send(click_hash.clone(), cx);
                         })),
                 )
@@ -1286,7 +1481,7 @@ impl Workspace {
                         .label("Copy receipt")
                         .accessibility_label("Copy full receipt and system prompt")
                         .hint("Copy full JSON receipt and system prompt to clipboard")
-                        .on_click(cx.listener(move |_, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |_, _, _, cx| {
                             copy_acknowledged(full.clone(), cx);
                         })),
                 )
@@ -1310,7 +1505,12 @@ impl Workspace {
                             } else {
                                 "Auto-approve future receipts for this notebook and destination"
                             })
-                            .on_click(cx.listener(move |v, _, _, cx| {
+                            .on_click_accessible(cx.listener(move |v, _, _, cx| {
+                                if auto_approved {
+                                    v.ai("approval.revoke", json!({}));
+                                    cx.notify();
+                                    return;
+                                }
                                 let root = v.tabs[v.active].assistant.settings["notebook_root"]
                                     .as_str()
                                     .map(str::to_owned)
@@ -1355,6 +1555,11 @@ impl Workspace {
             theme.mono_font_family.clone(),
         );
         let copy_text = text.to_owned();
+        let pdf_text = answer_report(&answer);
+        let word_text = pdf_text.clone();
+        let citations = answer["citations"].as_array().cloned().unwrap_or_default();
+        let resolved = citations.iter().filter(|c| c["verified"] == true).count();
+        let supplied = citations.iter().filter(|c| c["in_context"] == true).count();
         let mut answer_card = card(cx)
             .p_3()
             .gap_2()
@@ -1375,7 +1580,7 @@ impl Workspace {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child("Assistant"),
                             )
-                            .child(badge("Evidence-checked", success))
+                            .child(badge(format!("{resolved}/{} targets found; {supplied} in context", citations.len()), if resolved > 0 { success } else { muted }))
                             .child(info_tip(
                                 "ai-evidence-tip",
                                 "Citation targets are verified against the ledger where marked. Uncited claims and suggested causes are unverified.",
@@ -1404,7 +1609,7 @@ impl Workspace {
                                     .small()
                                     .label("Copy")
                                     .accessibility_label("Copy answer")
-                                    .on_click(cx.listener(move |_, _, _, cx| {
+                                    .on_click_accessible(cx.listener(move |_, _, _, cx| {
                                         copy_acknowledged(copy_text.clone(), cx);
                                     })),
                             )
@@ -1415,9 +1620,9 @@ impl Workspace {
                                     .icon(Glyph::FileText)
                                     .label("PDF")
                                     .accessibility_label("Export PDF")
-                                    .hint("Export report as PDF")
-                                    .on_click(cx.listener(|v, _, window, cx| {
-                                        v.export_dialog("pdf", window, cx);
+                                    .hint("Export this reviewed answer as PDF")
+                                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                                        v.export_answer_dialog("pdf", pdf_text.clone(), window, cx);
                                     })),
                             )
                             .child(
@@ -1427,9 +1632,9 @@ impl Workspace {
                                     .icon(Glyph::FileText)
                                     .label("Word")
                                     .accessibility_label("Export Word")
-                                    .hint("Export report as Word (.docx)")
-                                    .on_click(cx.listener(|v, _, window, cx| {
-                                        v.export_dialog("docx", window, cx);
+                                    .hint("Export this reviewed answer as Word (.docx)")
+                                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                                        v.export_answer_dialog("docx", word_text.clone(), window, cx);
                                     })),
                             ),
                     ),
@@ -1437,8 +1642,12 @@ impl Workspace {
             .child(
                 div()
                     .id("assistant-answer-region")
-                    .role(Role::Group)
-                    .aria_label(format!("Assistant answer: {text}"))
+                    .role(Role::Document)
+                    .aria_label("Assistant answer")
+                    .a11y_synthetic_children({
+                        let nodes = super::notebook::markdown_accessibility_nodes(text);
+                        move |tree| { for (i, node) in nodes.into_iter().enumerate() { let id = tree.synthetic_node_id(i); tree.push_child(id, node); } }
+                    })
                     .child(
                         TextView::markdown("assistant-answer", safe_markdown(text))
                             .selectable(true),
@@ -1454,26 +1663,34 @@ impl Workspace {
                 let kind = citation["kind"].as_str().unwrap_or("record").to_owned();
                 let id = citation["id"].as_str().unwrap_or("").to_owned();
                 let label = format!(
-                    "@{kind}:{id}{}",
+                    "@{kind}:{}{}",
+                    short_title(&id, 24),
                     if verified { "" } else { " (unverified)" }
                 );
                 let click_kind = kind.clone();
                 let click_id = id.clone();
-                let a11y_kind = kind;
-                let a11y_id = id;
+                let a11y_kind = kind.clone();
+                let a11y_id = id.clone();
                 let view = cx.entity();
                 cite_row = cite_row.child(
                     action_button(("ai-citation", i))
                         .outline()
                         .small()
                         .label(label)
+                        .accessibility_label(format!(
+                            "@{kind}:{id}{}",
+                            if verified { "" } else { " (unverified)" }
+                        ))
+                        .hint(format!(
+                            "{kind}: {id}; target existence is not fact checking"
+                        ))
                         .unavailable(!verified)
                         .on_a11y_click(move |_, cx| {
                             view.update(cx, |v, cx| {
                                 v.navigate_citation(&a11y_kind, &a11y_id, cx);
                             });
                         })
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             v.navigate_citation(&click_kind, &click_id, cx);
                         })),
                 );
@@ -1488,6 +1705,25 @@ impl Workspace {
             );
         }
 
+        if let Some(warnings) = answer["warnings"].as_array() {
+            for (index, warning) in warnings.iter().enumerate() {
+                answer_card = answer_card.child(
+                    div()
+                        .id(("ai-proposal-warning", index))
+                        .role(Role::Alert)
+                        .text_xs()
+                        .whitespace_normal()
+                        .text_color(cx.theme().warning)
+                        .child(format!(
+                            "Proposal not applied ({}): {}",
+                            warning["code"].as_str().unwrap_or("invalid"),
+                            warning["message"]
+                                .as_str()
+                                .unwrap_or("Review current source and request another edit")
+                        )),
+                );
+            }
+        }
         Some(answer_card.into_any_element())
     }
 
@@ -1533,7 +1769,8 @@ impl Workspace {
                 });
 
             let state_tone = match p_state {
-                "accepted" => success,
+                "applied" => success,
+                "accepted" | "unknown" => warning,
                 "rejected" => muted,
                 "stale" => warning,
                 _ => primary,
@@ -1567,7 +1804,7 @@ impl Workspace {
                                     )
                                 }),
                         )
-                        .child(badge(p_state.to_string(), state_tone)),
+                        .child(badge(if p_state == "unknown" { "Needs review".to_owned() } else if p_state == "accepted" { "Applying".to_owned() } else { p_state.to_string() }, state_tone)),
                 )
                 .child(
                     div()
@@ -1672,7 +1909,7 @@ impl Workspace {
                         .outline()
                         .small()
                         .label("Copy command")
-                        .on_click(
+                        .on_click_accessible(
                             cx.listener(move |_, _, _, cx| copy_acknowledged(command.clone(), cx)),
                         ),
                 );
@@ -1681,11 +1918,15 @@ impl Workspace {
                     action_button(("ai-apply", index))
                         .primary()
                         .small()
-                        .label("Apply")
+                        .label(if payload["kind"] == "run_cells" {
+                            "Run reviewed cells"
+                        } else {
+                            "Apply"
+                        })
                         .accessibility_label("Apply reviewed proposal")
                         .hint("Apply reviewed proposal to notebook")
                         .unavailable(busy || p_state != "proposed")
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             v.ai(
                                 "proposal.resolve",
                                 json!({"proposal_id": pid, "state": "accepted"}),
@@ -1702,7 +1943,7 @@ impl Workspace {
                         .small()
                         .label("Reject")
                         .unavailable(busy || p_state != "proposed")
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             v.ai(
                                 "proposal.resolve",
                                 json!({"proposal_id": reject, "state": "rejected"}),
@@ -1720,7 +1961,7 @@ impl Workspace {
                         .icon(Glyph::RotateCcw)
                         .label("Regenerate")
                         .unavailable(busy)
-                        .on_click(cx.listener(move |v, _, _, cx| {
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
                             if let Some(cid) = &regen_cell {
                                 v.tabs[v.active].assistant.selected_cells = vec![cid.clone()];
                             }
@@ -1798,7 +2039,7 @@ impl Workspace {
                             .accessibility_label("Search history")
                             .hint("Search execution ledger and assistant history")
                             .unavailable(busy)
-                            .on_click(cx.listener(move |v, _, _, cx| {
+                            .on_click_accessible(cx.listener(move |v, _, _, cx| {
                                 let q = search_for_click.read(cx).value().trim().to_string();
                                 if !q.is_empty() {
                                     v.ai("search", json!({"query": q}));
@@ -1856,9 +2097,15 @@ impl Workspace {
                                             .ghost()
                                             .small()
                                             .label("Inspect")
-                                            .on_click(cx.listener(move |v, _, _, cx| {
-                                                v.navigate_citation("execution", &inspect_exec, cx);
-                                            })),
+                                            .on_click_accessible(cx.listener(
+                                                move |v, _, _, cx| {
+                                                    v.navigate_citation(
+                                                        "execution",
+                                                        &inspect_exec,
+                                                        cx,
+                                                    );
+                                                },
+                                            )),
                                     )
                                     .child(
                                         action_button(("ai-search-add", i))
@@ -1867,17 +2114,23 @@ impl Workspace {
                                             .label("+ Context")
                                             .accessibility_label("Add to context")
                                             .hint("Include this execution in assistant context")
-                                            .on_click(cx.listener(move |v, _, _, cx| {
-                                                let ai = &mut v.tabs[v.active].assistant;
-                                                if !ai.exec_ids.contains(&add_exec) {
-                                                    if ai.exec_ids.len() == 2 {
-                                                        ai.exec_ids.remove(0);
+                                            .on_click_accessible(cx.listener(
+                                                move |v, _, _, cx| {
+                                                    let ai = &mut v.tabs[v.active].assistant;
+                                                    if !ai.exec_ids.contains(&add_exec) {
+                                                        if ai.exec_ids.len() == 2 {
+                                                            ai.exec_ids.remove(0);
+                                                        }
+                                                        ai.exec_ids.push(add_exec.clone());
                                                     }
-                                                    ai.exec_ids.push(add_exec.clone());
-                                                }
-                                                ai.receipt = Value::Null;
-                                                cx.notify();
-                                            })),
+                                                    ai.receipt = Value::Null;
+                                                    ai.receipt_state = ReceiptState::Consumed;
+                                                    ai.started = None;
+                                                    ai.error = false;
+                                                    ai.rebuild = true;
+                                                    cx.notify();
+                                                },
+                                            )),
                                     ),
                             ),
                     );
@@ -1895,8 +2148,16 @@ impl Workspace {
                             .small()
                             .selected(is_selected)
                             .label(row["title"].as_str().unwrap_or("Conversation").to_owned())
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                v.tabs[v.active].assistant.conversation = Some(id.clone());
+                            .on_click_accessible(cx.listener(move |v, _, _, cx| {
+                                let ai = &mut v.tabs[v.active].assistant;
+                                ai.conversation = Some(id.clone());
+                                ai.answer = Value::Null;
+                                ai.receipt = Value::Null;
+                                ai.proposals.clear();
+                                ai.transcript.clear();
+                                ai.exec_ids.clear();
+                                ai.selected_cells.clear();
+                                ai.task = "ask".into();
                                 v.ai("conversation.get", json!({"conversation_id": id}));
                                 cx.notify();
                             })),
@@ -1911,6 +2172,13 @@ impl Workspace {
             let mut transcript_col = v_flex().gap_2();
             for (i, message) in transcript.iter().enumerate() {
                 let role = message["role"].as_str().unwrap_or("assistant");
+                if role == "assistant"
+                    && message["request_id"]
+                        == self.tabs[self.active].assistant.answer["request_id"]
+                    && !self.tabs[self.active].assistant.answer.is_null()
+                {
+                    continue;
+                }
                 let text = message["text"].as_str().unwrap_or("");
                 let is_user = role == "user";
                 transcript_col = transcript_col.child(
@@ -1947,6 +2215,36 @@ impl Workspace {
                 );
             }
             col = col.child(transcript_col);
+            for (turn, message) in transcript.iter().enumerate() {
+                if message["request_id"] == self.tabs[self.active].assistant.answer["request_id"]
+                    && !self.tabs[self.active].assistant.answer.is_null()
+                {
+                    continue;
+                }
+                if let Some(citations) = message["citations"].as_array() {
+                    let mut links = h_flex().gap_1().flex_wrap();
+                    for (index, citation) in citations.iter().enumerate() {
+                        let kind = citation["kind"].as_str().unwrap_or("").to_owned();
+                        let id = citation["id"].as_str().unwrap_or("").to_owned();
+                        links = links.child(
+                            action_button(("ai-history-target", turn * 100 + index))
+                                .outline()
+                                .small()
+                                .label(format!(
+                                    "Turn {}: @{}:{}",
+                                    turn + 1,
+                                    kind,
+                                    short_title(&id, 24)
+                                ))
+                                .unavailable(citation["verified"] != true)
+                                .on_click_accessible(cx.listener(move |v, _, _, cx| {
+                                    v.navigate_citation(&kind, &id, cx)
+                                })),
+                        );
+                    }
+                    col = col.child(links);
+                }
+            }
         }
         Some(col.into_any_element())
     }
@@ -1984,9 +2282,7 @@ impl Workspace {
         if let Some(el) = receipt_sec {
             feed = feed.child(el);
         }
-        if let Some(el) = status_sec {
-            feed = feed.child(el);
-        }
+
         if let Some(el) = answer_sec {
             feed = feed.child(el);
         }
@@ -2002,6 +2298,7 @@ impl Workspace {
             .border_l_1()
             .border_color(divider(cx))
             .child(header)
+            .when_some(status_sec, |d, el| d.child(div().px_2().py_1().child(el)))
             .child(
                 div()
                     .id("assistant-inspector-scroll")
@@ -2085,6 +2382,64 @@ impl Workspace {
             cx,
         );
 
+        let timeout = self.ai_input(
+            "Request deadline seconds",
+            &settings["timeout"].as_u64().unwrap_or(60).to_string(),
+            window,
+            cx,
+        );
+        let context_window = self.ai_input(
+            "Configured context window tokens",
+            &settings["providers"][&provider]["context_window"]
+                .as_u64()
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
+        let schema_provider = provider.clone();
+        let schema_a11y_provider = provider.clone();
+        let direct_provider = provider.clone();
+        let schema_view = cx.entity();
+        let schema_option = Checkbox::new("ai-schema-mode")
+            .label("Enforce JSON schema (server must support it)")
+            .checked(settings["providers"][&provider]["structured_output"] == true)
+            .on_a11y_action(accesskit::Action::Click, move |_, _, cx| {
+                schema_view.update(cx, |v, cx| {
+                    let options = &mut v.tabs[v.active].assistant.settings["settings"]["providers"]
+                        [&schema_a11y_provider];
+                    if !options.is_object() {
+                        *options = json!({});
+                    }
+                    options["structured_output"] = json!(options["structured_output"] != true);
+                    cx.notify();
+                });
+            })
+            .on_click(cx.listener(move |v, checked: &bool, _, cx| {
+                let options = &mut v.tabs[v.active].assistant.settings["settings"]["providers"]
+                    [&schema_provider];
+                if !options.is_object() {
+                    *options = json!({});
+                }
+                options["structured_output"] = json!(checked);
+                cx.notify();
+            }));
+        let direct_option = Checkbox::new("ai-direct-answer")
+            .label("Lemonade extension: request direct answers (thinking off)")
+            .checked(settings["providers"][&provider]["enable_thinking"] == false)
+            .on_click(cx.listener(move |v, checked: &bool, _, cx| {
+                let options = &mut v.tabs[v.active].assistant.settings["settings"]["providers"]
+                    [&direct_provider];
+                if !options.is_object() {
+                    *options = json!({});
+                }
+                if *checked {
+                    options["enable_thinking"] = json!(false);
+                } else {
+                    options.as_object_mut().unwrap().remove("enable_thinking");
+                }
+                cx.notify();
+            }));
         let connection = self.tabs[self.active].assistant.connection.clone();
         let theme = cx.theme();
         let (success, info, danger, muted) = (
@@ -2103,6 +2458,8 @@ impl Workspace {
             ),
             ("openai", "Save OpenAI", "Save OpenAI provider"),
         ] {
+            let timeout = timeout.clone();
+            let context_window = context_window.clone();
             let model = model.clone();
             let endpoint = endpoint.clone();
             let coding_model = coding_model.clone();
@@ -2121,57 +2478,90 @@ impl Workspace {
             } else {
                 btn = btn.outline();
             }
-            providers = providers.child(btn.on_click(cx.listener(move |v, _, _, cx| {
-                let mut config = v.tabs[v.active].assistant.settings["settings"].clone();
-                if !config.is_object() {
-                    config = json!({});
-                }
-                config["provider"] = json!(prov_key);
-                config["model"] = json!(model.read(cx).value().to_string());
-                if !config["providers"].is_object() {
-                    config["providers"] = json!({});
-                }
-                config["providers"][prov_key] =
-                    json!({"base_url": endpoint.read(cx).value().to_string()});
-                let coding_override = coding_model.read(cx).value().trim().to_string();
-                if !config["task_models"].is_object() {
-                    config["task_models"] = json!({});
-                }
-                if coding_override.is_empty() {
-                    if let Some(map) = config["task_models"].as_object_mut() {
-                        map.remove("edit");
-                        map.remove("refactor");
-                        map.remove("tests");
+            providers =
+                providers.child(btn.on_click_accessible(cx.listener(move |v, _, _, cx| {
+                    let mut config = v.tabs[v.active].assistant.settings["settings"].clone();
+                    if !config.is_object() {
+                        config = json!({});
                     }
-                } else {
-                    config["task_models"]["edit"] = json!(coding_override);
-                    config["task_models"]["refactor"] = json!(coding_override);
-                    config["task_models"]["tests"] = json!(coding_override);
-                }
-                let parsed = (
-                    cap.read(cx).value().parse::<u64>(),
-                    output.read(cx).value().parse::<u64>(),
-                    context_bytes.read(cx).value().parse::<u64>(),
-                    retention.read(cx).value().parse::<u64>(),
-                );
-                if let (Ok(cap), Ok(output), Ok(cbytes), Ok(retention)) = parsed {
-                    config["daily_token_cap"] = json!(cap);
-                    config["max_output_tokens"] = json!(output);
-                    config["context_bytes"] = json!(cbytes.clamp(1024, 262_144));
-                    config["retention_days"] = json!(retention);
-                } else {
-                    v.tabs[v.active].assistant.status =
-                        "Budgets and retention must be positive integers.".into();
+                    config["provider"] = json!(prov_key);
+                    config["model"] = json!(model.read(cx).value().to_string());
+                    if !config["providers"].is_object() {
+                        config["providers"] = json!({});
+                    }
+                    merge_provider(&mut config, prov_key, endpoint.read(cx).value().to_string());
+                    let deadline = timeout.read(cx).value().parse::<u64>();
+                    let window_text = context_window.read(cx).value().trim().to_owned();
+                    if let Ok(deadline) = deadline {
+                        config["timeout"] = json!(deadline);
+                    } else {
+                        v.tabs[v.active].assistant.error = true;
+                        v.tabs[v.active].assistant.status =
+                            "Request deadline must be a whole number of seconds.".into();
+                        cx.notify();
+                        return;
+                    }
+                    if window_text.is_empty() {
+                        config["providers"][prov_key]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("context_window");
+                    } else if let Ok(window) = window_text.parse::<u64>() {
+                        config["providers"][prov_key]["context_window"] = json!(window);
+                    } else {
+                        v.tabs[v.active].assistant.error = true;
+                        v.tabs[v.active].assistant.status =
+                            "Context window must be empty (unknown) or a whole number of tokens."
+                                .into();
+                        cx.notify();
+                        return;
+                    }
+                    if prov_key != "openai-compatible" {
+                        config["providers"][prov_key]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("enable_thinking");
+                    }
+                    let coding_override = coding_model.read(cx).value().trim().to_string();
+                    if !config["task_models"].is_object() {
+                        config["task_models"] = json!({});
+                    }
+                    if coding_override.is_empty() {
+                        if let Some(map) = config["task_models"].as_object_mut() {
+                            map.remove("edit");
+                            map.remove("refactor");
+                            map.remove("tests");
+                        }
+                    } else {
+                        config["task_models"]["edit"] = json!(coding_override);
+                        config["task_models"]["refactor"] = json!(coding_override);
+                        config["task_models"]["tests"] = json!(coding_override);
+                    }
+                    let parsed = (
+                        cap.read(cx).value().parse::<u64>(),
+                        output.read(cx).value().parse::<u64>(),
+                        context_bytes.read(cx).value().parse::<u64>(),
+                        retention.read(cx).value().parse::<u64>(),
+                    );
+                    if let (Ok(cap), Ok(output), Ok(cbytes), Ok(retention)) = parsed {
+                        config["daily_token_cap"] = json!(cap);
+                        config["max_output_tokens"] = json!(output);
+                        config["context_bytes"] = json!(cbytes.clamp(1024, 262_144));
+                        config["retention_days"] = json!(retention);
+                    } else {
+                        v.tabs[v.active].assistant.status =
+                            "Budgets and retention must be positive integers.".into();
+                        cx.notify();
+                        return;
+                    }
+                    v.ai("settings.update", json!({"settings": config}));
                     cx.notify();
-                    return;
-                }
-                v.ai("settings.update", json!({"settings": config}));
-                cx.notify();
-            })));
+                })));
         }
 
         let mut endpoint_presets = h_flex().gap_1p5().flex_wrap();
         for (preset_label, preset_url) in [
+            ("Lemonade (:13305)", "http://127.0.0.1:13305/api/v1"),
             ("Ollama (:11434)", "http://127.0.0.1:11434/v1"),
             ("LM Studio (:1234)", "http://127.0.0.1:1234/v1"),
             ("vLLM (:8000)", "http://127.0.0.1:8000/v1"),
@@ -2183,7 +2573,7 @@ impl Workspace {
                     .ghost()
                     .small()
                     .label(preset_label)
-                    .on_click(cx.listener(move |_, _, window, cx| {
+                    .on_click_accessible(cx.listener(move |_, _, window, cx| {
                         endpoint_input.update(cx, |s, cx| {
                             s.set_value(preset_url.to_owned(), window, cx);
                         });
@@ -2199,14 +2589,14 @@ impl Workspace {
             .unwrap_or_default();
         let mut model_chips = h_flex().gap_1p5().flex_wrap();
         for (i, m) in discovered_models.iter().take(12).enumerate() {
-            if let Some(m_name) = m.as_str().map(str::to_owned) {
+            if let Some(m_name) = m.as_str().or_else(|| m["id"].as_str()).map(str::to_owned) {
                 let model_input = model.clone();
                 model_chips = model_chips.child(
                     action_button(("ai-picked-model", i))
                         .outline()
                         .small()
                         .label(m_name.clone())
-                        .on_click(cx.listener(move |_, _, window, cx| {
+                        .on_click_accessible(cx.listener(move |_, _, window, cx| {
                             model_input.update(cx, |s, cx| s.set_value(m_name.clone(), window, cx));
                         })),
                 );
@@ -2227,7 +2617,7 @@ impl Workspace {
                             .icon(Glyph::Sparkles)
                             .label("Open Assistant")
                             .hint("Open the Assistant sidebar in the notebook")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.select_surface("Notebook", cx);
                                 v.open_assistant(cx);
                             })),
@@ -2238,7 +2628,7 @@ impl Workspace {
                             .small()
                             .label("Reload")
                             .accessibility_label("Load AI settings")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.ai("settings.get", json!({}));
                                 cx.notify();
                             })),
@@ -2249,7 +2639,7 @@ impl Workspace {
                             .small()
                             .label("Test connection")
                             .unavailable(connection == Connection::Testing)
-                            .on_click(cx.listener(|v, _, _, cx| v.test_provider(cx))),
+                            .on_click_accessible(cx.listener(|v, _, _, cx| v.test_provider(cx))),
                     )
                     .child(match &connection {
                         Connection::Untested => badge("Not tested", muted),
@@ -2263,7 +2653,7 @@ impl Workspace {
                             .small()
                             .label("List models")
                             .accessibility_label("List available models")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.ai("models.list", json!({}));
                                 cx.notify();
                             })),
@@ -2333,6 +2723,7 @@ impl Workspace {
                 div().min_w(px(240.)).flex_1().child(Input::new(&coding_model)),
                 cx,
             ))
+            .child(setting_row("Inference profile", "Unknown context window: leave empty. Context size is a configured estimate, not server qualification. The direct-answer extension is only for a compatible Lemonade server; Save applies changes. No model is downloaded or loaded.", v_flex().gap_2().child(schema_option).child(direct_option).child(Input::new(&timeout)).child(Input::new(&context_window)), cx))
             .child(setting_row(
                 "Save configuration",
                 "Select whether this endpoint is an OpenAI-compatible server or OpenAI API.",
@@ -2354,7 +2745,7 @@ impl Workspace {
                                     .outline()
                                     .small()
                                     .label("Store API key")
-                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
                                         let provider = v.tabs[v.active].assistant.settings
                                             ["settings"]["provider"]
                                             .as_str()
@@ -2374,7 +2765,7 @@ impl Workspace {
                                     .ghost()
                                     .small()
                                     .label("Remove API key")
-                                    .on_click(cx.listener(|v, _, _, cx| {
+                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
                                         let provider = v.tabs[v.active].assistant.settings
                                             ["settings"]["provider"]
                                             .as_str()
@@ -2457,7 +2848,7 @@ impl Workspace {
                     .small()
                     .label(pol_label)
                     .segment(selected)
-                    .on_click(cx.listener(move |v, _, _, cx| {
+                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
                         v.ai("policy.update", json!({"policy": pol_key}));
                         cx.notify();
                     })),
@@ -2499,7 +2890,7 @@ impl Workspace {
                                 .ghost()
                                 .small()
                                 .label("Revoke")
-                                .on_click(cx.listener(move |v, _, _, cx| {
+                                .on_click_accessible(cx.listener(move |v, _, _, cx| {
                                     let mut config =
                                         v.tabs[v.active].assistant.settings["settings"].clone();
                                     if let Some(map) = config["approvals"].as_object_mut() {
@@ -2554,8 +2945,8 @@ impl Workspace {
                     )
                     .child(
                         div().text_xs().font_family(mono).text_color(info).child(format!(
-                            "Used today: {} tokens",
-                            root["usage"]["used_today"].as_u64().unwrap_or(0)
+                            "Reserved today: {} tokens (this notebook/provider, UTC; includes failures and tests)",
+                            root["usage"]["used_today"].as_u64().map(|v| v.to_string()).unwrap_or_else(|| "Unknown".into())
                         )),
                     ),
                 cx,
@@ -2578,7 +2969,7 @@ impl Workspace {
                             .small()
                             .label("Prune expired")
                             .accessibility_label("Prune expired AI data")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 v.ai("prune", json!({}));
                                 cx.notify();
                             })),
@@ -2587,8 +2978,13 @@ impl Workspace {
                         action_button("ai-purge")
                             .danger()
                             .small()
-                            .label("Delete all AI data")
-                            .on_click(cx.listener(|v, _, _, cx| {
+                            .label(if self.tabs[self.active].assistant.purge_armed { "Confirm delete all AI data" } else { "Delete all AI data" })
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
+                                if !v.tabs[v.active].assistant.purge_armed {
+                                    v.tabs[v.active].assistant.purge_armed = true;
+                                    v.tabs[v.active].assistant.status = "Delete conversations and assistant records? Click Confirm delete all AI data to continue; notebook source/history are preserved.".into(); cx.notify(); return;
+                                }
+                                v.tabs[v.active].assistant.purge_armed = false;
                                 v.ai("purge", json!({}));
                                 let ai = &mut v.tabs[v.active].assistant;
                                 ai.transcript.clear();
