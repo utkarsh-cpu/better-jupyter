@@ -1,0 +1,119 @@
+{
+  "date": "2026-11-05",
+  "scope": "KernelLedger implemented UI candidates, change-focused criteria; scores are not interchangeable with earlier Marimo-review averages.",
+  "scores": [
+    {
+      "label": "Visual consistency",
+      "base": 7.5,
+      "a": 8,
+      "b": 8.5,
+      "confidence": "medium",
+      "why": "Grok gives resting/success/error cells a consistent container and stronger failure boundary. Sol is quieter, with more open canvas."
+    },
+    {
+      "label": "Text readability",
+      "base": 8.5,
+      "a": 8.5,
+      "b": 8.5,
+      "confidence": "medium",
+      "why": "Both preserve the 14 px editor default and approximately 21 px code pitch; no evidence of a new font-size advantage."
+    },
+    {
+      "label": "Notebook identification",
+      "base": 6,
+      "a": 9,
+      "b": 7.5,
+      "confidence": "high for observed labels",
+      "why": "Sol shows the full fixture name at the roomy size. Grok retains middle ellipsis there; both improve path context and suffix discovery over baseline."
+    },
+    {
+      "label": "Navigation / Run clarity",
+      "base": 7.5,
+      "a": 8.5,
+      "b": 8.5,
+      "confidence": "medium",
+      "why": "Both keep Run all labeled at 800 and secondary destinations reachable. Sol uses a current-destination dropdown; Grok adds an explicit Views menu."
+    },
+    {
+      "label": "Compact vertical space",
+      "base": 6.5,
+      "a": 8.5,
+      "b": 8.5,
+      "confidence": "high for geometry",
+      "why": "Both reduce the defined source/output extent from 204 to 172 logical px (15.7%), with matched content and typography."
+    },
+    {
+      "label": "Editor horizontal space",
+      "base": 9,
+      "a": 6.5,
+      "b": 7,
+      "confidence": "high for geometry",
+      "why": "At 1280 the editable rectangle shrinks from 964 logical px to 760 in Sol and 788 in Grok. Grok is 28 px wider; both sacrifice room to gutters/action columns."
+    },
+    {
+      "label": "Responsive / large text",
+      "base": 7.5,
+      "a": 9,
+      "b": 7.5,
+      "confidence": "medium",
+      "why": "Both pass the 800-wide header checks. At UI scale 2 with 24 px code, Sol uses a wider header fallback; Grok keeps the gutter and wraps substantially more source."
+    },
+    {
+      "label": "Error presentation",
+      "base": 8,
+      "a": 8,
+      "b": 8.5,
+      "confidence": "medium",
+      "why": "Both preserve readable summaries/disclosure and wrap the tested traceback. Grok adds a coherent danger border/rail and explicit alert icon."
+    },
+    {
+      "label": "Keyboard / access evidence",
+      "base": 6,
+      "a": 7.5,
+      "b": 7,
+      "confidence": "limited: no speech test",
+      "why": "Both pass contextual focus/menu return and expose Markdown names. Sol provides a document/heading structure; footer/save-state exposure remains incomplete or unverified in both."
+    },
+    {
+      "label": "Execution feedback",
+      "base": 7.5,
+      "a": 8.5,
+      "b": 8.5,
+      "confidence": "medium",
+      "why": "Both retain Ready/Saved/outcomes and offer off-by-default recorded durations verified after rerun. No startup-speed, live-queue or memory ranking is implied."
+    }
+  ],
+  "totals": {
+    "baseline": 74,
+    "sol": 82,
+    "grok": 80
+  },
+  "means": {
+    "baseline": 7.4,
+    "sol": 8.2,
+    "grok": 8
+  },
+  "metrics": {
+    "source_output_extent_logical_px": {
+      "baseline": 204,
+      "sol": 172,
+      "grok": 172
+    },
+    "editor_width_1280_logical_px": {
+      "baseline": 964,
+      "sol": 760,
+      "grok": 788
+    },
+    "editor_width_800_logical_px": {
+      "baseline": 740,
+      "sol": 536,
+      "grok": 564
+    },
+    "editor_width_scaled_stress_logical_px": {
+      "baseline": 684,
+      "sol": 684,
+      "grok": 448
+    }
+  },
+  "qualification": "Native automated journeys, UIA patterns and headless tests; no Narrator/NVDA qualification or user study; no performance ranking."
+}

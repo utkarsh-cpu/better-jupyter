@@ -1638,6 +1638,17 @@
     },
     {
       "surface": "assistant",
+      "name": "approval.revoke",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
       "name": "cancel",
       "implementation": "src/kernelledger/assistant/service.py",
       "regression_suites": [
@@ -1747,6 +1758,17 @@
     {
       "surface": "assistant",
       "name": "providers.test",
+      "implementation": "src/kernelledger/assistant/service.py",
+      "regression_suites": [
+        "tests/test_assistant.py"
+      ],
+      "native": "not_implemented",
+      "required_fields": [],
+      "stopped_runtime": true
+    },
+    {
+      "surface": "assistant",
+      "name": "prune",
       "implementation": "src/kernelledger/assistant/service.py",
       "regression_suites": [
         "tests/test_assistant.py"

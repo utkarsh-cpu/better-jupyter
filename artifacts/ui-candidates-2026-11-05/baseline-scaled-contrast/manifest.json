@@ -1,0 +1,40 @@
+{
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\frontend-screenshot-polish\\2026-11-01\\after\\bin\\kernelledger-desktop.exe",
+  "sha256": "54cdeeb07ee7bf332c191542962410d38475bd479d579eb640c754f588185e08",
+  "capture": "Windows Graphics Capture, owned window only",
+  "fixture": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\baseline-scaled-contrast\\Sales-analysis-notebook",
+  "screens": [
+    {
+      "name": "notebook-1280-contrast",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "notebook-800-contrast",
+      "logical_outer_size": [
+        800,
+        600
+      ],
+      "client_pixels": [
+        1600,
+        1200
+      ]
+    }
+  ],
+  "journeys": {},
+  "runtime": "standard; experimental debugger disabled",
+  "font_px": 24.0,
+  "ui_scale": 2.0,
+  "density": "Compact",
+  "theme": "contrast",
+  "fixture_cells": 3,
+  "pid": 58204,
+  "hwnd": 7209776,
+  "dpi": 192
+}

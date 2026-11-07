@@ -1,0 +1,12 @@
+{
+  "method": "Actual schema and extracted status_summary; in-memory SQLite with fake paths/store. No live store, profile, model or server used.",
+  "sqlite_errors": [
+    "no such column: value"
+  ],
+  "cached_structured_output": false,
+  "returned_structured_output": true,
+  "actual_store_used": 12345,
+  "returned_used_today": 0,
+  "send_time_admission_bypassed": false,
+  "scope": "Incorrect displayed status; does not demonstrate bypass of send-time budget checks."
+}

@@ -1,0 +1,6 @@
+{
+  "flow": "preview -> explicit approval -> fake answer",
+  "network": "none",
+  "result": "passed",
+  "binary_sha256": "cf5ec7ae3004fbf6efe3ba0194f3857b2ea50f006c56d7e186572eab53b54f66"
+}

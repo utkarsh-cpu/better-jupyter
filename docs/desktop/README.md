@@ -9,6 +9,9 @@ title bar, contextual cell controls, and native alignment verification. The
 [screenshot polish](frontend-screenshot-polish.md) documents compact spacing,
 the editing-first cell menu, assistant setup, history, checkpoints, settings,
 and recent notebooks.
+The [UI follow-up](ui-review-followup.md) covers notebook identity, Compact cell
+gutters, Markdown controls and optional timing. [Assistant reliability](../assistant-reliability.md)
+covers provider setup, context review, recovery, evidence and application records.
 Earlier assessments and testing proposals are indexed under [historical UI reports](reviews/README.md).
 
 ```powershell

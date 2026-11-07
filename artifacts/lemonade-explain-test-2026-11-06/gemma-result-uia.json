@@ -1,0 +1,834 @@
+[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     184,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Notebook switcher: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     256,
+                     59,
+                     480,
+                     60
+                 ]
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     756,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     952,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1148,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1664,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Runtime: Python (Not running)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1766,
+                     59,
+                     224,
+                     60
+                 ]
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1984,
+                     59,
+                     184,
+                     60
+                 ]
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2184,
+                     59,
+                     172,
+                     60
+                 ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2372,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2444,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     176,
+                     199,
+                     406,
+                     48
+                 ],
+        "value":  ""
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     160,
+                     255,
+                     438,
+                     1427
+                 ]
+    },
+    {
+        "name":  "Cell 1: markdown cell intro: # Sales analysis",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     176,
+                     255,
+                     406,
+                     61
+                 ]
+    },
+    {
+        "name":  "Cell 2: code cell summary: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     176,
+                     320,
+                     406,
+                     61
+                 ]
+    },
+    {
+        "name":  "Cell 3: code cell error: 1 / 0, failed",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     176,
+                     385,
+                     406,
+                     61
+                 ]
+    },
+    {
+        "name":  "Cell 1, markdown",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     632,
+                     160,
+                     1196,
+                     198
+                 ]
+    },
+    {
+        "name":  "Rendered Markdown cell 1",
+        "role":  "ControlType.Document",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     674,
+                     186,
+                     886,
+                     146
+                 ]
+    },
+    {
+        "name":  "Sales analysis",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     Infinity,
+                     Infinity,
+                     -Infinity,
+                     -Infinity
+                 ]
+    },
+    {
+        "name":  "Compare a small dataset, inspect the result, and diagnose an error.",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     Infinity,
+                     Infinity,
+                     -Infinity,
+                     -Infinity
+                 ]
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1576,
+                     186,
+                     82,
+                     60
+                 ]
+    },
+    {
+        "name":  "Ask Assistant about # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1666,
+                     186,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "More actions for # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1730,
+                     186,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1202,
+                     342,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Cell 2, code",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     632,
+                     386,
+                     1196,
+                     360
+                 ]
+    },
+    {
+        "name":  "Run sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     662,
+                     392,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     662,
+                     456,
+                     80,
+                     39
+                 ]
+    },
+    {
+        "name":  "code cell summary",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     838,
+                     392,
+                     700,
+                     204
+                 ],
+        "value":  "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+    },
+    {
+        "name":  "Output tools: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1554,
+                     392,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1618,
+                     392,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Ask Assistant about sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1682,
+                     392,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "More actions for sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1746,
+                     392,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     666,
+                     610,
+                     1128,
+                     126
+                 ]
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1202,
+                     730,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Cell 3, code, selected",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     632,
+                     774,
+                     1196,
+                     303
+                 ]
+    },
+    {
+        "name":  "Explain error",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     754,
+                     776,
+                     230,
+                     60
+                 ]
+    },
+    {
+        "name":  "Run 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     662,
+                     842,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     662,
+                     906,
+                     80,
+                     39
+                 ]
+    },
+    {
+        "name":  "code cell error",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     838,
+                     842,
+                     764,
+                     78
+                 ],
+        "value":  "1 / 0"
+    },
+    {
+        "name":  "Output tools: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1618,
+                     842,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1682,
+                     842,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "More actions for 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1746,
+                     842,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     666,
+                     959,
+                     1128,
+                     108
+                 ]
+    },
+    {
+        "name":  "Show full traceback for Output 1 for cell 3: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1148,
+                     983,
+                     280,
+                     60
+                 ]
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1144,
+                     1079,
+                     172,
+                     60
+                 ]
+    },
+    {
+        "name":  "New",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2400,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Conversations",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2460,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Proposals",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2520,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Assistant provider settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2580,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Close",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2640,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Answer complete. Review evidence and proposed changes.",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1886,
+                     -296,
+                     810,
+                     83
+                 ]
+    },
+    {
+        "name":  "Copy answer",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1912,
+                     -116,
+                     98,
+                     60
+                 ]
+    },
+    {
+        "name":  "Export PDF",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2018,
+                     -116,
+                     120,
+                     60
+                 ]
+    },
+    {
+        "name":  "Export Word",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2146,
+                     -116,
+                     140,
+                     60
+                 ]
+    },
+    {
+        "name":  "Assistant answer: The recorded exception is a `ZeroDivisionError: division by zero` triggered by the code `1 / 0` in cell `error` (cell id: `error`) during execution `3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3`. \n\n**Observed Traceback:**\nThe traceback confirms that the error originated directly from the evaluation of the expression `1 / 0` within the notebook environment (output id: `3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3`).\n\n**Hypothesis (unverified):**\nThe division by zero was likely intentional for testing error handling or was a placeholder in a calculation that was not yet completed.\n\n**Proposed Fix:**\nChange the denominator from `0` to a non-zero integer, such as `1`.",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1912,
+                     -40,
+                     758,
+                     681
+                 ]
+    },
+    {
+        "name":  "@cell:error",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1912,
+                     671,
+                     176,
+                     60
+                 ]
+    },
+    {
+        "name":  "@execution:3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1912,
+                     739,
+                     704,
+                     60
+                 ]
+    },
+    {
+        "name":  "Apply reviewed proposal",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1914,
+                     1231,
+                     108,
+                     60
+                 ]
+    },
+    {
+        "name":  "Reject",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2034,
+                     1231,
+                     110,
+                     60
+                 ]
+    },
+    {
+        "name":  "Regenerate",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2156,
+                     1231,
+                     218,
+                     60
+                 ]
+    },
+    {
+        "name":  "Context: 1 item",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1882,
+                     1363,
+                     818,
+                     107
+                 ]
+    },
+    {
+        "name":  "Remove 1 / 0 from context",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1882,
+                     1410,
+                     154,
+                     60
+                 ]
+    },
+    {
+        "name":  "Clear",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2044,
+                     1410,
+                     98,
+                     60
+                 ]
+    },
+    {
+        "name":  "Ask about this notebook…",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1900,
+                     1504,
+                     782,
+                     64
+                 ],
+        "value":  ""
+    },
+    {
+        "name":  "Review context",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2420,
+                     1584,
+                     262,
+                     60
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     376,
+                     1694,
+                     66,
+                     39
+                 ]
+    },
+    {
+        "name":  "Runtime: Not running",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     476,
+                     1694,
+                     156,
+                     39
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     666,
+                     1694,
+                     64,
+                     39
+                 ]
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2514,
+                     1684,
+                     182,
+                     60
+                 ]
+    }
+]

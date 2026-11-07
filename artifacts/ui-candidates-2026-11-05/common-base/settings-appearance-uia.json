@@ -1,0 +1,388 @@
+[
+    {
+        "name":  "Notebook switcher: Sales-analysis-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     37,
+                     15,
+                     198,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     247,
+                     15,
+                     166,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     417,
+                     15,
+                     128,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     549,
+                     15,
+                     192,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1797,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1891,
+                     15,
+                     148,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2047,
+                     15,
+                     152,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2207,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2271,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     13,
+                     92,
+                     2534,
+                     1533
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Settings sections",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     256,
+                     222,
+                     400,
+                     348
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Appearance settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     262,
+                     228,
+                     388,
+                     64
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "On"
+    },
+    {
+        "name":  "Editor settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     262,
+                     296,
+                     388,
+                     64
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Layout \u0026 accessibility settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     262,
+                     364,
+                     388,
+                     64
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Runtime settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     262,
+                     432,
+                     388,
+                     64
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Assistant settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     262,
+                     500,
+                     388,
+                     64
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "System",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     742,
+                     356,
+                     128,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Light",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     874,
+                     356,
+                     102,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "On"
+    },
+    {
+        "name":  "Dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     980,
+                     356,
+                     96,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "High contrast",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     1080,
+                     356,
+                     210,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Preview of notebook cells with the current appearance and spacing",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     704,
+                     480,
+                     1600,
+                     506
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     2341,
+                     1627,
+                     182,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    }
+]

@@ -1,0 +1,810 @@
+[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     37,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Notebook switcher: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     101,
+                     15,
+                     480,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     593,
+                     15,
+                     192,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "On"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     789,
+                     15,
+                     192,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     985,
+                     15,
+                     192,
+                     60
+                 ],
+        "patterns":  [
+                         "TogglePatternIdentifiers.Pattern"
+                     ],
+        "toggle":  "Off"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1531,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1625,
+                     15,
+                     148,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1835,
+                     15,
+                     184,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2027,
+                     15,
+                     172,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2207,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2271,
+                     15,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     29,
+                     155,
+                     402,
+                     48
+                 ],
+        "patterns":  [
+                         "ValuePatternIdentifiers.Pattern"
+                     ],
+        "value":  ""
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     13,
+                     211,
+                     434,
+                     1414
+                 ],
+        "patterns":  [
+                         "SelectionPatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Cell 1: markdown cell intro: # Sales analysis",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     29,
+                     211,
+                     402,
+                     61
+                 ],
+        "patterns":  [
+                         "SelectionItemPatternIdentifiers.Pattern"
+                     ],
+        "selected":  true
+    },
+    {
+        "name":  "Cell 2: code cell summary: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     29,
+                     276,
+                     402,
+                     61
+                 ],
+        "patterns":  [
+                         "SelectionItemPatternIdentifiers.Pattern"
+                     ],
+        "selected":  false
+    },
+    {
+        "name":  "Cell 3: code cell error: 1 / 0, failed",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     29,
+                     341,
+                     402,
+                     61
+                 ],
+        "patterns":  [
+                         "SelectionItemPatternIdentifiers.Pattern"
+                     ],
+        "selected":  false
+    },
+    {
+        "name":  "Cell 1, markdown, selected",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     481,
+                     116,
+                     1984,
+                     198
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Rendered Markdown cell 1",
+        "role":  "ControlType.Document",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     523,
+                     142,
+                     1664,
+                     146
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Sales analysis",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     Infinity,
+                     Infinity,
+                     -Infinity,
+                     -Infinity
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Compare a small dataset, inspect the result, and diagnose an error.",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     Infinity,
+                     Infinity,
+                     -Infinity,
+                     -Infinity
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2203,
+                     142,
+                     82,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Ask Assistant about # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2293,
+                     142,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "More actions for # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2357,
+                     142,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1445,
+                     298,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Cell 2, code",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     481,
+                     342,
+                     1984,
+                     360
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Run sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     511,
+                     348,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "code cell summary",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     655,
+                     348,
+                     1520,
+                     204
+                 ],
+        "patterns":  [
+                         "ValuePatternIdentifiers.Pattern"
+                     ],
+        "value":  "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+    },
+    {
+        "name":  "Output tools: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2191,
+                     348,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2255,
+                     348,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Ask Assistant about sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2319,
+                     348,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "More actions for sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2383,
+                     348,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     515,
+                     566,
+                     1916,
+                     126
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1445,
+                     686,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Cell 3, code",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     481,
+                     730,
+                     1984,
+                     276
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Explain error",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     603,
+                     732,
+                     230,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Run 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     511,
+                     796,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "code cell error",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     655,
+                     796,
+                     1584,
+                     78
+                 ],
+        "patterns":  [
+                         "ValuePatternIdentifiers.Pattern"
+                     ],
+        "value":  "1 / 0"
+    },
+    {
+        "name":  "Output tools: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2255,
+                     796,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2319,
+                     796,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "More actions for 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     2383,
+                     796,
+                     56,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     515,
+                     888,
+                     1916,
+                     108
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Show full traceback for Output 1 for cell 3: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     997,
+                     912,
+                     280,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  true,
+        "rect":  [
+                     1387,
+                     1008,
+                     172,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     229,
+                     1637,
+                     66,
+                     39
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Runtime: Ready",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     329,
+                     1637,
+                     92,
+                     39
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     455,
+                     1637,
+                     64,
+                     39
+                 ],
+        "patterns":  [
+
+                     ]
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "offscreen":  false,
+        "focused":  false,
+        "focusable":  false,
+        "rect":  [
+                     2341,
+                     1627,
+                     182,
+                     60
+                 ],
+        "patterns":  [
+                         "InvokePatternIdentifiers.Pattern"
+                     ]
+    }
+]

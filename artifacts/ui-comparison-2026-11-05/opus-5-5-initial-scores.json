@@ -1,0 +1,41 @@
+{
+  "reviewer": "Claude Opus 5.5 High",
+  "status": "NOT SCORED - image viewing failed",
+  "image_viewing_attempts": [
+    "view_file on each PNG: returned raw PNG bytes as text, no rendered image",
+    "client_view_file: rejected PNG as non-UTF-8",
+    "t3-code html_preview with the PNG inlined (1280px and 480px): screenshot was offloaded to disk as a file reference and never displayed to this reviewer"
+  ],
+  "policy_applied": "Brief: 'if image viewing fails, say so and do not invent a visual inspection or scores'. All marimo/kernelledger scores are null. Totals and means are null. No visual claim below comes from seeing an image.",
+  "non_visual_evidence_used": [
+    "Programmatic pixel statistics (PIL/numpy) after resizing each raster to its logical size: dominant colours, ink coverage, pale-red surface share, rough luminance contrast of ink vs dominant background",
+    "Windows built-in OCR (Windows.Media.Ocr) text lines with bounding boxes, divided by raster scale (Marimo notebook/settings 1.0, Marimo narrow 1.6, Kernel ~1.98-2.0)",
+    "kernel-notebook-uia.json, kernel-settings-uia.json, kernel-commands-uia.json (Kernel only; physical px at DPI 192, divide by 2 for logical)",
+    "session.json, capture.py, sales_analysis.py"
+  ],
+  "dimensions": [
+    {"name": "visual polish", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Not scorable without seeing the images. Measured only: Marimo background is ~92% near-white (252) in notebook/settings. Kernel uses a warm off-white (244,244,236) base with white (252) surfaces about 15% of the notebook area, i.e. layered surfaces. A dark theme capture exists for Kernel only. No polish judgement made.", "measured_lean": "none"},
+    {"name": "text readability", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Logical OCR word-box heights are similar. Prose: Marimo ~14px, Kernel ~13.6px. Code: Marimo 10-14, Kernel 9.6-12.6. Outputs: Marimo 9-12, Kernel 9-11. Marimo helper text in settings is ~11-12px boxes. Crude contrast: the median of high-contrast ink vs background is about 3.3:1 for Marimo and 5.6:1 for Kernel. This is anti-aliasing-sensitive and not a WCAG measurement. Not a score.", "measured_lean": "weak, Kernel (crude contrast proxy only)"},
+    {"name": "visual hierarchy", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Only heading size is measured. Marimo H1 box ~34px logical, Kernel ~28px. Hierarchy needs visual inspection, so no lean.", "measured_lean": "none"},
+    {"name": "space efficiency", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "At 1280x850 the OCR content columns run Marimo x~144-1180 (centred, medium width) and Kernel x~255-1230, after a ~250px cell sidebar. Marimo content ends at y~748 with Markdown source and the full traceback expanded. Kernel content ends at y~590 with both collapsed, followed by ~240px of empty space before the status bar at y~831. These are opposite-direction confounds, so no fair lean.", "measured_lean": "none (confounded)"},
+    {"name": "navigation clarity", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Kernel UIA shows a labelled top bar (Outline, notebook switcher, Notebook/History/Checkpoints destinations, Commands, Runtime status, Run all, Export, Settings, Menu), a cell list with 'Cell 3: 1 / 0, failed', and Filter cells. OCR shows the notebook switcher truncated to 'kernelle...'. There is no comparable Marimo structure dump. Marimo OCR found no top-bar text labels, and absence from OCR does not mean absence from the UI.", "measured_lean": "none (no comparable Marimo data)"},
+    {"name": "action discoverability", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Kernel UIA shows per-cell Run, Output tools, Hide output, Ask Assistant and More actions, plus Explain error and Show full traceback. All are 28x30 logical, below the 44px touch guidance but fine for desktop pointer use. Marimo OCR shows 'Launch debugger' and 'Get help' under the traceback. Without seeing hover/visibility state, nothing comparable.", "measured_lean": "none"},
+    {"name": "execution feedback", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Marimo OCR shows per-cell run times (~848ms, 1ms, 172ms). Kernel OCR/UIA shows 'Runtime: Python (Ready)', a status bar with 'Ready' and 'Saved', a 'Failed' label on the error cell, and 'failed' in the cell list. No timing text was detected for Kernel. The two expose different signals, and stills cannot show running/queued states.", "measured_lean": "none (different signals)"},
+    {"name": "error experience", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Marimo: 'ZeroDivisionError' / 'division by zero' header, then an expanded traceback ('Traceback (most recent call last)', 'Cell marimo://...'), then 'Launch debugger' and 'Get help'. Kernel: a 'Failed' label, 'ZeroDivisionError: division by zero' on a pale-red surface (pale-red share 4.6% of the notebook area vs Marimo's 2.6%), plus 'Explain error' and 'Show full traceback' (collapsed). The expanded vs collapsed traceback is a confound.", "measured_lean": "none (confounded)"},
+    {"name": "settings usability", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Different panes (Marimo Editor vs Kernel Appearance). Marimo: a centred modal (ink x~194-1096) with sections Editor, Display, Packages & Data, Runtime, [one unread], Optional Dependencies, Labs; about 12 controls with helper text; version/locale and config-file path. Kernel: a full page with sections Appearance, Editor, Layout & accessibility, Runtime, Assistant; one 4-way theme control (System/Light/Dark/High contrast) and a labelled live preview ('Sample cells. Nothing here runs.'). Not comparable.", "measured_lean": "none (different panes)"},
+    {"name": "800x600 layout", "marimo": null, "kernelledger": null, "confidence": "none",
+     "reason": "Marimo (1.6x raster): a full file-path title at the top, then Markdown source, heading, code and output. Only the 'ZeroDivisionError' title is detected at y~554 of 600, and the message and traceback are below the fold. Kernel (2.0x): no sidebar text was detected (sidebar appears collapsed), and the whole notebook fits, including 'ZeroDivisionError: division by zero' and 'Show full traceback' at y~526, with the status bar at y~580. 'Export' text was not detected. Partly confounded by Marimo's visible source and expanded traceback.", "measured_lean": "weak, Kernel (above-fold content; confounded)"}
+  ],
+  "totals": {"marimo": null, "kernelledger": null},
+  "means": {"marimo": null, "kernelledger": null},
+  "method": "independent review of saved captures; no new task study. Image viewing failed, so no visual ratings were made. Only measured pixel/OCR/UIA facts are recorded, and they are not converted into scores."
+}

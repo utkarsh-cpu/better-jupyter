@@ -3,7 +3,7 @@
 | Item | Decision |
 | --- | --- |
 | Date | 2026-11-05 |
-| Status | Final synthesis for implementation; not implemented. |
+| Status | Sol candidate integrated 2026-11-07; [implementation and qualification notes](../docs/desktop/ui-review-followup.md). Broader release gates remain open. |
 | Scope | A focused native desktop UI increment after the November screenshot polish. |
 | Relationship | Work plan under the existing frontend track; does not replace or publish a new version of `FRONTEND_PLAN.md`. |
 | Evidence | [Captured comparison and first review](../artifacts/ui-comparison-2026-11-05/review.md), [Grok review](../artifacts/ui-comparison-2026-11-05/grok-review.md), [Cursor Opus review](../artifacts/ui-comparison-2026-11-05/opus-cursor-review.md), and the parent critiques in that directory. |

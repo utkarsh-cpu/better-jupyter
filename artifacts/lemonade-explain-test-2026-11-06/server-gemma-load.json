@@ -1,0 +1,15 @@
+{
+  "request": {
+    "model_name": "Gemma-4-26B-A4B-it-GGUF",
+    "ctx_size": 8192,
+    "llamacpp_args": "--parallel 1 --reasoning-budget 512",
+    "save_options": false
+  },
+  "response": {
+    "checkpoint": "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M",
+    "model_name": "Gemma-4-26B-A4B-it-GGUF",
+    "recipe": "llamacpp",
+    "status": "success"
+  },
+  "seconds": 17.54342794418335
+}

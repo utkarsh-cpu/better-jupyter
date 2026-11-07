@@ -1,0 +1,33 @@
+{
+  "requests": [
+    {
+      "id": "32cd65db92064fb8b659d49d69755f49",
+      "task": "probe",
+      "status": "done",
+      "error": null
+    },
+    {
+      "id": "9724bd2b26834d5f8ad0575d1296b994",
+      "task": "explain",
+      "status": "done",
+      "error": null
+    },
+    {
+      "id": "27f205ed19504a7195c2afa529293c9c",
+      "task": "summary",
+      "status": "interrupted",
+      "error": "assistant process ended"
+    },
+    {
+      "id": "c5a023248cb647dd91081f55490decc0",
+      "task": "summary",
+      "status": "done",
+      "error": null
+    }
+  ],
+  "source": "1 / 1",
+  "execution_count": 3,
+  "runtime": "stopped in native UIA snapshot",
+  "cancelled_receipt": "native-cancel-uia.json",
+  "recovery": "native-recovered-uia.json"
+}

@@ -1,0 +1,230 @@
+[
+    {
+        "name":  "Outline",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "37,15,56,60"
+    },
+    {
+        "name":  "Notebook switcher: kernelledger-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "101,15,192,60"
+    },
+    {
+        "name":  "Notebook, current destination",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "305,15,166,60"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "475,15,128,60"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "607,15,192,60"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1633,15,56,60"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1727,15,148,60"
+    },
+    {
+        "name":  "Run all",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1883,15,156,60"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2047,15,152,60"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2207,15,56,60"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2271,15,56,60"
+    },
+    {
+        "name":  "Filter cells",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "rect":  "29,155,402,48"
+    },
+    {
+        "name":  "Notebook cells",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "rect":  "13,211,434,1414"
+    },
+    {
+        "name":  "Cell 1: # Sales analysis",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "rect":  "29,211,402,61"
+    },
+    {
+        "name":  "Cell 2: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "rect":  "29,276,402,61"
+    },
+    {
+        "name":  "Cell 3: 1 / 0, failed",
+        "role":  "ControlType.ListItem",
+        "enabled":  true,
+        "rect":  "29,341,402,61"
+    },
+    {
+        "name":  "Edit",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2229,118,82,60"
+    },
+    {
+        "name":  "Ask Assistant about # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2319,118,56,60"
+    },
+    {
+        "name":  "More actions for # Sales analysis",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2383,118,56,60"
+    },
+    {
+        "name":  "Insert cell after cell 1",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1445,360,56,60"
+    },
+    {
+        "name":  "Run sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "507,406,56,60"
+    },
+    {
+        "name":  "Output tools: sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2191,406,56,60"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2255,406,56,60"
+    },
+    {
+        "name":  "Ask Assistant about sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2319,406,56,60"
+    },
+    {
+        "name":  "More actions for sales = [120, 180, 150, 210]",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2383,406,56,60"
+    },
+    {
+        "name":  "code cell summary",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "rect":  "511,470,1928,204"
+    },
+    {
+        "name":  "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "rect":  "515,688,1916,126"
+    },
+    {
+        "name":  "Insert cell after cell 2",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1445,808,56,60"
+    },
+    {
+        "name":  "Run 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "507,854,56,60"
+    },
+    {
+        "name":  "Explain error",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "739,854,230,60"
+    },
+    {
+        "name":  "Output tools: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2255,854,56,60"
+    },
+    {
+        "name":  "Hide output",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2319,854,56,60"
+    },
+    {
+        "name":  "More actions for 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2383,854,56,60"
+    },
+    {
+        "name":  "code cell error",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "rect":  "511,918,1928,78"
+    },
+    {
+        "name":  "Recorded execution error: ZeroDivisionError: division by zero",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "rect":  "515,1010,1916,108"
+    },
+    {
+        "name":  "Show full traceback for Output 1 for cell 3: 1 / 0",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "997,1034,280,60"
+    },
+    {
+        "name":  "Add cell at end of notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1387,1130,172,60"
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2341,1627,182,60"
+    }
+]

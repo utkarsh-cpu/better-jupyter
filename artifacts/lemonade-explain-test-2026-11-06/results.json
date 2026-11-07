@@ -1,0 +1,224 @@
+{
+  "notebook": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+  "requests": [
+    {
+      "id": "4f37f49c04e5416a84a01e09d7c835e1",
+      "task": "explain",
+      "provider": "openai-compatible",
+      "model": "LFM2.5-8B-A1B",
+      "destination": "127.0.0.1",
+      "receipt_hash": "00b7baa441eb99c7036013a8fbd061a882fcf34a126444b5efdd8f5786422ae9",
+      "status": "error",
+      "error": "provider_error",
+      "usage": {},
+      "created": 1793971762.214243,
+      "finished": 1793971777.959733,
+      "elapsed_seconds": 15.745
+    },
+    {
+      "id": "df2d446e4c204463a94c72d8ac5d4b7f",
+      "task": "explain",
+      "provider": "openai-compatible",
+      "model": "LFM2.5-8B-A1B",
+      "destination": "127.0.0.1",
+      "receipt_hash": "00b7baa441eb99c7036013a8fbd061a882fcf34a126444b5efdd8f5786422ae9",
+      "status": "error",
+      "error": "provider_error",
+      "usage": {},
+      "created": 1793972124.9710908,
+      "finished": 1793972140.875266,
+      "elapsed_seconds": 15.904
+    },
+    {
+      "id": "9fb33c1eeecc45ca8e0cd014983a2508",
+      "task": "explain",
+      "provider": "openai-compatible",
+      "model": "LFM2.5-8B-A1B",
+      "destination": "127.0.0.1",
+      "receipt_hash": "00b7baa441eb99c7036013a8fbd061a882fcf34a126444b5efdd8f5786422ae9",
+      "status": "error",
+      "error": "stale",
+      "usage": {},
+      "created": 1793972381.1491475,
+      "finished": 1793972384.0611053,
+      "elapsed_seconds": 2.912
+    },
+    {
+      "id": "7c0867ffcf664f319b0e195764f575ef",
+      "task": "explain",
+      "provider": "openai-compatible",
+      "model": "LFM2.5-8B-A1B",
+      "destination": "127.0.0.1",
+      "receipt_hash": "00b7baa441eb99c7036013a8fbd061a882fcf34a126444b5efdd8f5786422ae9",
+      "status": "error",
+      "error": "stale",
+      "usage": {},
+      "created": 1793972788.8523479,
+      "finished": 1793972798.361808,
+      "elapsed_seconds": 9.509
+    },
+    {
+      "id": "b979370a5446434995ac92592c583397",
+      "task": "explain",
+      "provider": "openai-compatible",
+      "model": "Gemma-4-26B-A4B-it-GGUF",
+      "destination": "127.0.0.1",
+      "receipt_hash": "ead01670917ea7b1ab8223a090f8d96f49aba1248f06d0b6d96ad57e63fd09b0",
+      "status": "done",
+      "error": null,
+      "usage": {
+        "completion_tokens": 882,
+        "prompt_tokens": 1847,
+        "total_tokens": 2729,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "created": 1793973451.6432817,
+      "finished": 1793973480.942951,
+      "elapsed_seconds": 29.3
+    }
+  ],
+  "messages": [
+    {
+      "request_id": "b979370a5446434995ac92592c583397",
+      "role": "assistant",
+      "text": "The recorded exception is a `ZeroDivisionError: division by zero` triggered by the code `1 / 0` in cell `error` (cell id: `error`) during execution `3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3`. \n\n**Observed Traceback:**\nThe traceback confirms that the error originated directly from the evaluation of the expression `1 / 0` within the notebook environment (output id: `3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3`).\n\n**Hypothesis (unverified):**\nThe division by zero was likely intentional for testing error handling or was a placeholder in a calculation that was not yet completed.\n\n**Proposed Fix:**\nChange the denominator from `0` to a non-zero integer, such as `1`.",
+      "citations": [
+        {
+          "id": "error",
+          "kind": "cell",
+          "verified": true
+        },
+        {
+          "id": "3b2ee1d5-4ecc-4f18-ae35-5acdf03beaf3",
+          "kind": "execution",
+          "verified": true
+        }
+      ]
+    }
+  ],
+  "proposals": [
+    {
+      "id": "9c46c3c287a54009b203a4c3949ddfaa",
+      "request_id": "b979370a5446434995ac92592c583397",
+      "payload": {
+        "cell_id": "error",
+        "kind": "edit_cell",
+        "rationale": "Change the denominator from 0 to 1 to prevent the ZeroDivisionError.",
+        "source": "1 / 1",
+        "source_sha256": "95baf036f1aa2733423c14f202dbee17b0d6c29230f6484fd711c678cd64635a"
+      },
+      "state": "proposed"
+    }
+  ],
+  "applications": [],
+  "notebook_files_unchanged": true,
+  "notebook_file_hashes": {
+    ".gitignore": "73295a6f4fe73fa9be39f95aa1ebad9c88242aaa965d688d90f0b828e2083f7c",
+    "notebook.json": "2af4462324a54800cbb2679b1a33ba42525452f7949933bd248ea6353e6ee7ce",
+    "cells\\error.py": "95baf036f1aa2733423c14f202dbee17b0d6c29230f6484fd711c678cd64635a",
+    "cells\\intro.md": "0f1dd37d053ec6ad97b7c0d0df2ad3d140ae5b1ca80cb5d50e9dfc4a8a2837f8",
+    "cells\\summary.py": "9fda5d72c86105420c0d5ef6cc7439fb6e26a885462718b7f9a077c27d828b89"
+  },
+  "execution_count_before": 5,
+  "execution_count_after": 5,
+  "no_new_executions": true,
+  "no_proposals_applied": true,
+  "server_health": {
+    "all_models_loaded": [
+      {
+        "backend_alive": true,
+        "backend_health": "ready",
+        "backend_url": "http://127.0.0.1:8001/v1",
+        "checkpoint": "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M",
+        "device": "gpu",
+        "is_busy": false,
+        "is_streaming": false,
+        "last_use": 2525658,
+        "launch_command": [
+          "C:\\Users\\UTKARSH KAUSHIK\\.cache\\lemonade\\bin\\llamacpp\\vulkan\\llama-server.exe",
+          "-m",
+          "C:\\Users\\UTKARSH KAUSHIK\\.cache\\huggingface\\hub/models--unsloth--gemma-4-26B-A4B-it-GGUF\\snapshots\\c099eb48e663fd284577b04978a94ffccb261841\\gemma-4-26B-A4B-it-UD-Q4_K_M.gguf",
+          "--ctx-size",
+          "8192",
+          "--port",
+          "8001",
+          "--jinja",
+          "--metrics",
+          "--mmproj",
+          "C:\\Users\\UTKARSH KAUSHIK\\.cache\\huggingface\\hub/models--unsloth--gemma-4-26B-A4B-it-GGUF\\snapshots\\c099eb48e663fd284577b04978a94ffccb261841\\mmproj-F16.gguf",
+          "--parallel",
+          "1",
+          "--reasoning-budget",
+          "512"
+        ],
+        "loaded": true,
+        "max_context_window": 262144,
+        "model_name": "Gemma-4-26B-A4B-it-GGUF",
+        "pid": 28096,
+        "pinned": false,
+        "recipe": "llamacpp",
+        "recipe_options": {
+          "ctx_size": 8192,
+          "llamacpp_args": "--parallel 1 --reasoning-budget 512"
+        },
+        "residency_class": "standard",
+        "slot_pool": "standard/llm",
+        "status": "ready",
+        "type": "llm",
+        "watchdog_reset": false
+      }
+    ],
+    "max_models": {
+      "classification": 1,
+      "embedding": 1,
+      "image": 1,
+      "llm": 1,
+      "reranking": 1,
+      "transcription": 1,
+      "tts": 1
+    },
+    "model_loaded": "Gemma-4-26B-A4B-it-GGUF",
+    "pinned_helper_models": {
+      "classification": 0,
+      "embedding": 0,
+      "image": 0,
+      "llm": 0,
+      "reranking": 0,
+      "transcription": 0,
+      "tts": 0
+    },
+    "pinned_models": {
+      "classification": 0,
+      "embedding": 0,
+      "image": 0,
+      "llm": 0,
+      "reranking": 0,
+      "transcription": 0,
+      "tts": 0
+    },
+    "status": "ok",
+    "telemetry": {
+      "enabled": false
+    },
+    "update_check_done": true,
+    "version": "2026.41.1",
+    "websocket_port": 9000
+  },
+  "server_last_request_stats": {
+    "cache_tokens": 0,
+    "cache_tokens_total": 6328,
+    "input_tokens": 1847,
+    "input_tokens_total": 7800,
+    "output_tokens": 882,
+    "output_tokens_total": 8467,
+    "prompt_tokens": 1847,
+    "prompt_tokens_total": 14128,
+    "request_count_total": 10,
+    "routing_decisions_total": 0,
+    "routing_switches_total": 0,
+    "time_to_first_token": 6.30531,
+    "tokens_per_second": 40.83746942114857
+  }
+}

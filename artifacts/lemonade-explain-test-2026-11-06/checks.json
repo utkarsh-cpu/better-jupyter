@@ -1,0 +1,14 @@
+{
+  "native_request_done": true,
+  "native_model_is_gemma": true,
+  "correct_diagnosis": true,
+  "both_citations_verified": true,
+  "proposal_correct_for_fixture": true,
+  "proposal_uses_current_hash": true,
+  "proposal_left_unapplied": true,
+  "source_unchanged": true,
+  "no_new_executions": true,
+  "answer_completed_in_ui": true,
+  "execution_citation_opened_history": true,
+  "cell_citation_returned_to_error": true
+}
