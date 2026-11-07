@@ -1,0 +1,34 @@
+{
+  "kind": "provisional_agent_heuristic",
+  "date": "2026-11-07",
+  "plan": "plans/frontend-live-ux-draft.md",
+  "qualification": "Not a release score. NT remains the scorecard default until keyboard, screen-reader, and recovery journeys are directly verified. Live agent heuristics must not be treated as F-QA pass.",
+  "environment": {
+    "os": "Ubuntu 24.04 (cloud agent)",
+    "display": "X11 :1 XFCE",
+    "graphics": "Mesa llvmpipe software GL",
+    "build": "desktop/target/debug/kernelledger-desktop",
+    "rust": "1.99.0"
+  },
+  "overall": 7.8,
+  "categories": [
+    { "name": "Visual hierarchy", "score": 8.0 },
+    { "name": "Typography", "score": 7.0 },
+    { "name": "Color and theme", "score": 8.0 },
+    { "name": "Distinctiveness / brand", "score": 6.5, "note": "KL mark + status wordmark landed; still quiet" },
+    { "name": "Restraint / clutter", "score": 8.5 },
+    { "name": "Spacing and density", "score": 8.0 },
+    { "name": "Consistency / craft", "score": 8.0 },
+    { "name": "Interaction clarity", "score": 8.5 },
+    { "name": "Error and state design", "score": 9.0 },
+    { "name": "Copy / writing", "score": 7.5 },
+    { "name": "Accessibility (observed only)", "score": 7.0, "note": "No NVDA/Narrator/Orca pass" },
+    { "name": "Delight", "score": 6.0 }
+  ],
+  "open_gates": [
+    "E screen-reader journeys",
+    "F performance campaign",
+    "G hardware Linux GL/Vulkan",
+    "J formative study 5-8 participants"
+  ]
+}

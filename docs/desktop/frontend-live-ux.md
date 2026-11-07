@@ -12,7 +12,9 @@ Working notes for the [live UX draft plan](../../plans/frontend-live-ux-draft.md
 
 ## Live heuristic (not a release score)
 
-Overall **7.8 / 10**. Strongest: error/state (~9), interaction clarity, restraint. Weakest: brand/distinctiveness (~6), delight (~6), unqualified AT.
+Overall **7.8 / 10**. Strongest: error/state (~9), interaction clarity, restraint. Weakest: brand/distinctiveness (~6.5 after wordmark), delight (~6), unqualified AT.
+
+Provisional JSON: [scorecard-provisional.json](../../artifacts/frontend-live-ux-2026-11-07/scorecard-provisional.json). Does not replace [ux-scorecard.md](ux-scorecard.md) NT ratings.
 
 ## Plan coverage
 
@@ -24,16 +26,16 @@ It does **not** replace `FRONTEND_PLAN.md`. Publish a frontend version only afte
 
 | Workstream | Status | What landed |
 | --- | --- | --- |
-| A Identity | In progress | Cool slate paper tokens (`#EEF1F5` / cobalt); Ubuntu fonts on Linux; always-visible `KernelLedger`/`KL` wordmark; Settings preview brand line; sentence-case “Context receipt” |
-| B Density / narrow | In progress | Wordmark collapse budget before Run label; narrower assistant panel (280–560, default 320/400); compact overlay width capped |
-| C Surfaces | Partial | History advanced filters already disclosed; no further IA rewrite |
-| D State grammar | In progress | Failed cells: danger border + left rail + a11y “failed”; Editing remains Notebook-scoped |
-| E Accessibility | Open | Needs NVDA/Narrator/Orca on qualified hosts |
-| F Performance | Open | Measurement campaign not run |
-| G Linux platform | In progress | Package/env docs + `launch_linux.py`; hardware GL still untested |
-| H Assistant | Partial | Narrow coexistence with B; reliability draft remainder open |
-| I Interchange/help | Open | |
-| J Studies/scorecard | Open | |
+| A Identity | Done for draft slice | Cool slate paper; Ubuntu fonts on Linux; KL title mark + status wordmark; Settings brand preview; sentence-case “Context receipt” |
+| B Density / narrow | Done for draft slice | Collapse budget with KL; narrower assistant; Linux caption gutter |
+| C Surfaces | Done for draft slice | History Filters hint (after:/before:); Help subtitle restored; About/Copy build info craft |
+| D State grammar | Done for draft slice | Failed border/rail/a11y; Editing Notebook-scoped |
+| E Accessibility | Partial | Destination change clears menus/palette; [a11y-checklist.md](../../artifacts/frontend-live-ux-2026-11-07/a11y-checklist.md); AT host runs still open |
+| F Performance | Scaffolded | [perf-campaign.md](../../artifacts/frontend-live-ux-2026-11-07/perf-campaign.md); measurements not run |
+| G Linux platform | Partial | Packages/env + launcher; hardware GL untested |
+| H Assistant | Partial | Narrow coexistence; Rebuild context already present; broader reliability gates open |
+| I Interchange/help | Partial | Help/Diagnostics empty-state copy; export/Git journeys not re-qualified |
+| J Studies/scorecard | Partial | Provisional heuristic filed; release scorecard still NT |
 
 ## Token sheet (A.1)
 

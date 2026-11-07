@@ -1936,6 +1936,17 @@ impl Workspace {
         }
     }
     fn select_surface(&mut self, surface: &str, cx: &mut Context<Self>) {
+        // Drop destination-scoped chrome so hover/tooltips and menus cannot
+        // linger over an unrelated page (live UX E / apple-design live finding).
+        self.app_menu = false;
+        self.export_menu = false;
+        self.runtime_menu = false;
+        self.notebook_menu = false;
+        self.cell_menu = None;
+        self.insert_menu = None;
+        self.palette = false;
+        self.menu_anchor.clear();
+        self.menu_bounds.clear();
         if let Some(tab) = self.tabs.get_mut(self.active) {
             tab.selections
                 .insert(self.surface.clone(), self.record_active);

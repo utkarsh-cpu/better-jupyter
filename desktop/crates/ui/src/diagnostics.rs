@@ -81,7 +81,7 @@ impl Workspace {
                         div()
                             .text_sm()
                             .text_color(cx.theme().muted_foreground)
-                            .child("No issues reported"),
+                            .child("No issues reported by this check."),
                     )
                 });
             if let Some(issues) = issue_list {

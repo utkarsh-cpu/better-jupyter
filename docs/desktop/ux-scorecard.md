@@ -28,3 +28,7 @@ Score: Not scored. Weighted evidence coverage: 0.0%.
 Release requires at least 80 points, 90% coverage, no open P1 finding, and directly verified keyboard, screen-reader and recovery journeys. Formative and summative studies require 5-8 participants.
 
 Update ux-scorecard.json with build, environment, scores and evidence at each phase exit; archive earlier snapshots. NT is never a pass or a failure.
+
+A **provisional** live-agent heuristic from 2026-11-07 lives in
+[artifacts/frontend-live-ux-2026-11-07/scorecard-provisional.json](../../artifacts/frontend-live-ux-2026-11-07/scorecard-provisional.json).
+It does **not** change this scorecard’s NT ratings or release gate.
