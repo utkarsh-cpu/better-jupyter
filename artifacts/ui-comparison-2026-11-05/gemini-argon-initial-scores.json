@@ -1,0 +1,85 @@
+{
+  "reviewer": "Gemini 4 Argon High",
+  "image_viewing_status": "failed_in_harness",
+  "dimensions": [
+    {
+      "name": "visual polish",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored per instruction ('if image viewing fails, say so and do not invent a visual inspection or scores'). In antigravity-acp, client_view_file rejects PNGs as non-UTF-8, view_file is shadowed by a text-only wrapper returning UTF-8 replacement bytes without media attachments, and t3-code html_preview offloads ImageContent to disk without attaching media. Surface finish, borders, shadows, palette harmony, and icon rendering cannot be inspected without pixel vision."
+    },
+    {
+      "name": "text readability",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure. PNG IHDR headers confirm raster scale differences (Marimo 1280x850 at 1.0x and 1280x960 at 1.6x; KernelLedger 2538x1689 and 1604x1202 at ~2.0x DPI=192), and capture.py confirms KernelLedger compact mode (ui_scale=1, comfortable=false), but actual rendered font sizes, weights, line heights, syntax token contrast, and prose measure cannot be visually verified."
+    },
+    {
+      "name": "visual hierarchy",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure. KernelLedger UIA shows clear structural separation between top bar (y=7.5..37.5 logical), left outline (w=217 logical), and cell canvas (w=964 logical), but visual prominence of headings vs chrome, card elevation, and Marimo's rendered hierarchy cannot be visually observed."
+    },
+    {
+      "name": "space efficiency",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure and capture-state confounds (KernelLedger compact mode + collapsed Markdown/traceback fits all 3 cells above y=595 of 850 logical px in UIA, whereas Marimo is medium width with visible Markdown source and expanded traceback, and lacks Phase-1 DOM/UIA geometry)."
+    },
+    {
+      "name": "navigation clarity",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure and absence of Marimo structural metadata. KernelLedger UIA exposes persistent top-level destinations (Notebook, History, Checkpoints, Notebook switcher) plus a filterable cell Outline list showing cell previews and failure status ('Cell 3: 1 / 0, failed'), but visual active-state cues and Marimo's navigation chrome cannot be seen."
+    },
+    {
+      "name": "action discoverability",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure. KernelLedger UIA exposes rich accessible names for top-bar, cell-header, inter-cell insert, command-palette, and assistant controls, though many buttons have 28x30 logical px bounds suggesting icon-only visual affordances whose visual clarity vs Marimo's controls cannot be verified without seeing the PNGs."
+    },
+    {
+      "name": "execution feedback",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure (and static stills cannot capture transient running animations). KernelLedger UIA exposes 'Runtime: Python (Ready)', 'Recorded output: ...', and 'Cell 3: 1 / 0, failed', while Marimo's execution indicators cannot be inspected without pixel vision."
+    },
+    {
+      "name": "error experience",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure and expanded-vs-collapsed traceback confound. KernelLedger UIA confirms inline 'ZeroDivisionError: division by zero' summary, 'Show full traceback...' disclosure button (140x30 logical px), contextual 'Explain error' action (115x30 logical px), and outline failure tagging, but visual salience and Marimo's expanded traceback presentation cannot be seen."
+    },
+    {
+      "name": "settings usability",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure and mismatched settings category confound (Marimo Editor settings vs KernelLedger Appearance settings). KernelLedger UIA shows 5 clear section tabs, 4 theme buttons (System, Light, Dark, High contrast), and a live 800x253 logical cell preview group, but visual layout and Marimo's Editor settings UI cannot be seen."
+    },
+    {
+      "name": "800x600 layout",
+      "marimo": null,
+      "kernelledger": null,
+      "confidence": "none",
+      "reason": "Unscored due to raster image viewing failure and absence of narrow-viewport UIA/DOM dumps (no kernel-narrow-uia.json exists; only PNG IHDR sizes 1280x960 for Marimo at 1.6x and 1604x1202 for KernelLedger at ~2.0x are verifiable). Overflow, clipping, toolbar wrapping, and sidebar collapse at 800x600 cannot be observed without seeing the screenshots."
+    }
+  ],
+  "totals": {
+    "marimo": null,
+    "kernelledger": null
+  },
+  "means": {
+    "marimo": null,
+    "kernelledger": null
+  },
+  "method": "independent Phase-1 audit prior to reading any existing reviews; raster screenshot viewing failed in antigravity-acp harness (client_view_file failed with non-UTF-8 error; view_file returned garbled UTF-8 text without multimodal media; html_preview MCP ImageContent was offloaded to disk without multimodal media), so numerical scores are withheld (null) per explicit prompt rule ('if image viewing fails, say so and do not invent a visual inspection or scores')"
+}

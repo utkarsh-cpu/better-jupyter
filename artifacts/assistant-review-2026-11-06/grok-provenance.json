@@ -1,0 +1,10 @@
+{
+  "grok-review.md": {
+    "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-2cca49b1\\artifacts\\assistant-review-2026-11-06\\grok-review.md",
+    "sha256": "90d1686c189901f57d8be66deced0f509d2a5b66a24701aa6f8a7081bf7e6da0"
+  },
+  "grok-scores.json": {
+    "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-2cca49b1\\artifacts\\assistant-review-2026-11-06\\grok-scores.json",
+    "sha256": "544d11800a7ea9ef1c6539097299b51292f5d6a929029830e13574cdbbb1c408"
+  }
+}

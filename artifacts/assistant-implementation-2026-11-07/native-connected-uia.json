@@ -1,0 +1,717 @@
+[
+    {
+        "name":  "Notebook switcher: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\assistant-implementation-2026-11-07\\qualification-022534\\native-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     184,
+                     59,
+                     480,
+                     60
+                 ]
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     684,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     880,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1076,
+                     59,
+                     192,
+                     60
+                 ]
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1864,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Runtime: Python (Not running)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1966,
+                     59,
+                     224,
+                     60
+                 ]
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2184,
+                     59,
+                     172,
+                     60
+                 ]
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2372,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2444,
+                     59,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     160,
+                     136,
+                     1700,
+                     1546
+                 ]
+    },
+    {
+        "name":  "Settings sections",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     200,
+                     266,
+                     400,
+                     348
+                 ]
+    },
+    {
+        "name":  "Appearance settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     206,
+                     272,
+                     388,
+                     64
+                 ]
+    },
+    {
+        "name":  "Editor settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     206,
+                     340,
+                     388,
+                     64
+                 ]
+    },
+    {
+        "name":  "Layout \u0026 accessibility settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     206,
+                     408,
+                     388,
+                     64
+                 ]
+    },
+    {
+        "name":  "Runtime settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     206,
+                     476,
+                     388,
+                     64
+                 ]
+    },
+    {
+        "name":  "Assistant settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     206,
+                     544,
+                     388,
+                     64
+                 ]
+    },
+    {
+        "name":  "Open Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     682,
+                     353,
+                     264,
+                     60
+                 ]
+    },
+    {
+        "name":  "Load AI settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     962,
+                     353,
+                     124,
+                     60
+                 ]
+    },
+    {
+        "name":  "Test connection",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1102,
+                     353,
+                     234,
+                     60
+                 ]
+    },
+    {
+        "name":  "List available models",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1500,
+                     353,
+                     180,
+                     60
+                 ]
+    },
+    {
+        "name":  "Model",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     499,
+                     720,
+                     64
+                 ],
+        "value":  "Gemma-4-26B-A4B-it-GGUF"
+    },
+    {
+        "name":  "Base URL",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     597,
+                     720,
+                     64
+                 ],
+        "value":  "http://127.0.0.1:13305/api/v1"
+    },
+    {
+        "name":  "Lemonade (:13305)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     677,
+                     272,
+                     60
+                 ]
+    },
+    {
+        "name":  "Ollama (:11434)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1350,
+                     677,
+                     226,
+                     60
+                 ]
+    },
+    {
+        "name":  "LM Studio (:1234)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     749,
+                     254,
+                     60
+                 ]
+    },
+    {
+        "name":  "vLLM (:8000)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1332,
+                     749,
+                     196,
+                     60
+                 ]
+    },
+    {
+        "name":  "OpenAI API",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1540,
+                     749,
+                     180,
+                     60
+                 ]
+    },
+    {
+        "name":  "Coding task model override",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     843,
+                     720,
+                     64
+                 ],
+        "value":  ""
+    },
+    {
+        "name":  "Enforce JSON schema (server must support it)",
+        "role":  "ControlType.CheckBox",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     941,
+                     720,
+                     40
+                 ]
+    },
+    {
+        "name":  "Lemonade extension: request direct answers (thinking off)",
+        "role":  "ControlType.CheckBox",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     997,
+                     720,
+                     80
+                 ]
+    },
+    {
+        "name":  "Request deadline seconds",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1093,
+                     720,
+                     64
+                 ],
+        "value":  "60"
+    },
+    {
+        "name":  "Configured context window tokens",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1173,
+                     720,
+                     64
+                 ],
+        "value":  "8192"
+    },
+    {
+        "name":  "Save local / compatible provider",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1271,
+                     242,
+                     60
+                 ]
+    },
+    {
+        "name":  "Save OpenAI provider",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1324,
+                     1271,
+                     200,
+                     60
+                 ]
+    },
+    {
+        "name":  "API key",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1365,
+                     720,
+                     64
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1740,
+                     1385,
+                     24,
+                     24
+                 ]
+    },
+    {
+        "name":  "Store API key",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1445,
+                     206,
+                     60
+                 ]
+    },
+    {
+        "name":  "Remove API key",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1288,
+                     1445,
+                     238,
+                     60
+                 ]
+    },
+    {
+        "name":  "off",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1188,
+                     1638,
+                     74,
+                     60
+                 ]
+    },
+    {
+        "name":  "local_only",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1266,
+                     1638,
+                     162,
+                     60
+                 ]
+    },
+    {
+        "name":  "allowed",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1432,
+                     1638,
+                     136,
+                     60
+                 ]
+    },
+    {
+        "name":  "Daily token cap",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1066,
+                     1736,
+                     352,
+                     64
+                 ],
+        "value":  "100000"
+    },
+    {
+        "name":  "New",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2400,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Conversations",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2460,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Proposals",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2520,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Assistant provider settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2580,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "Close",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2640,
+                     148,
+                     56,
+                     60
+                 ]
+    },
+    {
+        "name":  "SSE and one JSON response observed; task/model quality is not qualified.",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1878,
+                     230,
+                     826,
+                     122
+                 ]
+    },
+    {
+        "name":  "Resume summary",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1882,
+                     1193,
+                     258,
+                     60
+                 ]
+    },
+    {
+        "name":  "Explain error",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2148,
+                     1193,
+                     194,
+                     60
+                 ]
+    },
+    {
+        "name":  "Reproducibility",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2350,
+                     1193,
+                     226,
+                     60
+                 ]
+    },
+    {
+        "name":  "Context: no items selected",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1882,
+                     1269,
+                     818,
+                     107
+                 ]
+    },
+    {
+        "name":  "Add 1 / 0 to context",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1882,
+                     1316,
+                     114,
+                     60
+                 ]
+    },
+    {
+        "name":  "Ask about this notebook…",
+        "role":  "ControlType.Edit",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     1900,
+                     1410,
+                     782,
+                     64
+                 ],
+        "value":  ""
+    },
+    {
+        "name":  "Review context",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2420,
+                     1490,
+                     262,
+                     60
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     184,
+                     1694,
+                     66,
+                     39
+                 ]
+    },
+    {
+        "name":  "Runtime: Not running",
+        "role":  "ControlType.StatusBar",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     284,
+                     1694,
+                     156,
+                     39
+                 ]
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Text",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     474,
+                     1694,
+                     64,
+                     39
+                 ]
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "focused":  false,
+        "rect":  [
+                     2514,
+                     1684,
+                     182,
+                     60
+                 ]
+    }
+]

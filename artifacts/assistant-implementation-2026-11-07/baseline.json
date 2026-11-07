@@ -1,0 +1,66 @@
+{
+  "head": "dd68f53c96f85299a19851db7ae6804eb2a05560",
+  "sol": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-562311ac",
+  "files": {
+    "desktop/crates/client/src/preferences.rs": {
+      "original_sha256": "aae894399c28418170c7816364fac8517b242d74923ceef46606e90cc40f0c12",
+      "sol_sha256": "095d7687646dce8cdb0a7d9cf3e9259bef6f41cde0b2d063cf0e1a68a1a5ab2a"
+    },
+    "desktop/crates/client/src/service.rs": {
+      "original_sha256": "7e1b2e008f0dbaa75e0c54a3f79dc6a8b7b5877a79b50b7ca15d5c1668011c0e",
+      "sol_sha256": "4c07218cfd404f8e4440d8b7eb7eee5c2cdbcf4b7415bd8e910e2084d13ec93c"
+    },
+    "desktop/crates/models/src/lib.rs": {
+      "original_sha256": "6d6fb15b06b2464d3ca471cce4d6ab54aaab4f4fee612bd861a398bc37f75d0b",
+      "sol_sha256": "13cc82ea0feec22788a21e3f7c3024234ba74f3e83de7521d39337b147f93e41"
+    },
+    "desktop/crates/ui/src/accessibility.rs": {
+      "original_sha256": "9cdf3e3115bfa0ea65a315db0aa32f8f4d190af466320f50326201f20826ccfd",
+      "sol_sha256": "975266cf285d3803f19d49002c2d861d06e4136bf07434e68a944eb6dc9b0df6"
+    },
+    "desktop/crates/ui/src/history.rs": {
+      "original_sha256": "e49392d3fadb30d10ae42c1b453040494c1c3a96fee2cbe123b3f65be9935e08",
+      "sol_sha256": "ca29227c8c86f369f75da4172b98a45a7d1c09c01e9124b73356a3c638238df9"
+    },
+    "desktop/crates/ui/src/lib.rs": {
+      "original_sha256": "823ad7f1c7cec52958a3c83bfce279b657202ddce48c86e1815f55650f3e46fe",
+      "sol_sha256": "c64f87dfa32574f3237d6ac743d05167a7b203ea2a79c646f8160988dc94b829"
+    },
+    "desktop/crates/ui/src/notebook.rs": {
+      "original_sha256": "8882155c5b53c54ff0aec63d346e0e0de8b03f66207ad847a86786caeed1e846",
+      "sol_sha256": "9b71ce1e76eccbd463cef4f30a9c84448ce42cee655b6b3ca577e80481f258f2"
+    },
+    "desktop/crates/ui/src/outputs.rs": {
+      "original_sha256": "9ec59c6dc02557bc70445ee8a0f9ed99f5f9381492e1cbbb4ef0eca3f8e9d705",
+      "sol_sha256": "6faa5ffc9b78f6728e426f8a49d557802eb92a74a9344779515ba136d4628129"
+    },
+    "desktop/crates/ui/src/runtime.rs": {
+      "original_sha256": "9cc874ef0be3378428f38178f1ae61a1e70552f216647b14c66da54808684fda",
+      "sol_sha256": "ba31fa47abc5e716b2ab56f7e6bb3c149dcfa01c868041ad70a86409377e41fd"
+    },
+    "desktop/crates/ui/src/settings.rs": {
+      "original_sha256": "c75024523ed0272904b9d917b35eadb24ba1ab1decf469da601e3ce51a791177",
+      "sol_sha256": "98019ce7ea219a190eae3f399f0f6d3fbda4702681859659ee3dc28d5ef2eb6d"
+    },
+    "desktop/crates/ui/src/shell.rs": {
+      "original_sha256": "bf8c2527d63f78b6675225a84f63ae486b5de2d55f7926b4d04a057d8b0a0fc9",
+      "sol_sha256": "721471d8ecaf2271bc0a0c3cc0ba01fc7e20a8d0f94680147cb42c83e6084892"
+    },
+    "desktop/crates/ui/src/tests.rs": {
+      "original_sha256": "73ee45d5c8755de79b62b419ac00c54bffa30fd2f0cd944bb4364a4e19a5534b",
+      "sol_sha256": "fe7d935e2a02eb1f57f4fcb2c6d805d18eccb00c4d7141a9fa5557492aa15506"
+    },
+    "desktop/crates/ui/src/theme.rs": {
+      "original_sha256": "b42f96482a79352b4f4ff2996d2005879cd0996d59211cfc30f69b830980a1e6",
+      "sol_sha256": "7729f72946d64419141f5b0975253f46cfec5453bb3e4313a5bd91c40041ef1f"
+    },
+    "docs/desktop/help.md": {
+      "original_sha256": "5340af78ea7f5378354adbf39fa7353d65a756a86d891733250b3f51bfc59168",
+      "sol_sha256": "e089d9bea1bb2f091711a08e068e32ee45fb5a798c66ec38f08a0f3a8037da87"
+    },
+    "scripts/desktop_ui_components.py": {
+      "original_sha256": "dcffa1068ebaba822dd6450b3c4a16f1ece471e79e2b7a7aa82782318040e0ef",
+      "sol_sha256": "6293391a6c83f2e397c70201ed848e72264971b44394f751fa22bc4f25aac88c"
+    }
+  }
+}

@@ -22,8 +22,10 @@ Select context cells, enter a question, and choose **Review context**. The recei
 shows the destination, model, redactions, truncated items, byte counts and token
 estimates. Copying the full receipt includes the exact system prompt and messages.
 **Approve context and send** authorizes that receipt once. A changed destination,
-model or policy requires a fresh preview. Every remote request is reviewed;
-automatic egress approvals are disabled. A LAN server is Remote. Remote HTTP needs
+model, inference profile or policy requires a fresh preview. The desktop always
+requires an explicit Send. Optional automatic receipt approval for API/CLI clients
+is scoped to this notebook and normalized endpoint, and is revocable. Legacy
+global/host-only grants are ignored. A LAN server is Remote. Remote HTTP needs
 an explicit `allow_http_host` setting; HTTPS is the default requirement.
 
 Cell menus offer Ask, Explain error, Suggest edit and Document. Add executions
@@ -94,8 +96,11 @@ MCP proposal tools remain disabled pending their capability/latency/effect gates
 Cross-worktree comparisons and optional embeddings are not yet exposed. The
 OpenAI-compatible adapter uses collected context and does not require tool calls;
 the connection probe records observed SSE/JSON support and marks unqualified
-capabilities unavailable. Invalid structured responses fail closed for regeneration
-instead of automatically sending additional unreviewed repair context.
+capabilities unavailable. Connection success observes SSE and one JSON response;
+it does not qualify model/task quality. Invalid JSON/envelopes fail closed. A valid
+explanation is retained with warnings when optional proposals fail validation;
+rejected proposals never receive Apply controls. No additional repair context is
+sent automatically.
 
 Streaming transports handle SSE incrementally. For privacy, the UI receives the
 complete decoded answer field as a redacted draft before final proposal validation;
@@ -104,7 +109,7 @@ request terminates its assistant process, preserving autosave and runtime pollin
 The next use restarts the process; interrupted requests remain recorded.
 
 Daily caps use conservative input/output reservations per notebook and provider,
-on UTC days. Failed or cancelled requests remain charged because partial provider
+on UTC days, including connection-test inference. Failed or cancelled requests remain charged because partial provider
 usage can be unknown. Actual provider usage is retained when reported. Price
 estimation and machine-wide aggregation are not qualified. Retention defaults to
 90 days; purging deletes assistant records while leaving source and ledger intact.
@@ -117,3 +122,7 @@ in a disposable Windows profile. `desktop/.cargo/config.toml` supplies larger
 thread stacks for GPUI debug tests. Run Cargo checks from `desktop/` so its config
 is loaded. Real-model quality, NVDA, Linux Secret Service and the
 draft's model/latency qualification gates require separate manual validation.
+
+The [reliability implementation notes](assistant-reliability.md) describe inference
+profiles, partial responses, recovery, application states and the current bounded
+qualification evidence.

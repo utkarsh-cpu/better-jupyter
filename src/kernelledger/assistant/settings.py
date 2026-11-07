@@ -81,8 +81,17 @@ def validate(data: dict[str, Any]) -> None:
             "base_url",
             "allow_http_host",
             "structured_output",
+            "enable_thinking",
+            "context_window",
         }:
             raise SourceError("invalid_request", "invalid provider settings")
+        for flag in ("structured_output", "enable_thinking"):
+            if flag in config and type(config[flag]) is not bool:
+                raise SourceError("invalid_request", f"{flag} must be boolean")
+        if "context_window" in config and (
+            type(config["context_window"]) is not int or config["context_window"] < 256
+        ):
+            raise SourceError("invalid_request", "context_window must be at least 256 tokens")
         base_url = config.get("base_url", "https://api.openai.com/v1")
         if not isinstance(base_url, str) or len(base_url) > 2048:
             raise SourceError("invalid_request", "invalid endpoint")

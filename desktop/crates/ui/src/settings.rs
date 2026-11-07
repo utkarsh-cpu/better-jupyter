@@ -137,6 +137,10 @@ impl Workspace {
                 Rc::new(move |v, window, cx| {
                     v.preferences.ui_scale = scale;
                     v.save_preferences(cx);
+                    for tab in &mut v.tabs {
+                        tab.list
+                            .splice(0..tab.model.order.len(), tab.model.order.len());
+                    }
                     window.refresh();
                     cx.notify();
                 }),
@@ -193,6 +197,10 @@ impl Workspace {
                 Rc::new(move |v, _, cx| {
                     v.preferences.comfortable = comfortable;
                     v.save_preferences(cx);
+                    for tab in &mut v.tabs {
+                        tab.list
+                            .splice(0..tab.model.order.len(), tab.model.order.len());
+                    }
                     cx.notify();
                 }),
             ));
@@ -338,6 +346,33 @@ impl Workspace {
                                 density,
                                 cx,
                             ))
+                            .child({
+                                let view = cx.entity();
+                                let reveal = layout_reveal.clone();
+                                let a11y_reveal = reveal.clone();
+                                Checkbox::new("show-cell-duration")
+                                    .label("Show last recorded cell duration")
+                                    .checked(self.preferences.show_cell_duration)
+                                    .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+                                        view.update(cx, |v, cx| {
+                                            a11y_reveal.activate(v, window, cx, |v, _, cx| {
+                                                v.preferences.show_cell_duration = !v.preferences.show_cell_duration;
+                                                v.save_preferences(cx);
+                                                for tab in &mut v.tabs { tab.list.splice(0..tab.model.order.len(), tab.model.order.len()); }
+                                                cx.notify();
+                                            });
+                                        });
+                                    })
+                                    .on_click(cx.listener(move |v, checked: &bool, window, cx| {
+                                        let checked = *checked;
+                                        reveal.activate(v, window, cx, move |v, _, cx| {
+                                            v.preferences.show_cell_duration = checked;
+                                            v.save_preferences(cx);
+                                            for tab in &mut v.tabs { tab.list.splice(0..tab.model.order.len(), tab.model.order.len()); }
+                                            cx.notify();
+                                        });
+                                    }))
+                            })
                             .child(setting_row(
                                 "Outline width",
                                 "Default width of the notebook cell outline sidebar.",
@@ -493,6 +528,14 @@ impl Workspace {
         let mono = theme.mono_font_family.clone();
         let muted = theme.muted_foreground;
         let rule = divider(cx);
+        let inline = notebook::compact_source_layout(
+            self.preferences.comfortable,
+            self.preferences.ui_scale,
+            size,
+            self.tabs[self.active].runtime["interactive"]["features"]
+                .as_array()
+                .is_some_and(|features| features.iter().any(|f| f == "debugger")),
+        );
         let code = |text: &'static str| {
             div()
                 .font_family(mono.clone())
@@ -507,28 +550,73 @@ impl Workspace {
                     last: bool| {
             v_flex()
                 .w_full()
+                .when(!inline, |d| {
+                    d.child(
+                        h_flex()
+                            .min_h(rems(spacing.header_min_h))
+                            .py(px(spacing.header_py))
+                            .px_3()
+                            .gap_2()
+                            .items_center()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(div().font_family(mono.clone()).child(index))
+                            .child("Code")
+                            .child(div().flex_1())
+                            .child(Icon::new(Glyph::Play).with_size(px(12.)))
+                            .child("Run"),
+                    )
+                })
                 .child(
                     h_flex()
-                        .min_h(rems(spacing.header_min_h))
-                        .py(px(spacing.header_py))
-                        .px_3()
+                        .items_start()
                         .gap_2()
-                        .items_center()
-                        .text_xs()
-                        .text_color(muted)
-                        .child(div().font_family(mono.clone()).child(index))
-                        .child("Code")
-                        .child(div().flex_1())
-                        .child(Icon::new(Glyph::Play).with_size(px(12.)))
-                        .child("Run"),
-                )
-                .child(
-                    v_flex()
                         .px_3()
                         .pt(px(spacing.source_top + 8.))
                         .pb(px(spacing.source_bottom + 8.))
                         .overflow_hidden()
-                        .children(lines.into_iter().map(&code)),
+                        .when(inline, |d| {
+                            d.child(
+                                h_flex()
+                                    .w(rems(4.5))
+                                    .flex_none()
+                                    .items_center()
+                                    .gap_1()
+                                    .child(
+                                        div()
+                                            .min_h(rems(1.875))
+                                            .min_w(rems(1.75))
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .rounded_full()
+                                            .bg(theme.primary.opacity(0.11))
+                                            .text_color(theme.primary)
+                                            .child(Icon::new(Glyph::Play).small()),
+                                    )
+                                    .child(
+                                        div()
+                                            .font_family(mono.clone())
+                                            .text_xs()
+                                            .text_color(muted)
+                                            .child(index),
+                                    ),
+                            )
+                        })
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .children(lines.into_iter().map(&code)),
+                        )
+                        .when(inline, |d| {
+                            d.child(
+                                div()
+                                    .flex_none()
+                                    .min_h(rems(1.875))
+                                    .child(Icon::new(Glyph::Ellipsis).small()),
+                            )
+                        }),
                 )
                 .when_some(result, |d, result| {
                     d.child(

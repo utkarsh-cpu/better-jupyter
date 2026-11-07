@@ -3,7 +3,7 @@
 | Item | Decision |
 | --- | --- |
 | Date | 2026-11-01 |
-| Status | Draft implementation proposal; implementation has not started under this plan. |
+| Status | Implemented 2026-11-01. Notes and acceptance evidence: [screenshot polish](../docs/desktop/frontend-screenshot-polish.md). |
 | Track | Frontend; no frontend version number reserved. |
 | Baseline | Native captures in `artifacts/ui-components`, modified 2026-10-27 through 2026-10-29, and the current working-tree implementation. |
 | Requires | Existing runtime v5 contracts and the implemented notebook/assistant capabilities; no new runtime behavior is assumed. |

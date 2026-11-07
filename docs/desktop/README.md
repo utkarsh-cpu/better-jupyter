@@ -5,7 +5,13 @@ frontend plan 3. Opening source/history uses an offline helper and starts no wor
 The application closes by detaching; Stop runtime is a separate action.
 
 The [bars and buttons polish](frontend-bars-polish.md) documents the unified
-title bar, contextual cell controls, and native alignment verification.
+title bar, contextual cell controls, and native alignment verification. The
+[screenshot polish](frontend-screenshot-polish.md) documents compact spacing,
+the editing-first cell menu, assistant setup, history, checkpoints, settings,
+and recent notebooks.
+The [UI follow-up](ui-review-followup.md) covers notebook identity, Compact cell
+gutters, Markdown controls and optional timing. [Assistant reliability](../assistant-reliability.md)
+covers provider setup, context review, recovery, evidence and application records.
 Earlier assessments and testing proposals are indexed under [historical UI reports](reviews/README.md).
 
 ```powershell

@@ -1,0 +1,90 @@
+{
+  "common-base": {
+    "sha256": "54cdeeb07ee7bf332c191542962410d38475bd479d579eb640c754f588185e08",
+    "binary": "desktop\\target\\debug\\kernelledger-desktop.exe",
+    "journeys": {
+      "run-one-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 1,
+          "after": 2
+        }
+      },
+      "run-all-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 3,
+          "after": 5
+        }
+      },
+      "expanded-traceback": {
+        "status": "passed",
+        "result": null
+      },
+      "focus-contextual-actions": {
+        "status": "passed",
+        "result": null
+      }
+    }
+  },
+  "candidate-a": {
+    "sha256": "f9ef37bc4e19ce24e160aaf2aadfa0ac39ab8abea919dd9640035b59d9b5ab7b",
+    "binary": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-562311ac\\desktop\\target\\debug\\kernelledger-desktop.exe",
+    "journeys": {
+      "run-one-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 1,
+          "after": 2
+        }
+      },
+      "run-all-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 3,
+          "after": 5
+        }
+      },
+      "expanded-traceback": {
+        "status": "passed",
+        "result": null
+      },
+      "enable-recorded-duration": {
+        "status": "passed",
+        "result": null
+      },
+      "focus-contextual-actions": {
+        "status": "passed",
+        "result": null
+      }
+    }
+  },
+  "candidate-b": {
+    "sha256": "ff454958e8823e72b6842676577117c085f4e721175d67a93486dad3a65ea1dc",
+    "binary": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-3cca6db7\\desktop\\target\\release\\kernelledger-desktop.exe",
+    "journeys": {
+      "run-one-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 1,
+          "after": 2
+        }
+      },
+      "run-all-from-ui": {
+        "status": "passed",
+        "result": {
+          "before": 3,
+          "after": 5
+        }
+      },
+      "expanded-traceback": {
+        "status": "passed",
+        "result": null
+      },
+      "focus-contextual-actions": {
+        "status": "passed",
+        "result": null
+      }
+    }
+  }
+}

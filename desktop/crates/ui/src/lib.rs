@@ -786,6 +786,14 @@ impl Workspace {
                     Event::AssistantProposal(proposal) => tab.assistant.proposals.push(proposal),
                     Event::AssistantError { method, message } => {
                         tab.assistant.busy = false;
+                        tab.assistant.started = None;
+                        tab.assistant.error = true;
+                        if method == "respond" || method == "context.preview" {
+                            tab.assistant.receipt = Value::Null;
+                            tab.assistant.receipt_state = assistant::ReceiptState::Consumed;
+                            tab.assistant.draft.clear();
+                            tab.assistant.rebuild = true;
+                        }
                         if method == "providers.test" {
                             let message = assistant::redact_secrets(&message);
                             tab.assistant.connection =
@@ -805,10 +813,51 @@ impl Workspace {
                         tab.assistant.status = format!("{method}: {message}");
                     }
                     Event::AssistantDone { method, value } => {
-                        tab.assistant.busy = false;
+                        if !matches!(
+                            method.as_str(),
+                            "settings.get"
+                                | "status"
+                                | "conversations.list"
+                                | "models.list"
+                                | "search"
+                        ) {
+                            tab.assistant.busy = false;
+                            tab.assistant.started = None;
+                        }
+                        if let Some(error) = value.get("assistant_error") {
+                            tab.assistant.error = true;
+                            tab.assistant.status = assistant::redact_secrets(
+                                error["message"]
+                                    .as_str()
+                                    .unwrap_or("Assistant request failed"),
+                            );
+                            if method == "respond" || method == "context.preview" {
+                                tab.assistant.receipt = Value::Null;
+                                tab.assistant.receipt_state = assistant::ReceiptState::Consumed;
+                                tab.assistant.draft.clear();
+                                tab.assistant.rebuild = true;
+                            }
+                            if method == "providers.test" {
+                                tab.assistant.connection =
+                                    assistant::Connection::Failed(tab.assistant.status.clone());
+                            }
+                            continue;
+                        }
+                        if !matches!(
+                            method.as_str(),
+                            "status" | "settings.get" | "conversations.list"
+                        ) {
+                            tab.assistant.error = false;
+                        }
                         match method.as_str() {
+                            "status" => {
+                                for key in ["usage", "capabilities", "profile", "task_profiles"] {
+                                    tab.assistant.settings[key] = value[key].clone();
+                                }
+                            }
                             "context.preview" => {
                                 tab.assistant.receipt = value;
+                                tab.assistant.receipt_state = assistant::ReceiptState::Prepared;
                                 tab.assistant.status =
                                     "Context ready. Inspect the receipt before sending.".into();
                             }
@@ -819,8 +868,20 @@ impl Workspace {
                                     value["proposals"].as_array().cloned().unwrap_or_default();
                                 tab.assistant.conversation =
                                     value["conversation_id"].as_str().map(str::to_owned);
+                                let request_id = value["request_id"].clone();
+                                let question = tab.assistant.last_question.clone();
+                                tab.assistant.transcript.push(
+                                    json!({"role":"user","text":question,"request_id":request_id}),
+                                );
+                                tab.assistant.transcript.push(json!({"role":"assistant","text":value["answer"],"citations":value["citations"],"request_id":request_id}));
                                 tab.assistant.answer = value;
                                 tab.assistant.receipt = Value::Null;
+                                tab.assistant.receipt_state = assistant::ReceiptState::Consumed;
+                                tab.assistant.rebuild = false;
+                                let _ = tab.service.commands.send(Command::Assistant {
+                                    method: "status".into(),
+                                    fields: json!({}),
+                                });
                             }
                             "settings.get" => {
                                 tab.assistant.settings = value;
@@ -838,6 +899,14 @@ impl Workspace {
                                 tab.assistant.status = "AI settings saved.".into();
                                 tab.assistant.receipt = Value::Null;
                                 tab.assistant.connection = assistant::Connection::Untested;
+                            }
+                            "approval.revoke" => {
+                                tab.assistant.settings = value;
+                                tab.assistant.receipt = Value::Null;
+                                tab.assistant.rebuild = true;
+                                tab.assistant.status =
+                                    "Destination grant revoked; rebuild context to continue."
+                                        .into();
                             }
                             "policy.update" => {
                                 tab.assistant.settings["policy"] = value["policy"].clone();
@@ -858,7 +927,21 @@ impl Workspace {
                                 }
                             }
                             "application.record" => {
-                                tab.assistant.status = "Proposal applied and recorded.".into()
+                                let applied = value["state"] == "applied";
+                                tab.assistant.error = !applied;
+                                tab.assistant.status = if applied {
+                                    "Proposal applied and recorded."
+                                } else if value["state"] == "unknown" {
+                                    "Application outcome uncertain; inspect current source/runtime before continuing."
+                                } else {
+                                    "Application failed; inspect current source before retrying."
+                                }
+                                .into();
+                                for p in &mut tab.assistant.proposals {
+                                    if p["id"] == value["proposal_id"] {
+                                        p["state"] = value["state"].clone();
+                                    }
+                                }
                             }
                             "conversations.list" => {
                                 tab.inspections.insert("AI conversations".into(), value);
@@ -866,6 +949,39 @@ impl Workspace {
                             "conversation.get" => {
                                 tab.assistant.transcript =
                                     value["messages"].as_array().cloned().unwrap_or_default();
+                                tab.assistant.conversation =
+                                    value["conversation_id"].as_str().map(str::to_owned);
+                                tab.assistant.answer = Value::Null;
+                                if let Some(last) = tab
+                                    .assistant
+                                    .transcript
+                                    .iter()
+                                    .rev()
+                                    .find(|m| m["role"] == "assistant")
+                                    .cloned()
+                                {
+                                    tab.assistant.answer = json!({"answer":last["text"],"citations":last["citations"],"request_id":last["request_id"]});
+                                    if let Some(request) =
+                                        value["requests"].as_array().and_then(|items| {
+                                            items
+                                                .iter()
+                                                .find(|request| request["id"] == last["request_id"])
+                                        })
+                                    {
+                                        tab.assistant.answer["warnings"] =
+                                            request["warnings"].clone();
+                                    }
+                                }
+                                if let Some(last_request) =
+                                    value["requests"].as_array().and_then(|r| r.last())
+                                {
+                                    tab.assistant.task =
+                                        last_request["task"].as_str().unwrap_or("ask").to_owned();
+                                }
+                                tab.assistant.receipt = Value::Null;
+                                tab.assistant.proposals =
+                                    value["proposals"].as_array().cloned().unwrap_or_default();
+                                tab.assistant.status = if value["has_more"] == true { "Showing the first 200 requests; older/newer history may be outside this bounded view." } else { "Conversation loaded." }.into();
                             }
                             "proposals.list" => {
                                 tab.assistant.proposals =
@@ -893,8 +1009,13 @@ impl Workspace {
                                     || value["ok"].as_bool() == Some(true);
                                 if ok {
                                     tab.assistant.connection = assistant::Connection::Ready;
+                                    tab.assistant.tested_profile = value["profile"].clone();
+                                    let _ = tab.service.commands.send(Command::Assistant {
+                                        method: "status".into(),
+                                        fields: json!({}),
+                                    });
                                     tab.assistant.status =
-                                        "Connection verified (streaming & structured JSON qualified)."
+                                        "SSE and one JSON response observed; task/model quality is not qualified."
                                             .into();
                                 } else {
                                     let message = assistant::redact_secrets(
@@ -1045,6 +1166,8 @@ impl Workspace {
                         {
                             cell.output = value["outputs"].as_array().cloned().unwrap_or_default();
                             cell.exec_id = value["exec_id"].as_str().map(str::to_owned);
+                            cell.execution_seconds =
+                                cell.exec_id.as_ref().and_then(|_| record_duration(&value));
                             cell.executed_revision =
                                 value["source_sha256"].as_str().map(str::to_owned);
                             cell.ordinal = value["ordinal"].as_u64();
@@ -2050,7 +2173,7 @@ impl Workspace {
             })
         {
             return Some(
-                "Debugger requires an opt-in runtime started with KL_EXPERIMENTAL_INTERACTIVITY=1",
+                "Experimental debugging is disabled for this runtime. See Help for technical setup.",
             );
         }
         if matches!(method, "open" | "help") {
@@ -2297,9 +2420,13 @@ impl Workspace {
                             ""
                         };
                         format!(
-                            "Cell {}: {}{status}",
+                            "Cell {}: {} cell {id}: {}{status}",
                             i + 1,
-                            cell_title(&cell.text, &cell.disk.kind)
+                            cell.disk.kind,
+                            cell.text
+                                .lines()
+                                .find(|l| !l.trim().is_empty())
+                                .unwrap_or("Empty cell")
                         )
                     })
                     .aria_selected(selected)
@@ -3201,11 +3328,15 @@ fn record_time(record: &Value) -> Option<&str> {
 
 /// Seconds from the recorded duration, or from start and end; `None` when neither was recorded.
 fn record_duration(record: &Value) -> Option<f64> {
-    record["duration"].as_f64().or_else(|| {
-        let start = chrono::DateTime::parse_from_rfc3339(record["start"].as_str()?).ok()?;
-        let end = chrono::DateTime::parse_from_rfc3339(record["end"].as_str()?).ok()?;
-        Some((end - start).num_milliseconds().max(0) as f64 / 1000.)
-    })
+    record["duration"]
+        .as_f64()
+        .filter(|seconds| seconds.is_finite() && *seconds >= 0.)
+        .or_else(|| {
+            let start = chrono::DateTime::parse_from_rfc3339(record["start"].as_str()?).ok()?;
+            let end = chrono::DateTime::parse_from_rfc3339(record["end"].as_str()?).ok()?;
+            let elapsed = (end - start).num_milliseconds();
+            (elapsed >= 0).then_some(elapsed as f64 / 1000.)
+        })
 }
 
 fn runtime_action_available(method: &str, runtime: &Value, _surface: &str) -> bool {

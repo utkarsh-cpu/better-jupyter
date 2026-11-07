@@ -13,6 +13,137 @@ use serde_json::json;
 use std::sync::mpsc::{self, Receiver};
 use std::{collections::BTreeMap, path::PathBuf};
 
+#[test]
+fn assistant_provider_save_preserves_unedited_options() {
+    let mut config = json!({"providers":{"openai-compatible":{"base_url":"old","structured_output":true,"allow_http_host":"lan.test","enable_thinking":false}}});
+    super::assistant::merge_provider(
+        &mut config,
+        "openai-compatible",
+        "http://127.0.0.1:13305/api/v1".into(),
+    );
+    assert_eq!(
+        config["providers"]["openai-compatible"]["structured_output"],
+        true
+    );
+    assert_eq!(
+        config["providers"]["openai-compatible"]["enable_thinking"],
+        false
+    );
+    assert_eq!(
+        config["providers"]["openai-compatible"]["allow_http_host"],
+        "lan.test"
+    );
+    assert_eq!(
+        config["providers"]["openai-compatible"]["base_url"],
+        "http://127.0.0.1:13305/api/v1"
+    );
+}
+
+#[gpui_kit::test]
+fn assistant_conversation_load_replaces_answer_proposals_and_task(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v,_| {
+            v.tick=gpui_kit::Task::ready(());
+            v.tabs[0].service.events=receive;
+            v.tabs[0].assistant.answer=json!({"answer":"Old conversation"});
+            v.tabs[0].assistant.proposals=vec![json!({"id":"old"})];
+        });
+        send.send(Event::AssistantDone{method:"conversation.get".into(),value:json!({"conversation_id":"new","requests":[{"id":"new-request","task":"refactor","warnings":[{"code":"invalid_target","message":"Optional edit rejected"}]}],"messages":[{"role":"assistant","text":"New answer","request_id":"new-request","citations":[]}],"proposals":[{"id":"new-proposal","state":"applied"}]})}).unwrap();
+        view.update(cx, |v,cx|v.drain(window,cx));
+        let ai=&view.read(cx).tabs[0].assistant;
+        assert_eq!(ai.answer["answer"],"New answer");
+        assert_eq!(ai.answer["warnings"][0]["code"],"invalid_target");
+        assert!(super::assistant::answer_report(&ai.answer).contains("Optional edit rejected"));
+        assert_eq!(ai.proposals[0]["id"],"new-proposal");
+        assert_eq!(ai.task,"refactor");
+        assert_eq!(ai.conversation.as_deref(),Some("new"));
+        assert!(ai.receipt.is_null());
+    }).unwrap();
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::AssistantApply(_)))
+    );
+}
+
+#[test]
+fn assistant_receipt_and_export_present_real_text_and_honest_citations() {
+    let text = super::assistant::receipt_text(
+        &json!({"kind":"output","text":json!({"outputs":[{"kind":"error","ename":"ZeroDivisionError","evalue":"division by zero","traceback":["line 1\n","1 / 0\n"]}]}).to_string()}),
+    );
+    assert!(text.contains("ZeroDivisionError: division by zero"));
+    assert!(text.contains("line 1\n1 / 0\n"));
+    assert!(!text.contains("\\n"));
+    let report = super::assistant::answer_report(
+        &json!({"answer":"Reviewed answer", "citations":[{"kind":"cell","id":"first","verified":true,"in_context":false}]}),
+    );
+    assert!(report.starts_with("Reviewed answer"));
+    assert!(report.contains("cell: first"));
+    assert!(report.contains("in approved context: false"));
+    assert!(report.contains("not fact checking"));
+}
+
+#[gpui_kit::test]
+fn assistant_typed_failure_consumes_receipt_and_rebuilds_without_sending(cx: &mut TestAppContext) {
+    use super::assistant::{Connection, ReceiptState};
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            let ai = &mut v.tabs[0].assistant;
+            ai.open = true;
+            ai.busy = true;
+            ai.connection = Connection::Ready;
+            ai.settings =
+                json!({"policy":"allowed","settings":{"provider":"fake","model":"fixture"}});
+            ai.task = "explain".into();
+            ai.last_question = "Explain recorded failure".into();
+            ai.selected_cells = vec!["first".into()];
+            ai.exec_ids = vec!["execution-1".into()];
+            ai.receipt = json!({"hash":"spent"});
+            ai.receipt_state = ReceiptState::Sending;
+        });
+        send.send(Event::AssistantDone {
+            method: "respond".into(),
+            value: json!({"assistant_error":{"code":"stale","message":"Proposal base mismatch"}}),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert!(view.read(cx).tabs[0].assistant.error);
+        assert!(view.read(cx).tabs[0].assistant.receipt.is_null());
+        assert_eq!(
+            view.read(cx).tabs[0].assistant.receipt_state,
+            ReceiptState::Consumed
+        );
+        send.send(Event::AssistantDone {
+            method: "status".into(),
+            value: json!({"usage":{"used_today":12345}}),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert!(
+            view.read(cx).tabs[0].assistant.error,
+            "A background refresh must retain failure severity"
+        );
+        assert_eq!(
+            view.read(cx).tabs[0].assistant.status,
+            "Proposal base mismatch"
+        );
+        window.render_frame(cx);
+        window.click("assistant-rebuild", cx);
+    })
+    .unwrap();
+    let sent = commands.try_iter().collect::<Vec<_>>();
+    assert!(sent.iter().any(|c|matches!(c,Command::Assistant{method,fields} if method=="context.preview" && fields["question"]=="Explain recorded failure" && fields["task"]=="explain")));
+    assert!(!sent.iter().any(|c|matches!(c,Command::Assistant{method,..} if method=="respond" || method=="proposal.resolve")));
+}
+
 #[gpui_kit::test]
 fn console_editor_newline_and_shortcuts_preserve_notebook_source(cx: &mut TestAppContext) {
     let (handle, view, commands) = mount(cx);
@@ -1262,18 +1393,25 @@ fn history_cursor_keeps_session_scope_and_return_to_cell_restores_editor(cx: &mu
 }
 
 #[test]
-fn caption_gutter_collapses_export_before_settings_at_compact_200_percent() {
-    let collapse = super::shell::header_collapse(800., 2., false);
-    assert!(
-        collapse.export && collapse.runtime && !collapse.switcher && !collapse.settings,
-        "{collapse:?}"
-    );
-    assert!(super::shell::header_fits(800., 2., false, collapse));
-    let comfortable = super::shell::header_collapse(800., 2., true);
-    assert!(comfortable.switcher && comfortable.runtime && comfortable.export);
-    assert!(super::shell::header_fits(800., 2., true, comfortable));
-    assert!(super::shell::header_collapse(800., 1., false).export);
-    assert!(!super::shell::header_collapse(1440., 1., false).export);
+fn caption_gutter_preserves_run_label_before_secondary_chrome() {
+    for comfortable in [false, true] {
+        for scale in [1., 1.25, 1.5, 2.] {
+            let c = super::shell::header_collapse(800., scale, comfortable);
+            assert!(
+                super::shell::header_fits(800., scale, comfortable, c),
+                "{c:?}"
+            );
+            if scale == 1. {
+                assert!(!c.run_label, "Run all must have text at 800/100%: {c:?}");
+            }
+            if c.run_label {
+                assert!(c.navigation && c.export && c.runtime && c.settings && c.switcher);
+            }
+        }
+    }
+    let roomy = super::shell::header_collapse(1440., 1., false);
+    assert!(!roomy.export && !roomy.navigation);
+    assert_eq!(roomy.switcher_width, 240.);
 }
 
 #[gpui_kit::test]
@@ -1295,14 +1433,10 @@ fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
                 })
                 .unwrap();
                 let collapse = super::shell::header_collapse(width, scale, comfortable);
-                let mut actions = vec![
-                    "Notebook",
-                    "History",
-                    "Checkpoints",
-                    "application-menu",
-                    "run-all",
-                    "outline-toggle",
-                ];
+                let mut actions = vec!["Notebook", "application-menu", "run-all", "outline-toggle"];
+                if !collapse.navigation {
+                    actions.extend(["History", "Checkpoints"]);
+                }
                 if !collapse.settings {
                     actions.push("settings-button");
                 }
@@ -1330,6 +1464,17 @@ fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
                             && right <= px(width - super::shell::CAPTION_GUTTER)
                             && bounds.origin.y + bounds.size.height <= px(600.),
                         "{name}: scale={scale}, width={width}, comfortable={comfortable}, bounds={bounds:?}"
+                    );
+                }
+                let mut horizontal = actions
+                    .iter()
+                    .map(|name| (*name, visual.debug_bounds(name).unwrap()))
+                    .collect::<Vec<_>>();
+                horizontal.sort_by(|a, b| a.1.origin.x.partial_cmp(&b.1.origin.x).unwrap());
+                for pair in horizontal.windows(2) {
+                    assert!(
+                        pair[0].1.origin.x + pair[0].1.size.width <= pair[1].1.origin.x,
+                        "Overlapping header controls at {width}/{scale}: {pair:?}"
                     );
                 }
                 let header = visual.debug_bounds("workspace-header").unwrap();
@@ -1883,4 +2028,291 @@ fn assistant_idle_suggestions_preview_from_the_composer(cx: &mut TestAppContext)
         Command::Assistant { method, fields }
             if method == "context.preview" && fields["task"] == "summary"
     )));
+}
+
+#[test]
+fn middle_ellipsis_respects_measured_width_and_keeps_the_suffix() {
+    use super::shell::middle_ellipsis;
+    let width = |text: &str| {
+        text.chars()
+            .map(|c| if c == 'W' { 12. } else { 5. })
+            .sum::<f32>()
+    };
+    assert_eq!(
+        middle_ellipsis("comparison-notebook", 240., width),
+        "comparison-notebook"
+    );
+    let name = "WWWW-long-notebook-final.py";
+    let label = middle_ellipsis(name, 80., width);
+    assert!(
+        label.contains('\u{2026}') && label.ends_with("final.py"),
+        "{label}"
+    );
+    assert!(width(&label) <= 80.);
+    assert_ne!(
+        middle_ellipsis("??????-A", 30., width),
+        middle_ellipsis("??????-B", 30., width)
+    );
+}
+
+#[test]
+fn markdown_reading_blocks_keep_heading_body_and_code_content() {
+    let blocks = super::notebook::markdown_reading_blocks(
+        "# Results\n\nA **readable** paragraph.\n\n```python\nprint(42)\n```",
+    );
+    assert_eq!(blocks[0], (1, "Results".into()));
+    assert_eq!(
+        super::notebook::markdown_reading_blocks("# Heading\nBody without a blank line"),
+        vec![
+            (1, "Heading".into()),
+            (0, "Body without a blank line".into())
+        ]
+    );
+    assert_eq!(
+        super::notebook::markdown_reading_blocks("```\n# code comment\n```")[0].0,
+        0
+    );
+    assert_eq!(blocks[1], (0, "A **readable** paragraph.".into()));
+    assert_eq!(blocks[2].1, "```python\nprint(42)\n```");
+    assert!(!super::notebook::compact_source_layout(
+        false, 2., 14., false
+    ));
+    assert!(!super::notebook::compact_source_layout(
+        false, 1., 24., false
+    ));
+    assert!(!super::notebook::compact_source_layout(
+        false, 1., 14., true
+    ));
+    assert!(!super::notebook::compact_source_layout(
+        true, 1., 14., false
+    ));
+}
+
+#[gpui_kit::test]
+fn compact_cells_remove_a_header_row_and_preserve_notable_states(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    let mut heights = Vec::new();
+    // Same editor/source/output and rhythm; enabling debugger only selects the
+    // retained header layout. Measure the whole cell slot, not just the source.
+    for debugger in [false, true] {
+        cx.update_window(handle, |_, window, cx| {
+            view.update(cx, |v, _| {
+                let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+                cell.ordinal = Some(1);
+                cell.outcome = "ok".into();
+                cell.output = vec![json!({"kind":"stdout", "text":"42"})];
+                v.tabs[0].runtime["interactive"] =
+                    json!({"features":if debugger { vec!["debugger"] } else { vec![] }});
+                v.tabs[0].list.splice(0..2, 2);
+            });
+            window.render_frame(cx);
+        })
+        .unwrap();
+        heights.push(visual.debug_bounds("cell-frame-first").unwrap().size.height / px(1.));
+    }
+    assert!(
+        heights[1] - heights[0] >= 28.,
+        "compact / retained header slots: {heights:?}"
+    );
+    eprintln!(
+        "Matched single-line source/output slot heights: compact={} retained-header={}",
+        heights[0], heights[1]
+    );
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.tabs[0].runtime["interactive"] = json!({"features":[]});
+            let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+            cell.save = kernelledger_models::SaveState::Conflict;
+            cell.executed_revision = Some("old-source".into());
+            cell.outcome = "error".into();
+            v.tabs[0].list.splice(0..2, 2);
+        });
+        window.render_frame(cx);
+        assert_eq!(
+            view.read(cx).tabs[0].model.selected.as_deref(),
+            Some("first")
+        );
+        window.click(("run", 0usize), cx);
+    })
+    .unwrap();
+    assert!(visual.debug_bounds("cell-frame-first").unwrap().size.height > px(heights[0] + 28.));
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::Run { .. }))
+    );
+}
+
+#[gpui_kit::test]
+fn markdown_edit_targets_the_invoking_cell_and_semantics_expose_rendered_content(
+    cx: &mut TestAppContext,
+) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            for id in ["first", "second"] {
+                let cell = v.tabs[0].model.cells.get_mut(id).unwrap();
+                cell.disk.kind = "markdown".into();
+                cell.text = "# Readable heading\n\nRendered body.".into();
+            }
+            v.tabs[0].model.mode = kernelledger_models::Mode::Edit;
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].list.splice(0..2, 2);
+        });
+        window.render_frame(cx);
+        let nodes = super::notebook::markdown_accessibility_nodes(
+            &view.read(cx).tabs[0].model.cells["second"].text,
+        );
+        assert_eq!(nodes[0].role(), gpui_kit::Role::Heading);
+        assert_eq!(nodes[0].label(), Some("Readable heading"));
+        assert_eq!(nodes[0].level(), Some(1));
+        assert_eq!(nodes[1].label(), Some("Rendered body."));
+        // Move only the headless pointer into the reserved action area.
+        window.dispatch_event(
+            gpui_kit::PlatformInput::MouseMove(gpui_kit::MouseMoveEvent {
+                position: window.find(("edit-markdown", 1usize)).bounds().center(),
+                pressed_button: None,
+                modifiers: Default::default(),
+            }),
+            cx,
+        );
+        window.render_frame(cx);
+        window.click(("edit-markdown", 1usize), cx);
+        assert_eq!(
+            view.read(cx).tabs[0].model.selected.as_deref(),
+            Some("second")
+        );
+        assert_eq!(
+            view.read(cx).tabs[0].model.mode,
+            kernelledger_models::Mode::Edit
+        );
+        assert!(
+            view.read(cx).tabs[0].editors["second"]
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window)
+        );
+        window.render_frame(cx);
+        window.click(("edit-markdown", 1usize), cx);
+        assert_eq!(
+            view.read(cx).tabs[0].model.mode,
+            kernelledger_models::Mode::Command
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn collapsed_destinations_and_export_remain_reachable(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        assert!(!super::shell::header_collapse(800., 1., false).run_label);
+        window.click("Notebook", cx);
+        assert!(view.read(cx).app_menu);
+        window.render_frame(cx);
+        window.click("destination-History", cx);
+        assert_eq!(view.read(cx).surface, "History");
+        window.render_frame(cx);
+        window.click("History", cx);
+        window.render_frame(cx);
+        window.click("destination-Checkpoints", cx);
+        assert_eq!(view.read(cx).surface, "Checkpoints");
+        window.render_frame(cx);
+        window.click("application-menu", cx);
+        window.render_frame(cx);
+        window.click("menu-export", cx);
+        assert!(view.read(cx).export_menu);
+        window.render_frame(cx);
+        window.press("escape", cx);
+        assert!(!view.read(cx).export_menu);
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn duration_preference_is_optional_and_last_execution_identity_controls_the_badge(
+    cx: &mut TestAppContext,
+) {
+    use kernelledger_client::service::Event;
+    let (handle, view, _) = mount(cx);
+    let (send, events) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| { v.tick = gpui_kit::Task::ready(()); v.tabs[0].service.events = events; });
+        for (exec_id, duration) in [("recorded-1", Some(1.25)), ("recorded-2", None)] {
+            send.send(Event::Output(json!({"cell_id":"first", "exec_id":exec_id, "status":"ok", "duration":duration, "outputs":[]}))).unwrap();
+            view.update(cx, |v, cx| v.drain(window, cx));
+            let cell = &view.read(cx).tabs[0].model.cells["first"];
+            assert_eq!(cell.exec_id.as_deref(), Some(exec_id));
+            assert_eq!(cell.execution_seconds, duration);
+        }
+        view.update(cx, |v, _| {
+            assert!(!v.preferences.show_cell_duration);
+            v.surface = "Settings".into(); v.settings_section = "layout";
+        });
+        window.render_frame(cx);
+        window.click("show-cell-duration", cx);
+        assert!(view.read(cx).preferences.show_cell_duration);
+        view.update(cx, |v, _| v.surface = "Notebook".into());
+        window.render_frame(cx);
+        // Unknown is not rendered as zero. Native provider activation is a
+        // manual qualification; the headless platform does not activate UIA.
+        send.send(Event::Output(json!({"cell_id":"first", "exec_id":"recorded-3", "status":"ok", "duration":1.25, "outputs":[]}))).unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].model.cells["first"].execution_seconds, Some(1.25));
+        assert_eq!(super::record_duration(&json!({"duration":-1})), None);
+        assert_eq!(super::record_duration(&json!({"start":"2026-11-05T00:00:00Z","end":"2026-11-05T00:00:02.250Z"})), Some(2.25));
+    }).unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(visual.debug_bounds("cell-duration-first").is_some());
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.preferences.show_cell_duration = false;
+            v.tabs[0].list.splice(0..2, 2);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    assert!(visual.debug_bounds("cell-duration-first").is_none());
+    send.send(Event::Output(
+        json!({"cell_id":"first", "exec_id":"recorded-4", "status":"ok", "outputs":[]}),
+    ))
+    .unwrap();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.show_cell_duration = true;
+            v.drain(window, cx);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    assert!(
+        visual.debug_bounds("cell-duration-first").is_none(),
+        "A rerun with unknown duration must clear the old badge"
+    );
+}
+
+#[gpui_kit::test]
+fn contextual_cell_actions_reveal_on_keyboard_focus(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| v.tabs[0].model.selected = Some("first".into()));
+        window.render_frame(cx);
+        let mut reached = false;
+        for _ in 0..80 {
+            window.focus_next(cx);
+            window.render_frame(cx);
+            let more = window.find(("cell-more", 1usize));
+            if more.focused() == Some(true) {
+                assert!(more.visible(), "Focused cell action must be visible");
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "Second cell actions must be keyboard reachable");
+    })
+    .unwrap();
 }

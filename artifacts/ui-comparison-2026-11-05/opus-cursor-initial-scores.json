@@ -1,0 +1,86 @@
+{
+  "reviewer": "Claude Opus 5.5 xhigh (Cursor)",
+  "image_viewing_status": "verified",
+  "image_viewing_note": "All six matched PNGs plus kernel-dark.png and kernel-commands.png rendered as visible images in Cursor's Read tool (displayed downsampled to ~1024 px wide). Detail was checked with native-resolution crops written to %TEMP%, outside the repo. Raw sizes: Marimo desktop 1280x850 (1x), Marimo narrow 1280x960 (1.6x), Kernel desktop 2538x1689 (~1.98x), Kernel narrow 1604x1202 (~2x). All comparisons were made at normalized logical size; raster sharpness was not scored. kernel-dark/kernel-commands were used only as Kernel-internal context, not as comparative evidence.",
+  "dimensions": [
+    {
+      "name": "visual polish",
+      "marimo": 7.0,
+      "kernelledger": 7.5,
+      "confidence": "low",
+      "reason": "Observed, Marimo: consistent rounded cell cards, a serif Markdown heading and tidy per-cell toolbars. Counterweights: a red trash icon on every cell, a heavy dark horizontal scrollbar inside the error output caused by the long marimo:// traceback link, a floating action stack that mixes rounded squares (save, layout, command) with circles (stop, run), a Mac command glyph on Windows, and a loosely aligned right gutter (timing, drag handle, expand). Observed, Kernel: a restrained warm-neutral palette, one filled primary button, segmented navigation and a cohesive status bar. Counterweights: the notebook name is truncated to 'kernelle...' at 1280 px even though UIA rects show about 400 logical px of empty top bar; the Markdown card has an almost empty ~31 px toolbar strip above the heading; code cell [1] has no card while the Markdown and failed cells do (probably selection or hover state, but it reads as inconsistent in a still); and both code cells show an active-line band on line 1 at the same time. The score is largely aesthetic judgement."
+    },
+    {
+      "name": "text readability",
+      "marimo": 7.5,
+      "kernelledger": 8.0,
+      "confidence": "low",
+      "reason": "Measured (raster, about ±1 logical px; not font sizes): prose first-letter cap height is Marimo ~10.6-11 vs Kernel ~10.0, and heading cap height is Marimo ~24 (serif) vs Kernel ~20.7 (bold sans), so Marimo's prose is not smaller. Code line pitch is Marimo ~17.5 vs Kernel ~20.8 logical px, and output line pitch ~17.5 vs ~21. Observed: Marimo uses more light-gray secondary text (monospace path header, line numbers, gray 'division by zero', light settings helper text). Kernel's text renders darker and heavier, with a roomier line pitch. Kernel's status-bar and execution-count text is small and gray (status cap ~8.6 px). No semantic contrast measurement was made; the darkness judgement is perceptual only."
+    },
+    {
+      "name": "visual hierarchy",
+      "marimo": 7.0,
+      "kernelledger": 8.0,
+      "confidence": "medium",
+      "reason": "Observed, Kernel: a single filled 'Run all' primary button, a bold heading, subordinate code cells, and the failure shown three ways (a red-tinted error banner with a left rule, a 'Failed' pill, and a red dot in the outline). 'Ready' is duplicated in the top bar and status bar. Observed, Marimo: the first element is a gray monospace file path; all cells use near-identical card weight; there is no visually primary action; the error cell has a red tint and red border. Confound: Marimo's visible Markdown source sits above the rendered heading and its expanded traceback adds weight, so part of the gap is state, not product. Without those, the gap might narrow to about 0.5."
+    },
+    {
+      "name": "space efficiency",
+      "marimo": 7.5,
+      "kernelledger": 7.0,
+      "confidence": "medium",
+      "reason": "Measured (logical px): the same 4-line code cell plus 2-line output is ~160 tall in Marimo vs ~190 in Kernel. That is ~19% taller in Kernel, from a dedicated header row (run button, [1], hide-output) and a larger line pitch, even though workbench.json sets comfortable=false and ui_scale=1. Kernel's Markdown card also spends ~31 px on a mostly empty toolbar strip. The content columns are similar: Marimo cards ~1034 wide vs Kernel ~1000, but Kernel also fits a ~222 px outline sidebar in the same 1280 window. Settings: Marimo shows roughly 10 controls with helper text in one viewport, while the Kernel Appearance page shows one control and a preview, with about 45% of the window empty. Confounds: Marimo's visible Markdown source (~50 px) and expanded traceback (~190 px) are captured states that make Marimo look less efficient than it is."
+    },
+    {
+      "name": "navigation clarity",
+      "marimo": 6.5,
+      "kernelledger": 8.5,
+      "confidence": "medium",
+      "reason": "Observed, Kernel: labeled top-level destinations (Notebook, History, Checkpoints) with a clear current state, a notebook switcher, and an open outline listing each cell with type icon, execution count and failure dot, plus a filter field. Settings has a labeled section list with a clear current item. Observed, Marimo: an 8-icon left rail with no visible labels, three unlabeled circular icons top-right, and no outline open in the captured state. The settings modal has clear labeled categories with colored icon tiles. Hypothesis (untested): tooltips and panels mitigate Marimo's unlabeled rail for returning users; hover states were not captured."
+    },
+    {
+      "name": "action discoverability",
+      "marimo": 7.0,
+      "kernelledger": 7.5,
+      "confidence": "low",
+      "reason": "Observed, Marimo: every cell visibly shows run, stop, more, delete, drag, collapse and two '+' add affordances, and the floating stack exposes save, layout, command palette, stop and run. Only two text-labeled actions are visible ('Launch debugger', 'Get help'); everything else is icon-only. Observed, Kernel: about seven text-labeled actions ('Run all', 'Export', 'Edit', 'Explain error', 'Show full traceback', 'Add cell', 'Assistant') plus visible per-cell run buttons. However, UIA lists 'Output tools', 'Ask Assistant' and 'More actions' for cell 1 that are not painted in the screenshot, which implies hover- or selection-revealed controls. The eye-off and copy-like 'Output tools' icons have unclear meaning, and the command palette sits behind a magnifier icon. Hover and focus states were not captured for either app."
+    },
+    {
+      "name": "execution feedback",
+      "marimo": 7.5,
+      "kernelledger": 8.0,
+      "confidence": "low",
+      "reason": "Observed, Marimo: per-cell durations (848ms, 1ms, 172ms), a status-bar error and warning count (1 and 0), memory and CPU meters, a red-tinted failed cell, and a disabled stop button indicating idle. The kernel or connection state is only an ambiguous lightning icon. Observed, Kernel: execution counts [1] and [2], a 'Failed' pill, an outline failure dot, a text 'Ready' runtime state with a green dot, and 'Saved' in the status bar. No durations are shown. Kernel covers more state categories with text; Marimo has the unique timing data. No running, queued or stale state was captured in either app, so live feedback is untested."
+    },
+    {
+      "name": "error experience",
+      "marimo": 7.5,
+      "kernelledger": 8.0,
+      "confidence": "low",
+      "reason": "Observed, Marimo (traceback expanded): exception type and message on separate lines, a full traceback with a clickable cell link, 'Launch debugger', 'Get help', and a global error count. However, the long absolute marimo:// path overflows and forces a horizontal scrollbar, and the message line is light gray. Observed, Kernel (traceback collapsed): a one-line red-on-pink summary 'ZeroDivisionError: division by zero' with a 'Show full traceback' disclosure, an 'Explain error' action, a 'Failed' pill and an outline dot. Its text-only buttons have weak affordance, 'Explain error' sits in the header away from the banner, and no debugger entry is visible here. Confound: the opposite traceback states mean depth vs summary is not like-for-like, so this could flip with matched states."
+    },
+    {
+      "name": "settings usability",
+      "marimo": 7.5,
+      "kernelledger": 7.5,
+      "confidence": "low",
+      "reason": "Confound: Marimo's Editor page is compared with Kernel's Appearance page. Observed, Marimo: a modal with 7 labeled categories, blue uppercase section headers, helper text under almost every option, version and locale, and a pointer to marimo.toml. However, checkboxes trail their labels at varying x positions (~598-669 logical px), which hurts scanning; the close 'x' is small; and there is no settings search. Observed, Kernel: a full-page view with 5 labeled sections, a clear current section, a 4-option segmented theme control that includes High contrast, and a live preview labeled 'Nothing here runs'. Only one control is visible, so breadth and density are untested, and there is no settings search. UIA lists the theme options as Buttons with no selected-state in the dumped fields; the selected state is visible only visually (other UIA patterns were not dumped)."
+    },
+    {
+      "name": "800x600 layout",
+      "marimo": 6.0,
+      "kernelledger": 8.0,
+      "confidence": "medium",
+      "reason": "Observed, Kernel at 800x600: the outline auto-collapses, 'Run all' becomes an icon-only primary button, the Export label is not visible (possibly moved to overflow; untested), all three cells plus the error banner fit above the status bar, and there is no horizontal overflow. Observed, Marimo at 800x600: the file path is clipped mid-word with no ellipsis; the floating action stack crowds the gutter (the '172ms' label nearly touches the stop circle); the first-cell source soft-wraps; only the 'ZeroDivisionError' line of the error cell is visible above the fold, with the message and traceback below. Confound: Marimo's visible Markdown source costs ~95 logical px here. Kernel's empty Markdown toolbar strip and a hide-output icon far from its content are minor costs."
+    }
+  ],
+  "totals": {
+    "marimo": 71.0,
+    "kernelledger": 78.0
+  },
+  "means": {
+    "marimo": 7.1,
+    "kernelledger": 7.8
+  },
+  "method": "independent visual review of saved captures; no task study"
+}

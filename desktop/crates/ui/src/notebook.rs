@@ -1,5 +1,15 @@
 use super::*;
 
+/// Retain the existing header when text, scale or debugger targets need extra room.
+pub(crate) fn compact_source_layout(
+    comfortable: bool,
+    scale: f32,
+    editor_size: f32,
+    debugger: bool,
+) -> bool {
+    !comfortable && scale <= 1.25 && editor_size <= 18. && !debugger
+}
+
 impl Workspace {
     pub(super) fn editor(
         &mut self,
@@ -134,7 +144,17 @@ impl Workspace {
                     })),
             );
         }
-        let run_action = if cell.disk.kind == "code" {
+        let compact_source = compact_source_layout(
+            self.preferences.comfortable,
+            self.preferences.ui_scale,
+            self.preferences.editor_size,
+            tab.runtime["interactive"]["features"]
+                .as_array()
+                .is_some_and(|f| f.iter().any(|f| f == "debugger")),
+        );
+        let inline_code = compact_source && cell.disk.kind == "code";
+        let inline_markdown = compact_source && cell.disk.kind == "markdown";
+        let mut run_action = if cell.disk.kind == "code" {
             Some(
                 action_button(("run", index))
                     .ghost()
@@ -164,7 +184,7 @@ impl Workspace {
                 action_button(("edit-markdown", index))
                     .ghost()
                     .small()
-                    .label(if tab.model.mode == Mode::Edit {
+                    .label(if selected && tab.model.mode == Mode::Edit {
                         "Preview"
                     } else {
                         "Edit"
@@ -173,7 +193,10 @@ impl Workspace {
                         let id = id.clone();
                         move |v, _, window, cx| {
                             let t = &mut v.tabs[v.active];
-                            if t.model.mode == Mode::Edit {
+                            let editing_this = t.model.selected.as_deref() == Some(id.as_str())
+                                && t.model.mode == Mode::Edit;
+                            t.model.selected = Some(id.clone());
+                            if editing_this {
                                 t.model.mode = Mode::Command;
                                 v.focus.focus(window, cx);
                             } else {
@@ -278,13 +301,24 @@ impl Workspace {
                 cx,
             ),
         );
-        let show_header = self.high_contrast
-            || cell.disk.kind == "code"
-            || selected
-            || self.preferences.comfortable
-            || save.is_some()
-            || has_error
-            || cell.stale();
+        let show_header = if inline_code || inline_markdown {
+            save.is_some() || has_error || cell.stale() || notable_status(&cell.outcome)
+        } else {
+            self.high_contrast
+                || cell.disk.kind == "code"
+                || selected
+                || self.preferences.comfortable
+                || save.is_some()
+                || has_error
+                || cell.stale()
+        };
+        let mut inline_run = if inline_code { run_action.take() } else { None };
+        let mut header_actions = Some(actions);
+        let mut inline_actions = if inline_code || inline_markdown {
+            header_actions.take()
+        } else {
+            None
+        };
         let notable_outcome = notable_status(&cell.outcome);
         let spacing = cell_spacing(self.preferences.comfortable);
         let header = h_flex()
@@ -298,18 +332,42 @@ impl Workspace {
             .when(selected || self.high_contrast, |d| {
                 d.border_b_1().border_color(divider(cx))
             })
-            .when_some(cell.ordinal.filter(|_| cell.disk.kind == "code"), |d, n| {
-                d.child(
-                    div()
-                        .flex_none()
-                        .min_w(px(28.))
-                        .font_family(mono.clone())
-                        .text_xs()
-                        .text_color(muted_fg)
-                        .child(format!("[{n}]")),
-                )
-            })
+            .when_some(
+                cell.ordinal
+                    .filter(|_| cell.disk.kind == "code" && !inline_code),
+                |d, n| {
+                    d.child(
+                        div()
+                            .flex_none()
+                            .min_w(px(28.))
+                            .font_family(mono.clone())
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .child(format!("[{n}]")),
+                    )
+                },
+            )
+            .when_some(
+                cell.execution_seconds
+                    .filter(|_| self.preferences.show_cell_duration && !inline_code),
+                |d, seconds| {
+                    d.child(
+                        div()
+                            .font_family(mono.clone())
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .child(format!(
+                                "{}{}",
+                                if cell.stale() { "Last run " } else { "" },
+                                history::format_duration(seconds)
+                            )),
+                    )
+                },
+            )
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
+            .when(has_error && !notable_outcome, |d| {
+                d.child(badge("Failed", danger))
+            })
             .when(notable_outcome, |d| {
                 d.child(badge(
                     outcome_label(&cell.outcome).to_string(),
@@ -348,16 +406,30 @@ impl Workspace {
                 )
             })
             .child(div().flex_1())
-            .child(actions);
+            .children(header_actions);
         let mut card = v_flex()
             .id(SharedString::from(id.clone()))
             .w_full()
+            .debug_selector({
+                let id = id.clone();
+                move || format!("cell-card-{id}")
+            })
+            .role(Role::Group)
+            .aria_label(format!(
+                "Cell {}, {}{}{}",
+                index + 1,
+                cell.disk.kind,
+                if selected { ", selected" } else { "" },
+                if editor_focused { ", editing" } else { "" }
+            ))
             .group(group)
             .relative()
             .border_1()
             .rounded(cx.theme().radius_lg)
-            .border_color(if self.high_contrast {
-                if selected { primary } else { edge(cx) }
+            .border_color(if selected {
+                primary.opacity(if self.high_contrast { 1. } else { 0.55 })
+            } else if self.high_contrast {
+                edge(cx)
             } else {
                 transparent
             })
@@ -415,20 +487,89 @@ impl Workspace {
                                 transparent
                             })
                             .child(
-                                h_flex().relative().w_full().child(gutter).child(
-                                    Editor::new(&editor)
-                                        .flex_1()
-                                        .min_w_0()
-                                        .text_size(px(self.preferences.editor_size))
-                                        .line_height(px(self.preferences.editor_size * 1.5))
-                                        .aria_label(format!("{} cell {id}", cell.disk.kind))
-                                        .h(editor_height(
-                                            &cell.text,
-                                            self.preferences.editor_size,
-                                            self.preferences.ui_scale,
-                                        ))
-                                        .bordered(false),
-                                ),
+                                h_flex()
+                                    .relative()
+                                    .w_full()
+                                    .items_start()
+                                    .when(inline_code, |d| {
+                                        d.child(
+                                            h_flex()
+                                                .flex_wrap()
+                                                .flex_none()
+                                                .w(rems(if self.preferences.show_cell_duration {
+                                                    5.5
+                                                } else {
+                                                    4.5
+                                                }))
+                                                .gap_0p5()
+                                                .items_center()
+                                                .children(inline_run.take())
+                                                .when_some(cell.ordinal, |d, n| {
+                                                    d.child(
+                                                        div()
+                                                            .font_family(mono.clone())
+                                                            .text_xs()
+                                                            .text_color(muted_fg)
+                                                            .child(format!("[{n}]")),
+                                                    )
+                                                })
+                                                .when_some(
+                                                    cell.execution_seconds.filter(|_| {
+                                                        self.preferences.show_cell_duration
+                                                    }),
+                                                    |d, seconds| {
+                                                        d.child(
+                                                            div()
+                                                                .id(("cell-duration", index))
+                                                                .debug_selector({
+                                                                    let id = id.clone();
+                                                                    move || {
+                                                                        format!(
+                                                                            "cell-duration-{id}"
+                                                                        )
+                                                                    }
+                                                                })
+                                                                .font_family(mono.clone())
+                                                                .text_xs()
+                                                                .text_color(muted_fg)
+                                                                .role(Role::Label)
+                                                                .aria_label(format!(
+                                                                    "Last run duration: {}",
+                                                                    history::format_duration(
+                                                                        seconds
+                                                                    )
+                                                                ))
+                                                                .child(history::format_duration(
+                                                                    seconds,
+                                                                )),
+                                                        )
+                                                    },
+                                                ),
+                                        )
+                                    })
+                                    .child(gutter)
+                                    .child(
+                                        Editor::new(&editor)
+                                            .flex_1()
+                                            .min_w_0()
+                                            .text_size(px(self.preferences.editor_size))
+                                            .line_height(px(self.preferences.editor_size * 1.5))
+                                            .aria_label(format!("{} cell {id}", cell.disk.kind))
+                                            .h(editor_height(
+                                                &cell.text,
+                                                self.preferences.editor_size,
+                                                self.preferences.ui_scale,
+                                            ))
+                                            .bordered(false),
+                                    )
+                                    .when(inline_code || inline_markdown, |d| {
+                                        d.child(
+                                            h_flex()
+                                                .flex_none()
+                                                .pl_2()
+                                                .children(inline_actions.take()),
+                                        )
+                                    }),
                             ),
                     )
                 },
@@ -438,10 +579,39 @@ impl Workspace {
         }
         if cell.disk.kind == "markdown" && !(selected && tab.model.mode == Mode::Edit) {
             card = card.child(
-                div().px_5().py_3().max_w(rems(52.)).child(
-                    TextView::markdown(("preview", index), safe_markdown(&cell.text))
-                        .on_link_click(safe_link),
-                ),
+                h_flex()
+                    .w_full()
+                    .items_start()
+                    .px_5()
+                    .py_3()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .max_w(rems(52.))
+                            // TextView's pinned Markdown renderer paints spans without
+                            // content semantics. Expose one readable document per cell.
+                            .id(("markdown-content", index))
+                            .role(Role::Document)
+                            .aria_label(format!("Rendered Markdown cell {}", index + 1))
+                            .a11y_synthetic_children({
+                                let nodes = markdown_accessibility_nodes(&cell.text);
+                                move |tree| {
+                                    for (i, node) in nodes.into_iter().enumerate() {
+                                        let id = tree.synthetic_node_id(i);
+                                        tree.push_child(id, node);
+                                    }
+                                }
+                            })
+                            .child(
+                                TextView::markdown(("preview", index), safe_markdown(&cell.text))
+                                    .on_link_click(safe_link),
+                            ),
+                    )
+                    .when(inline_markdown, |d| {
+                        d.child(h_flex().flex_none().children(inline_actions.take()))
+                    }),
             );
         }
         let attachment_names = cell
@@ -690,4 +860,73 @@ impl Workspace {
             )
             .into_any_element()
     }
+}
+
+/// Coherent reading blocks rather than a separate accessibility node per span.
+/// Preserve inline syntax and code verbatim so no source content is silently lost.
+pub(crate) fn markdown_reading_blocks(source: &str) -> Vec<(usize, String)> {
+    let mut blocks = Vec::new();
+    let mut paragraph = String::new();
+    let mut fence: Option<&str> = None;
+    let flush = |blocks: &mut Vec<(usize, String)>, paragraph: &mut String| {
+        let text = paragraph.trim();
+        if !text.is_empty() {
+            blocks.push((0, text.to_owned()));
+        }
+        paragraph.clear();
+    };
+    for line in source.lines() {
+        let text = line.trim();
+        let delimiter = if text.starts_with("```") {
+            Some("```")
+        } else if text.starts_with("~~~") {
+            Some("~~~")
+        } else {
+            None
+        };
+        if fence.is_none() && delimiter.is_some() {
+            flush(&mut blocks, &mut paragraph);
+            fence = delimiter;
+        } else if fence.is_some() && delimiter == fence {
+            if !paragraph.is_empty() {
+                paragraph.push('\n');
+            }
+            paragraph.push_str(line);
+            flush(&mut blocks, &mut paragraph);
+            fence = None;
+            continue;
+        }
+        let level = text.chars().take_while(|c| *c == '#').count();
+        if fence.is_none() && level > 0 && level <= 6 && text.as_bytes().get(level) == Some(&b' ') {
+            flush(&mut blocks, &mut paragraph);
+            blocks.push((level, text[level..].trim().to_owned()));
+        } else if fence.is_none() && text.is_empty() {
+            flush(&mut blocks, &mut paragraph);
+        } else {
+            if !paragraph.is_empty() {
+                paragraph.push('\n');
+            }
+            paragraph.push_str(line);
+        }
+    }
+    flush(&mut blocks, &mut paragraph);
+    blocks
+}
+
+pub(crate) fn markdown_accessibility_nodes(source: &str) -> Vec<accesskit::Node> {
+    markdown_reading_blocks(source)
+        .into_iter()
+        .map(|(level, text)| {
+            let mut node = accesskit::Node::new(if level > 0 {
+                Role::Heading
+            } else {
+                Role::Paragraph
+            });
+            node.set_label(text);
+            if level > 0 {
+                node.set_level(level);
+            }
+            node
+        })
+        .collect()
 }

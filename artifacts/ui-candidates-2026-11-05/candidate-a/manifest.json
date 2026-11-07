@@ -1,0 +1,153 @@
+{
+  "executable": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-562311ac\\desktop\\target\\debug\\kernelledger-desktop.exe",
+  "sha256": "f9ef37bc4e19ce24e160aaf2aadfa0ac39ab8abea919dd9640035b59d9b5ab7b",
+  "capture": "Windows Graphics Capture, owned window only",
+  "fixture": "C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+  "screens": [
+    {
+      "name": "notebook-1280-light",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "notebook-800-light",
+      "logical_outer_size": [
+        800,
+        600
+      ],
+      "client_pixels": [
+        1600,
+        1200
+      ]
+    },
+    {
+      "name": "traceback-1280-light",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "settings-appearance",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "notebook-1280-dark",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "settings-layout",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "notebook-duration",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "focused-actions",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "cell-actions",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    },
+    {
+      "name": "commands",
+      "logical_outer_size": [
+        1280,
+        850
+      ],
+      "client_pixels": [
+        2534,
+        1687
+      ]
+    }
+  ],
+  "journeys": {
+    "run-one-from-ui": {
+      "status": "passed",
+      "result": {
+        "before": 1,
+        "after": 2
+      }
+    },
+    "run-all-from-ui": {
+      "status": "passed",
+      "result": {
+        "before": 3,
+        "after": 5
+      }
+    },
+    "expanded-traceback": {
+      "status": "passed",
+      "result": null
+    },
+    "enable-recorded-duration": {
+      "status": "passed",
+      "result": null
+    },
+    "focus-contextual-actions": {
+      "status": "passed",
+      "result": null
+    }
+  },
+  "runtime": "standard; experimental debugger disabled",
+  "font_px": 14,
+  "ui_scale": 1,
+  "density": "Compact",
+  "pid": 60840,
+  "hwnd": 3735928,
+  "dpi": 192
+}

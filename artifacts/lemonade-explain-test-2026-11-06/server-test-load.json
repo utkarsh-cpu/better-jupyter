@@ -1,0 +1,15 @@
+{
+  "request": {
+    "model_name": "LFM2.5-8B-A1B",
+    "ctx_size": 4096,
+    "llamacpp_args": "--parallel 1 --reasoning-budget 0",
+    "save_options": false
+  },
+  "response": {
+    "checkpoint": "LiquidAI/LFM2.5-8B-A1B-GGUF:LFM2.5-8B-A1B-Q4_K_M.gguf",
+    "model_name": "LFM2.5-8B-A1B",
+    "recipe": "llamacpp",
+    "status": "success"
+  },
+  "seconds": 3.0584053993225098
+}

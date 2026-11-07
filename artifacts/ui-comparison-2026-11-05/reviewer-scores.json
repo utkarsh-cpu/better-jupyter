@@ -1,0 +1,67 @@
+{
+  "labels": [
+    "Visual polish",
+    "Text readability",
+    "Visual hierarchy",
+    "Space efficiency",
+    "Navigation clarity",
+    "Action discoverability",
+    "Execution feedback",
+    "Error experience",
+    "Settings usability",
+    "800 × 600 layout"
+  ],
+  "grok": {
+    "marimo": [
+      7.5,
+      7.5,
+      7.5,
+      6.5,
+      6.5,
+      7,
+      8,
+      7.5,
+      8,
+      6.5
+    ],
+    "kernel": [
+      7.5,
+      8,
+      8,
+      7,
+      8,
+      8,
+      7.5,
+      7.5,
+      7.5,
+      7.5
+    ]
+  },
+  "original": {
+    "marimo": [
+      8,
+      7,
+      8,
+      8,
+      6.5,
+      6.5,
+      8.5,
+      8,
+      8,
+      7
+    ],
+    "kernel": [
+      7.5,
+      8.5,
+      8,
+      7,
+      8.5,
+      8,
+      8,
+      8.5,
+      8.5,
+      8
+    ]
+  },
+  "method": "Ten equally weighted subjective scores. Grok 4.7 xhigh independently reviewed previously captured PNGs; no fresh execution. Round half-up to one decimal. Unmatched disclosure states and settings pages limit comparative conclusions."
+}

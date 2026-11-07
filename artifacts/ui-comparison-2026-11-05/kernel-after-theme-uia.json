@@ -1,0 +1,134 @@
+[
+    {
+        "name":  "Notebook switcher: kernelledger-notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "37,15,192,60"
+    },
+    {
+        "name":  "Notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "241,15,166,60"
+    },
+    {
+        "name":  "History",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "411,15,128,60"
+    },
+    {
+        "name":  "Checkpoints",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "543,15,192,60"
+    },
+    {
+        "name":  "Commands",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1797,15,56,60"
+    },
+    {
+        "name":  "Runtime: Python (Ready)",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1891,15,148,60"
+    },
+    {
+        "name":  "Export notebook",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2047,15,152,60"
+    },
+    {
+        "name":  "Settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2207,15,56,60"
+    },
+    {
+        "name":  "Menu",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2271,15,56,60"
+    },
+    {
+        "name":  "",
+        "role":  "ControlType.Pane",
+        "enabled":  true,
+        "rect":  "13,92,2534,1533"
+    },
+    {
+        "name":  "Settings sections",
+        "role":  "ControlType.List",
+        "enabled":  true,
+        "rect":  "256,222,400,348"
+    },
+    {
+        "name":  "Appearance settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "262,228,388,64"
+    },
+    {
+        "name":  "Editor settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "262,296,388,64"
+    },
+    {
+        "name":  "Layout \u0026 accessibility settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "262,364,388,64"
+    },
+    {
+        "name":  "Runtime settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "262,432,388,64"
+    },
+    {
+        "name":  "Assistant settings",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "262,500,388,64"
+    },
+    {
+        "name":  "System",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "742,356,128,60"
+    },
+    {
+        "name":  "Light",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "874,356,102,60"
+    },
+    {
+        "name":  "Dark",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "980,356,96,60"
+    },
+    {
+        "name":  "High contrast",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "1080,356,210,60"
+    },
+    {
+        "name":  "Preview of notebook cells with the current appearance and spacing",
+        "role":  "ControlType.Group",
+        "enabled":  true,
+        "rect":  "704,480,1600,506"
+    },
+    {
+        "name":  "Assistant",
+        "role":  "ControlType.Button",
+        "enabled":  true,
+        "rect":  "2341,1627,182,60"
+    }
+]

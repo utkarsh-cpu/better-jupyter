@@ -1,0 +1,212 @@
+{
+  "reviewer": "grok",
+  "model": "Grok 4.7",
+  "model_route": "Grok 4.7 with xhigh reasoning through Cursor",
+  "date": "2026-11-06",
+  "candidate": {
+    "ui": "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop",
+    "backend": "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant",
+    "evidence": "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06"
+  },
+  "image_viewing": {
+    "method": "Opened each PNG with an image-capable reader that returned a visual description. Control strings were checked against UIA JSON. No contrast ratio or pixel measurement was taken.",
+    "images_seen": [
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-result.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/final.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/no-thinking-result.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-preview-current.png"
+    ],
+    "raster_viewing_failed": false,
+    "visual_uncertainties": [
+      "The image description says the provider-error banner ends visibly at 'unsup'. UIA has the full sentence and the status bounds are 810 by 83, so clipping was not independently measured.",
+      "Stale-banner green and provider-error red agree between the image descriptions and the status color rule in assistant.rs."
+    ]
+  },
+  "checks_run_by_reviewer": [
+    "Read-only SHA-256 of cells/error.py equals 95baf036f1aa2733423c14f202dbee17b0d6c29230f6484fd711c678cd64635a and the file is the five bytes '1 / 0'.",
+    "Read-only summary of raw-sse-diagnostic.json: finish_reason length, 510 reasoning deltas, 0 content deltas. Reasoning text was not copied.",
+    "No pytest, UI automation, model request, or SQLite connection."
+  ],
+  "ui": {
+    "dimensions": [
+      {
+        "id": 1,
+        "name": "Provider onboarding and configuration",
+        "score": 5.5,
+        "confidence": "high",
+        "rationale": "Presets, key storage, policy, budgets, and Test connection work. Structured output and reasoning are absent from the form, and Save compatible persists only base_url. The connection banner overclaims structured JSON."
+      },
+      {
+        "id": 2,
+        "name": "Readability and visual hierarchy",
+        "score": 6.0,
+        "confidence": "high",
+        "rationale": "The completed Gemma answer, hypothesis label, and current/proposed diff are readable. The receipt step is compact JSON."
+      },
+      {
+        "id": 3,
+        "name": "Context review and destination clarity",
+        "score": 5.0,
+        "confidence": "high",
+        "rationale": "Local destination, model, and Approve are clear. The composer counts one item while the explain receipt sends cell, execution, and output JSON, including absolute worker paths."
+      },
+      {
+        "id": 4,
+        "name": "Conversation and task workflow",
+        "score": 6.0,
+        "confidence": "high",
+        "rationale": "Cell Explain error reaches task explain and a single answer. The composer Review action always starts ask. History is an icon, not a visible thread."
+      },
+      {
+        "id": 5,
+        "name": "Generation feedback and cancellation UX",
+        "score": 5.0,
+        "confidence": "medium",
+        "rationale": "UIA shows a static generating status and an enabled Cancel during the first send. No captured draft progress. Cancel was not used. The 29.3s success has no elapsed indicator in the evidence."
+      },
+      {
+        "id": 6,
+        "name": "Error clarity and recovery",
+        "score": 4.5,
+        "confidence": "high",
+        "rationale": "Failures stay on screen, with method prefixes and a stale sentence that does not match the unchanged file. The stale banner uses the success color. Approve stays enabled after the receipt is consumed."
+      },
+      {
+        "id": 7,
+        "name": "Evidence and citation UX",
+        "score": 7.0,
+        "confidence": "high",
+        "rationale": "Verified chips open execution 5 and return to the cell. The Evidence-checked badge is unconditional. Labels are raw ids. Verification is target existence."
+      },
+      {
+        "id": 8,
+        "name": "Proposal review and user control",
+        "score": 6.5,
+        "confidence": "high",
+        "rationale": "The successful card shows 1 / 0 beside 1 / 1 with Apply, Reject, and Regenerate, and it stayed unapplied. Stale native attempts produced no card."
+      },
+      {
+        "id": 9,
+        "name": "Keyboard and accessibility support",
+        "score": 5.0,
+        "confidence": "medium",
+        "rationale": "Most buttons have names. Failures are status regions. Generation focus sat on Copy receipt. No assistant shortcut and no screen-reader pass."
+      },
+      {
+        "id": 10,
+        "name": "Responsive layout and space use",
+        "score": 6.0,
+        "confidence": "medium",
+        "rationale": "The wide light layout fits the notebook, answer, and diff. The receipt does not wrap into readable text. Narrow, dark, and high-contrast Sol captures are missing."
+      }
+    ],
+    "sum": 56.5,
+    "count": 10,
+    "nulls_excluded": 0,
+    "mean_unrounded": 5.65,
+    "mean_display": 5.7,
+    "rounding": "half-up to one decimal",
+    "coverage_complete": true
+  },
+  "backend": {
+    "dimensions": [
+      {
+        "id": 1,
+        "name": "Provider and protocol compatibility",
+        "score": 6.5,
+        "confidence": "high",
+        "rationale": "Chat and Responses SSE, pinned resolution, no redirects, and status-only HTTP errors. reasoning_content is ignored. length, content_filter, and tool_calls share one error."
+      },
+      {
+        "id": 2,
+        "name": "Schema support and model capability qualification",
+        "score": 4.5,
+        "confidence": "high",
+        "rationale": "structured_output can send json_schema. The probe and status summary treat structured output as true too easily. Schema-valid output can still swap citation kinds and propose a no-op."
+      },
+      {
+        "id": 3,
+        "name": "Context grounding and citation validation",
+        "score": 7.0,
+        "confidence": "high",
+        "rationale": "Explain context is the selected cell, execution, and error output, hashed to the destination. Citations are id lookups and can match the wrong namespace."
+      },
+      {
+        "id": 4,
+        "name": "Proposal validation, staleness, and effect boundaries",
+        "score": 7.0,
+        "confidence": "high",
+        "rationale": "Invalid proposals are not stored. Apply rechecks hashes through source or batch contracts. Commands are copy-only. One stale code covers missing cells, bad hashes, and real edits."
+      },
+      {
+        "id": 5,
+        "name": "Reasoning, token budgets, and deadlines",
+        "score": 4.0,
+        "confidence": "high",
+        "rationale": "A 2048 output cap, daily reservation, and 60s timeout exist. No reasoning control is sent. The passing Gemma server load set reasoning budget outside the app and did not save it."
+      },
+      {
+        "id": 6,
+        "name": "Streaming and cancellation",
+        "score": 6.0,
+        "confidence": "high",
+        "rationale": "SSE and cancel are unit-tested. The UI receives the answer only after its JSON string closes. Desktop Cancel kills the process."
+      },
+      {
+        "id": 7,
+        "name": "Persistence and concurrency",
+        "score": 7.5,
+        "confidence": "high",
+        "rationale": "Separate SQLite, directory lock, interrupted recovery, retention, and purge. Single owner. Live database was not opened."
+      },
+      {
+        "id": 8,
+        "name": "Privacy, credential handling, and egress controls",
+        "score": 6.5,
+        "confidence": "high",
+        "rationale": "OS key store, env stripping, and remote HTTPS rules are in place. Local respond does not require the approved receipt. Always allow can bypass remote approval, which the docs say is disabled."
+      },
+      {
+        "id": 9,
+        "name": "Failure diagnostics and recovery",
+        "score": 4.5,
+        "confidence": "high",
+        "rationale": "Codes exist and provider bodies are withheld. LFM rows store only provider_error or stale with empty usage. The receipt is popped before the attempt, and the rejected proposal is not kept."
+      },
+      {
+        "id": 10,
+        "name": "Test coverage and release readiness",
+        "score": 5.5,
+        "confidence": "high",
+        "rationale": "Unit tests cover receipts, stale apply, redaction, HTTP faults, and cancel. The UI probe is a fake-provider happy path. This manual evidence is one exception and one successful native request."
+      }
+    ],
+    "sum": 59.0,
+    "count": 10,
+    "nulls_excluded": 0,
+    "mean_unrounded": 5.9,
+    "mean_display": 5.9,
+    "rounding": "half-up to one decimal",
+    "coverage_complete": true
+  },
+  "p0_count": 0,
+  "release_blocking": [
+    "Distinguish output-limit and reasoning starvation from a generic provider error, and stop the connection test from claiming task qualification.",
+    "Expose structured_output and preserve it, and allow_http_host, across Save compatible.",
+    "Separate invalid proposal targets from real source changes and use failure styling.",
+    "Render receipt items readably and count every item that will be sent.",
+    "Disable Approve after the server has consumed the receipt and tell the user to preview again.",
+    "Report only the capabilities the probe actually observed."
+  ],
+  "limitations": [
+    "Scores cover one ZeroDivisionError fixture, two local models, and one successful native request. They are not a model-quality or release rating.",
+    "Apply, Reject, Regenerate, Cancel, purge, remote egress, and a second Approve click were not exercised in the native UI.",
+    "Narrow, dark, high-contrast, NVDA, and Linux Secret Service qualification are absent.",
+    "The native stale proposal body was not stored. The file hash was stable, so the user-facing 'source changed' sentence is false for this session; the mismatched field is unknown.",
+    "Execution count was not re-read from the ledger. The file hash was re-read.",
+    "Direct SSE and schema diagnostics are not native UI passes.",
+    "Visual clipping of the provider-error line is uncertain.",
+    "The other review was not read. This worktree was not used as the UI under review."
+  ]
+}

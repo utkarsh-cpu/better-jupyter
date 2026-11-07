@@ -1,0 +1,650 @@
+{
+  "common-base": {
+    "notebook-1280-light": [
+      {
+        "name": "Notebook switcher: Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          198,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          507,
+          406,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          511,
+          470,
+          1928,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          515,
+          688,
+          1916,
+          126
+        ],
+        "patterns": []
+      }
+    ],
+    "notebook-800-light": [
+      {
+        "name": "Notebook switcher: Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          198,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          71,
+          406,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          75,
+          470,
+          1480,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          79,
+          688,
+          1468,
+          126
+        ],
+        "patterns": []
+      }
+    ]
+  },
+  "candidate-a": {
+    "notebook-1280-light": [
+      {
+        "name": "Notebook switcher: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          480,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Cell 2: code cell summary: sales = [120, 180, 150, 210]",
+        "role": "ControlType.ListItem",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          29,
+          276,
+          402,
+          61
+        ],
+        "patterns": [
+          "SelectionItemPatternIdentifiers.Pattern"
+        ],
+        "selected": false
+      },
+      {
+        "name": "Rendered Markdown cell 1",
+        "role": "ControlType.Document",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          523,
+          142,
+          1664,
+          146
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Sales analysis",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          Infinity,
+          Infinity,
+          -Infinity,
+          -Infinity
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          511,
+          348,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          655,
+          348,
+          1520,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          515,
+          566,
+          1916,
+          126
+        ],
+        "patterns": []
+      },
+      {
+        "name": "",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          229,
+          1637,
+          66,
+          39
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Runtime: Ready",
+        "role": "ControlType.StatusBar",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          329,
+          1637,
+          92,
+          39
+        ],
+        "patterns": []
+      },
+      {
+        "name": "",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          455,
+          1637,
+          64,
+          39
+        ],
+        "patterns": []
+      }
+    ],
+    "notebook-800-light": [
+      {
+        "name": "Notebook switcher: C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-a\\Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          292,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Rendered Markdown cell 1",
+        "role": "ControlType.Document",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          87,
+          142,
+          1226,
+          146
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Sales analysis",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          Infinity,
+          Infinity,
+          -Infinity,
+          -Infinity
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          75,
+          348,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          219,
+          348,
+          1072,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          79,
+          566,
+          1468,
+          126
+        ],
+        "patterns": []
+      },
+      {
+        "name": "",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          229,
+          1150,
+          66,
+          39
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Runtime: Ready",
+        "role": "ControlType.StatusBar",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          329,
+          1150,
+          92,
+          39
+        ],
+        "patterns": []
+      },
+      {
+        "name": "",
+        "role": "ControlType.Text",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          455,
+          1150,
+          64,
+          39
+        ],
+        "patterns": []
+      }
+    ]
+  },
+  "candidate-b": {
+    "notebook-1280-light": [
+      {
+        "name": "Notebook switcher: Sales-analysis-notebook, C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-b\\Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          417,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Rendered Markdown. Sales analysis Compare a small dataset, inspect the result, and diagnose an error.",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          483,
+          118,
+          1664,
+          194
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          503,
+          348,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          599,
+          348,
+          1576,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          515,
+          566,
+          1916,
+          126
+        ],
+        "patterns": []
+      },
+      {
+        "name": "3 cells. Ready.",
+        "role": "ControlType.StatusBar",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          Infinity,
+          Infinity,
+          -Infinity,
+          -Infinity
+        ],
+        "patterns": []
+      }
+    ],
+    "notebook-800-light": [
+      {
+        "name": "Notebook switcher: Sales-analysis-notebook, C:\\Users\\UTKARSH KAUSHIK\\Documents\\Projects\\KernelLedger-v6\\artifacts\\ui-candidates-2026-11-05\\candidate-b\\Sales-analysis-notebook",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          101,
+          15,
+          256,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "Rendered Markdown. Sales analysis Compare a small dataset, inspect the result, and diagnose an error.",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          47,
+          118,
+          1306,
+          194
+        ],
+        "patterns": []
+      },
+      {
+        "name": "Run sales = [120, 180, 150, 210]",
+        "role": "ControlType.Button",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          67,
+          348,
+          56,
+          60
+        ],
+        "patterns": [
+          "InvokePatternIdentifiers.Pattern"
+        ]
+      },
+      {
+        "name": "code cell summary",
+        "role": "ControlType.Edit",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": true,
+        "rect": [
+          163,
+          348,
+          1128,
+          204
+        ],
+        "patterns": [
+          "ValuePatternIdentifiers.Pattern"
+        ],
+        "value": "sales = [120, 180, 150, 210]\ntotal = sum(sales)\nprint(f\"Total sales: {total}\")\nprint(f\"Average: {total / len(sales):.1f}\")"
+      },
+      {
+        "name": "Recorded output: Total sales: 660\nAverage: 165.0\n",
+        "role": "ControlType.Group",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          79,
+          566,
+          1468,
+          126
+        ],
+        "patterns": []
+      },
+      {
+        "name": "3 cells. Ready.",
+        "role": "ControlType.StatusBar",
+        "enabled": true,
+        "offscreen": false,
+        "focused": false,
+        "focusable": false,
+        "rect": [
+          Infinity,
+          Infinity,
+          -Infinity,
+          -Infinity
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

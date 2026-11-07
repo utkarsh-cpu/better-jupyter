@@ -1,0 +1,17 @@
+{
+  "provenance": "Transcribed from the successful preview_evaluate result in the parent thread during the original capture session. This is NOT a new browser measurement or a full saved DOM dump.",
+  "date": "2026-11-05",
+  "app": "Marimo 0.25.1",
+  "viewport": [
+    800,
+    600
+  ],
+  "code": [
+    {
+      "fontFamily": "\"Fira Mono\", monospace",
+      "fontSize": "12.6px",
+      "lineHeight": "17.64px"
+    }
+  ],
+  "scope": "The earlier tool output reported identical computed styles for three .cm-content elements. Pixel-derived font ink height and CSS font-size are different quantities. No accessibility certification follows."
+}

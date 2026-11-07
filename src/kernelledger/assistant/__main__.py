@@ -54,7 +54,20 @@ def main() -> None:
                 {
                     "kind": "error",
                     "request_id": rid,
-                    "error": {"code": code, "message": message, "retryable": False, "details": {}},
+                    "error": {
+                        "code": code,
+                        "message": message,
+                        "severity": "error",
+                        "retryable": code
+                        in (
+                            "timeout",
+                            "interrupted",
+                            "provider_unavailable",
+                            "receipt_required",
+                            "output_limit",
+                        ),
+                        "details": {},
+                    },
                 }
             )
         finally:

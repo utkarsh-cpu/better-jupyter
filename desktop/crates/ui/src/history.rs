@@ -55,7 +55,7 @@ pub(super) fn history_filter_valid(filter: &str) -> bool {
         .all(|start| before.iter().all(|end| start <= end))
 }
 
-fn format_duration(seconds: f64) -> String {
+pub(super) fn format_duration(seconds: f64) -> String {
     if seconds < 60. {
         format!("{seconds:.2} s")
     } else {

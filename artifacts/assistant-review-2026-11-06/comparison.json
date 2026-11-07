@@ -1,0 +1,304 @@
+{
+  "reviews": {
+    "grok": {
+      "label": "Grok 4.7",
+      "effort": "xhigh",
+      "ui": {
+        "dimensions": [
+          {
+            "name": "Provider onboarding and configuration",
+            "score": 5.5,
+            "confidence": "high",
+            "rationale": "Presets, key storage, policy, budgets, and Test connection work. Structured output and reasoning are absent from the form, and Save compatible persists only base_url. The connection banner overclaims structured JSON."
+          },
+          {
+            "name": "Readability and visual hierarchy",
+            "score": 6.0,
+            "confidence": "high",
+            "rationale": "The completed Gemma answer, hypothesis label, and current/proposed diff are readable. The receipt step is compact JSON."
+          },
+          {
+            "name": "Context review and destination clarity",
+            "score": 5.0,
+            "confidence": "high",
+            "rationale": "Local destination, model, and Approve are clear. The composer counts one item while the explain receipt sends cell, execution, and output JSON, including absolute worker paths."
+          },
+          {
+            "name": "Conversation and task workflow",
+            "score": 6.0,
+            "confidence": "high",
+            "rationale": "Cell Explain error reaches task explain and a single answer. The composer Review action always starts ask. History is an icon, not a visible thread."
+          },
+          {
+            "name": "Generation feedback and cancellation UX",
+            "score": 5.0,
+            "confidence": "medium",
+            "rationale": "UIA shows a static generating status and an enabled Cancel during the first send. No captured draft progress. Cancel was not used. The 29.3s success has no elapsed indicator in the evidence."
+          },
+          {
+            "name": "Error clarity and recovery",
+            "score": 4.5,
+            "confidence": "high",
+            "rationale": "Failures stay on screen, with method prefixes and a stale sentence that does not match the unchanged file. The stale banner uses the success color. Approve stays enabled after the receipt is consumed."
+          },
+          {
+            "name": "Evidence and citation UX",
+            "score": 7.0,
+            "confidence": "high",
+            "rationale": "Verified chips open execution 5 and return to the cell. The Evidence-checked badge is unconditional. Labels are raw ids. Verification is target existence."
+          },
+          {
+            "name": "Proposal review and user control",
+            "score": 6.5,
+            "confidence": "high",
+            "rationale": "The successful card shows 1 / 0 beside 1 / 1 with Apply, Reject, and Regenerate, and it stayed unapplied. Stale native attempts produced no card."
+          },
+          {
+            "name": "Keyboard and accessibility support",
+            "score": 5.0,
+            "confidence": "medium",
+            "rationale": "Most buttons have names. Failures are status regions. Generation focus sat on Copy receipt. No assistant shortcut and no screen-reader pass."
+          },
+          {
+            "name": "Responsive layout and space use",
+            "score": 6.0,
+            "confidence": "medium",
+            "rationale": "The wide light layout fits the notebook, answer, and diff. The receipt does not wrap into readable text. Narrow, dark, and high-contrast Sol captures are missing."
+          }
+        ],
+        "sum": "56.5",
+        "count": 10,
+        "mean_exact": "5.65",
+        "mean_display": "5.7"
+      },
+      "backend": {
+        "dimensions": [
+          {
+            "name": "Provider and protocol compatibility",
+            "score": 6.5,
+            "confidence": "high",
+            "rationale": "Chat and Responses SSE, pinned resolution, no redirects, and status-only HTTP errors. reasoning_content is ignored. length, content_filter, and tool_calls share one error."
+          },
+          {
+            "name": "Schema support and model capability qualification",
+            "score": 4.5,
+            "confidence": "high",
+            "rationale": "structured_output can send json_schema. The probe and status summary treat structured output as true too easily. Schema-valid output can still swap citation kinds and propose a no-op."
+          },
+          {
+            "name": "Context grounding and citation validation",
+            "score": 7.0,
+            "confidence": "high",
+            "rationale": "Explain context is the selected cell, execution, and error output, hashed to the destination. Citations are id lookups and can match the wrong namespace."
+          },
+          {
+            "name": "Proposal validation, staleness, and effect boundaries",
+            "score": 7.0,
+            "confidence": "high",
+            "rationale": "Invalid proposals are not stored. Apply rechecks hashes through source or batch contracts. Commands are copy-only. One stale code covers missing cells, bad hashes, and real edits."
+          },
+          {
+            "name": "Reasoning, token budgets, and deadlines",
+            "score": 4.0,
+            "confidence": "high",
+            "rationale": "A 2048 output cap, daily reservation, and 60s timeout exist. No reasoning control is sent. The passing Gemma server load set reasoning budget outside the app and did not save it."
+          },
+          {
+            "name": "Streaming and cancellation",
+            "score": 6.0,
+            "confidence": "high",
+            "rationale": "SSE and cancel are unit-tested. The UI receives the answer only after its JSON string closes. Desktop Cancel kills the process."
+          },
+          {
+            "name": "Persistence and concurrency",
+            "score": 7.5,
+            "confidence": "high",
+            "rationale": "Separate SQLite, directory lock, interrupted recovery, retention, and purge. Single owner. Live database was not opened."
+          },
+          {
+            "name": "Privacy, credential handling, and egress controls",
+            "score": 6.5,
+            "confidence": "high",
+            "rationale": "OS key store, env stripping, and remote HTTPS rules are in place. Local respond does not require the approved receipt. Always allow can bypass remote approval, which the docs say is disabled."
+          },
+          {
+            "name": "Failure diagnostics and recovery",
+            "score": 4.5,
+            "confidence": "high",
+            "rationale": "Codes exist and provider bodies are withheld. LFM rows store only provider_error or stale with empty usage. The receipt is popped before the attempt, and the rejected proposal is not kept."
+          },
+          {
+            "name": "Test coverage and release readiness",
+            "score": 5.5,
+            "confidence": "high",
+            "rationale": "Unit tests cover receipts, stale apply, redaction, HTTP faults, and cancel. The UI probe is a fake-provider happy path. This manual evidence is one exception and one successful native request."
+          }
+        ],
+        "sum": "59.0",
+        "count": 10,
+        "mean_exact": "5.9",
+        "mean_display": "5.9"
+      }
+    },
+    "sol": {
+      "label": "GPT 6.1 Sol",
+      "effort": "xhigh",
+      "ui": {
+        "dimensions": [
+          {
+            "name": "Provider onboarding and configuration",
+            "score": 5.5,
+            "confidence": "high",
+            "rationale": "Setup states, presets, discovery and connection testing help; Save drops schema/HTTP exception options and schema/timeout/reasoning controls are absent. Settings visuals only partially evidenced."
+          },
+          {
+            "name": "Readability and visual hierarchy",
+            "score": 7.5,
+            "confidence": "medium",
+            "rationale": "Viewed light-theme answer has readable prose, code and clear cards. Escaped receipt JSON overwhelms the feed; long ids dominate citations and a captured error clips. No contrast measurements."
+          },
+          {
+            "name": "Context review and destination clarity",
+            "score": 6.5,
+            "confidence": "high",
+            "rationale": "Exact copied messages, destination/model metadata, badges and one-use receipts are strong. Raw serialized items are laborious to review; question/system messages are copy-only and omitted items are not counted."
+          },
+          {
+            "name": "Conversation and task workflow",
+            "score": 5.5,
+            "confidence": "medium",
+            "rationale": "Notebook tasks, context chips, history and search exist. Sends replace a single answer; historical text lacks citation actions; conversation switching leaves old answer/proposals; answer export calls notebook export."
+          },
+          {
+            "name": "Generation feedback and cancellation UX",
+            "score": 5.5,
+            "confidence": "low",
+            "rationale": "Code has busy text, disabled send, Cancel and unverified draft. Backend emits only after the complete answer JSON string; Cancel/status follow the receipt in the feed. No active-generation/cancellation visual evidence."
+          },
+          {
+            "name": "Error clarity and recovery",
+            "score": 4,
+            "confidence": "high",
+            "rationale": "Viewed stale failure is green; incomplete-provider error clips and lacks useful cause. Spent receipt remains sendable after error. Invented model hashes are presented as source changes."
+          },
+          {
+            "name": "Evidence and citation UX",
+            "score": 6.5,
+            "confidence": "high",
+            "rationale": "Saved UIA records support cell/execution navigation; unresolved chips are labeled and disabled. Unconditional Evidence-checked badge overstates target existence. Long ids and bottom chips do not map individual claims."
+          },
+          {
+            "name": "Proposal review and user control",
+            "score": 7.5,
+            "confidence": "medium",
+            "rationale": "Viewed current/proposed source and Apply/Reject/Regenerate are clear; no effects recorded. Hash gates are strong. One malformed proposal loses the explanation; generic Apply also represents runs; accepted/applied reconciliation is incomplete."
+          },
+          {
+            "name": "Keyboard and accessibility support",
+            "score": 6,
+            "confidence": "low",
+            "rationale": "Named native buttons/edits/status and explicit Invoke handlers for key actions are positive. UIA is not a keyboard/NVDA audit. Full answer group label may be cumbersome; general errors use Status; offscreen Apply/Cancel unqualified."
+          },
+          {
+            "name": "Responsive layout and space use",
+            "score": 6,
+            "confidence": "medium",
+            "rationale": "Wide capture keeps notebook/assistant adjacent and composer docked. Resizable panel and compact overlay exist in code. Expanded receipts consume feed space; a long error clips. Narrow/DPI/compact states untested."
+          }
+        ],
+        "sum": "60.5",
+        "count": 10,
+        "mean_exact": "6.05",
+        "mean_display": "6.1"
+      },
+      "backend": {
+        "dimensions": [
+          {
+            "name": "Provider and protocol compatibility",
+            "score": 6.5,
+            "confidence": "medium",
+            "rationale": "Bounded Responses/chat SSE, retry limits and saved Lemonade success exist. Compatible servers must accept SSE, stream_options and max_tokens; no dialect negotiation/nonstream fallback. Four native failures precede one success."
+          },
+          {
+            "name": "Schema support and model capability qualification",
+            "score": 4.5,
+            "confidence": "high",
+            "rationale": "Closed local validation and optional schema enforcement are good. Trivial connection probe asserts broad JSON support; optimistic defaults and SQL column mismatch defeat observed capability status. No task/model quality qualification."
+          },
+          {
+            "name": "Context grounding and citation validation",
+            "score": 7,
+            "confidence": "high",
+            "rationale": "Explicit bounded redacted context, revisions and exact messages ground requests. Citation checks prove existence against current records, not receipt membership, revision stability or claim truth. Budget exhaustion silently omits later items."
+          },
+          {
+            "name": "Proposal validation, staleness, and effect boundaries",
+            "score": 8,
+            "confidence": "medium",
+            "rationale": "Closed schemas, hash checks, resolve-time checks, source contracts, frozen run hashes and copy-only commands form a strong boundary. No effects in evidence. Invalid proposals fail the whole response; accept/apply are separate unreconciled steps."
+          },
+          {
+            "name": "Reasoning, token budgets, and deadlines",
+            "score": 5,
+            "confidence": "high",
+            "rationale": "Context/output limits, conservative daily reservations and deadline checks exist. Reasoning/context-window qualification absent; connection probes bypass caps. Full-timeout blocking reads/retries can exceed total deadline. Reservations intentionally differ from actual usage."
+          },
+          {
+            "name": "Streaming and cancellation handling",
+            "score": 6.5,
+            "confidence": "medium",
+            "rationale": "Incrementally bounded SSE and complete-answer draft emission protect split secrets. Desktop kills isolated assistant; runtime polling remains separate. No token-by-token UX or active-cancel evidence; blocked-connect/read cancellation unqualified."
+          },
+          {
+            "name": "Persistence and concurrency",
+            "score": 7,
+            "confidence": "medium",
+            "rationale": "Separate SQLite, owner lock, transactions, interrupted recovery and retention exist. No effect/application reconciliation or duplicate application guard. Machine settings updates can race across notebooks. History has hard limits."
+          },
+          {
+            "name": "Privacy, credential handling, and egress controls",
+            "score": 7.5,
+            "confidence": "medium",
+            "rationale": "Read allowlist, inspect-only source, OS credential stdin, receipt checks, DNS pinning, no redirects and image omission are good. Redaction is best effort; local paths persist; legacy global/host approvals conflict with scoped wording/docs. No adversarial live qualification."
+          },
+          {
+            "name": "Failure diagnostics and recovery",
+            "score": 4.5,
+            "confidence": "high",
+            "rationale": "Fail-closed behavior suppresses unsafe provider bodies. Length/filter/tool-call failures collapse to one code; failed request usage/details lost, invalid proposal loses answer, receipt remains stale in UI, capability lookup exceptions swallowed."
+          },
+          {
+            "name": "Test coverage and release readiness",
+            "score": 5.5,
+            "confidence": "medium",
+            "rationale": "Substantive fake/local tests cover receipts, hashes, redaction, locks and exports; inspected, not rerun. Fake UI probe and helper-export tests missed native wiring/cache bugs. One fixture and confounded server/model settings do not qualify production, accessibility or applications."
+          }
+        ],
+        "sum": "62.0",
+        "count": 10,
+        "mean_exact": "6.2",
+        "mean_display": "6.2"
+      }
+    }
+  },
+  "provenance": {
+    "grok-review.md": {
+      "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-2cca49b1\\artifacts\\assistant-review-2026-11-06\\grok-review.md",
+      "sha256": "90d1686c189901f57d8be66deced0f509d2a5b66a24701aa6f8a7081bf7e6da0"
+    },
+    "grok-scores.json": {
+      "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-2cca49b1\\artifacts\\assistant-review-2026-11-06\\grok-scores.json",
+      "sha256": "544d11800a7ea9ef1c6539097299b51292f5d6a929029830e13574cdbbb1c408"
+    },
+    "sol-review.md": {
+      "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-8de56f2d\\artifacts\\assistant-review-2026-11-06\\sol-review.md",
+      "sha256": "634bb1b0d1f37dd9f085b088c4abc047168866d8c994b9c901c798a93d8d12c0"
+    },
+    "sol-scores.json": {
+      "source": "C:\\Users\\UTKARSH KAUSHIK\\.t3\\worktrees\\KernelLedger-v6\\t3-8de56f2d\\artifacts\\assistant-review-2026-11-06\\sol-scores.json",
+      "sha256": "f5e07d121c3551005c2bff243ac0d92f76b5d53ec4e02a41e6eff8f5103470d5"
+    }
+  },
+  "interpretation": "Independent subjective review ratings, medium overall confidence. One saved fixture; no pooled consensus mean or demonstrated P0. Scored dimensions are not full behavioral coverage.",
+  "rounding": "Exact decimal means, displayed half-up to one decimal."
+}

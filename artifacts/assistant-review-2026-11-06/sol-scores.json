@@ -1,0 +1,692 @@
+{
+  "reviewer": "sol",
+  "model_name": "GPT 6.1 Sol",
+  "runtime_model": "gpt-6.1-sol",
+  "reasoning_effort": "xhigh (inherited)",
+  "date": "2026-11-06",
+  "sources": {
+    "sol_desktop": "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop",
+    "parent_backend": "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6",
+    "evidence": "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06"
+  },
+  "image_viewing": {
+    "successful": true,
+    "tool": "view_image",
+    "actually_viewed": [
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-result.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/final.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/no-thinking-result.png",
+      "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-preview-current.png"
+    ],
+    "disclosure": "Five actual PNGs viewed. generating.png shows a failure aftermath, not active generation. No complete settings raster or live UI inspection."
+  },
+  "ui_ux": {
+    "dimensions": [
+      {
+        "dimension": "Provider onboarding and configuration",
+        "score": 5.5,
+        "confidence": "high",
+        "rationale": "Setup states, presets, discovery and connection testing help; Save drops schema/HTTP exception options and schema/timeout/reasoning controls are absent. Settings visuals only partially evidenced.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:150",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:2134",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/provider-settings-uia.json"
+        ]
+      },
+      {
+        "dimension": "Readability and visual hierarchy",
+        "score": 7.5,
+        "confidence": "medium",
+        "rationale": "Viewed light-theme answer has readable prose, code and clear cards. Escaped receipt JSON overwhelms the feed; long ids dominate citations and a captured error clips. No contrast measurements.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/final.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-result.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png"
+        ]
+      },
+      {
+        "dimension": "Context review and destination clarity",
+        "score": 6.5,
+        "confidence": "high",
+        "rationale": "Exact copied messages, destination/model metadata, badges and one-use receipts are strong. Raw serialized items are laborious to review; question/system messages are copy-only and omitted items are not counted.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1115",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1178",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1249",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py:41"
+        ]
+      },
+      {
+        "dimension": "Conversation and task workflow",
+        "score": 5.5,
+        "confidence": "medium",
+        "rationale": "Notebook tasks, context chips, history and search exist. Sends replace a single answer; historical text lacks citation actions; conversation switching leaves old answer/proposals; answer export calls notebook export.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:298",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:815",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:866",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1898",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1419"
+        ]
+      },
+      {
+        "dimension": "Generation feedback and cancellation UX",
+        "score": 5.5,
+        "confidence": "low",
+        "rationale": "Code has busy text, disabled send, Cancel and unverified draft. Backend emits only after the complete answer JSON string; Cancel/status follow the receipt in the feed. No active-generation/cancellation visual evidence.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:998",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1967",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:314",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs:169"
+        ]
+      },
+      {
+        "dimension": "Error clarity and recovery",
+        "score": 4,
+        "confidence": "high",
+        "rationale": "Viewed stale failure is green; incomplete-provider error clips and lacks useful cause. Spent receipt remains sendable after error. Invented model hashes are presented as source changes.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/no-thinking-result.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/first-request-failed-uia.json",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1014",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:274"
+        ]
+      },
+      {
+        "dimension": "Evidence and citation UX",
+        "score": 6.5,
+        "confidence": "high",
+        "rationale": "Saved UIA records support cell/execution navigation; unresolved chips are labeled and disabled. Unconditional Evidence-checked badge overstates target existence. Long ids and bottom chips do not map individual claims.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/citation-target-uia.json",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/final-settled-uia.json",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1378",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:378"
+        ]
+      },
+      {
+        "dimension": "Proposal review and user control",
+        "score": 7.5,
+        "confidence": "medium",
+        "rationale": "Viewed current/proposed source and Apply/Reject/Regenerate are clear; no effects recorded. Hash gates are strong. One malformed proposal loses the explanation; generic Apply also represents runs; accepted/applied reconciliation is incomplete.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-result.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1684",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:351"
+        ]
+      },
+      {
+        "dimension": "Keyboard and accessibility support",
+        "score": 6,
+        "confidence": "low",
+        "rationale": "Named native buttons/edits/status and explicit Invoke handlers for key actions are positive. UIA is not a keyboard/NVDA audit. Full answer group label may be cumbersome; general errors use Status; offscreen Apply/Cancel unqualified.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/provider-settings-uia.json",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-result-uia.json",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1028",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1441",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/components.rs:315"
+        ]
+      },
+      {
+        "dimension": "Responsive layout and space use",
+        "score": 6,
+        "confidence": "medium",
+        "rationale": "Wide capture keeps notebook/assistant adjacent and composer docked. Resizable panel and compact overlay exist in code. Expanded receipts consume feed space; a long error clips. Narrow/DPI/compact states untested.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-preview-current.png",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:2850",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:2892"
+        ]
+      }
+    ],
+    "score_sum": "60.5",
+    "denominator": 10,
+    "total_dimensions": 10,
+    "null_count": 0,
+    "mean_exact": "6.05",
+    "mean_fraction": "60.5/10",
+    "mean_display": "6.1",
+    "rounding": "Half-up to one decimal; nulls excluded, never zero",
+    "confidence": "medium",
+    "coverage": "10/10 dimensions rated from bounded evidence; behavior within dimensions incompletely qualified"
+  },
+  "backend": {
+    "dimensions": [
+      {
+        "dimension": "Provider and protocol compatibility",
+        "score": 6.5,
+        "confidence": "medium",
+        "rationale": "Bounded Responses/chat SSE, retry limits and saved Lemonade success exist. Compatible servers must accept SSE, stream_options and max_tokens; no dialect negotiation/nonstream fallback. Four native failures precede one success.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:89",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:167",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:200",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json"
+        ]
+      },
+      {
+        "dimension": "Schema support and model capability qualification",
+        "score": 4.5,
+        "confidence": "high",
+        "rationale": "Closed local validation and optional schema enforcement are good. Trivial connection probe asserts broad JSON support; optimistic defaults and SQL column mismatch defeat observed capability status. No task/model quality qualification.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/tools.py:146",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/capabilities.py:12",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:127",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:140",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:36"
+        ]
+      },
+      {
+        "dimension": "Context grounding and citation validation",
+        "score": 7,
+        "confidence": "high",
+        "rationale": "Explicit bounded redacted context, revisions and exact messages ground requests. Citation checks prove existence against current records, not receipt membership, revision stability or claim truth. Budget exhaustion silently omits later items.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py:21",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py:41",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:246",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:378"
+        ]
+      },
+      {
+        "dimension": "Proposal validation, staleness, and effect boundaries",
+        "score": 8,
+        "confidence": "medium",
+        "rationale": "Closed schemas, hash checks, resolve-time checks, source contracts, frozen run hashes and copy-only commands form a strong boundary. No effects in evidence. Invalid proposals fail the whole response; accept/apply are separate unreconciled steps.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/tools.py:185",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:393",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/service.rs:727",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json"
+        ]
+      },
+      {
+        "dimension": "Reasoning, token budgets, and deadlines",
+        "score": 5,
+        "confidence": "high",
+        "rationale": "Context/output limits, conservative daily reservations and deadline checks exist. Reasoning/context-window qualification absent; connection probes bypass caps. Full-timeout blocking reads/retries can exceed total deadline. Reservations intentionally differ from actual usage.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/settings.py:24",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:167",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:204",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:244",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:55"
+        ]
+      },
+      {
+        "dimension": "Streaming and cancellation handling",
+        "score": 6.5,
+        "confidence": "medium",
+        "rationale": "Incrementally bounded SSE and complete-answer draft emission protect split secrets. Desktop kills isolated assistant; runtime polling remains separate. No token-by-token UX or active-cancel evidence; blocked-connect/read cancellation unqualified.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:204",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:309",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs:169",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:522"
+        ]
+      },
+      {
+        "dimension": "Persistence and concurrency",
+        "score": 7,
+        "confidence": "medium",
+        "rationale": "Separate SQLite, owner lock, transactions, interrupted recovery and retention exist. No effect/application reconciliation or duplicate application guard. Machine settings updates can race across notebooks. History has hard limits.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:14",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:39",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:134",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:190",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:399"
+        ]
+      },
+      {
+        "dimension": "Privacy, credential handling, and egress controls",
+        "score": 7.5,
+        "confidence": "medium",
+        "rationale": "Read allowlist, inspect-only source, OS credential stdin, receipt checks, DNS pinning, no redirects and image omission are good. Redaction is best effort; local paths persist; legacy global/host approvals conflict with scoped wording/docs. No adversarial live qualification.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/tools.py:8",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:101",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs:66",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:74",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/redact.py:15"
+        ]
+      },
+      {
+        "dimension": "Failure diagnostics and recovery",
+        "score": 4.5,
+        "confidence": "high",
+        "rationale": "Fail-closed behavior suppresses unsafe provider bodies. Length/filter/tool-call failures collapse to one code; failed request usage/details lost, invalid proposal loses answer, receipt remains stale in UI, capability lookup exceptions swallowed.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:241",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:367",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:127",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:143",
+          "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:787"
+        ]
+      },
+      {
+        "dimension": "Test coverage and release readiness",
+        "score": 5.5,
+        "confidence": "medium",
+        "rationale": "Substantive fake/local tests cover receipts, hashes, redaction, locks and exports; inspected, not rerun. Fake UI probe and helper-export tests missed native wiring/cache bugs. One fixture and confounded server/model settings do not qualify production, accessibility or applications.",
+        "evidence": [
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:109",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:497",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:605",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:690",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/scripts/assistant_ui_probe.py",
+          "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json"
+        ]
+      }
+    ],
+    "score_sum": "62.0",
+    "denominator": 10,
+    "total_dimensions": 10,
+    "null_count": 0,
+    "mean_exact": "6.2",
+    "mean_fraction": "62.0/10",
+    "mean_display": "6.2",
+    "rounding": "Half-up to one decimal; nulls excluded, never zero",
+    "confidence": "medium",
+    "coverage": "10/10 dimensions rated from bounded evidence; behavior within dimensions incompletely qualified"
+  },
+  "findings": [
+    {
+      "id": "F01",
+      "title": "Expose and preserve schema/provider settings",
+      "severity": "P1",
+      "classification": "Static application defect and missing control",
+      "observed_trigger": "Save replaces providers[provider] with base_url alone. The successful recorded profile required structured_output=true set outside the form.",
+      "user_consequence": "An ordinary save silently removes the working schema mode or named HTTP exception; users cannot reproduce the demonstrated setup entirely in the form.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:2124",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:2134",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:189",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/settings.py:79",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/report.md"
+      ],
+      "recommended_change": "Merge validated provider fields; expose supported schema mode and preserve named HTTP exceptions. Show effective saved settings; do not blanket-enable schemas on incompatible servers.",
+      "acceptance_check": "Round-trip base_url, structured_output=true and allow_http_host through native Save/reopen and inspect mocked outgoing response_format. An unsupported schema endpoint receives an actionable capability result.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F02",
+      "title": "Fix capability-cache reads and default to Unknown",
+      "severity": "P1",
+      "classification": "Reproduced backend defect",
+      "observed_trigger": "status_summary selects value, but Store defines result; broad exception handler resets used_today=0. In-memory execution reproduces both consequences.",
+      "user_consequence": "Cached observations never hydrate; usage appears zero and optimistic streaming/structured defaults can appear qualified. Actual send-time Store.used enforcement remains intact.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:127",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:138",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:140",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:143",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:36"
+      ],
+      "recommended_change": "Query result, separate usage/capability failure handling, safely surface diagnostics, default to unknown/unqualified and use effective task-model identity.",
+      "acceptance_check": "Cache structured_output=false and Store.used=12345: status must return false and 12345. Unprobed/expired/error status remains Unknown. Add probe-write/status-read round-trip coverage.",
+      "effort": "S",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F03",
+      "title": "Separate connectivity from task qualification and budget policy",
+      "severity": "P1",
+      "classification": "Model limitation plus qualification/control gap",
+      "observed_trigger": "Tiny connected probe succeeds but four LFM Explain requests fail. Adapter has no reasoning option; separate 512-token diagnostic ends at length with no final content.",
+      "user_consequence": "Connection success suggests readiness for a task that cannot complete. Users cannot select an informed tested model/output/reasoning profile. The diagnostic does not prove every native failure mechanism.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/capabilities.py:12",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:891",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:167",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/settings.py:24",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/raw-sse-diagnostic.json"
+      ],
+      "recommended_change": "Call the probe SSE/JSON connectivity only. Qualify representative tasks per endpoint/model/schema/budget profile; add supported provider-specific reasoning controls or documented server instructions, context-window admission and distinct output-limit recovery.",
+      "acceptance_check": "Repeat Explain fixtures across supported profiles and report correct answers/citations/hashes with denominators and latency. Reasoning-heavy exhaustion offers safe supported choices. No hidden repairs, silent model switch or automatic model load.",
+      "effort": "L",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F04",
+      "title": "Preserve valid answers when optional proposals fail",
+      "severity": "P1",
+      "classification": "Observed failure mode and static validation design",
+      "observed_trigger": "Every proposal is validated before finish; any failure marks the whole request error. Native stale requests have no saved assistant message. Invented hash with unchanged source reproduces stale.",
+      "user_consequence": "A usable explanation is lost because an optional edit is malformed; user is told their source changed. Native invalid payloads were not retained, so exact failing fields remain unknown.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:343",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:351",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:367",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/tools.py:195",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/no-thinking-result.png"
+      ],
+      "recommended_change": "Persist the safe answer/citations independently with rejected-proposal warnings. Distinguish a target/hash absent from the approved context from a real subsequent source change; never silently substitute a hash.",
+      "acceptance_check": "Mixed valid/invalid proposals preserve answer and valid evidence; unsafe entries are inapplicable. Test invented id/hash, genuine post-preview edit, mixed proposals and malformed top-level JSON separately.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F05",
+      "title": "Use typed errors, readable banners and fresh-receipt recovery",
+      "severity": "P1",
+      "classification": "Observed UI defect and static recovery defect",
+      "observed_trigger": "Stale failure is green because severity uses string matching. After respond consumes receipt and errors, UI retains enabled Approve & send. Long provider error clips in saved PNG.",
+      "user_consequence": "Failure looks successful, guidance blames source and retry sends an invalid receipt. Error text cannot be fully read at the captured width.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1014",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1028",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1268",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:787",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:274",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs:144",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/no-thinking-result.png",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/first-request-failed-uia.json"
+      ],
+      "recommended_change": "Carry code/severity/retryability through Rust events; use wrapping error semantics, clear spent receipt and offer Rebuild context while preserving prompt/selection. Keep request busy/status independent of unrelated status/settings results.",
+      "acceptance_check": "At captured/minimum panel widths show full stale/timeout/budget/policy/invalid/cancelled errors. Spent receipts have no active Send; retry previews once and obtains required approval. Verify native error announcement.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F06",
+      "title": "Export the answer from its PDF/Word buttons",
+      "severity": "P1",
+      "classification": "Static end-to-end wiring defect",
+      "observed_trigger": "Answer buttons call export_dialog, which passes path/format without markdown. documents.export_document defaults to notebook_blocks when markdown is absent.",
+      "user_consequence": "Export from the answer saves notebook content instead of the visible report and may include unrelated notebook data the user did not intend to share.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1419",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1431",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/interchange.rs:89",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/interchange.rs:117",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/documents.py:388",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:605"
+      ],
+      "recommended_change": "Capture the reviewed answer and selected provenance at click time in an answer-specific export path; pass markdown explicitly, name it as a report and preserve verification limits.",
+      "acceptance_check": "Answer-only marker and notebook-only marker: exports from the answer in both formats contain the answer marker and exclude unrelated notebook marker. Tab switching/cancel preserves the originating answer.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F07",
+      "title": "Describe target verification without implying factual truth",
+      "severity": "P1",
+      "classification": "Static trust UX defect",
+      "observed_trigger": "All answer cards receive green Evidence-checked, even with zero/unverified citations. Validator checks existence in current records, not receipt inclusion or claim entailment.",
+      "user_consequence": "A structurally valid answer looks fact-checked; unrelated existing ids can receive verified=true.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1378",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1381",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:378",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:365",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/final.png"
+      ],
+      "recommended_change": "Show verified-target counts and visible limits; distinguish no/partial/full resolvability. Track approved-context membership/revision separately, preserve navigation and hypothesis labels, and avoid factual guarantees.",
+      "acceptance_check": "Zero, mixed, unrelated-existing and fully resolvable citation fixtures never imply truth verification; unrelated ids are not approved-context evidence. Existing navigation remains functional.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F08",
+      "title": "Account for connection-test inference and label cap scope",
+      "severity": "P2",
+      "classification": "Static backend accounting gap",
+      "observed_trigger": "providers.test calls probe/respond before the respond admission/reservation path and stores capabilities only. Store.used sums request reservations per notebook/provider.",
+      "user_consequence": "Repeated probes can consume paid inference beyond the configured cap. Failed requests remain charged by design; reserved tokens are not billing totals.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:244",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/capabilities.py:13",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:298",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:55"
+      ],
+      "recommended_change": "Use common admission/accounting for all inference including tests. Keep sanitized known usage and finish reasons on failure; label notebook/provider scope, UTC reset and reserved/actual usage; retain conservative unknown-usage fallback.",
+      "acceptance_check": "Low cap blocks repeated probes before inference; success/failure/cancel probes record reservations and known usage. Multiple notebooks clearly show separate caps until machine-wide accounting exists.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F09",
+      "title": "Bound total deadlines and qualify blocked cancellation",
+      "severity": "P2",
+      "classification": "Static robustness gap; no demonstrated live hang",
+      "observed_trigger": "Each retry/socket uses full timeout and elapsed check occurs before blocking readline. Desktop Cancel kills child and immediately sets local busy=false.",
+      "user_consequence": "Slow headers/lines/retries may exceed nominal total deadline; transport error may overwrite friendly cancellation state. No saved live cancellation result establishes actual behavior.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:93",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:99",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:128",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py:204",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1063",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs:169",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:522"
+      ],
+      "recommended_change": "Carry monotonic deadline through connect, retries, headers and reads; bound remaining waits. Keep Cancel visible outside receipts; settle UI state using request/generation identity.",
+      "acceptance_check": "Isolated fake/mocked stalled DNS/connect/headers, trickled unterminated lines and retries stay within specified grace. Cancel reaches idle; late drafts/errors cannot overwrite a newer request. No live server needed.",
+      "effort": "M",
+      "confidence": "medium",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F10",
+      "title": "Reconcile proposal acceptance with application outcomes",
+      "severity": "P2",
+      "classification": "Static persistence/effect recovery gap",
+      "observed_trigger": "resolve commits accepted before desktop save/apply; application.record is later and lacks uniqueness. Crash/helper conflict can occur between stages.",
+      "user_consequence": "Accepted proposals may have no application; effects may lack audit records. Accepted styling can imply success after application failure. Saved fixture never applied anything.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:399",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:449",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:35",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/service.rs:727",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/service.rs:769",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:847"
+      ],
+      "recommended_change": "Represent accepted/applying/applied/failed/unknown separately. Persist an idempotent application identity and reconcile manifest/runtime request ids after restart; never retry effects blindly.",
+      "acceptance_check": "Inject failures before effect, after effect and before record; restart shows truthful recoverable states without duplicate insertions/runs. Preserve revision/frozen-hash gates.",
+      "effort": "L",
+      "confidence": "medium",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F11",
+      "title": "Make receipts scannable and expose omitted selections",
+      "severity": "P2",
+      "classification": "Observed usability issue and static completeness gap",
+      "observed_trigger": "Receipt renders raw JSON-escaped traceback/path strings; add silently returns when shared budget exhausted. Status/Cancel follow receipt in the feed.",
+      "user_consequence": "Review is laborious, later selected evidence can vanish without omitted counts, and status is far from the header. Long opaque ids stretch controls.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-preview-current.png",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/generating.png",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1178",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1238",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1984",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py:41"
+      ],
+      "recommended_change": "Summarize question, selected records, destination and model first; provide collapsible exact payload/system messages plus full copy. Show selected/included/omitted counts and truncation scope; short labels retain full values. Keep status/Cancel visible.",
+      "acceptance_check": "Over-budget selection lists every omitted/truncated item and preserves exact inspect/copy. Long traceback/id at 360px, high scale and compact overlay does not hide status/actions.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F12",
+      "title": "Keep turns and historical evidence coherent",
+      "severity": "P2",
+      "classification": "Static conversation workflow defect",
+      "observed_trigger": "Preview clears answer/proposals; respond replaces answer without appending transcript. conversation.get assigns text messages only; switching leaves previous answer/proposals. Historical rendering omits citation controls.",
+      "user_consequence": "Follow-up context exists in backend but continuity disappears visually; an old transcript can sit beside another conversation answer/proposals.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:298",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:815",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs:866",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1898",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1910",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:249",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py:134"
+      ],
+      "recommended_change": "Maintain request-linked turns and scoped proposals/receipts, rehydrate navigable citation metadata, replace current answer/proposals on conversation change and disclose limits/pagination.",
+      "acceptance_check": "Two turns, two conversations and reload show only their own ordered messages, evidence, proposals and failed-request markers. Preview includes exactly the history shown as selected.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F13",
+      "title": "Show and test the effective task model",
+      "severity": "P2",
+      "classification": "Static model-identity mismatch",
+      "observed_trigger": "Backend selects task_models[task]; composer/header and status cache use config.model. UI exposes edit/refactor/tests override.",
+      "user_consequence": "Coding request can show default model until receipt; connection badge may qualify a different model than the task uses.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:54",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py:146",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:139",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:900",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:399",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:2147"
+      ],
+      "recommended_change": "Resolve effective model consistently for composer, receipt, capability cache and explicit tests; label active override and qualification scope.",
+      "acceptance_check": "Default A/coding B: edit/refactor/tests show B before preview, optionally test B, send B and retain receipt binding. Ask displays/uses A.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "follow-up"
+    },
+    {
+      "id": "F14",
+      "title": "Gate release on failure-path and native qualification matrix",
+      "severity": "P1",
+      "classification": "Qualification gap, not proof all features fail",
+      "observed_trigger": "One three-cell ZeroDivisionError native fixture yielded four failures/one success. Fake/local suites and UI probe do not establish native reliability or accessibility; tests missed cache hydration/export wiring.",
+      "user_consequence": "Twelve bespoke checks cannot substantiate production quality, effect recovery, model compatibility or full accessibility.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/checks.json",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:497",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:605",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/tests/test_assistant.py:690",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/scripts/assistant_ui_probe.py"
+      ],
+      "recommended_change": "Add focused F01-F07 regressions, then a versioned provider/model/task matrix, application fault injection, keyboard-only/NVDA flows, narrow/DPI/theme cases, context omissions, policy/credentials and active cancellation. Publish bounded supported scope and untested areas.",
+      "acceptance_check": "Record fresh regression passes plus repeated task attempts with denominators and precise profiles. In disposable profiles qualify preview/send/apply/run separation, no unintended effects, keyboard/screen-reader recovery; document exclusions.",
+      "effort": "L",
+      "confidence": "high",
+      "release_slice": "first release"
+    },
+    {
+      "id": "F15",
+      "title": "Align approval scope, revocation and privacy documentation",
+      "severity": "P2",
+      "classification": "Static privacy-contract inconsistency",
+      "observed_trigger": "Docs say automatic egress approvals disabled; backend accepts notebook+URL, notebook+host and global-host entries. UI offers Always allow and scoped revoke. Current UI send still explicitly approves each receipt.",
+      "user_consequence": "API/CLI grants may be broader than notebook/destination wording; revoking a scoped key may leave effective legacy grants. Consent model is unclear.",
+      "evidence": [
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/docs/assistant.md:26",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:74",
+        "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py:289",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1295",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1320",
+        "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs:1329"
+      ],
+      "recommended_change": "Choose/document explicit consent semantics; scope new grants to notebook+normalized endpoint, migrate/reveal legacy scopes and revoke the effective grant. Do not claim current UI silently sends without a click.",
+      "acceptance_check": "In-memory configs for scoped URL, notebook-host and global-host entries reveal true scope; Revoke stops auto-approval for displayed destination. Docs/UI/API/CLI agree and exact-remote-receipt checks remain enforced.",
+      "effort": "M",
+      "confidence": "high",
+      "release_slice": "follow-up"
+    }
+  ],
+  "limitations": [
+    "No live app/server interactions, model requests/load/downloads, credentials, notebook/store/profile writes, implementation changes, other agents, other review reads or commits. Only the two prescribed outputs were written.",
+    "Sol Rust was read at its absolute candidate path; active backend/docs/tests and evidence were read from the parent. Managed-checkout desktop sources were not used.",
+    "Five actual PNGs were viewed. generating.png is failed-request aftermath, not active generation. No complete settings raster, busy/cancel capture, hover/focus traversal, contrast measurements, dark/high-contrast pass, resize/DPI/compact test, NVDA or cross-platform qualification.",
+    "One three-cell fixture, one error type and one successful Gemma request cannot estimate reliability. Model and transient server context/reasoning settings changed together.",
+    "Existing suites were inspected, not executed. Reviewer checks were extracted-code/in-memory SQLite and saved-record consistency only. No localhost server, package/service construction or live store inspection.",
+    "Direct-provider diagnostics were kept separate from native results. Only aggregate reasoning/content metadata was reported; no raw reasoning trace reproduced.",
+    "Static export, deadline, conversation and application recovery findings were not live reproductions. Source fingerprints identify files at review completion, not the exact binary build; saved screenshots and mutable sources may describe different moments.",
+    "Verified citations mean targets exist, not that claims are true or were in approved context. The 1 / 1 proposal removes the fixture exception but does not establish intended calculation semantics.",
+    "Recorded unchanged source hashes/counts were checked for internal consistency, not freshly verified against live source/runtime. Lock ownership, application crash recovery and persistence races were not fault-injected."
+  ],
+  "reviewer_checks": [
+    {
+      "name": "Capability schema/query",
+      "method": "AST-extract actual Store schema into sqlite3 :memory:, execute lookup",
+      "result": "PASS: no such column: value reproduced"
+    },
+    {
+      "name": "Capability/usage status consequence",
+      "method": "Execute extracted status_summary with synthetic root and in-memory cache; no service construction",
+      "result": "PASS: cached structured_output=false and used=12345 yield structured_output=true and used_today=0"
+    },
+    {
+      "name": "Invalid generated hash mislabeled stale",
+      "method": "Execute extracted schema/validate_proposal with unchanged synthetic source and invented hash",
+      "result": "PASS: stale, proposal source has changed or cell is missing"
+    },
+    {
+      "name": "Saved evidence consistency",
+      "method": "Decode JSON bytes, recompute canonical receipt hash and compare recorded hashes/counts/statuses",
+      "result": "PASS after correcting initial text encoding: receipt matches, before/after recorded source hashes agree, executions=5, applications empty, four errors and one done"
+    }
+  ],
+  "release_recommendation": "Hold broad release qualification for F01-F07 plus F14. No demonstrated P0. Follow-ups F08-F13/F15 become gates if their guarantees are advertised. A bounded beta is a separate product decision.",
+  "self_critique": "Safety-oriented code inspection probably rewards explicit revision/effect boundaries and penalizes recovery friction. Visual scores are biased toward a single light-theme wide-window capture. Test names indicate breadth, not a fresh green suite. Low-confidence generation/accessibility and static deadline/crash findings need disposable-profile validation. Means summarize review judgment, not measured statistical quality.",
+  "source_fingerprints_sha256": {
+    "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/assistant.rs": "125e82a1389cf303e9e2f9e3f2b2c081c894e6f5b99c3bca20fe5c02f6227052",
+    "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/lib.rs": "c64f87dfa32574f3237d6ac743d05167a7b203ea2a79c646f8160988dc94b829",
+    "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/ui/src/interchange.rs": "bb40d84a524c77999fb571fb1b4664acf4fa681002ff724b177eeee4fdcb68cf",
+    "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/assistant.rs": "804972e517623dc5249597743c8af61a27952e5b9e5400f25823a53531ad950a",
+    "C:/Users/UTKARSH KAUSHIK/.t3/worktrees/KernelLedger-v6/t3-562311ac/desktop/crates/client/src/service.rs": "4c07218cfd404f8e4440d8b7eb7eee5c2cdbcf4b7415bd8e910e2084d13ec93c",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/context.py": "685e494ca3f66be56bef29b6f72a5bf0f8e22057a79d30411fa4f47d24fe1406",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/providers.py": "139869002e5b641bb685f29fcf364f0edb35d370d0ff489ad3ff0c77fb334009",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/capabilities.py": "36ddb76229d52d3a63ac4398c56f5855c817390b55d6f214d85f7e2c7e5556fa",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/service.py": "95aebf96a63f380a1cfb7901de157481c6c674cf12b093028dad7b49bd2a1ad9",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/settings.py": "0a75859aa74bcb33e1a6cda3c57def5f62abf00ca115ad739a0a6dc29d086155",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/store.py": "7aa05530d36fa9997a2a5527e9b9538ec7637e784700b34842e60b1b61613237",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/src/kernelledger/assistant/tools.py": "91ed6a5414066e501f371077803d39e41d8ed25ecabfa85a734057baa9f1ee27",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/results.json": "407fa5f2cfbb36e6232fb36722b11cb29556f2b093483fb4bd679b96a9cbd1a7",
+    "C:/Users/UTKARSH KAUSHIK/Documents/Projects/KernelLedger-v6/artifacts/lemonade-explain-test-2026-11-06/gemma-receipt.json": "1bf1bb145d7ccbdbe0080e4f6b046730be768635eeffcf7e94db7328af51faa7"
+  },
+  "parent_test_audit": {
+    "supported": "Saved four LFM errors/two provider_error/two stale; one Gemma done, 29.3s, 2729 tokens, two resolvable citations, correct base hash, proposal unapplied, five executions, internally matching recorded source hashes; UIA supports citation navigation.",
+    "not_established": "Factual truth of every claim, exact native bad target/hash, reasoning exhaustion in every native attempt, model reliability ranking, successful application/rerun, general accessibility or production readiness.",
+    "diagnostic_summary": {
+      "native_ui_pass": false,
+      "raw_sse_events": 513,
+      "completion_tokens": 512,
+      "reasoning_content_characters": 2056,
+      "final_content_characters": 0,
+      "finish_reason": "length",
+      "raw_reasoning_reproduced": false
+    },
+    "confounds": "LFM transient ctx_size4096/reasoning 0 or1024; Gemma ctx_size8192/reasoning512. save_options=false. Receipt hash does not bind schema mode/output limit/transient server load settings.",
+    "documentation_discrepancies": [
+      "docs/assistant.md:26 says auto egress approvals disabled; scoped/legacy grants exist.",
+      "docs/assistant.md:43 describes answer reports; native buttons omit markdown."
+    ]
+  },
+  "qualification_gaps": [
+    "Repeated provider/model/task/version/schema/context/reasoning matrix; multiple exceptions and non-error tasks; malformed/mixed proposals, unknown and unrelated citations, large/UTF-8 data, omission/refusal/length cases.",
+    "Native edit/insert accept/reject/regenerate, frozen-hash runs, runtime stopped/running states, post-accept conflicts, crash/effect-record gaps, duplicate applications, owner recovery, retention/purge and long conversations.",
+    "Active generation/cancel/retry, keyboard-only operation and focus restoration, NVDA announcements, offscreen Invoke, narrow/DPI/compact layouts, theme/high-contrast and measured contrast.",
+    "OS-store failure/platform coverage, adversarial redaction/injection, DNS/destination changes, scoped/global grant revocation, probe accounting/UTC cap reset, concurrent settings updates."
+  ]
+}
