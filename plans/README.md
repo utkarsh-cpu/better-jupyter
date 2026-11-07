@@ -27,6 +27,7 @@ Runtime archives keep their historical names (`v1.md`, `v2.md`, `v3.md`) so exis
 | Frontend | 5 | Draft 2026-10-08; complete desktop visual and interaction redesign | [frontend-v5-draft.md](frontend-v5-draft.md) |
 | Frontend | 6 | Draft 2026-10-09; clarity implementation in working tree; runtime and release gates pending | [frontend-v6-draft.md](frontend-v6-draft.md) |
 | Frontend | — | Draft 2026-11-01; eight screenshot-based UI/UX improvements, delivery phases, and acceptance gates | [frontend-screenshot-polish-draft.md](frontend-screenshot-polish-draft.md) |
+| Frontend | — | Draft 2026-11-07; live GPUI UX walkthrough covering brand, density, surfaces, a11y, perf, Linux platform, assistant, studies | [frontend-live-ux-draft.md](frontend-live-ux-draft.md) |
 | Both | — | Draft 2026-10-20; optional AI assistant, proposed for runtime 6 and the next frontend version | [ai-assistant-draft.md](ai-assistant-draft.md) |
 | Both | — | Draft 2026-11-07; existing assistant reliability, model setup, evidence UX, recovery and qualification after independent reviews | [assistant-reliability-draft.md](assistant-reliability-draft.md) |
 | Both | — | Draft 2026-10-25; development implementation across N0–N10, custom engine and gated advanced subsets; [support/qualification report](../docs/notebook-interactivity.md) | [notebook-interactivity-draft.md](notebook-interactivity-draft.md) |
