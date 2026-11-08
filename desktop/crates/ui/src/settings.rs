@@ -655,6 +655,29 @@ impl Workspace {
                     ),
             )
             .child(
+                h_flex()
+                    .px_3()
+                    .py_1()
+                    .gap_2()
+                    .items_center()
+                    .rounded(theme.radius)
+                    .bg(theme.background)
+                    .border_1()
+                    .border_color(rule)
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("KernelLedger"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child("Quiet ledger · cool paper · precision cobalt"),
+                    ),
+            )
+            .child(
                 card(cx)
                     .py_2()
                     .bg(theme.background)

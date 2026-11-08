@@ -466,3 +466,10 @@
 !/ui-comparison-2026-11-05/reviewer-comparison.html
 !/ui-comparison-2026-11-05/reviewer-scores.json
 !/ui-comparison-2026-11-05/sales_analysis.py
+
+# frontend-live-ux-2026-11-07
+!/frontend-live-ux-2026-11-07/README.md
+!/frontend-live-ux-2026-11-07/launch_linux.py
+!/frontend-live-ux-2026-11-07/scorecard-provisional.json
+!/frontend-live-ux-2026-11-07/a11y-checklist.md
+!/frontend-live-ux-2026-11-07/perf-campaign.md

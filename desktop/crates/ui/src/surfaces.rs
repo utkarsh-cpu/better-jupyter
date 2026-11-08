@@ -54,15 +54,7 @@ impl Workspace {
             .gap_3()
             .flex_wrap()
             .items_center()
-            .child(page_heading(
-                self.surface.clone(),
-                if self.surface == "Help" {
-                    ""
-                } else {
-                    description
-                },
-                cx,
-            ));
+            .child(page_heading(self.surface.clone(), description, cx));
         if self.surface == "Help" {
             header_row = header_row.child(
                 h_flex()
@@ -72,7 +64,7 @@ impl Workspace {
                         action_button("about")
                             .outline()
                             .small()
-                            .label("About")
+                            .label("About KernelLedger")
                             .accessibility_label("About KernelLedger")
                             .on_click(cx.listener(|v, _, _, cx| {
                                 v.confirmation = Some(("about".into(), json!({})));
@@ -81,10 +73,11 @@ impl Workspace {
                     )
                     .child(
                         action_button("copy-about")
-                            .outline()
+                            .ghost()
                             .small()
                             .label("Copy build info")
                             .accessibility_label("Copy build information")
+                            .hint("Copy version, runtime plan, and desktop protocol details")
                             .on_click(cx.listener(|v, _, _, cx| {
                                 copy_acknowledged(v.support_info(), cx);
                             })),
@@ -500,7 +493,7 @@ impl Workspace {
                     div()
                         .text_sm()
                         .text_color(muted_fg)
-                        .child("No operations in flight"),
+                        .child("No operations in flight."),
                 ),
             );
         } else {

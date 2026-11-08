@@ -1205,6 +1205,31 @@ fn menu_blocks_background_execution_and_escape_returns_focus(cx: &mut TestAppCon
 }
 
 #[gpui_kit::test]
+fn changing_destination_clears_menus_and_palette(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.app_menu = true;
+            v.export_menu = true;
+            v.runtime_menu = true;
+            v.palette = true;
+            v.cell_menu = Some(("first".into(), 0));
+            v.insert_menu = Some(0);
+            v.select_surface("History", cx);
+            assert!(!v.app_menu);
+            assert!(!v.export_menu);
+            assert!(!v.runtime_menu);
+            assert!(!v.palette);
+            assert!(v.cell_menu.is_none());
+            assert!(v.insert_menu.is_none());
+            assert_eq!(v.surface, "History");
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
 fn application_menu_rows_span_the_panel_and_start_on_the_leading_edge(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
     cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
@@ -1411,7 +1436,19 @@ fn caption_gutter_preserves_run_label_before_secondary_chrome() {
     }
     let roomy = super::shell::header_collapse(1440., 1., false);
     assert!(!roomy.export && !roomy.navigation);
+    assert!(roomy.wordmark_short);
     assert_eq!(roomy.switcher_width, 240.);
+}
+
+#[test]
+fn product_mark_keeps_run_label_at_standard_compact_width() {
+    let tight = super::shell::header_collapse(800., 1., false);
+    assert!(
+        !tight.run_label && tight.wordmark_short,
+        "Run all stays labeled at 800/100% with the compact KL mark: {tight:?}"
+    );
+    let roomy = super::shell::header_collapse(1440., 1., false);
+    assert!(!roomy.run_label);
 }
 
 #[gpui_kit::test]

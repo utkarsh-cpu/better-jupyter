@@ -812,6 +812,11 @@ impl Workspace {
                                     } else {
                                         "Show advanced history filters"
                                     })
+                                    .hint(if show_fields {
+                                        "Hide Cell, Session, and date fields"
+                                    } else {
+                                        "Show Cell, Session, and date fields (after:/before: also work in search)"
+                                    })
                                     .on_click(cx.listener(|v, _, _, cx| {
                                         v.history_filters_open = !v.history_filters_open;
                                         cx.notify();

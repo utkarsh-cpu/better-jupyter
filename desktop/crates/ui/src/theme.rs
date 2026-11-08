@@ -54,7 +54,11 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         Some(window),
         cx,
     );
-    // Quiet ledger: warm paper canvas, precision cobalt, chrome that recedes.
+    // Quiet ledger tokens (named for the live UX plan). Cool slate paper —
+    // not warm cream — with precision cobalt. Chrome shares the canvas.
+    //
+    // Light: Paper #EEF1F5, Ink #161B21, Mist #E2E6EC, Cobalt #0B5CAB,
+    //        Card #F7F9FC. Dark: Night #101317, Fog #ECEEF1, Cobalt #6CB6FF.
     let accent: Hsla = rgb(if dark { 0x6CB6FF } else { 0x0B5CAB }).into();
     let on_accent = if dark {
         hsla(215. / 360., 0.50, 0.09, 1.)
@@ -67,10 +71,10 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     };
     let theme = Theme::global_mut(cx);
     let colors = &mut theme.colors;
-    colors.background = rgb(if dark { 0x101317 } else { 0xF3F2ED }).into();
+    colors.background = rgb(if dark { 0x101317 } else { 0xEEF1F5 }).into();
     colors.foreground = rgb(if dark { 0xECEEF1 } else { 0x161B21 }).into();
     colors.muted_foreground = rgb(if dark { 0xA6B0B9 } else { 0x505A62 }).into();
-    colors.muted = rgb(if dark { 0x171B21 } else { 0xE8E6E0 }).into();
+    colors.muted = rgb(if dark { 0x171B21 } else { 0xE2E6EC }).into();
     colors.danger = rgb(if dark { 0xFF9A9A } else { 0xB4232C }).into();
     colors.success = rgb(if dark { 0x8ED6A4 } else { 0x1E6F43 }).into();
     colors.warning = rgb(if dark { 0xE8C078 } else { 0x7D5200 }).into();
@@ -84,7 +88,7 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     colors.title_bar_border = colors.border;
     colors.status_bar = colors.background;
     colors.status_bar_border = colors.border;
-    colors.popover = rgb(if dark { 0x1A1F25 } else { 0xFFFEFB }).into();
+    colors.popover = rgb(if dark { 0x1A1F25 } else { 0xF7F9FC }).into();
     colors.popover_foreground = colors.foreground;
     colors.primary = accent;
     colors.primary_hover = shade(-0.05);
@@ -194,8 +198,19 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     highlight.style.syntax =
         serde_json::from_value(syntax).expect("Audited syntax styles deserialize");
     theme.highlight_theme = std::sync::Arc::new(highlight);
-    theme.font_family = "Segoe UI".into();
-    theme.mono_font_family = "Consolas".into();
+    // OS-native faces with documented platform defaults (live UX LD-01).
+    // Windows: Segoe UI / Consolas. Linux: Ubuntu / Ubuntu Mono (fonts-ubuntu
+    // on Ubuntu 24.04). Fontconfig falls back when a face is missing.
+    #[cfg(windows)]
+    {
+        theme.font_family = "Segoe UI".into();
+        theme.mono_font_family = "Consolas".into();
+    }
+    #[cfg(not(windows))]
+    {
+        theme.font_family = "Ubuntu".into();
+        theme.mono_font_family = "Ubuntu Mono".into();
+    }
     theme.font_size = px(14.);
     theme.mono_font_size = px(13.);
     theme.radius = px(6.);

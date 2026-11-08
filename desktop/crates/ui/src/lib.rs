@@ -1936,6 +1936,17 @@ impl Workspace {
         }
     }
     fn select_surface(&mut self, surface: &str, cx: &mut Context<Self>) {
+        // Drop destination-scoped chrome so hover/tooltips and menus cannot
+        // linger over an unrelated page (live UX E / apple-design live finding).
+        self.app_menu = false;
+        self.export_menu = false;
+        self.runtime_menu = false;
+        self.notebook_menu = false;
+        self.cell_menu = None;
+        self.insert_menu = None;
+        self.palette = false;
+        self.menu_anchor.clear();
+        self.menu_bounds.clear();
         if let Some(tab) = self.tabs.get_mut(self.active) {
             tab.selections
                 .insert(self.surface.clone(), self.record_active);
@@ -2967,10 +2978,15 @@ impl Render for Workspace {
                             .when(
                                 self.tabs[self.active].assistant.open && !self.compact,
                                 |d| {
+                                    // Keep the notebook column readable when the
+                                    // window is only just above the compact break
+                                    // (live UX B.5 / H.3).
+                                    let narrow = window.viewport_size().width
+                                        < px(1280. * self.preferences.ui_scale);
                                     d.child(
                                         resizable_panel()
-                                            .size(px(430.))
-                                            .size_range(px(360.)..px(720.))
+                                            .size(px(if narrow { 320. } else { 400. }))
+                                            .size_range(px(280.)..px(560.))
                                             .child(self.assistant_panel(window, cx)),
                                     )
                                 },
@@ -3017,7 +3033,9 @@ impl Render for Workspace {
                                     .right_0()
                                     .top_0()
                                     .bottom_0()
-                                    .w(px(420. * self.preferences.ui_scale))
+                                    // Cap overlay width so source/error rows stay
+                                    // visible beside the drawer on 800-wide windows.
+                                    .w(px((360. * self.preferences.ui_scale).min(440.)))
                                     .max_w_full()
                                     .bg(cx.theme().background)
                                     .border_l_1()

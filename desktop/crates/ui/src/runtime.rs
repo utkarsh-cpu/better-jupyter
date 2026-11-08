@@ -360,6 +360,16 @@ impl Workspace {
             .border_color(divider(cx))
             .text_xs()
             .text_color(muted_fg)
+            .child(
+                div()
+                    .id("status-wordmark")
+                    .role(Role::Label)
+                    .aria_label("KernelLedger")
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(theme.foreground)
+                    .child("KernelLedger"),
+            )
+            .child(status_rule(cx))
             .when(self.surface == "Notebook", |d| {
                 d.child(if edit {
                     "Editing"
