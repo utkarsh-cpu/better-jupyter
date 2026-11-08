@@ -201,11 +201,13 @@ def pdf_bytes(blocks: list[Block]) -> bytes:
         "KLBody": [
             system / "segoeui.ttf",
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
             fonts / "Vera.ttf",
         ],
         "KLMono": [
             system / "consola.ttf",
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Courier New.ttf"),
             fonts / "Vera.ttf",
         ],
     }.items():

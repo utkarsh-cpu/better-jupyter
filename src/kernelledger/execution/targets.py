@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-TargetKind = Literal["local-windows", "local-linux", "wsl", "ssh-linux"]
+TargetKind = Literal["local-windows", "local-linux", "local-macos", "wsl", "ssh-linux"]
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,8 @@ def local_target() -> Target:
     kind: TargetKind
     if system == "Windows":
         kind = "local-windows"
+    elif system == "Darwin":
+        kind = "local-macos"
     elif system == "Linux":
         kind = (
             "wsl"

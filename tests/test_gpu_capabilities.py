@@ -14,6 +14,7 @@ from kernelledger.gpu.backends import capabilities
     "kind, nvidia, amd",
     [
         ("local-windows", "unsupported", "unsupported"),
+        ("local-macos", "unsupported", "unsupported"),
         ("local-linux", "unavailable", "unavailable"),
         ("wsl", "experimental", "unsupported"),
     ],
@@ -27,6 +28,10 @@ def test_compute_and_tool_presence_never_qualify_native(monkeypatch, kind, nvidi
     assert report["features"]["native-nvidia"]["status"] == nvidia
     assert report["features"]["native-amd"]["status"] == amd
     monkeypatch.setattr(capabilities.shutil, "which", lambda _: "present")
+    if kind == "local-macos":
+        present = capabilities.inventory()["features"]
+        assert present["native-nvidia"]["status"] == "unsupported"
+        assert present["native-amd"]["status"] == "unsupported"
     assert all(
         feature["status"] != "qualified"
         for feature in capabilities.inventory()["features"].values()
@@ -86,3 +91,15 @@ def test_standalone_v4_worker_keeps_package_independence():
         timeout=15,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_macos_target_identity(monkeypatch):
+    from kernelledger.execution import targets
+
+    monkeypatch.setattr(targets.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(targets.platform, "machine", lambda: "arm64")
+    target = targets.local_target()
+    assert target.kind == "local-macos"
+    assert target.os == "Darwin"
+    assert target.architecture == "arm64"
+    assert target.identity == targets.local_target().identity

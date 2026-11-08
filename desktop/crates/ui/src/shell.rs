@@ -1,9 +1,16 @@
 use super::*;
 use gpui_kit::component::ElementExt;
 
-/// Native caption buttons stay 102 logical pixels wide. Interface scale grows
-/// app controls; it does not grow minimize, maximize, and close.
-pub(crate) const CAPTION_GUTTER: f32 = 102.;
+/// Reserve right-hand caption buttons on Windows and Linux. macOS uses
+/// native traffic-light controls on the left.
+pub(crate) const CAPTION_GUTTER: f32 = if cfg!(target_os = "macos") {
+    0.
+} else {
+    102.
+};
+
+// GPUI reserves this space for macOS traffic-light controls on the left.
+const LEFT_CAPTION_GUTTER: f32 = if cfg!(target_os = "macos") { 80. } else { 0. };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HeaderCollapse {
@@ -50,9 +57,12 @@ pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> Head
         }
     }
     if !c.switcher {
-        c.switcher_width += (width - CAPTION_GUTTER - header_used(width, scale, comfortable, c))
-            .max(0.)
-            .min(144. * scale);
+        c.switcher_width += (width
+            - CAPTION_GUTTER
+            - LEFT_CAPTION_GUTTER
+            - header_used(width, scale, comfortable, c))
+        .max(0.)
+        .min(144. * scale);
     }
     c
 }
@@ -90,7 +100,7 @@ fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> 
 }
 
 pub(crate) fn header_fits(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> bool {
-    header_used(width, scale, comfortable, c) <= width - CAPTION_GUTTER + 0.01
+    header_used(width, scale, comfortable, c) <= width - CAPTION_GUTTER - LEFT_CAPTION_GUTTER + 0.01
 }
 
 /// Keep a distinguishing suffix; ask the actual text shaper, not a character budget.

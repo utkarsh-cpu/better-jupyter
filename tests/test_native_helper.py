@@ -34,6 +34,19 @@ def daemon_path() -> Path:
 
 
 def child_names(pid: int) -> list[str]:
+    if sys.platform == "darwin":
+        completed = subprocess.run(
+            ["ps", "-axo", "ppid=,comm="],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=True,
+        )
+        return [
+            Path(fields[1]).name
+            for line in completed.stdout.splitlines()
+            if len(fields := line.split(maxsplit=1)) == 2 and fields[0] == str(pid)
+        ]
     if os.name != "nt":
         children = Path(f"/proc/{pid}/task/{pid}/children")
         if not children.is_file():

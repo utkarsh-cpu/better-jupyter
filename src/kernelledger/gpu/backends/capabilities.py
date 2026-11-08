@@ -28,7 +28,7 @@ def inventory() -> dict[str, Any]:
     def feature(status: str, reason: str) -> dict[str, str | None]:
         return {"status": status, "reason": reason, "evidence": None}
 
-    if target.kind == "local-windows":
+    if target.kind in {"local-windows", "local-macos"}:
         nvidia = feature("unsupported", "NVIDIA native checkpoint APIs require Linux")
         amd = feature("unsupported", "amdgpu/KFD CRIU snapshots require native Linux")
     elif target.kind == "wsl":
