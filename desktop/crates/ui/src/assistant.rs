@@ -13,6 +13,7 @@ pub(super) struct AssistantView {
     pub payload_expanded: bool,
     pub show_history: bool,
     pub advanced_settings: bool,
+    pub provider_draft: Option<String>,
     pub status: String,
     pub task: String,
     pub last_question: String,
@@ -2315,10 +2316,16 @@ impl Workspace {
     ) -> AnyElement {
         let root = self.tabs[self.active].assistant.settings.clone();
         let settings = root["settings"].clone();
-        let provider = settings["provider"]
-            .as_str()
-            .unwrap_or("openai-compatible")
-            .to_owned();
+        let provider = self.tabs[self.active]
+            .assistant
+            .provider_draft
+            .clone()
+            .unwrap_or_else(|| {
+                settings["provider"]
+                    .as_str()
+                    .unwrap_or("openai-compatible")
+                    .to_owned()
+            });
 
         let model = self.ai_input(
             "Model",
@@ -2446,47 +2453,92 @@ impl Workspace {
             theme.muted_foreground,
         );
 
-        let mut providers = h_flex().gap_2().flex_wrap();
-        for (prov_key, short_label, a11y_label) in [
-            (
-                "openai-compatible",
-                "Save compatible",
-                "Save local / compatible provider",
-            ),
-            ("openai", "Save OpenAI", "Save OpenAI provider"),
+        let mut provider_choices = segmented_track(cx);
+        for (choice, label) in [
+            ("openai-compatible", "Local / compatible"),
+            ("openai", "OpenAI API"),
         ] {
-            let timeout = timeout.clone();
+            let endpoint = endpoint.clone();
+            let key = key.clone();
             let context_window = context_window.clone();
+            provider_choices = provider_choices.child(
+                action_button(SharedString::from(format!("ai-provider-{choice}")))
+                    .small()
+                    .label(label)
+                    .segment(provider == choice)
+                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                        let ai = &mut v.tabs[v.active].assistant;
+                        if ai.provider_draft.as_deref().unwrap_or_else(|| {
+                            ai.settings["settings"]["provider"]
+                                .as_str()
+                                .unwrap_or("openai-compatible")
+                        }) == choice
+                        {
+                            return;
+                        }
+                        ai.provider_draft = Some(choice.into());
+                        key.update(cx, |s, cx| s.set_value("", window, cx));
+                        let options = v.tabs[v.active].assistant.settings["settings"]["providers"]
+                            [choice]
+                            .clone();
+                        endpoint.update(cx, |s, cx| {
+                            s.set_value(
+                                options["base_url"]
+                                    .as_str()
+                                    .unwrap_or(if choice == "openai" {
+                                        "https://api.openai.com/v1"
+                                    } else {
+                                        "http://127.0.0.1:11434/v1"
+                                    })
+                                    .to_owned(),
+                                window,
+                                cx,
+                            )
+                        });
+                        context_window.update(cx, |s, cx| {
+                            s.set_value(
+                                options["context_window"]
+                                    .as_u64()
+                                    .map(|n| n.to_string())
+                                    .unwrap_or_default(),
+                                window,
+                                cx,
+                            )
+                        });
+                        cx.notify();
+                    })),
+            );
+        }
+        let save_provider = {
+            let prov_key = provider.clone();
             let model = model.clone();
             let endpoint = endpoint.clone();
+            let timeout = timeout.clone();
+            let context_window = context_window.clone();
             let coding_model = coding_model.clone();
             let cap = cap.clone();
             let output = output.clone();
             let context_bytes = context_bytes.clone();
             let retention = retention.clone();
-            let selected = settings["provider"].as_str() == Some(prov_key);
-            let mut btn = action_button(SharedString::from(format!("ai-provider-{prov_key}")))
+            action_button("ai-save-provider")
+                .primary()
                 .small()
-                .label(short_label)
-                .accessibility_label(a11y_label)
-                .selected(selected);
-            if selected {
-                btn = btn.primary();
-            } else {
-                btn = btn.outline();
-            }
-            providers =
-                providers.child(btn.on_click_accessible(cx.listener(move |v, _, _, cx| {
+                .label("Save configuration")
+                .on_click_accessible(cx.listener(move |v, _, _, cx| {
                     let mut config = v.tabs[v.active].assistant.settings["settings"].clone();
                     if !config.is_object() {
                         config = json!({});
                     }
-                    config["provider"] = json!(prov_key);
+                    config["provider"] = json!(prov_key.clone());
                     config["model"] = json!(model.read(cx).value().to_string());
                     if !config["providers"].is_object() {
                         config["providers"] = json!({});
                     }
-                    merge_provider(&mut config, prov_key, endpoint.read(cx).value().to_string());
+                    merge_provider(
+                        &mut config,
+                        &prov_key,
+                        endpoint.read(cx).value().to_string(),
+                    );
                     let deadline = timeout.read(cx).value().parse::<u64>();
                     let window_text = context_window.read(cx).value().trim().to_owned();
                     if let Ok(deadline) = deadline {
@@ -2499,12 +2551,12 @@ impl Workspace {
                         return;
                     }
                     if window_text.is_empty() {
-                        config["providers"][prov_key]
+                        config["providers"][&prov_key]
                             .as_object_mut()
                             .unwrap()
                             .remove("context_window");
                     } else if let Ok(window) = window_text.parse::<u64>() {
-                        config["providers"][prov_key]["context_window"] = json!(window);
+                        config["providers"][&prov_key]["context_window"] = json!(window);
                     } else {
                         v.tabs[v.active].assistant.error = true;
                         v.tabs[v.active].assistant.status =
@@ -2514,7 +2566,7 @@ impl Workspace {
                         return;
                     }
                     if prov_key != "openai-compatible" {
-                        config["providers"][prov_key]
+                        config["providers"][&prov_key]
                             .as_object_mut()
                             .unwrap()
                             .remove("enable_thinking");
@@ -2553,16 +2605,15 @@ impl Workspace {
                     }
                     v.ai("settings.update", json!({"settings": config}));
                     cx.notify();
-                })));
-        }
+                }))
+        };
 
         let mut endpoint_presets = h_flex().gap_1p5().flex_wrap();
         for (preset_label, preset_url) in [
-            ("Lemonade (:13305)", "http://127.0.0.1:13305/api/v1"),
-            ("Ollama (:11434)", "http://127.0.0.1:11434/v1"),
-            ("LM Studio (:1234)", "http://127.0.0.1:1234/v1"),
-            ("vLLM (:8000)", "http://127.0.0.1:8000/v1"),
-            ("OpenAI API", "https://api.openai.com/v1"),
+            ("Lemonade", "http://127.0.0.1:13305/api/v1"),
+            ("Ollama", "http://127.0.0.1:11434/v1"),
+            ("LM Studio", "http://127.0.0.1:1234/v1"),
+            ("vLLM", "http://127.0.0.1:8000/v1"),
         ] {
             let endpoint_input = endpoint.clone();
             endpoint_presets = endpoint_presets.child(
@@ -2600,85 +2651,16 @@ impl Workspace {
             }
         }
 
-        settings_group("AI assistant \u{2014} Provider & connection", cx)
+        let saved_configured = settings["model"]
+            .as_str()
+            .is_some_and(|m| !m.trim().is_empty());
+        settings_group("Assistant connection", cx)
             .id("settings-ai-provider")
-            .child(
-                h_flex()
-                    .gap_2()
-                    .flex_wrap()
-                    .items_center()
-                    .child(
-                        action_button("ai-open-sidebar")
-                            .outline()
-                            .small()
-                            .icon(Glyph::Sparkles)
-                            .label("Open Assistant")
-                            .hint("Open the Assistant sidebar in the notebook")
-                            .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                v.select_surface("Notebook", cx);
-                                v.open_assistant(cx);
-                            })),
-                    )
-                    .child(
-                        action_button("ai-load-settings")
-                            .outline()
-                            .small()
-                            .label("Reload")
-                            .accessibility_label("Load AI settings")
-                            .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                v.ai("settings.get", json!({}));
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        action_button("ai-test")
-                            .primary()
-                            .small()
-                            .label("Test saved connection")
-                            .hint("Save configuration before testing its endpoint and model")
-                            .unavailable(connection == Connection::Testing)
-                            .on_click_accessible(cx.listener(|v, _, _, cx| v.test_provider(cx))),
-                    )
-                    .child(match &connection {
-                        Connection::Untested => badge("Not tested", muted),
-                        Connection::Testing => badge("Testing\u{2026}", info),
-                        Connection::Ready => badge("Connected", success),
-                        Connection::Failed(_) => badge("Connection failed", danger),
-                    })
-                    .child(
-                        action_button("ai-models")
-                            .outline()
-                            .small()
-                            .label("List models")
-                            .accessibility_label("List available models")
-                            .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                v.ai("models.list", json!({}));
-                                cx.notify();
-                            })),
-                    )
-                    .child(info_tip(
-                        "ai-provider-info",
-                        "Off until configured. Credentials use the OS store. Cloud requests require an explicit context receipt.",
-                        cx,
-                    ))
-                    .when_some(
-                        root["destination"]["label"].as_str(),
-                        |d, dest_label| {
-                            let is_local = root["destination"]["local"]
-                                .as_bool()
-                                .unwrap_or(true);
-                            d.child(badge(
-                                format!(
-                                    "{dest_label}: {}",
-                                    root["destination"]["host"]
-                                        .as_str()
-                                        .unwrap_or("unconfigured")
-                                ),
-                                if is_local { success } else { info },
-                            ))
-                        },
-                    ),
-            )
+            .child(div().text_sm().text_color(muted).child("Choose a provider, enter its model, then save and test the connection."))
+            .child(setting_row("Provider", "Select a local or compatible server, or the OpenAI API.", provider_choices, cx))
+            .child(setting_row("Base URL", "The server endpoint used by this provider.",
+                v_flex().gap_2().child(Input::new(&endpoint))
+                    .when(provider == "openai-compatible", |d| d.child(endpoint_presets)), cx))
             .when_some(
                 match &connection {
                     Connection::Failed(message) => Some(message.clone()),
@@ -2706,22 +2688,7 @@ impl Workspace {
                     .when(!discovered_models.is_empty(), |d| d.child(model_chips)),
                 cx,
             ))
-            .child(setting_row(
-                "Base URL",
-                "Local server (Ollama, LM Studio, vLLM, llama.cpp) or OpenAI API endpoint.",
-                v_flex()
-                    .gap_2()
-                    .child(Input::new(&endpoint))
-                    .child(endpoint_presets),
-                cx,
-            ))
-            .child(setting_row(
-                "Save configuration",
-                "Select whether this endpoint is an OpenAI-compatible server or OpenAI API.",
-                providers,
-                cx,
-            ))
-            .child(setting_row(
+            .when(provider == "openai" || advanced_settings, |d| d.child(setting_row(
                 "API key",
                 "Stored securely in the OS credential store and redacted from all logs, receipts, and notebook data.",
                 v_flex()
@@ -2737,11 +2704,8 @@ impl Workspace {
                                     .small()
                                     .label("Store API key")
                                     .on_click_accessible(cx.listener(move |v, _, window, cx| {
-                                        let provider = v.tabs[v.active].assistant.settings
-                                            ["settings"]["provider"]
-                                            .as_str()
-                                            .unwrap_or("openai")
-                                            .to_owned();
+                                        let provider = v.tabs[v.active].assistant.provider_draft.clone()
+                                            .unwrap_or_else(|| v.tabs[v.active].assistant.settings["settings"]["provider"].as_str().unwrap_or("openai-compatible").to_owned());
                                         let secret = key.read(cx).value().to_string();
                                         key.update(cx, |s, cx| s.set_value("", window, cx));
                                         v.ai(
@@ -2751,24 +2715,35 @@ impl Workspace {
                                         cx.notify();
                                     })),
                             )
-                            .child(
+                            .when(advanced_settings, |d| d.child(
                                 action_button("ai-delete-key")
                                     .ghost()
                                     .small()
                                     .label("Remove API key")
                                     .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                        let provider = v.tabs[v.active].assistant.settings
-                                            ["settings"]["provider"]
-                                            .as_str()
-                                            .unwrap_or("openai")
-                                            .to_owned();
+                                        let provider = v.tabs[v.active].assistant.provider_draft.clone()
+                                            .unwrap_or_else(|| v.tabs[v.active].assistant.settings["settings"]["provider"].as_str().unwrap_or("openai-compatible").to_owned());
                                         v.ai("credential.delete", json!({"provider": provider}));
                                         cx.notify();
                                     })),
-                            ),
+                            )),
                     ),
                 cx,
-            ))
+            )))
+            .child(h_flex().gap_2().items_center().flex_wrap()
+                .child(save_provider)
+                .child(action_button("ai-test").outline().small().label("Test saved connection")
+                    .hint("Tests the saved configuration; save changes first")
+                    .unavailable(!saved_configured || connection == Connection::Testing)
+                    .on_click_accessible(cx.listener(|v, _, _, cx| v.test_provider(cx))))
+                .child(match &connection {
+                    Connection::Untested => badge("Not tested", muted),
+                    Connection::Testing => badge("Testing\u{2026}", info),
+                    Connection::Ready => badge("Connected", success),
+                    Connection::Failed(_) => badge("Connection failed", danger),
+                }))
+            .child(action_button("ai-open-sidebar").ghost().small().self_start().label("Open Assistant")
+                .on_click_accessible(cx.listener(|v, _, _, cx| {v.select_surface("Notebook", cx);v.open_assistant(cx);})))
             .child(action_button("ai-advanced-settings").ghost().small().self_start()
                 .label(if advanced_settings { "Hide advanced settings" } else { "Advanced settings" })
                 .selected(advanced_settings)
@@ -2777,6 +2752,11 @@ impl Workspace {
                     cx.notify();
                 })))
             .when(advanced_settings, |d| d
+            .child(h_flex().gap_2().flex_wrap()
+                .child(action_button("ai-load-settings").outline().small().label("Reload saved settings")
+                    .on_click_accessible(cx.listener(|v, _, _, _| v.ai("settings.get", json!({})))))
+                .child(action_button("ai-models").outline().small().label("List models from saved connection")
+                    .on_click_accessible(cx.listener(|v, _, _, _| v.ai("models.list", json!({}))))))
             .child(setting_row(
                 "Coding model override",
                 "Optional specialized model for edit, refactor, and test generation tasks.",

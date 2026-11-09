@@ -406,6 +406,7 @@ impl Workspace {
                     .unwrap_or("")
             );
             fields["page_size"] = json!(100);
+            fields["scan_pages"] = json!(10);
         }
         self.send(Command::Inspect {
             method: method.into(),
@@ -587,6 +588,7 @@ impl Workspace {
                                 });
                             }
                             "settings.get" => {
+                                tab.assistant.provider_draft = None;
                                 tab.assistant.settings = value;
                                 let prefix = format!("ai-{}-", tab.model.project.display());
                                 self.prompts.retain(|key, _| {
@@ -594,6 +596,11 @@ impl Workspace {
                                 });
                             }
                             "settings.update" => {
+                                if tab.assistant.provider_draft.as_deref()
+                                    == value["settings"]["provider"].as_str()
+                                {
+                                    tab.assistant.provider_draft = None;
+                                }
                                 if value.get("destination").is_some() {
                                     tab.assistant.settings = value;
                                 } else {

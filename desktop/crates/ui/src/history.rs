@@ -918,7 +918,7 @@ impl Workspace {
                                 cx.theme().muted_foreground,
                             ),
                             (false, false) => (
-                                format!("Showing a search page matching: {applied}"),
+                                format!("Searched {} executions for: {applied}", value["scanned"].as_u64().unwrap_or(0)),
                                 cx.theme().muted_foreground,
                             ),
                         };
@@ -1065,7 +1065,11 @@ impl Workspace {
                     if value.is_null() {
                         "Loading history\u{2026}"
                     } else if value["search_page"] == true && (!applied.is_empty() || !value["cursor"].is_null()) {
-                        "No matches in this search page. Use Next page to continue when available."
+                        if value["cursor"].is_null() {
+                            "No matching executions found. Change or clear the filters to search again."
+                        } else {
+                            "No matches in the executions searched so far. Continue search to search the remaining records."
+                        }
                     } else if items.is_empty() {
                         "No recorded history yet. Run a code cell to record executions."
                     } else if value["cursor"].is_null() {
@@ -1094,7 +1098,11 @@ impl Workspace {
                         .self_start()
                         .ghost()
                         .small()
-                        .label("Next page")
+                        .label(if count == 0 && value["search_page"] == true {
+                            "Continue search"
+                        } else {
+                            "Next page"
+                        })
                         .on_click(cx.listener(move |v, _, _, _| {
                             v.inspect(&method, Value::Object(fields.clone()))
                         })),

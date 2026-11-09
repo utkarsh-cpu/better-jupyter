@@ -8,11 +8,15 @@ helper. Runs use the supervisor's frozen hashes and durable request ids. Shell
 commands are copy-only.
 
 Open **Assistant** in the status bar, or **Ask assistant** in the command palette.
-**Settings → AI** configures a model, endpoint, token budgets, retention, OS-stored
+**Settings → Assistant** configures a model, endpoint, token budgets, retention, OS-stored
 API key and notebook policy. Set an OpenAI-compatible endpoint such as
 `http://127.0.0.1:11434/v1` for a local server, or
 `https://api.openai.com/v1` for the OpenAI Responses adapter. Nothing downloads a
-model automatically. Set the endpoint explicitly when switching provider types.
+model automatically. Choose a provider, check its Base URL and Model, then use
+**Save configuration** and **Test saved connection**. Provider selection changes
+only the draft and restores that provider’s saved endpoint or its default.
+Advanced settings contains reload, model discovery, inference options, and the
+optional API key for compatible servers. OpenAI shows its API key field directly.
 The adapter follows the official [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses)
 and [Responses streaming](https://developers.openai.com/api/docs/guides/streaming-responses)
 formats. Report export is advertised by helper revision 2's `document_reports`

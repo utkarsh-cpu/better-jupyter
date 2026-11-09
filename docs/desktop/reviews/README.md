@@ -4,6 +4,7 @@ These reports preserve earlier assessments and proposals. They are not current
 release qualification results. Product build instructions and implementation
 records remain in the [desktop documentation](../README.md).
 
+- [Native usability follow-up, 9 November 2026](../../../artifacts/gpui-usability-2026-11-09/README.md) — compact editor width, simplified provider setup, and automatic continuation through empty search pages.
 - [Resumed native qualification, 8 November 2026](gpui-native-followup-2026-11-08.md) — live recovery, venv-picker and cell-clipping fixes, native checks, and remaining release gates.
 - [Native refinement implementation and qualification, 8 November 2026](gpui-plan-implementation-2026-11-08.md) — recovery, bounded search, guarded structural undo, native evidence and remaining release gates.
 - [Native design audit and targeted fixes, 8 November 2026](gpui-design-audit-2026-11-08.md) — native screenshots, scope-limited scorecard, defects, and regression evidence; not a release certification.

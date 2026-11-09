@@ -8,6 +8,45 @@ use std::{
     time::Instant,
 };
 
+/// Continue empty source-search pages off the UI thread, preserving helper
+/// bounds. Yield after ten pages or 250ms; the cursor lets the user continue.
+fn search_execution_pages(
+    mut fields: Value,
+    mut fetch: impl FnMut(Value) -> Result<Value>,
+) -> Result<Value> {
+    let pages = fields
+        .as_object_mut()
+        .and_then(|f| f.remove("scan_pages"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1)
+        .clamp(1, 10);
+    let started = Instant::now();
+    let mut scanned = 0;
+    let mut limited = 0;
+    let mut seen = BTreeSet::new();
+    for page in 0..pages {
+        let mut value = fetch(fields.clone())?;
+        if value["search_page"] != true {
+            return Ok(value);
+        }
+        scanned += value["scanned"].as_u64().unwrap_or(0);
+        limited += value["source_search_limited"].as_u64().unwrap_or(0);
+        value["scanned"] = json!(scanned);
+        value["source_search_limited"] = json!(limited);
+        let next = value["cursor"].as_str().map(str::to_owned);
+        let can_continue = value["items"].as_array().is_some_and(Vec::is_empty)
+            && next
+                .as_ref()
+                .is_some_and(|cursor| seen.insert(cursor.clone()))
+            && value["cursor"] != fields["cursor"];
+        if !can_continue || page + 1 == pages || started.elapsed().as_millis() >= 250 {
+            return Ok(value);
+        }
+        fields["cursor"] = value["cursor"].clone();
+    }
+    unreachable!("at least one search page is requested")
+}
+
 #[derive(Debug, Clone)]
 pub enum Command {
     SelectApplicationPython(PathBuf),
@@ -1044,7 +1083,13 @@ impl Session {
                         object.remove("search_all");
                     }
                     let page_request = fields.clone();
-                    let mut value = self.helper.request(&method, fields)?;
+                    let mut value = if method == "executions.list" {
+                        search_execution_pages(fields, |fields| {
+                            self.helper.request(&method, fields)
+                        })?
+                    } else {
+                        self.helper.request(&method, fields)?
+                    };
                     if method.ends_with(".list") {
                         value["_page_request"] = page_request;
                     }
@@ -1571,6 +1616,59 @@ fn report(events: &Sender<Event>, error: anyhow::Error) {
 mod tests {
     use super::*;
     use anyhow::bail;
+
+    #[test]
+    fn search_continues_empty_pages_preserving_scope_and_warning_counts() {
+        let mut calls = vec![];
+        let result = search_execution_pages(json!({"query":"needle", "session_id":"s", "page_size":100, "scan_pages":10}), |fields| {
+            assert!(fields.get("scan_pages").is_none());
+            assert_eq!(fields["query"], "needle");
+            assert_eq!(fields["session_id"], "s");
+            calls.push(fields["cursor"].clone());
+            Ok(match calls.len() {
+                1 => json!({"search_page":true,"items":[],"cursor":"100","scanned":100,"source_search_limited":1}),
+                2 => json!({"search_page":true,"items":[],"cursor":"200","scanned":100,"source_search_limited":2}),
+                _ => json!({"search_page":true,"items":[{"exec_id":"225"}],"cursor":null,"scanned":40}),
+            })
+        }).unwrap();
+        assert_eq!(calls, vec![Value::Null, json!("100"), json!("200")]);
+        assert_eq!(result["items"][0]["exec_id"], "225");
+        assert_eq!(result["scanned"], 240);
+        assert_eq!(result["source_search_limited"], 3);
+    }
+
+    #[test]
+    fn search_stops_on_matches_and_bounds_empty_continuations() {
+        let mut count = 0;
+        let result = search_execution_pages(json!({"scan_pages":9999}), |_| {
+            count += 1;
+            Ok(json!({"search_page":true,"items":[],"cursor":count.to_string(),"scanned":100}))
+        })
+        .unwrap();
+        assert_eq!(count, 10);
+        assert_eq!(result["scanned"], 1000);
+        assert_eq!(result["cursor"], "10");
+        for response in [
+            json!({"items":[],"cursor":"next"}),
+            json!({"search_page":true,"items":[{"exec_id":"a"}],"cursor":"next"}),
+            json!({"search_page":true,"items":[],"cursor":null}),
+        ] {
+            let mut count = 0;
+            search_execution_pages(json!({"scan_pages":10}), |_| {
+                count += 1;
+                Ok(response.clone())
+            })
+            .unwrap();
+            assert_eq!(count, 1);
+        }
+        let mut count = 0;
+        search_execution_pages(json!({"scan_pages":10,"cursor":"same"}), |_| {
+            count += 1;
+            Ok(json!({"search_page":true,"items":[],"cursor":"same"}))
+        })
+        .unwrap();
+        assert_eq!(count, 1);
+    }
 
     #[test]
     fn recorded_timing_joins_only_the_matching_execution_without_extra_reads() {

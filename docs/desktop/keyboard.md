@@ -50,7 +50,9 @@ file** and **Show in folder**. Closing the save dialog cancels the export.
 
 The Kit editor supplies selection, indentation, undo/redo and cell search.
 Notebook source uses horizontal scrolling for long lines, keeping one visual row
-per source line as panels and windows resize.
+per source line as panels and windows resize. In compact windows with the
+Assistant open, cell controls move above the source so the editor uses the full
+cell width.
 In command mode, Undo cell structure and Redo cell structure restore stable cell
 IDs, source, order, and attachments. In an editor, the same keys keep their text
 undo meaning. Structural undo is local to the notebook and survives reopening;

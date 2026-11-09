@@ -2081,6 +2081,7 @@ fn returning_to_history_refreshes_lists_without_replacing_details(cx: &mut TestA
                 if method == "executions.list" {
                     expected["query"] = json!("outcome:error");
                     expected["page_size"] = json!(100);
+                    expected["scan_pages"] = json!(10);
                 }
                 assert_eq!(refreshes, [(method.to_owned(), expected)]);
             }
@@ -3147,6 +3148,53 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
 }
 
 #[gpui_kit::test]
+fn provider_choice_is_a_draft_and_one_save_uses_the_selected_endpoint(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.surface = "Settings".into();
+            v.settings_section = "assistant";
+            v.tabs[0].assistant.settings = json!({"settings":{"provider":"openai-compatible","model":"test-model","providers":{"openai-compatible":{"base_url":"http://localhost:11434/v1","structured_output":true}}}});
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+        assert!(window.try_find("ai-load-settings").is_none());
+        assert!(window.try_find("ai-models").is_none());
+        assert!(window.try_find("ai-save-key").is_none());
+        window.click("ai-provider-openai", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].assistant.provider_draft.as_deref(), Some("openai"));
+        assert_eq!(view.read(cx).tabs[0].assistant.settings["settings"]["provider"], "openai-compatible");
+        assert!(commands.try_iter().all(|c| !matches!(c, Command::Assistant { .. })), "choosing a provider must not save settings or contact its endpoint");
+        window.click("ai-save-provider", cx);
+    }).unwrap();
+    let sent = commands.try_iter().collect::<Vec<_>>();
+    assert!(sent.iter().any(|c| matches!(c, Command::Assistant {method,fields} if method == "settings.update" && fields["settings"]["provider"] == "openai" && fields["settings"]["providers"]["openai"]["base_url"] == "https://api.openai.com/v1" && fields["settings"]["providers"]["openai-compatible"]["structured_output"] == true)));
+    assert!(!sent.iter().any(|c|matches!(c, Command::Assistant {method,..} if method == "providers.test" || method == "credential.set")));
+    // Saving another settings section must not silently switch the provider draft.
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+        });
+        for (provider, expected) in [("openai-compatible", Some("openai")), ("openai", None)] {
+            send.send(kernelledger_client::service::Event::AssistantDone {
+                method: "settings.update".into(),
+                value: json!({"settings":{"provider":provider}}),
+            })
+            .unwrap();
+            view.update(cx, |v, cx| v.drain(window, cx));
+            assert_eq!(
+                view.read(cx).tabs[0].assistant.provider_draft.as_deref(),
+                expected
+            );
+        }
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
 fn compact_assistant_insets_notebook_and_empty_checkpoints_card_includes_action(
     cx: &mut TestAppContext,
 ) {
@@ -3164,6 +3212,12 @@ fn compact_assistant_insets_notebook_and_empty_checkpoints_card_includes_action(
     let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
     let card_first = visual.debug_bounds("cell-card-first").unwrap();
     let assistant = visual.debug_bounds("assistant-inspector").unwrap();
+    let editor = visual.debug_bounds("cell-editor-first").unwrap();
+    assert!(
+        editor.size.width >= px(330.),
+        "compact split must reserve the cell width for source, got {:?}",
+        editor
+    );
     assert!(
         card_first.origin.x + card_first.size.width <= assistant.origin.x + px(1.),
         "at 800px compact width, notebook cell {:?} must sit beside assistant drawer {:?} without being covered",

@@ -185,7 +185,10 @@ impl Workspace {
                 .as_array()
                 .is_some_and(|f| f.iter().any(|f| f == "debugger")),
         );
-        let inline_code = compact_source && cell.disk.kind == "code";
+        // A narrow split needs a full-width editor. Keep its run button,
+        // execution count, and output tools in the toolbar above the source.
+        let narrow_split = self.compact && tab.assistant.open;
+        let inline_code = compact_source && !narrow_split && cell.disk.kind == "code";
         let inline_markdown = compact_source && cell.disk.kind == "markdown";
         let mut run_action = if cell.disk.kind == "code" {
             Some(
@@ -587,18 +590,31 @@ impl Workspace {
                                     })
                                     .child(gutter)
                                     .child(
-                                        Editor::new(&editor)
+                                        div()
                                             .flex_1()
                                             .min_w_0()
-                                            .text_size(px(self.preferences.editor_size))
-                                            .line_height(px(self.preferences.editor_size * 1.5))
-                                            .aria_label(format!("{} cell {id}", cell.disk.kind))
-                                            .h(editor_height(
-                                                &cell.text,
-                                                self.preferences.editor_size,
-                                                self.preferences.ui_scale,
-                                            ))
-                                            .bordered(false),
+                                            .debug_selector({
+                                                let id = id.clone();
+                                                move || format!("cell-editor-{id}")
+                                            })
+                                            .child(
+                                                Editor::new(&editor)
+                                                    .w_full()
+                                                    .text_size(px(self.preferences.editor_size))
+                                                    .line_height(px(
+                                                        self.preferences.editor_size * 1.5
+                                                    ))
+                                                    .aria_label(format!(
+                                                        "{} cell {id}",
+                                                        cell.disk.kind
+                                                    ))
+                                                    .h(editor_height(
+                                                        &cell.text,
+                                                        self.preferences.editor_size,
+                                                        self.preferences.ui_scale,
+                                                    ))
+                                                    .bordered(false),
+                                            ),
                                     )
                                     .when(inline_code || inline_markdown, |d| {
                                         let row_h = px((self.preferences.editor_size * 1.5

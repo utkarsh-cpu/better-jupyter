@@ -575,3 +575,10 @@
 !/gpui-plan-implementation-2026-11-08/pytest.txt
 !/gpui-plan-implementation-2026-11-08/python-format.txt
 !/gpui-plan-implementation-2026-11-08/ruff.txt
+
+# gpui-usability-2026-11-09
+!/gpui-usability-2026-11-09/README.md
+!/gpui-usability-2026-11-09/compact-editor-800.png
+!/gpui-usability-2026-11-09/provider-local-800.png
+!/gpui-usability-2026-11-09/provider-openai-800.png
+!/gpui-usability-2026-11-09/history-auto-search-1280.png
