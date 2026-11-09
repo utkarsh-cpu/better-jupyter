@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "id": "c5ccd275-7585-41c7-bec8-c1d8694bf618",
+  "metadata": {},
+  "cells": [
+    {"id": "intro", "type": "markdown"},
+    {"id": "html-helper", "type": "code"},
+    {"id": "pandas-table", "type": "code"},
+    {"id": "pandas-styler", "type": "code"},
+    {"id": "custom-page", "type": "code"},
+    {"id": "inline-js", "type": "code"},
+    {"id": "table-onclick", "type": "code"},
+    {"id": "iframe", "type": "code"},
+    {"id": "object-embed", "type": "code"},
+    {"id": "javascript-href", "type": "code"},
+    {"id": "svg-html", "type": "code"},
+    {"id": "plotly-fig", "type": "code"},
+    {"id": "plotly-cdn", "type": "code"},
+    {"id": "bokeh-fig", "type": "code"},
+    {"id": "altair-chart", "type": "code"},
+    {"id": "oversize-html", "type": "code"}
+  ]
+}

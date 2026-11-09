@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, PartialEq, gpui::Action)]
+#[derive(Clone, PartialEq, ::gpui::Action)]
 #[action(namespace = kernelledger, no_json)]
 pub(super) struct WorkbenchCommand {
     pub method: String,
@@ -8,9 +8,9 @@ pub(super) struct WorkbenchCommand {
 
 pub(super) fn bind_commands(cx: &mut App) {
     for (method, _, keys) in SHORTCUTS {
-        for keys in [platform_binding(keys), (*keys).into()] {
+        for keys in [platform_binding(keys), *keys] {
             cx.bind_keys([KeyBinding::new(
-                &keys,
+                keys,
                 WorkbenchCommand {
                     method: (*method).into(),
                 },
@@ -22,11 +22,32 @@ pub(super) fn bind_commands(cx: &mut App) {
 
 /// Application commands follow the host platform; notebook execution keeps
 /// the established Control/Shift+Enter combinations on every platform.
-pub(super) fn platform_binding(keys: &str) -> std::borrow::Cow<'_, str> {
-    if cfg!(target_os = "macos") && keys.starts_with("ctrl-") && !keys.ends_with("enter") {
-        format!("cmd-{}", &keys[5..]).into()
-    } else {
-        keys.into()
+pub(super) fn platform_binding(keys: &'static str) -> &'static str {
+    if !(cfg!(target_os = "macos") && keys.starts_with("ctrl-") && !keys.ends_with("enter")) {
+        return keys;
+    }
+    match keys {
+        "ctrl-z" => "cmd-z",
+        "ctrl-shift-z" => "cmd-shift-z",
+        "ctrl-1" => "cmd-1",
+        "ctrl-2" => "cmd-2",
+        "ctrl-3" => "cmd-3",
+        "ctrl-," => "cmd-,",
+        "ctrl-b" => "cmd-b",
+        "ctrl-s" => "cmd-s",
+        "ctrl-o" => "cmd-o",
+        "ctrl-shift-f" => "cmd-shift-f",
+        "ctrl-shift-p" => "cmd-shift-p",
+        "ctrl-shift-n" => "cmd-shift-n",
+        "ctrl-shift-m" => "cmd-shift-m",
+        "ctrl-shift-d" => "cmd-shift-d",
+        "ctrl-shift-delete" => "cmd-shift-delete",
+        "ctrl-alt-up" => "cmd-alt-up",
+        "ctrl-alt-down" => "cmd-alt-down",
+        "ctrl-shift-s" => "cmd-shift-s",
+        "ctrl-shift-i" => "cmd-shift-i",
+        "ctrl-shift-e" => "cmd-shift-e",
+        _ => keys,
     }
 }
 
@@ -96,7 +117,7 @@ impl Workspace {
     ) -> bool {
         let Some((method, ..)) = SHORTCUTS.iter().find(|(.., keys)| {
             // Keep the existing Control aliases for established workflows.
-            [platform_binding(keys), (*keys).into()].iter().any(|keys| {
+            [platform_binding(keys), *keys].into_iter().any(|keys| {
                 Keystroke::parse(keys).is_ok_and(|binding| {
                     binding.key.eq_ignore_ascii_case(&event.keystroke.key)
                         && binding.modifiers == event.keystroke.modifiers

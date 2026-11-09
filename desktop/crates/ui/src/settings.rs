@@ -389,6 +389,36 @@ impl Workspace {
                                 cx,
                             ))
                             .child(setting_row(
+                                "Interactive HTML",
+                                "Scripts run only after you press Render HTML, with no network. CDN-hosted Plotly will fail unless the cell HTML is self-contained. Native tables and PNG stay the default.",
+                                {
+                                    let view = cx.entity();
+                                    let reveal = layout_reveal.clone();
+                                    let a11y_reveal = reveal.clone();
+                                    Checkbox::new("allow-html-output")
+                                        .label("Allow interactive HTML output")
+                                        .checked(self.preferences.allow_html_output)
+                                        .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+                                            view.update(cx, |v, cx| {
+                                                a11y_reveal.activate(v, window, cx, |v, _, cx| {
+                                                    v.preferences.allow_html_output = !v.preferences.allow_html_output;
+                                                    v.save_preferences(cx);
+                                                    cx.notify();
+                                                });
+                                            });
+                                        })
+                                        .on_click(cx.listener(move |v, checked: &bool, window, cx| {
+                                            let checked = *checked;
+                                            reveal.activate(v, window, cx, move |v, _, cx| {
+                                                v.preferences.allow_html_output = checked;
+                                                v.save_preferences(cx);
+                                                cx.notify();
+                                            });
+                                        }))
+                                },
+                                cx,
+                            ))
+                            .child(setting_row(
                                 "Outline width",
                                 "Default width of the notebook cell outline sidebar.",
                                 widths,

@@ -21,7 +21,7 @@ evidence and do not qualify the redesigned application.
 | Editor | Tabs; virtualized cells; lazy Python editors; autosave; drafts; conflict views; Markdown/raw | F0 virtualized selection/undo/IME retention; remaining command map; source compare; notebook replace; full external-change UX |
 | Runtime UI | Save before run; batches; interrupt/kill; checkpoint; namespace-changing confirmation; active-operation cancellation | Composed queue view; complete capability gating |
 | Training (frontend plan 4) | Separate idle Training checkpoint action; offline snapshot list/coverage; trust confirmation; candidate fresh worker restore; native capability report | Native backend and hardware qualification; full draft adoption; manual desktop GPU/DPI/accessibility qualification |
-| Outputs | Committed text/errors; verified PNG/JPEG; native simple-table extraction; JSON/Markdown; stale badges; hide/show; byte-range output paging; bounded image cache; attachment preview | MIME chooser/export; output search |
+| Outputs | Committed text/errors; verified PNG/JPEG; native simple-table extraction; JSON/Markdown; stale badges; hide/show; byte-range output paging; bounded image cache; attachment preview; opt-in sandboxed HTML webview (gpui-webview, default off) | MIME chooser/export; output search; ipywidgets/JS bridge |
 | Workflows | History; checkpoint reports/restore/Continue; replay; explicit trust/mismatch switches; operation recovery; runtime discovery | Automated preflight reports and typed-error recovery dialogs; pin/publish; interchange dialogs; global stop/quit management; detached windows |
 | Settings | Persistent light/dark/system/high-contrast preferences; interpreter validation/selection | OS theme-switch qualification; full config fields; key rebinding; externalized strings |
 | UX audit (frontend plan 3) | Edit-mode run variants; IME shortcut suppression; keyboard palette/lists; delete confirmation; safe modal focus and wrapping; 800 x 600 minimum and compact toolbar; Stopped reconciliation; readable records; surface data/selection/scroll and Back; measured cell reveal; history filters; persisted themes; initialization/sample/recent paths; Help/glossary/About; window identity/contextual UIA names; versioned scorecard | Qualification below; live rebinding-driven shortcut sheet and linked glossary/help destinations; private runtime packaging; full record presentation and pagination; structural undo |
@@ -33,7 +33,8 @@ verify them. Application feed integration and overflow/reconnection measurements
 remain work. Oversized responses fail with a typed `too_large` error instead of
 silently truncating ledger data. Failed/conflicted saves retain drafts and block runs.
 
-Dependency decisions: Kit tree-sitter Python; webview deferred; native simple table
+Dependency decisions: Kit tree-sitter Python; gpui-webview 0.9.1 for opt-in
+in-cell HTML (sandboxed, no network, master switch off); native simple table
 text extraction with Styler CSS ignored; LaTeX source fallback; one helper per
 notebook service; 500 ms autosave. The remaining F0/F6 decision and measurement
 records are open. No platform is declared qualified by this document.

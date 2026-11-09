@@ -238,6 +238,65 @@ fn escape_dismisses_completion_before_command_mode_and_preserves_editing(cx: &mu
     );
 }
 
+fn output_action(id: &str, action: &'static str) -> (gpui_kit::ElementId, &'static str) {
+    (
+        gpui_kit::ElementId::from(gpui_kit::SharedString::from(id.to_owned())),
+        action,
+    )
+}
+
+fn html_display(html: &str) -> serde_json::Value {
+    json!({"kind":"display","bundle":{"text/html":{"value": html}}})
+}
+
+fn html_js_kind_outputs() -> Vec<(&'static str, serde_json::Value, bool, bool)> {
+    let pandas = "<style>#T th{color:red}</style><table id='T'><tr><th>A</th></tr><tr><td>1</td></tr></table>";
+    let plotly = "<div><script src='https://cdn.plot.ly/plotly.min.js'></script><div class='plotly-graph-div'></div><script>Plotly.newPlot('p',[])</script></div>";
+    let bokeh = "<script src='https://cdn.bokeh.org/bokeh.min.js'></script><div class='bk-root'></div><script>Bokeh.embed.embed_item({})</script>";
+    let altair = "<div id='vis'></div><script src='https://cdn.jsdelivr.net/npm/vega@5'></script><script>vegaEmbed('#vis',{})</script>";
+    let onclick = "<table><tr><td onclick='evil'>Safe</td></tr></table>";
+    let ipython = "<h1>Hi</h1><script>console.log(1)</script>";
+    let js_href = "<a href='javascript:alert(1)'>go</a>";
+    let iframe = "<iframe src='about:blank'></iframe>";
+    let object = "<object data='about:blank'></object>";
+    let embed = "<embed src='about:blank'>";
+    vec![
+        (
+            "pandas-table",
+            json!({"kind":"display","bundle":{"text/html":{"value":pandas,"rows":[["A"],["1"]]}}}),
+            false,
+            true,
+        ),
+        (
+            "table-onclick",
+            json!({"kind":"display","bundle":{"text/html":{"value":onclick,"rows":[["Safe"]]}}}),
+            true,
+            true,
+        ),
+        ("plotly-cdn", html_display(plotly), true, true),
+        (
+            "plotly-png",
+            json!({"kind":"display","bundle":{"image/png":{"local_path":"plot.png"},"text/html":{"value":plotly}}}),
+            true,
+            true,
+        ),
+        ("bokeh", html_display(bokeh), true, true),
+        ("altair", html_display(altair), true, true),
+        ("ipython-html", html_display(ipython), true, true),
+        ("custom-page", html_display("<div>hello</div>"), true, true),
+        ("iframe", html_display(iframe), true, true),
+        ("object", html_display(object), true, true),
+        ("embed", html_display(embed), true, true),
+        ("javascript-href", html_display(js_href), true, true),
+        (
+            "oversize-plotly",
+            json!({"kind":"display","bundle":{"text/html":{"value":plotly,"page":{"offset":0,"end":32,"total":65537}}}}),
+            true,
+            false,
+        ),
+    ]
+}
+
 fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiver<Command>) {
     cx.update(gpui_kit::init);
     let (send, commands) = mpsc::channel();
@@ -249,7 +308,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
                 view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_notes: BTreeMap::new() });
                 view
             })
         }).unwrap()
@@ -664,7 +723,7 @@ fn palette_manual_scroll_survives_redraw_and_keyboard_reveals_selection(cx: &mut
         let started = std::time::Instant::now();
         for _ in 0..30 {
             window.dispatch_event(
-                gpui_kit::PlatformInput::ScrollWheel(gpui_kit::ScrollWheelEvent {
+                gpui_kit::PlatformInput::Scroll(gpui_kit::ScrollEvent {
                     position: scroll.bounds().center(),
                     delta: ScrollDelta::Pixels(Point::new(px(0.), px(-240.))),
                     ..Default::default()
@@ -2598,6 +2657,228 @@ fn duration_preference_is_optional_and_last_execution_identity_controls_the_badg
         visual.debug_bounds("cell-duration-first").is_none(),
         "A rerun with unknown duration must clear the old badge"
     );
+}
+
+#[test]
+fn table_html_is_not_interactive_and_html_preference_defaults_off() {
+    assert!(!kernelledger_client::output::html_is_interactive(&json!({
+        "bundle":{"text/html":{"value":"<table><tr><th>Name</th><td>Safe</td></tr></table>","rows":[["Name","Safe"]]}}
+    })));
+    assert!(kernelledger_client::output::html_is_interactive(&json!({
+        "bundle":{"text/html":{"value":"<div><script>window.Plotly={}</script></div>"}}
+    })));
+    assert!(!kernelledger_client::preferences::Preferences::default().allow_html_output);
+}
+
+#[gpui_kit::test]
+fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
+    cx: &mut TestAppContext,
+) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        assert!(!view.read(cx).preferences.allow_html_output);
+        view.update(cx, |v, _| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind":"display",
+                "bundle":{"text/html":{"value":"<div><script>window.Plotly={}</script></div>"}}
+            })];
+            v.tabs[0].list.splice(0..1, 1);
+            v.surface = "Settings".into();
+            v.settings_section = "layout";
+        });
+        window.render_frame(cx);
+        window.click("allow-html-output", cx);
+        assert!(view.read(cx).preferences.allow_html_output);
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+        view.update(cx, |v, _| v.surface = "Notebook".into());
+        window.render_frame(cx);
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+        window.click(
+            (
+                gpui_kit::ElementId::from(gpui_kit::SharedString::from("notebook-0-first")),
+                "output-tools-toggle",
+            ),
+            cx,
+        );
+        window.render_frame(cx);
+        window.click(
+            (
+                gpui_kit::ElementId::from(gpui_kit::SharedString::from("first-0")),
+                "render-html",
+            ),
+            cx,
+        );
+        window.render_frame(cx);
+        assert!(
+            view.read(cx).tabs[0].html_views.is_empty(),
+            "headless tests must not construct a WebView"
+        );
+        assert!(
+            view.read(cx).tabs[0]
+                .html_notes
+                .get("first-0")
+                .is_some_and(|note| note.contains("automated tests"))
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn table_html_keeps_native_rows_without_render_html(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind":"display",
+                "bundle":{"text/html":{
+                    "value":"<table><tr><th>Column</th></tr><tr><td>Value</td></tr></table>",
+                    "rows":[["Column"],["Value"]]
+                }}
+            })];
+            v.tabs[0].list.splice(0..1, 1);
+        });
+        window.render_frame(cx);
+        window.click(
+            (
+                gpui_kit::ElementId::from(gpui_kit::SharedString::from("notebook-0-first")),
+                "output-tools-toggle",
+            ),
+            cx,
+        );
+        window.render_frame(cx);
+        assert!(
+            window
+                .try_find((
+                    gpui_kit::ElementId::from(gpui_kit::SharedString::from("first-0")),
+                    "render-html",
+                ))
+                .is_none()
+        );
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(visual.debug_bounds("output-block-first-0").is_some());
+    assert!(visual.debug_bounds("cell-frame-first").is_some());
+}
+
+#[gpui_kit::test]
+fn html_js_output_kinds_keep_native_defaults_and_offer_opt_in_render(cx: &mut TestAppContext) {
+    let kinds = html_js_kind_outputs();
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.preferences.allow_html_output = true;
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().output =
+                kinds.iter().map(|(_, event, _, _)| event.clone()).collect();
+            v.tabs[0].list.splice(0..1, 1);
+        });
+        window.render_frame(cx);
+        for (index, (name, _, interactive, available)) in kinds.iter().enumerate() {
+            let id = format!("first-{index}");
+            let render = window.try_find(output_action(&id, "render-html"));
+            assert_eq!(
+                render.is_some(),
+                *interactive && *available,
+                "{name}: Render HTML visibility"
+            );
+        }
+        window.click(
+            (
+                gpui_kit::ElementId::from(gpui_kit::SharedString::from("notebook-0-first")),
+                "output-tools-toggle",
+            ),
+            cx,
+        );
+        window.render_frame(cx);
+        assert!(window.try_find(output_action("first-3", "image-size")).is_some());
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+        assert!(view.read(cx).tabs[0].html_notes.is_empty());
+
+        window.click(output_action("first-2", "render-html"), cx);
+        window.render_frame(cx);
+        assert_eq!(
+            view.read(cx).tabs[0].html_notes.get("first-2").unwrap(),
+            "Interactive HTML is not created in automated tests."
+        );
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(visual.debug_bounds("output-block-first-0").is_some());
+    assert!(visual.debug_bounds("cell-frame-first").is_some());
+}
+
+#[gpui_kit::test]
+fn html_js_history_does_not_auto_render_and_live_views_are_capped(cx: &mut TestAppContext) {
+    let plotly = html_display("<div><script>Plotly.newPlot('p',[])</script></div>");
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.preferences.allow_html_output = true;
+            v.surface = "History".into();
+            v.tabs[0]
+                .inspection_method
+                .insert("History".into(), "execution.get".into());
+            v.tabs[0].inspections.insert(
+                "History".into(),
+                json!({
+                    "exec_id":"recorded",
+                    "cell_id":"first",
+                    "ordinal":1,
+                    "status":"ok",
+                    "imported":true,
+                    "outputs":[plotly]
+                }),
+            );
+        });
+        window.render_frame(cx);
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+        assert!(view.read(cx).tabs[0].html_notes.is_empty());
+        window.click(output_action("history-result-0", "tools"), cx);
+        window.render_frame(cx);
+        window.click(output_action("history-result-0", "render-html"), cx);
+        window.render_frame(cx);
+        assert!(
+            view.read(cx).tabs[0]
+                .html_notes
+                .get("history-result-0")
+                .is_some_and(|note| note.contains("automated tests"))
+        );
+
+        view.update(cx, |v, _| {
+            v.surface = "Notebook".into();
+            v.tabs[0].html_notes.clear();
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = (0..5)
+                .map(|_| plotly.clone())
+                .collect();
+            v.tabs[0].list.splice(0..1, 1);
+        });
+        window.render_frame(cx);
+        for index in 0..5 {
+            window.click(output_action(&format!("first-{index}"), "render-html"), cx);
+            window.render_frame(cx);
+        }
+        let notes = &view.read(cx).tabs[0].html_notes;
+        for index in 0..4 {
+            assert!(
+                notes
+                    .get(&format!("first-{index}"))
+                    .is_some_and(|note| note.contains("automated tests")),
+                "slot {index}"
+            );
+        }
+        assert!(
+            notes
+                .get("first-4")
+                .is_some_and(|note| note.contains("Too many interactive outputs")),
+        );
+        assert!(view.read(cx).tabs[0].html_views.is_empty());
+    })
+    .unwrap();
 }
 
 #[gpui_kit::test]

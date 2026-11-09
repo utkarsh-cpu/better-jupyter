@@ -74,8 +74,16 @@ fn main() {
     let appearance =
         std::fs::read_to_string(profile.join("appearance.txt")).unwrap_or_else(|_| "system".into());
     let recent = kernelledger_client::recent::load(&profile);
-    gpui_kit::application()
-        .with_assets(AppAssets)
+    // WebView2 needs Direct Composition off. WebKitGTK embeds only into X11.
+    #[cfg(target_os = "windows")]
+    unsafe {
+        std::env::set_var("GPUI_DISABLE_DIRECT_COMPOSITION", "true");
+    }
+    #[cfg(target_os = "linux")]
+    let app = gpui_kit::platform::linux(gpui_kit::platform::WindowingModes::X11);
+    #[cfg(not(target_os = "linux"))]
+    let app = gpui_kit::application();
+    app.with_assets(AppAssets)
         .run(move |cx| {
             gpui_kit::component::init(cx);
             cx.activate(true);

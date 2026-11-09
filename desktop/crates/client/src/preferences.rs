@@ -12,6 +12,7 @@ pub struct Preferences {
     pub comfortable: bool,
     pub reduced_motion: bool,
     pub show_cell_duration: bool,
+    pub allow_html_output: bool,
     pub ui_scale: f32,
 }
 
@@ -25,6 +26,7 @@ impl Default for Preferences {
             comfortable: false,
             reduced_motion: false,
             show_cell_duration: false,
+            allow_html_output: false,
             ui_scale: 1.,
         }
     }
@@ -94,6 +96,7 @@ mod tests {
         assert!(!p.outline_visible);
         assert!(!p.comfortable);
         assert!(!p.show_cell_duration);
+        assert!(!p.allow_html_output);
     }
     #[test]
     fn schema_one_migrates_without_losing_layout_and_scale_is_normalized() {

@@ -704,6 +704,7 @@ impl Workspace {
                             index: i,
                             worker_generation: None,
                             project: Some(self.tabs[self.active].model.project.clone()),
+                            workspace: Some(cx.entity()),
                         }
                         .into_any_element(),
                     );

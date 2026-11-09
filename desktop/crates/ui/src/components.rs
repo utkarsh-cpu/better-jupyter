@@ -183,7 +183,11 @@ impl WorkbenchButton {
         self.menu_item(label, None)
     }
 
-    pub fn menu_item(mut self, label: impl Into<SharedString>, shortcut: Option<&str>) -> Self {
+    pub fn menu_item(
+        mut self,
+        label: impl Into<SharedString>,
+        shortcut: Option<&'static str>,
+    ) -> Self {
         let text = label.into();
         self.name = Some(text.clone());
         self.full_row = true;

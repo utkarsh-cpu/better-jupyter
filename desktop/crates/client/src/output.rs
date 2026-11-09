@@ -79,6 +79,72 @@ fn rows(node: &Handle, result: &mut Vec<Vec<String>>) {
         rows(child, result);
     }
 }
+/// True when recorded `text/html` is leftover interactive markup rather than a
+/// native table: missing extracted rows, or script/iframe/embed/`javascript:` /
+/// inline event handlers. Table extraction itself is unchanged and remains the default.
+pub fn html_is_interactive(event: &Value) -> bool {
+    let Some(html) = event["bundle"]["text/html"]["value"].as_str() else {
+        return false;
+    };
+    if html.is_empty() {
+        return false;
+    }
+    let has_rows = event["bundle"]["text/html"]["rows"]
+        .as_array()
+        .is_some_and(|rows| !rows.is_empty());
+    !has_rows || html_has_active_content(html)
+}
+
+/// HTML larger than the display page is kept on disk; the webview is not offered.
+pub fn html_output_available(event: &Value) -> bool {
+    let Some(html) = event["bundle"]["text/html"]["value"].as_str() else {
+        return false;
+    };
+    if html.is_empty() {
+        return false;
+    }
+    let total = event["bundle"]["text/html"]["page"]["total"]
+        .as_u64()
+        .unwrap_or(html.len() as u64);
+    total as usize <= VIEW_TEXT_LIMIT && html.len() <= VIEW_TEXT_LIMIT
+}
+
+pub fn html_has_active_content(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    lower.contains("<script")
+        || lower.contains("<iframe")
+        || lower.contains("<object")
+        || lower.contains("<embed")
+        || lower.contains("javascript:")
+        || has_inline_event_handler(&lower)
+}
+
+fn has_inline_event_handler(html: &str) -> bool {
+    let bytes = html.as_bytes();
+    let mut i = 0;
+    while i + 3 < bytes.len() {
+        if matches!(bytes[i], b' ' | b'\t' | b'\n' | b'\r' | b'<')
+            && bytes[i + 1] == b'o'
+            && bytes[i + 2] == b'n'
+        {
+            let mut j = i + 3;
+            while j < bytes.len() && bytes[j].is_ascii_alphabetic() {
+                j += 1;
+            }
+            if j > i + 3 {
+                while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j < bytes.len() && bytes[j] == b'=' {
+                    return true;
+                }
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
 pub fn table(html: &str) -> Result<Vec<Vec<String>>> {
     ensure!(
         html.len() <= 8 * 1024 * 1024,
@@ -406,6 +472,178 @@ mod tests {
     fn table_discards_active_content() {
         let rows = table("<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script><img src='https://evil'></td></tr></table>").unwrap();
         assert_eq!(rows, vec![vec!["Name", "Safe"]]);
+    }
+    const PANDAS_HTML: &str = r#"<style type="text/css">#T_abc th{color:red}</style>
+<table id="T_abc" class="dataframe">
+<thead><tr><th>A</th><th>B</th></tr></thead>
+<tbody><tr><td>1</td><td>2</td></tr></tbody>
+</table>"#;
+    const PLOTLY_CDN: &str = r#"<div>
+<script>window.PlotlyConfig={MathJaxConfig:'local'};</script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<div id="plotly-fig" class="plotly-graph-div"></div>
+<script>window.PLOTLYENV=window.PLOTLYENV||{};Plotly.newPlot("plotly-fig",[]);</script>
+</div>"#;
+    const BOKEH_CDN: &str = r#"<script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.4.0.min.js"></script>
+<div class="bk-root" id="bokeh-fig"></div>
+<script>Bokeh.embed.embed_item({"target_id":"bokeh-fig"});</script>"#;
+    const ALTAIR: &str = r##"<div id="vis"></div>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script>vegaEmbed("#vis",{"mark":"bar"});</script>"##;
+
+    fn html_event(html: &str, rows: Option<Value>) -> Value {
+        let mut slot = json!({"value": html});
+        if let Some(rows) = rows {
+            slot["rows"] = rows;
+        }
+        json!({"kind":"display","bundle":{"text/html": slot}})
+    }
+
+    #[test]
+    fn html_output_kinds_are_classified() {
+        let pandas_rows = json!([["A", "B"], ["1", "2"]]);
+        let cases: &[(&str, Value, bool, bool)] = &[
+            (
+                "pandas DataFrame to_html",
+                html_event(PANDAS_HTML, Some(pandas_rows.clone())),
+                false,
+                true,
+            ),
+            (
+                "pandas Styler style-only wrapper still a table",
+                html_event(PANDAS_HTML, Some(pandas_rows)),
+                false,
+                true,
+            ),
+            (
+                "table with onclick",
+                html_event(
+                    "<table><tr><td onclick='evil()'>Safe</td></tr></table>",
+                    Some(json!([["Safe"]])),
+                ),
+                true,
+                true,
+            ),
+            (
+                "table with script",
+                html_event(
+                    "<table><tr><td>Safe<script>evil()</script></td></tr></table>",
+                    Some(json!([["Safe"]])),
+                ),
+                true,
+                true,
+            ),
+            (
+                "Plotly CDN page",
+                html_event(PLOTLY_CDN, None),
+                true,
+                true,
+            ),
+            (
+                "Plotly PNG+HTML",
+                json!({"kind":"display","bundle":{
+                    "image/png":{"local_path":"plot.png"},
+                    "text/html":{"value":PLOTLY_CDN}
+                }}),
+                true,
+                true,
+            ),
+            ("Bokeh embed", html_event(BOKEH_CDN, None), true, true),
+            ("Altair/Vega embed", html_event(ALTAIR, None), true, true),
+            (
+                "IPython HTML with script",
+                html_event("<h1>Hi</h1><script>console.log(1)</script>", None),
+                true,
+                true,
+            ),
+            (
+                "custom leftover HTML without a table",
+                html_event("<div>hello</div>", None),
+                true,
+                true,
+            ),
+            (
+                "iframe",
+                html_event("<iframe src='about:blank'></iframe>", None),
+                true,
+                true,
+            ),
+            (
+                "object",
+                html_event("<object data='about:blank'></object>", None),
+                true,
+                true,
+            ),
+            (
+                "embed",
+                html_event("<embed src='about:blank'>", None),
+                true,
+                true,
+            ),
+            (
+                "javascript: handler",
+                html_event("<a href='javascript:alert(1)'>go</a>", None),
+                true,
+                true,
+            ),
+            (
+                "SVG-only HTML leftover",
+                html_event("<svg xmlns='http://www.w3.org/2000/svg'><circle/></svg>", None),
+                true,
+                true,
+            ),
+            (
+                "empty HTML",
+                html_event("", None),
+                false,
+                false,
+            ),
+            (
+                "oversize Plotly",
+                json!({"kind":"display","bundle":{"text/html":{
+                    "value":PLOTLY_CDN,
+                    "page":{"offset":0,"end":32,"total":VIEW_TEXT_LIMIT as u64 + 1}
+                }}}),
+                true,
+                false,
+            ),
+        ];
+        for (name, event, interactive, available) in cases {
+            assert_eq!(
+                html_is_interactive(event),
+                *interactive,
+                "{name}: interactive"
+            );
+            assert_eq!(
+                html_output_available(event),
+                *available,
+                "{name}: available"
+            );
+        }
+        assert!(!html_is_interactive(&json!({"kind":"stdout","text":"hi"})));
+    }
+
+    #[test]
+    fn resolve_event_extracts_pandas_tables_and_leaves_js_charts() {
+        let mut pandas = json!({"kind":"display","bundle":{"text/html":{"value":PANDAS_HTML}}});
+        resolve_event(&mut pandas, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert_eq!(
+            pandas["bundle"]["text/html"]["rows"],
+            json!([["A", "B"], ["1", "2"]])
+        );
+        assert!(!html_is_interactive(&pandas));
+
+        let mut plotly = json!({"kind":"display","bundle":{"text/html":{"value":PLOTLY_CDN}}});
+        resolve_event(&mut plotly, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert!(plotly["bundle"]["text/html"]["rows"].is_null());
+        assert!(html_is_interactive(&plotly));
+
+        let mut mixed = json!({"kind":"display","bundle":{"text/html":{"value":
+            "<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script></td></tr></table>"
+        }}});
+        resolve_event(&mut mixed, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert_eq!(mixed["bundle"]["text/html"]["rows"], json!([["Name", "Safe"]]));
+        assert!(html_is_interactive(&mixed));
     }
     #[test]
     fn truncation_is_unicode_safe() {

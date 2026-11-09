@@ -783,6 +783,7 @@ impl Workspace {
                                 self.tabs[self.active].runtime["interactive"]["worker_generation"]
                                     .as_str()
                                     .map(str::to_owned),
+                            workspace: Some(cx.entity()),
                         }
                         .into_any_element()
                     }))

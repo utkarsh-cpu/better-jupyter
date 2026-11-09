@@ -6,6 +6,7 @@ mod debug_source;
 mod diagnostics;
 mod help;
 mod history;
+mod html_output;
 mod images;
 mod interactive;
 mod interchange;
@@ -127,6 +128,8 @@ struct Tab {
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
     variables_scroll: UniformListScrollHandle,
+    html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
+    html_notes: BTreeMap<String, String>,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
@@ -382,6 +385,8 @@ impl Workspace {
             error: None,
             attachment_pages: BTreeMap::new(),
             variables_scroll: UniformListScrollHandle::default(),
+            html_views: BTreeMap::new(),
+            html_notes: BTreeMap::new(),
         });
         self.active = self.tabs.len() - 1;
         cx.notify();
@@ -799,6 +804,7 @@ impl Workspace {
                             if order != tab.model.order {
                                 tab.list.reset(tab.model.order.len());
                             }
+                            html_output::prune_tab(tab);
                             for (id, editor) in &tab.editors {
                                 if let Some(cell) = tab.model.cells.get(id)
                                     && cell.save == SaveState::Saved
@@ -894,6 +900,7 @@ impl Workspace {
                                 tab.list.splice(i..i + 1, 1);
                             }
                         }
+                        html_output::prune_tab(tab);
                     }
                     Event::Inspection { method, value } => {
                         if method == "helper.status" {
@@ -1549,6 +1556,7 @@ impl Workspace {
 }
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.conceal_html_views(cx);
         if self.confirmation.is_some() && !self.dialog_open {
             self.return_focus = window.focused(cx);
             self.confirm_focus.focus(window, cx);
@@ -1928,8 +1936,8 @@ fn worker_label(state: Option<&str>) -> String {
         }
     }
 }
-fn kbd(keys: &str) -> Option<Kbd> {
-    Keystroke::parse(&shortcuts::platform_binding(keys))
+fn kbd(keys: &'static str) -> Option<Kbd> {
+    Keystroke::parse(shortcuts::platform_binding(keys))
         .ok()
         .map(Kbd::new)
 }
@@ -1957,6 +1965,7 @@ fn output(
         index,
         worker_generation: None,
         project: None,
+        workspace: None,
     }
     .into_any_element()
 }
