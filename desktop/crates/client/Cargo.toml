@@ -16,3 +16,5 @@ html5ever.workspace = true
 markup5ever_rcdom.workspace = true
 image.workspace = true
 tempfile = "3"
+url = "=2.5.8"
+base64 = "=0.22.1"

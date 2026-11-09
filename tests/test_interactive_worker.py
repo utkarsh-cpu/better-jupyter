@@ -310,3 +310,46 @@ def test_busy_reads_do_not_block_interrupt(notebook):
             assert future.result(timeout=10)[0]["status"] == "interrupted"
     finally:
         client.close()
+
+
+def test_large_html_and_base64_image_mime_are_recorded_intact(notebook):
+    import base64
+
+    from kernelledger.blobs import BlobStore
+
+    html = "<div>" + "x" * 100_000 + "</div>"
+    png = b"\x89PNG\r\n\x1a\nimage-bytes-for-mime-contract"
+    source = (
+        "class Rich:\n"
+        "    def _repr_mimebundle_(self):\n"
+        f'        return {{"text/html": "<div>" + "x" * 100_000 + "</div>", "image/png": {base64.b64encode(png).decode()!r}}}\n'
+        "display(Rich())"
+    )
+    ensure_supervisor(notebook.root)
+    events = successful(notebook, source)
+    event = next(event for event in events if event["kind"] == "display")
+    blobs = BlobStore(notebook.root / ".kl", readonly=True)
+    assert blobs.get(event["bundle"]["text/html"]["blob"]) == html.encode()
+    assert event["bundle"]["image/png"]["encoding"] == "binary"
+    assert blobs.get(event["bundle"]["image/png"]["blob"]) == png
+
+
+def test_plotly_default_figure_has_offline_html_without_renderer_setup(notebook):
+    pytest.importorskip("plotly")
+    from kernelledger.blobs import BlobStore
+
+    ensure_supervisor(notebook.root)
+    events = successful(
+        notebook,
+        "import plotly.graph_objects as go\n"
+        'fig = go.Figure(go.Bar(x=["Ada", "Bob"], y=[2, 5]))\n'
+        "display(fig)",
+    )
+    event = next(event for event in events if event["kind"] == "display")
+    slot = event["bundle"]["text/html"]
+    html = BlobStore(notebook.root / ".kl", readonly=True).get(slot["blob"]).decode()
+    assert len(html) > 65_536
+    assert "Plotly.newPlot(" in html
+    assert "cdn.plot.ly" not in html.split("Plotly.newPlot(")[-1]
+    assert "[output truncated" not in html
+    assert not any(event["kind"] == "stdout" for event in events)

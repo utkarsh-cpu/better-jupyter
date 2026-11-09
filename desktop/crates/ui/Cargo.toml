@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 gpui-kit.workspace = true
-gpui.workspace = true
 gpui-webview.workspace = true
 wry.workspace = true
 kernelledger-client.workspace = true

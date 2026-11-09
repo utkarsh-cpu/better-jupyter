@@ -130,6 +130,7 @@ struct Tab {
     variables_scroll: UniformListScrollHandle,
     html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
     html_notes: BTreeMap<String, String>,
+    html_states: BTreeMap<String, html_output::HtmlState>,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
@@ -164,6 +165,10 @@ pub struct Workspace {
     preferences: kernelledger_client::preferences::Preferences,
     preference_status: Option<String>,
     preference_saving: bool,
+    html_network_origins: Entity<InputState>,
+    html_network_error: Option<String>,
+    html_signals: std::sync::mpsc::SyncSender<html_output::HtmlSignal>,
+    html_signal_receiver: std::sync::mpsc::Receiver<html_output::HtmlSignal>,
     compact: bool,
     outline_drawer: bool,
     follow_system: bool,
@@ -236,6 +241,13 @@ impl Workspace {
                 preferences.reduced_motion = system_reduced_motion();
             }
         }
+        let html_network_origins = cx.new(|cx| {
+            let mut input =
+                InputState::new(window, cx).placeholder("cdn.plot.ly, https://api.example.com");
+            input.set_value(preferences.html_allowed_origins.join(", "), window, cx);
+            input
+        });
+        let (html_signals, html_signal_receiver) = std::sync::mpsc::sync_channel(64);
         let mut view = Self {
             tabs: vec![],
             active: 0,
@@ -282,6 +294,10 @@ impl Workspace {
             preferences,
             preference_status,
             preference_saving: false,
+            html_network_origins,
+            html_network_error: None,
+            html_signals,
+            html_signal_receiver,
             compact: false,
             outline_drawer: false,
             follow_system,
@@ -386,6 +402,7 @@ impl Workspace {
             attachment_pages: BTreeMap::new(),
             variables_scroll: UniformListScrollHandle::default(),
             html_views: BTreeMap::new(),
+            html_states: BTreeMap::new(),
             html_notes: BTreeMap::new(),
         });
         self.active = self.tabs.len() - 1;
@@ -480,10 +497,21 @@ impl Workspace {
             }
         }
         let mut changed = false;
+        let mut html_ready = Vec::new();
         for (event_tab, tab) in self.tabs.iter_mut().enumerate() {
             while let Ok(event) = tab.service.events.try_recv() {
                 changed = true;
                 match event {
+                    Event::HtmlLoaded { key, token, result } => {
+                        if let Some(state) = tab.html_states.get_mut(&key)
+                            && state.token == token
+                            && state.pending
+                        {
+                            state.pending = false;
+                            tab.html_notes.remove(&key);
+                            html_ready.push((event_tab, key, token, result));
+                        }
+                    }
                     Event::AssistantDelta(frame) => {
                         tab.assistant
                             .draft
@@ -1172,6 +1200,58 @@ impl Workspace {
                             },
                         );
                     }
+                }
+            }
+        }
+        for (index, key, token, result) in html_ready {
+            let tab = &mut self.tabs[index];
+            if !tab
+                .html_states
+                .get(&key)
+                .is_some_and(|state| state.token == token)
+            {
+                continue;
+            }
+            match result {
+                Ok(html) if index == self.active => self.start_html_output(key, html, window, cx),
+                Ok(_) => {
+                    tab.html_states.remove(&key);
+                    tab.html_notes
+                        .insert(key, "Press Render HTML again on this tab.".into());
+                }
+                Err(error) => {
+                    tab.html_states.remove(&key);
+                    tab.html_notes
+                        .insert(key, format!("HTML could not load: {error}"));
+                }
+            }
+        }
+        while let Ok(signal) = self.html_signal_receiver.try_recv() {
+            for tab in &mut self.tabs {
+                if let Some(state) = tab.html_states.get_mut(&signal.key)
+                    && state.token == signal.token
+                {
+                    match signal.value["kind"].as_str() {
+                        Some("height") => {
+                            if let Some(height) = signal.value["height"].as_f64()
+                                && height.is_finite()
+                            {
+                                let height = (height as f32).clamp(160., 800.);
+                                if (state.height - height).abs() > 2. {
+                                    state.height = height;
+                                    tab.list
+                                        .splice(0..tab.model.order.len(), tab.model.order.len());
+                                }
+                            }
+                        }
+                        Some("ready") if !state.failed => state.status.clear(),
+                        Some("error" | "blocked") => {
+                            state.failed = true;
+                            state.status = if signal.value["kind"] == "blocked" { "Some page resources were blocked by the HTML sandbox or network access settings." } else { "Some page scripts or resources failed to load. Check HTML network access and the page's dependencies." }.into();
+                        }
+                        _ => {}
+                    }
+                    changed = true;
                 }
             }
         }
@@ -1882,7 +1962,7 @@ impl Render for Workspace {
         if let Some(notice) = self.export_notice(cx) {
             root = root.child(notice);
         }
-        gpui::image_cache(images::workspace_cache("workspace-images"))
+        gpui_kit::image_cache(images::workspace_cache("workspace-images"))
             .size_full()
             .child(root)
             .into_any_element()

@@ -10,9 +10,8 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
-gpui-kit = { version = "=0.9.1", features = ["tree-sitter-python"] }
-gpui = { package = "gpui-pre", version = "=0.3.12" }
-gpui-webview = "=0.9.1"
+gpui-kit = { version = "=0.9.1", features = ["tree-sitter-python", "gpui-fast"] }
+gpui-webview = { version = "=0.9.1", features = ["gpui-fast"] }
 wry = { version = "=0.53.3", package = "lb-wry" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

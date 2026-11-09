@@ -88,7 +88,7 @@ impl GroupReveal {
 pub(super) struct WorkbenchPresentation {
     pub comfortable: bool,
 }
-impl gpui::Global for WorkbenchPresentation {}
+impl gpui_kit::Global for WorkbenchPresentation {}
 
 /// One minimum pointer target for labeled and icon-only workbench actions.
 pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
@@ -834,7 +834,7 @@ pub(super) struct CopyNotice {
     pub revision: u64,
     pub visible: bool,
 }
-impl gpui::Global for CopyNotice {}
+impl gpui_kit::Global for CopyNotice {}
 pub(super) fn copy_acknowledged(text: String, cx: &mut App) {
     cx.write_to_clipboard(ClipboardItem::new_string(text));
     let revision = cx.try_global::<CopyNotice>().map_or(1, |n| n.revision + 1);

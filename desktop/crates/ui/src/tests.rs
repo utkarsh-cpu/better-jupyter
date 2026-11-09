@@ -308,7 +308,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
                 view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_notes: BTreeMap::new() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
                 view
             })
         }).unwrap()
@@ -2671,6 +2671,60 @@ fn table_html_is_not_interactive_and_html_preference_defaults_off() {
 }
 
 #[gpui_kit::test]
+fn html_network_settings_validate_domains_and_stop_existing_outputs(cx: &mut TestAppContext) {
+    use kernelledger_client::preferences::HtmlNetworkPolicy;
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(1000.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.surface = "Settings".into();
+            v.settings_section = "layout";
+            v.tabs[0].html_notes.insert(
+                "first-0".into(),
+                "Interactive HTML is not created in automated tests.".into(),
+            );
+        });
+        window.render_frame(cx);
+        window.click("html-network-allowed", cx);
+        assert_eq!(
+            view.read(cx).preferences.html_network_policy,
+            HtmlNetworkPolicy::AllowedDomains
+        );
+        assert!(view.read(cx).tabs[0].html_notes.is_empty());
+        let input = view.read(cx).html_network_origins.clone();
+        input.update(cx, |input, cx| {
+            input.set_value("cdn.plot.ly, http://127.0.0.1:18763", window, cx)
+        });
+        window.render_frame(cx);
+        window.click("html-network-save-domains", cx);
+        assert_eq!(
+            view.read(cx).preferences.html_allowed_origins,
+            vec!["https://cdn.plot.ly", "http://127.0.0.1:18763"]
+        );
+        input.update(cx, |input, cx| {
+            input.set_value("https://good.example;default-src *", window, cx)
+        });
+        window.render_frame(cx);
+        window.click("html-network-save-domains", cx);
+        assert!(view.read(cx).html_network_error.is_some());
+        assert_eq!(view.read(cx).preferences.html_allowed_origins.len(), 2);
+        window.render_frame(cx);
+        window.click("html-network-full", cx);
+        assert_eq!(
+            view.read(cx).preferences.html_network_policy,
+            HtmlNetworkPolicy::Full
+        );
+        window.render_frame(cx);
+        window.click("html-network-offline", cx);
+        assert_eq!(
+            view.read(cx).preferences.html_network_policy,
+            HtmlNetworkPolicy::Offline
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
 fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
     cx: &mut TestAppContext,
 ) {
@@ -2725,7 +2779,7 @@ fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
 }
 
 #[gpui_kit::test]
-fn table_html_keeps_native_rows_without_render_html(cx: &mut TestAppContext) {
+fn table_html_keeps_native_rows_and_offers_original_html_in_tools(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
@@ -2754,7 +2808,7 @@ fn table_html_keeps_native_rows_without_render_html(cx: &mut TestAppContext) {
                     gpui_kit::ElementId::from(gpui_kit::SharedString::from("first-0")),
                     "render-html",
                 ))
-                .is_none()
+                .is_some()
         );
     })
     .unwrap();
@@ -2793,7 +2847,11 @@ fn html_js_output_kinds_keep_native_defaults_and_offer_opt_in_render(cx: &mut Te
             cx,
         );
         window.render_frame(cx);
-        assert!(window.try_find(output_action("first-3", "image-size")).is_some());
+        assert!(
+            window
+                .try_find(output_action("first-3", "image-size"))
+                .is_some()
+        );
         assert!(view.read(cx).tabs[0].html_views.is_empty());
         assert!(view.read(cx).tabs[0].html_notes.is_empty());
 
@@ -2852,9 +2910,8 @@ fn html_js_history_does_not_auto_render_and_live_views_are_capped(cx: &mut TestA
             v.surface = "Notebook".into();
             v.tabs[0].html_notes.clear();
             v.tabs[0].model.selected = Some("first".into());
-            v.tabs[0].model.cells.get_mut("first").unwrap().output = (0..5)
-                .map(|_| plotly.clone())
-                .collect();
+            v.tabs[0].model.cells.get_mut("first").unwrap().output =
+                (0..5).map(|_| plotly.clone()).collect();
             v.tabs[0].list.splice(0..1, 1);
         });
         window.render_frame(cx);
@@ -3542,4 +3599,83 @@ fn compact_assistant_insets_notebook_and_empty_checkpoints_card_includes_action(
         hint,
         empty_card
     );
+}
+
+#[gpui_kit::test]
+fn html_load_cancellation_and_signal_tokens_prevent_stale_updates(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.preferences.allow_html_output = true;
+            v.request_html_output(
+                "first-0".into(),
+                "preview".into(),
+                Some("recorded-html".into()),
+                "exec-1".into(),
+                window,
+                cx,
+            );
+        });
+        let (key, token) = match commands.recv().unwrap() {
+            Command::LoadHtml { key, token, digest } => {
+                assert_eq!(digest, "recorded-html");
+                (key, token)
+            }
+            command => panic!("Expected explicit HTML load, got {command:?}"),
+        };
+        assert!(view.read(cx).html_pending(&key));
+        view.update(cx, |v, cx| v.stop_html_output(&key, cx));
+        send.send(Event::HtmlLoaded {
+            key: key.clone(),
+            token,
+            result: Ok("<script>stale()</script>".into()),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert!(view.read(cx).tabs[0].html_states.is_empty());
+        assert!(view.read(cx).tabs[0].html_notes.is_empty());
+        view.update(cx, |v, cx| {
+            v.request_html_output(
+                key.clone(),
+                "<p>current</p>".into(),
+                None,
+                String::new(),
+                window,
+                cx,
+            )
+        });
+        let state = &view.read(cx).tabs[0].html_states[&key];
+        let current_token = state.token.clone();
+        let signals = view.read(cx).html_signals.clone();
+        signals
+            .try_send(super::html_output::HtmlSignal {
+                key: key.clone(),
+                token: "stale".into(),
+                value: json!({"kind":"height","height":700}),
+            })
+            .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert_eq!(
+            view.read(cx).html_height(&key),
+            super::html_output::HOST_HEIGHT
+        );
+        signals
+            .try_send(super::html_output::HtmlSignal {
+                key: key.clone(),
+                token: current_token,
+                value: json!({"kind":"height","height":1_000_000}),
+            })
+            .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert_eq!(view.read(cx).html_height(&key), 800.);
+        view.update(cx, |v, cx| v.resize_html_output(&key, Some(-120.), cx));
+        assert_eq!(view.read(cx).html_height(&key), 680.);
+        view.update(cx, |v, cx| v.resize_html_output(&key, None, cx));
+        assert_eq!(view.read(cx).html_height(&key), 800.);
+    })
+    .unwrap();
 }

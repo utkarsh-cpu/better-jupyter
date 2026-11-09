@@ -1,12 +1,15 @@
 //! Safe native output preparation. No HTML engine, SVG or network resources.
 use super::*;
+use base64::Engine as _;
 use html5ever::{parse_document, tendril::TendrilSink};
 use markup5ever_rcdom::{Handle, NodeData, RcDom};
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 use std::{collections::BTreeSet, io::Cursor, sync::Mutex};
 
 pub const VIEW_TEXT_LIMIT: usize = 65_536;
 pub const MAX_PAGE_BYTES: usize = 262_144;
+pub const HTML_BYTE_LIMIT: usize = 32 * 1024 * 1024;
 pub const IMAGE_CACHE_BUDGET: u64 = 64 * 1024 * 1024;
 const IMAGE_BYTE_LIMIT: usize = 32 * 1024 * 1024;
 const IMAGE_PIXEL_LIMIT: u64 = 16_000_000;
@@ -95,7 +98,7 @@ pub fn html_is_interactive(event: &Value) -> bool {
     !has_rows || html_has_active_content(html)
 }
 
-/// HTML larger than the display page is kept on disk; the webview is not offered.
+/// Large HTML stays in a blob until the user requests a complete document.
 pub fn html_output_available(event: &Value) -> bool {
     let Some(html) = event["bundle"]["text/html"]["value"].as_str() else {
         return false;
@@ -106,7 +109,13 @@ pub fn html_output_available(event: &Value) -> bool {
     let total = event["bundle"]["text/html"]["page"]["total"]
         .as_u64()
         .unwrap_or(html.len() as u64);
-    total as usize <= VIEW_TEXT_LIMIT && html.len() <= VIEW_TEXT_LIMIT
+    total <= HTML_BYTE_LIMIT as u64
+        && html.len() <= HTML_BYTE_LIMIT
+        && (total == html.len() as u64
+            || event["bundle"]["text/html"]["blob"]
+                .as_str()
+                .is_some_and(|s| !s.is_empty()))
+        && !html.contains("[output truncated at 65536 characters]")
 }
 
 pub fn html_has_active_content(html: &str) -> bool {
@@ -399,17 +408,24 @@ pub fn read_limited(
         }
         let want = (limit - all.len()).min(FRAME_LIMIT);
         let page = read(digest, all.len() as u64, want)?;
+        ensure!(
+            page.total <= limit as u64,
+            "Output exceeds the {} MiB viewer limit",
+            limit / 1024 / 1024
+        );
+        ensure!(
+            page.offset == all.len() as u64,
+            "Output page has an unexpected offset"
+        );
         if page.bytes.is_empty() {
+            ensure!(all.len() as u64 == page.total, "Output is incomplete");
             break;
         }
         let room = limit - all.len();
         let take = page.bytes.len().min(room);
         all.extend_from_slice(&page.bytes[..take]);
         if all.len() as u64 >= page.total || take < page.bytes.len() {
-            ensure!(
-                page.total <= limit as u64,
-                "Image exceeds 32 MiB viewer limit"
-            );
+            ensure!(page.total <= limit as u64, "Output exceeds viewer limit");
             break;
         }
     }
@@ -435,9 +451,31 @@ pub fn resolve_event(
     }
     if let Some(bundle) = event["bundle"].as_object_mut() {
         for (mime, value) in bundle {
+            // Older workers and imported MIME bundles may store base64 inline.
+            if matches!(mime.as_str(), "image/png" | "image/jpeg")
+                && let Some(encoded) = value["value"].as_str()
+            {
+                ensure!(
+                    encoded.len() <= IMAGE_BYTE_LIMIT * 4 / 3 + 4,
+                    "Encoded image exceeds viewer limit"
+                );
+                let bytes = base64::engine::general_purpose::STANDARD.decode(encoded)?;
+                prepare_image(&bytes)?;
+                let digest = format!("{:x}", sha2::Sha256::digest(&bytes));
+                value["local_path"] = json!(store_cached_image(
+                    cache_dir,
+                    &digest,
+                    &bytes,
+                    IMAGE_CACHE_BUDGET
+                )?);
+                // Keep the recorded base64 value unchanged for export/provenance.
+            }
             if let Some(hash) = value["blob"].as_str().map(str::to_owned) {
                 if matches!(mime.as_str(), "image/png" | "image/jpeg") {
-                    let bytes = read_limited(&mut read, &hash, IMAGE_BYTE_LIMIT)?;
+                    let mut bytes = read_limited(&mut read, &hash, IMAGE_BYTE_LIMIT)?;
+                    if value["encoding"] == "utf8" {
+                        bytes = base64::engine::general_purpose::STANDARD.decode(&bytes)?;
+                    }
                     prepare_image(&bytes)?;
                     let path = store_cached_image(cache_dir, &hash, &bytes, IMAGE_CACHE_BUDGET)?;
                     value["local_path"] = json!(path);
@@ -468,6 +506,54 @@ pub fn resolve_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn large_html_requires_a_complete_source_and_obeys_the_render_budget() {
+        let mut event = json!({"bundle":{"text/html":{"value":"<script>ok()</script>", "page":{"total":1_000_000}}}});
+        assert!(
+            !html_output_available(&event),
+            "An incomplete preview alone is not a document"
+        );
+        event["bundle"]["text/html"]["blob"] = json!("recorded-html");
+        assert!(html_output_available(&event));
+        event["bundle"]["text/html"]["page"]["total"] = json!(HTML_BYTE_LIMIT + 1);
+        assert!(!html_output_available(&event));
+        assert!(
+            read_limited(
+                |_, _, _| Ok(BlobPage {
+                    bytes: vec![1; 10],
+                    offset: 0,
+                    total: 100
+                }),
+                "blob",
+                10
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn imported_base64_png_is_validated_and_prepared_for_the_native_cache() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut image = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image::RgbaImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let bytes = image.into_inner();
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let mut event = json!({"bundle":{"image/png":{"value":encoded}}});
+        resolve_event(
+            &mut event,
+            |_, _, _| panic!("Inline image must not read a blob"),
+            directory.path(),
+        )
+        .unwrap();
+        let path = event["bundle"]["image/png"]["local_path"].as_str().unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        assert_eq!(event["bundle"]["image/png"]["value"], encoded);
+        event = json!({"bundle":{"image/png":{"value":"not base64"}}});
+        assert!(resolve_event(&mut event, |_, _, _| unreachable!(), directory.path()).is_err());
+    }
     #[test]
     fn table_discards_active_content() {
         let rows = table("<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script><img src='https://evil'></td></tr></table>").unwrap();
@@ -533,12 +619,7 @@ mod tests {
                 true,
                 true,
             ),
-            (
-                "Plotly CDN page",
-                html_event(PLOTLY_CDN, None),
-                true,
-                true,
-            ),
+            ("Plotly CDN page", html_event(PLOTLY_CDN, None), true, true),
             (
                 "Plotly PNG+HTML",
                 json!({"kind":"display","bundle":{
@@ -588,16 +669,14 @@ mod tests {
             ),
             (
                 "SVG-only HTML leftover",
-                html_event("<svg xmlns='http://www.w3.org/2000/svg'><circle/></svg>", None),
+                html_event(
+                    "<svg xmlns='http://www.w3.org/2000/svg'><circle/></svg>",
+                    None,
+                ),
                 true,
                 true,
             ),
-            (
-                "empty HTML",
-                html_event("", None),
-                false,
-                false,
-            ),
+            ("empty HTML", html_event("", None), false, false),
             (
                 "oversize Plotly",
                 json!({"kind":"display","bundle":{"text/html":{
@@ -642,7 +721,10 @@ mod tests {
             "<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script></td></tr></table>"
         }}});
         resolve_event(&mut mixed, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
-        assert_eq!(mixed["bundle"]["text/html"]["rows"], json!([["Name", "Safe"]]));
+        assert_eq!(
+            mixed["bundle"]["text/html"]["rows"],
+            json!([["Name", "Safe"]])
+        );
         assert!(html_is_interactive(&mixed));
     }
     #[test]

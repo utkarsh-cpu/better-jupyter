@@ -16,8 +16,12 @@ CELLS: list[tuple[str, str, str]] = [
 
 Each code cell records a different `text/html` shape. Native pandas tables stay
 tables. Interactive pages need **Settings → Allow interactive HTML output**, then
-**Output tools → Render HTML**. The webview has no network, so CDN scripts stay blank
-unless the HTML is self-contained.
+**Output tools → Render HTML**. HTML network access defaults to Offline. Choose Allowed domains
+(add cdn.plot.ly) or Full network in Settings to load CDN scripts. API calls still
+require CORS permission. Changing access stops open outputs; press Render HTML again.
+Ordinary Plotly figures include their JavaScript and work offline. For pandas Styler,
+open Output tools and choose Render original HTML to keep the CSS formatting.
+Large bundled HTML is retained up to 32 MiB; Shorter/Taller/Fit content adjust the page.
 """,
     ),
     (
@@ -118,7 +122,7 @@ fig
         "plotly-cdn",
         """display(HTML('''
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-<div>CDN Plotly: this stays blank after Render HTML because the webview has no network.</div>
+<div>CDN Plotly needs cdn.plot.ly in Allowed domains, or Full network, in Settings.</div>
 '''))
 """,
     ),

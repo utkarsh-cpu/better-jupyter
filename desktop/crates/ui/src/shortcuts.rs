@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone, PartialEq, ::gpui::Action)]
+#[derive(Clone, PartialEq, ::gpui_kit::Action)]
 #[action(namespace = kernelledger, no_json)]
 pub(super) struct WorkbenchCommand {
     pub method: String,

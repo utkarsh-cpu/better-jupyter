@@ -33,9 +33,9 @@ verify them. Application feed integration and overflow/reconnection measurements
 remain work. Oversized responses fail with a typed `too_large` error instead of
 silently truncating ledger data. Failed/conflicted saves retain drafts and block runs.
 
-Dependency decisions: Kit tree-sitter Python; gpui-webview 0.9.1 for opt-in
-in-cell HTML (sandboxed, no network, master switch off); native simple table
-text extraction with Styler CSS ignored; LaTeX source fallback; one helper per
+Dependency decisions: Kit tree-sitter Python with GPUI Fast composition; gpui-webview 0.9.1 for opt-in
+in-cell HTML (sandboxed, offline / allowed domains / full network, master switch off); native simple table
+text extraction with an opt-in original HTML view for Styler CSS; LaTeX source fallback; one helper per
 notebook service; 500 ms autosave. The remaining F0/F6 decision and measurement
 records are open. No platform is declared qualified by this document.
 

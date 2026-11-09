@@ -329,6 +329,12 @@ impl RenderOnce for OutputBlock {
             .as_ref()
             .map(|workspace| workspace.read(cx).preferences.allow_html_output)
             .unwrap_or(false);
+        let html_network = self
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.read(cx).preferences.html_network_policy)
+            .unwrap_or_default()
+            .description();
         let html_view = self
             .workspace
             .as_ref()
@@ -343,10 +349,20 @@ impl RenderOnce for OutputBlock {
             .map(|workspace| workspace.read(cx).html_views_blocked())
             .unwrap_or(false);
         let html_live = html_view.is_some();
+        let html_pending = self
+            .workspace
+            .as_ref()
+            .is_some_and(|workspace| workspace.read(cx).html_pending(self.id.as_ref()));
+        let html_height = self
+            .workspace
+            .as_ref()
+            .map_or(html_output::HOST_HEIGHT, |workspace| {
+                workspace.read(cx).html_height(self.id.as_ref())
+            });
         let html_has_rows = event["bundle"]["text/html"]["rows"]
             .as_array()
             .is_some_and(|rows| !rows.is_empty());
-        let html_toggle = if html_interactive && html_available {
+        let html_toggle = if html_available {
             let workspace = self.workspace.clone();
             let output_id = self.id.to_string();
             let html_source = event["bundle"]["text/html"]["value"]
@@ -354,20 +370,28 @@ impl RenderOnce for OutputBlock {
                 .unwrap_or_default()
                 .to_owned();
             let html_state = state.clone();
+            let html_digest = event["bundle"]["text/html"]["blob"]
+                .as_str()
+                .map(str::to_owned);
+            let html_exec = self.exec_id.to_string();
             Some(
                 action_button((ElementId::from(self.id.clone()), "render-html"))
                     .outline()
                     .small()
                     .label(if html_live {
                         "Stop rendering"
+                    } else if html_pending {
+                        "Cancel loading"
+                    } else if html_has_rows {
+                        "Render original HTML"
                     } else {
                         "Render HTML"
                     })
                     .unavailable(!allow_html)
                     .hint(if allow_html {
-                        "Render this recorded HTML in a sandboxed view with no network."
+                        format!("Render this recorded HTML. {html_network}")
                     } else {
-                        "Enable interactive HTML in Settings. Scripts run only after Render HTML, with no network. CDN-hosted Plotly fails unless the HTML is self-contained."
+                        "Enable interactive HTML in Settings, then press Render HTML. Network access follows your HTML network setting.".to_owned()
                     })
                     .accessibility_label(if html_live {
                         format!("Stop rendering HTML: {}", self.context)
@@ -379,11 +403,7 @@ impl RenderOnce for OutputBlock {
                             return;
                         }
                         let start = html_state.update(cx, |s, cx| {
-                            if html_live {
-                                s.html = false;
-                            } else {
-                                s.html = true;
-                            }
+                            s.html = !(html_live || html_pending);
                             cx.notify();
                             s.html
                         });
@@ -392,7 +412,7 @@ impl RenderOnce for OutputBlock {
                             let html = html_source.clone();
                             workspace.update(cx, |ws, cx| {
                                 if start {
-                                    ws.start_html_output(key, html, window, cx);
+                                    ws.request_html_output(key, html, html_digest.clone(), html_exec.clone(), window, cx);
                                 } else {
                                     ws.stop_html_output(&key, cx);
                                 }
@@ -464,7 +484,9 @@ impl RenderOnce for OutputBlock {
                 )
             })
             .when(tools, |d| d.child(actions))
-            .children(html_toggle);
+            .children(html_toggle.filter(|_| {
+                !html_has_rows || html_interactive || html_live || html_pending || tools
+            }));
         if collapsed {
             return body
                 .child(
@@ -781,7 +803,7 @@ impl RenderOnce for OutputBlock {
                     .child("Interactive HTML preview unavailable; recorded data retained."),
             );
         }
-        if let Some(note) = html_note.filter(|_| html_view.is_none()) {
+        if let Some(note) = html_note {
             body = body.child(
                 div()
                     .text_xs()
@@ -790,7 +812,33 @@ impl RenderOnce for OutputBlock {
             );
         }
         if let Some(view) = html_view {
-            body = body.child(html_output::host(view, html_blocked));
+            let mut sizing = h_flex().gap_2().flex_wrap();
+            for (id, label, delta) in [
+                ("html-shorter", "Shorter", Some(-120.)),
+                ("html-taller", "Taller", Some(120.)),
+                ("html-fit", "Fit content", None),
+            ] {
+                let workspace = self.workspace.clone();
+                let key = self.id.to_string();
+                sizing = sizing.child(
+                    action_button((ElementId::from(self.id.clone()), id))
+                        .small()
+                        .ghost()
+                        .label(label)
+                        .on_click(move |_, _, cx| {
+                            if let Some(workspace) = &workspace {
+                                workspace
+                                    .update(cx, |ws, cx| ws.resize_html_output(&key, delta, cx));
+                            }
+                        }),
+                );
+            }
+            body = body
+                .child(sizing)
+                .child(html_output::host(view, html_blocked, html_height));
+            return body.into_any_element();
+        }
+        if html_pending {
             return body.into_any_element();
         }
         let prefer_rich = image_path.is_some()
@@ -934,15 +982,15 @@ impl RenderOnce for OutputBlock {
                     )
                     .into_any_element()
             });
-        } else if html_interactive && !html_has_rows {
+        } else if html_interactive && !html_has_rows && html_available {
             body = body.child(
                 div()
                     .text_xs()
                     .text_color(cx.theme().muted_foreground)
                     .child(if allow_html {
-                        "Press Render HTML to show this page in a sandbox with no network."
+                        format!("Press Render HTML to show this page. {html_network}")
                     } else {
-                        "Enable interactive HTML in Settings, then press Render HTML."
+                        "Enable interactive HTML in Settings, then press Render HTML.".to_owned()
                     }),
             );
         } else {

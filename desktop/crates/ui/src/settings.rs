@@ -28,6 +28,89 @@ fn revealed(
 }
 
 impl Workspace {
+    fn set_html_network_policy(
+        &mut self,
+        policy: kernelledger_client::preferences::HtmlNetworkPolicy,
+        cx: &mut Context<Self>,
+    ) {
+        if self.preferences.html_network_policy != policy {
+            self.reset_html_outputs(cx);
+            self.preferences.html_network_policy = policy;
+            self.save_preferences(cx);
+        }
+        cx.notify();
+    }
+
+    fn apply_html_network_origins(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match kernelledger_client::preferences::parse_html_origins(
+            self.html_network_origins.read(cx).value().as_str(),
+        ) {
+            Ok(origins) => {
+                self.html_network_error = None;
+                if self.preferences.html_allowed_origins != origins {
+                    self.reset_html_outputs(cx);
+                    self.preferences.html_allowed_origins = origins;
+                    self.save_preferences(cx);
+                }
+                let value = self.preferences.html_allowed_origins.join(", ");
+                self.html_network_origins
+                    .update(cx, |input, cx| input.set_value(value, window, cx));
+            }
+            Err(error) => self.html_network_error = Some(error.to_string()),
+        }
+        cx.notify();
+    }
+
+    fn html_network_controls(&mut self, reveal: GroupReveal, cx: &mut Context<Self>) -> AnyElement {
+        use kernelledger_client::preferences::HtmlNetworkPolicy;
+        let mut modes = segmented_track(cx).flex_wrap();
+        for (policy, id, label) in [
+            (
+                HtmlNetworkPolicy::Offline,
+                "html-network-offline",
+                "Offline",
+            ),
+            (
+                HtmlNetworkPolicy::AllowedDomains,
+                "html-network-allowed",
+                "Allowed domains",
+            ),
+            (HtmlNetworkPolicy::Full, "html-network-full", "Full network"),
+        ] {
+            modes = modes.child(revealed(
+                action_button(id)
+                    .small()
+                    .label(label)
+                    .segment(self.preferences.html_network_policy == policy),
+                reveal.clone(),
+                cx,
+                Rc::new(move |v, _, cx| v.set_html_network_policy(policy, cx)),
+            ));
+        }
+        let mut controls = v_flex().gap_2().min_w_0().flex_1().child(modes).child(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(self.preferences.html_network_policy.description()),
+        );
+        if self.preferences.html_network_policy == HtmlNetworkPolicy::AllowedDomains {
+            controls = controls
+                .child(Input::new(&self.html_network_origins).small().aria_label("Allowed HTML network domains"))
+                .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Separate domains with commas. Domains use HTTPS; include http:// and a port for local servers. Subdomains must be listed separately. Use ws:// or wss:// for WebSockets."))
+                .child(revealed(action_button("html-network-save-domains").small().outline().label("Save domains"), reveal, cx,
+                    Rc::new(|v, window, cx| v.apply_html_network_origins(window, cx))));
+            if let Some(error) = &self.html_network_error {
+                controls = controls.child(
+                    div()
+                        .text_xs()
+                        .text_color(cx.theme().danger)
+                        .child(error.clone()),
+                );
+            }
+        }
+        controls.child(div().text_xs().text_color(cx.theme().muted_foreground).child("Changing access stops open HTML outputs. Press Render HTML again. Embedded frames, popups and downloads stay blocked.")).into_any_element()
+    }
+
     pub(super) fn save_preferences(&mut self, cx: &mut Context<Self>) {
         self.preferences.normalize();
         // Headless interaction tests must never overwrite the user's profile.
@@ -390,7 +473,7 @@ impl Workspace {
                             ))
                             .child(setting_row(
                                 "Interactive HTML",
-                                "Scripts run only after you press Render HTML, with no network. CDN-hosted Plotly will fail unless the cell HTML is self-contained. Native tables and PNG stay the default.",
+                                "Scripts run only after you press Render HTML. Network access follows the setting below. Native tables and PNG stay the default.",
                                 {
                                     let view = cx.entity();
                                     let reveal = layout_reveal.clone();
@@ -402,6 +485,7 @@ impl Workspace {
                                             view.update(cx, |v, cx| {
                                                 a11y_reveal.activate(v, window, cx, |v, _, cx| {
                                                     v.preferences.allow_html_output = !v.preferences.allow_html_output;
+                                                    if !v.preferences.allow_html_output { v.reset_html_outputs(cx); }
                                                     v.save_preferences(cx);
                                                     cx.notify();
                                                 });
@@ -411,11 +495,18 @@ impl Workspace {
                                             let checked = *checked;
                                             reveal.activate(v, window, cx, move |v, _, cx| {
                                                 v.preferences.allow_html_output = checked;
+                                                if !checked { v.reset_html_outputs(cx); }
                                                 v.save_preferences(cx);
                                                 cx.notify();
                                             });
                                         }))
                                 },
+                                cx,
+                            ))
+                            .child(setting_row(
+                                "HTML network",
+                                "Choose which network resources rendered HTML can load. Offline is the default. Full network lets page scripts contact any HTTP(S) or WebSocket server.",
+                                self.html_network_controls(layout_reveal.clone(), cx),
                                 cx,
                             ))
                             .child(setting_row(
