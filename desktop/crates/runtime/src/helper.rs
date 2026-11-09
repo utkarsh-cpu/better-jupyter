@@ -329,6 +329,109 @@ fn execution_list_sql(request: &Value) -> (String, Vec<rusqlite::types::Value>) 
     }
 }
 
+fn execution_search(ledger: &Ledger, blobs: &BlobStore, request: &Value) -> Result<Value> {
+    let query = request["query"]
+        .as_str()
+        .filter(|q| q.chars().count() <= 512)
+        .ok_or_else(|| invalid("History query must be at most 512 characters"))?;
+    let (size, after) = page_window(request)?;
+    if after > i64::MAX as u64 {
+        return Err(invalid("Invalid History cursor"));
+    }
+    let size = size.min(100);
+    let mut clauses = vec!["rowid > ?".to_string()];
+    let mut args: Vec<rusqlite::types::Value> = vec![(after as i64).into()];
+    if let Some(session) = request["session_id"].as_str().filter(|s| !s.is_empty()) {
+        clauses.push("session_id=?".into());
+        args.push(session.to_owned().into());
+    }
+    let mut words = Vec::new();
+    for part in query.split_whitespace() {
+        let (field, value) = part.split_once(':').unwrap_or(("", part));
+        let field = field.to_ascii_lowercase();
+        let clause = match field.as_str() {
+            "cell" => Some("cell_id=?"),
+            "session" => Some("session_id=?"),
+            "outcome" => Some("status=?"),
+            "from" | "after" => Some("start>=?"),
+            "to" | "before" => Some("start<?"),
+            _ => None,
+        };
+        if let Some(clause) = clause.filter(|_| !value.is_empty()) {
+            clauses.push(clause.into());
+            args.push(
+                if matches!(field.as_str(), "to" | "before") {
+                    format!("{value}T99")
+                } else if field == "outcome" {
+                    value.to_lowercase()
+                } else {
+                    value.to_owned()
+                }
+                .into(),
+            );
+        } else {
+            words.push(part.to_lowercase());
+        }
+    }
+    args.push((size as i64 + 1).into());
+    let mut rows = ledger.rows(
+        &format!(
+            "SELECT rowid AS search_rowid,* FROM executions WHERE {} ORDER BY rowid LIMIT ?",
+            clauses.join(" AND ")
+        ),
+        &args,
+    )?;
+    let more = rows.len() as u64 > size;
+    rows.truncate(size as usize);
+    let scanned = rows.len();
+    let last = rows
+        .last()
+        .and_then(|row| row.get("search_rowid"))
+        .and_then(Value::as_u64);
+    let mut items = Vec::new();
+    let mut limited = 0;
+    for mut row in rows {
+        let digest = row["source_sha256"].as_str().unwrap_or("");
+        let read_source = || -> Result<String> {
+            let mut raw = Vec::new();
+            blobs
+                .open(digest)?
+                .take(1024 * 1024 + 1)
+                .read_to_end(&mut raw)?;
+            if raw.len() > 1024 * 1024 || kernelledger_protocol::hash(&raw) != digest {
+                return Err(invalid("Source exceeds search limit or fails integrity"));
+            }
+            Ok(String::from_utf8(raw)?)
+        };
+        let source = match read_source() {
+            Ok(s) => s,
+            Err(_) => {
+                limited += 1;
+                row.insert("source_search_limited".into(), json!(true));
+                String::new()
+            }
+        };
+        let text = format!(
+            "{source} {} {}",
+            row["cell_id"].as_str().unwrap_or("None"),
+            row["status"].as_str().unwrap_or("")
+        )
+        .to_lowercase();
+        if words.iter().all(|word| text.contains(word.as_str())) {
+            let end = source.floor_char_boundary(source.len().min(1024));
+            row.insert("source".into(), json!(source[..end]));
+            row.insert(
+                "source_preview_truncated".into(),
+                json!(source.len() > 1024),
+            );
+            items.push(row);
+        }
+    }
+    Ok(
+        json!({"items":items,"cursor":if more {last.map(|id| cursor_engine().encode(id.to_string()))} else {None},"search_page":true,"scanned":scanned,"source_search_limited":limited,"query":query,"source_limit_bytes":1024*1024}),
+    )
+}
+
 /// Python `bytes.decode()` strictness: invalid UTF-8 is a `ValueError`.
 fn utf8(data: Vec<u8>) -> Result<String> {
     String::from_utf8(data).map_err(|e| invalid(format!("'utf-8' codec can't decode bytes: {e}")))
@@ -581,6 +684,11 @@ impl Helper {
                 Ok(Value::Object(row))
             }
             "sessions.list" | "executions.list" | "checkpoints.list" => {
+                if method == "executions.list" && request.get("query").is_some() {
+                    let mut page = execution_search(&ledger, &self.blobs, request)?;
+                    page["read_only_snapshot"] = json!(immutable);
+                    return Ok(page);
+                }
                 let (sql, args) = match method {
                     "executions.list" => execution_list_sql(request),
                     "sessions.list" => (
@@ -685,6 +793,9 @@ impl Helper {
                     "manifest_sha256": digest,
                     "blob_hashes": hashes,
                     "status": row["status"],
+                    "timestamp": row["timestamp"],
+                    "session_id": row["session_id"],
+                    "saved_values": manifest["bindings"].as_object().map(|bindings| bindings.len()),
                     "excluded": field("excluded")?,
                     "notes": field("notes")?,
                 }))

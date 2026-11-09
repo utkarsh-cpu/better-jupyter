@@ -2,18 +2,27 @@ use super::*;
 
 /// Field filters edited through the advanced controls rather than as free text.
 fn is_field_token(part: &str) -> bool {
-    matches!(
-        part.split(':').next(),
-        Some("cell" | "session" | "after" | "before" | "from" | "to")
-    ) && part.contains(':')
+    part.split_once(':').is_some_and(|(field, _)| {
+        matches!(
+            field.to_ascii_lowercase().as_str(),
+            "cell" | "session" | "after" | "before" | "from" | "to"
+        )
+    })
 }
 
 /// Canonical tokens of a filter: `from:`/`to:` read as `after:`/`before:`, and
-/// order, case, and repetition do not change what the filter selects.
+/// order, text case, and repetition do not change what the filter selects.
+/// Cell and session IDs retain their exact case.
 fn filter_tokens(filter: &str) -> Vec<String> {
     let mut tokens = filter
         .split_whitespace()
         .map(|part| {
+            if let Some((field, value)) = part.split_once(':') {
+                let field = field.to_ascii_lowercase();
+                if matches!(field.as_str(), "cell" | "session") {
+                    return format!("{field}:{value}");
+                }
+            }
             let part = part.to_lowercase();
             if let Some(value) = part.strip_prefix("from:") {
                 format!("after:{value}")
@@ -93,6 +102,24 @@ fn toggle_raw_details(v: &mut Workspace, _: &mut Window, cx: &mut Context<Worksp
 }
 
 impl Workspace {
+    /// Refresh only a cached list. Recorded details stay stable until the user
+    /// returns to the list; its session scope and cursor travel with the request.
+    pub(super) fn history_refresh_request(&self) -> Option<(String, Value)> {
+        let tab = self.tabs.get(self.active)?;
+        let value = tab.inspections.get("History")?;
+        let method = tab.inspection_method.get("History")?;
+        matches!(method.as_str(), "executions.list" | "sessions.list").then(|| {
+            (
+                method.clone(),
+                value
+                    .get("_page_request")
+                    .filter(|v| v.is_object())
+                    .cloned()
+                    .unwrap_or_else(|| json!({})),
+            )
+        })
+    }
+
     /// Settings remembers one scroll position per section; other pages use one per surface.
     pub(super) fn scroll_key(&self) -> String {
         if self.surface == "Settings" {
@@ -264,6 +291,7 @@ impl Workspace {
             tab.history_applied.clear();
         }
         self.record_active = 0;
+        self.inspect("executions.list", json!({}));
         cx.notify();
     }
 
@@ -323,10 +351,13 @@ impl Workspace {
         let time = record_time(item);
         let relative = time.map(relative_time);
         let exact = time.map(local_time);
-        let duration = record_duration(item)
-            .map(format_duration)
-            .unwrap_or_else(|| "Unknown".into());
-        let known_duration = duration != "Unknown";
+        let known_duration = record_duration(item).map(format_duration);
+        let duration_text = known_duration.clone().unwrap_or_else(|| "\u{2014}".into());
+        let duration_a11y = known_duration
+            .as_ref()
+            .map(|d| format!("Duration {d}"))
+            .unwrap_or_else(|| "Duration unknown".into());
+        let exec_id = item["exec_id"].as_str().unwrap_or("row");
         let base = h_flex()
             .min_w_0()
             .gap_3()
@@ -375,9 +406,16 @@ impl Workspace {
                         .child(field(
                             "Duration",
                             div()
+                                .id(SharedString::from(format!("history-duration-{exec_id}")))
+                                .debug_selector({
+                                    let exec_id = exec_id.to_owned();
+                                    move || format!("history-duration-{exec_id}")
+                                })
+                                .role(Role::Label)
+                                .aria_label(duration_a11y)
                                 .text_xs()
-                                .when(!known_duration, |d| d.text_color(muted))
-                                .child(duration)
+                                .when(known_duration.is_none(), |d| d.text_color(muted))
+                                .child(duration_text)
                                 .into_any_element(),
                         )),
                 ),
@@ -420,10 +458,17 @@ impl Workspace {
                     .justify_end()
                     .child(
                         div()
+                            .id(SharedString::from(format!("history-duration-{exec_id}")))
+                            .debug_selector({
+                                let exec_id = exec_id.to_owned();
+                                move || format!("history-duration-{exec_id}")
+                            })
+                            .role(Role::Label)
+                            .aria_label(duration_a11y)
                             .text_sm()
                             .font_family(theme.mono_font_family.clone())
-                            .when(!known_duration, |d| d.text_color(muted))
-                            .child(duration),
+                            .when(known_duration.is_none(), |d| d.text_color(muted))
+                            .child(duration_text),
                     ),
             )
     }
@@ -815,14 +860,14 @@ impl Workspace {
                                     .hint(if show_fields {
                                         "Hide Cell, Session, and date fields"
                                     } else {
-                                        "Show Cell, Session, and date fields (after:/before: also work in search)"
+                                        "Cell and Session match exact IDs. Dates use after:/before:. Search reads up to 1 MiB per execution."
                                     })
                                     .on_click(cx.listener(|v, _, _, cx| {
                                         v.history_filters_open = !v.history_filters_open;
                                         cx.notify();
                                     })),
                             )
-                            .child({
+                            .when(pending, |d| {
                                 let apply = action_button("apply-history-filters")
                                     .small()
                                     .label("Apply")
@@ -832,19 +877,23 @@ impl Workspace {
                                         v.apply_history_filters(window, cx)
                                     }))
                                     .unavailable(!valid);
-                                if pending && valid { apply.primary() } else { apply.outline() }
-                            })
-                            .child(
-                                action_button("clear-history-filters")
-                                    .ghost()
-                                    .small()
-                                    .label("Clear")
-                                    .accessibility_label("Clear filters")
-                                    .hint("Clear edited and applied filters")
-                                    .on_click(cx.listener(|v, _, window, cx| {
-                                        v.clear_history_filters(window, cx)
-                                    })),
-                            ),
+                                let apply = if valid {
+                                    apply.primary()
+                                } else {
+                                    apply.outline()
+                                };
+                                d.child(apply).child(
+                                    action_button("clear-history-filters")
+                                        .ghost()
+                                        .small()
+                                        .label("Clear")
+                                        .accessibility_label("Clear filters")
+                                        .hint("Clear edited and applied filters")
+                                        .on_click(cx.listener(|v, _, window, cx| {
+                                            v.clear_history_filters(window, cx)
+                                        })),
+                                )
+                            }),
                     )
                     .when(show_fields, |d| d.child(fields))
                     .when(!valid, |d| {
@@ -857,19 +906,19 @@ impl Workspace {
                     .child({
                         let (text, color) = match (pending, applied.trim().is_empty()) {
                             (true, true) => (
-                                "Filters edited, not applied. The list still shows all loaded records; press Apply or Enter to filter it.".to_string(),
+                                "Filters edited, not applied. Press Apply or Enter to search recorded runs.".to_string(),
                                 cx.theme().warning,
                             ),
                             (true, false) => (
-                                format!("Filters edited, not applied. The list still shows loaded records matching: {applied}"),
+                                format!("Filters edited, not applied. The current page still matches: {applied}"),
                                 cx.theme().warning,
                             ),
                             (false, true) => (
-                                "Showing all loaded records.".to_string(),
+                                "Showing one page of recorded runs.".to_string(),
                                 cx.theme().muted_foreground,
                             ),
                             (false, false) => (
-                                format!("Showing loaded records matching: {applied}"),
+                                format!("Showing a search page matching: {applied}"),
                                 cx.theme().muted_foreground,
                             ),
                         };
@@ -885,6 +934,9 @@ impl Workspace {
                             .child(div().whitespace_normal().child(text))
                     }),
             );
+            if value["source_search_limited"].as_u64().unwrap_or(0) > 0 {
+                body = body.child(div().text_sm().text_color(cx.theme().warning).whitespace_normal().child("Some source could not be searched or exceeds 1 MiB. Narrow by cell/session and inspect those records directly."));
+            }
             let items = value["items"].as_array().cloned().unwrap_or_default();
             let filter = applied.to_lowercase();
             let executions = items.iter().any(|item| item.get("exec_id").is_some());
@@ -892,11 +944,10 @@ impl Workspace {
                 d.child(self.history_header(cx))
             });
             let mut count = 0;
-            for (i, item) in items
-                .iter()
-                .enumerate()
-                .filter(|(_, item)| history_matches(item, &filter, &self.tabs[self.active].model))
-            {
+            for (i, item) in items.iter().enumerate().filter(|(_, item)| {
+                value["search_page"] == true
+                    || history_matches(item, &filter, &self.tabs[self.active].model)
+            }) {
                 count += 1;
                 let execution = item["exec_id"].as_str();
                 let id = execution
@@ -1013,6 +1064,8 @@ impl Workspace {
                 body = body.child(empty_row(
                     if value.is_null() {
                         "Loading history\u{2026}"
+                    } else if value["search_page"] == true && (!applied.is_empty() || !value["cursor"].is_null()) {
+                        "No matches in this search page. Use Next page to continue when available."
                     } else if items.is_empty() {
                         "No recorded history yet. Run a code cell to record executions."
                     } else if value["cursor"].is_null() {
@@ -1084,7 +1137,7 @@ impl Workspace {
                         v.history_query
                             .update(cx, |s, cx| s.set_value(parts.join(" "), window, cx));
                         v.record_active = 0;
-                        cx.notify();
+                        v.apply_history_filters(window, cx);
                     })),
             );
         }

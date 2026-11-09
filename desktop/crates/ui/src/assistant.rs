@@ -12,6 +12,7 @@ pub(super) struct AssistantView {
     pub receipt_state: ReceiptState,
     pub payload_expanded: bool,
     pub show_history: bool,
+    pub advanced_settings: bool,
     pub status: String,
     pub task: String,
     pub last_question: String,
@@ -212,6 +213,9 @@ impl Workspace {
         if self.tabs.is_empty() {
             return;
         }
+        if self.surface == "Settings" {
+            self.select_surface("Notebook", cx);
+        }
         self.tabs[self.active].assistant.open = true;
         self.ai("settings.get", json!({}));
         cx.notify();
@@ -270,12 +274,7 @@ impl Workspace {
             return None;
         }
         let theme = cx.theme();
-        let (muted, warning, danger, info) = (
-            theme.muted_foreground,
-            theme.warning,
-            theme.danger,
-            theme.info,
-        );
+        let (muted, warning, info) = (theme.muted_foreground, theme.warning, theme.info);
         let (title, body, accent): (&str, String, Hsla) = match &setup {
             Setup::Off => (
                 "Assistant is off for this notebook",
@@ -285,7 +284,7 @@ impl Workspace {
             Setup::Unconfigured => (
                 "Connect a provider",
                 "The Assistant uses a model you choose: a local server such as Ollama or LM Studio, or the OpenAI API. Nothing from this notebook is sent until you review exactly what will be shared.".into(),
-                warning,
+                info,
             ),
             Setup::Untested => (
                 "Test the connection",
@@ -303,7 +302,7 @@ impl Workspace {
                     "{}. Check the base URL, model, and API key in provider settings, then try again.",
                     message.trim_end_matches('.')
                 ),
-                danger,
+                warning,
             ),
             Setup::Loading | Setup::Ready => unreachable!(),
         };
@@ -355,21 +354,17 @@ impl Workspace {
                                     ),
                             )
                         })
-                        .child({
-                            let button = action_button("assistant-open-settings")
+                        .child(
+                            action_button("assistant-open-settings")
+                                .outline()
                                 .small()
                                 .icon(Glyph::Settings)
                                 .label("Open provider settings")
                                 .unavailable(testing)
                                 .on_click_accessible(
                                     cx.listener(|v, _, _, cx| v.open_provider_settings(cx)),
-                                );
-                            if can_test {
-                                button.outline()
-                            } else {
-                                button.primary()
-                            }
-                        }),
+                                ),
+                        ),
                 )
                 .into_any_element(),
         )
@@ -2292,6 +2287,7 @@ impl Workspace {
 
         v_flex()
             .id("assistant-inspector")
+            .debug_selector(|| "assistant-inspector".into())
             .size_full()
             .min_w_0()
             .bg(bar_bg)
@@ -2441,6 +2437,7 @@ impl Workspace {
                 cx.notify();
             }));
         let connection = self.tabs[self.active].assistant.connection.clone();
+        let advanced_settings = self.tabs[self.active].assistant.advanced_settings;
         let theme = cx.theme();
         let (success, info, danger, muted) = (
             theme.success,
@@ -2637,7 +2634,8 @@ impl Workspace {
                         action_button("ai-test")
                             .primary()
                             .small()
-                            .label("Test connection")
+                            .label("Test saved connection")
+                            .hint("Save configuration before testing its endpoint and model")
                             .unavailable(connection == Connection::Testing)
                             .on_click_accessible(cx.listener(|v, _, _, cx| v.test_provider(cx))),
                     )
@@ -2718,13 +2716,6 @@ impl Workspace {
                 cx,
             ))
             .child(setting_row(
-                "Coding model override",
-                "Optional specialized model for edit, refactor, and test generation tasks.",
-                div().min_w(px(240.)).flex_1().child(Input::new(&coding_model)),
-                cx,
-            ))
-            .child(setting_row("Inference profile", "Unknown context window: leave empty. Context size is a configured estimate, not server qualification. The direct-answer extension is only for a compatible Lemonade server; Save applies changes. No model is downloaded or loaded.", v_flex().gap_2().child(schema_option).child(direct_option).child(Input::new(&timeout)).child(Input::new(&context_window)), cx))
-            .child(setting_row(
                 "Save configuration",
                 "Select whether this endpoint is an OpenAI-compatible server or OpenAI API.",
                 providers,
@@ -2778,6 +2769,22 @@ impl Workspace {
                     ),
                 cx,
             ))
+            .child(action_button("ai-advanced-settings").ghost().small().self_start()
+                .label(if advanced_settings { "Hide advanced settings" } else { "Advanced settings" })
+                .selected(advanced_settings)
+                .on_click_accessible(cx.listener(|v, _, _, cx| {
+                    v.tabs[v.active].assistant.advanced_settings = !v.tabs[v.active].assistant.advanced_settings;
+                    cx.notify();
+                })))
+            .when(advanced_settings, |d| d
+            .child(setting_row(
+                "Coding model override",
+                "Optional specialized model for edit, refactor, and test generation tasks.",
+                div().min_w(px(240.)).flex_1().child(Input::new(&coding_model)),
+                cx,
+            ))
+            .child(setting_row("Inference profile", "Unknown context window: leave empty. Context size is a configured estimate, not server qualification. The direct-answer extension is only for a compatible Lemonade server; Save applies changes. No model is downloaded or loaded.", v_flex().gap_2().child(schema_option).child(direct_option).child(Input::new(&timeout)).child(Input::new(&context_window)), cx))
+            )
             .into_any_element()
     }
 
@@ -2959,7 +2966,7 @@ impl Workspace {
             ))
             .child(setting_row(
                 "Local assistant data",
-                "Clear saved conversations, receipts,proposals, and usage counters for this notebook.",
+                "Clear saved conversations, receipts, proposals, and usage counters for this notebook.",
                 h_flex()
                     .gap_2()
                     .flex_wrap()

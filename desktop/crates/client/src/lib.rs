@@ -3,7 +3,7 @@ use anyhow::{Result, bail, ensure};
 use serde_json::{Value, json};
 use std::{
     fs,
-    io::{Read, Write},
+    io::{Read, Seek, SeekFrom, Write},
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -231,20 +231,52 @@ impl HelperClient {
         command.stderr(log);
         hide_console(&mut command);
         let mut process = command.spawn()?;
-        let mut stdin = process
-            .stdin
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("Helper stdin unavailable"))?;
-        let mut stdout = process
-            .stdout
-            .take()
-            .ok_or_else(|| anyhow::anyhow!("Helper stdout unavailable"))?;
-        write_frame(&mut stdin, &identity.hello("control", None))?;
-        let welcome = checked_response(read_frame(&mut stdout)?)?;
-        ensure!(
-            welcome["kind"] == "welcome" && welcome["version"] == 1,
-            "Unsupported helper protocol"
-        );
+        let connected = (|| -> Result<_> {
+            let mut stdin = process
+                .stdin
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("Helper stdin unavailable"))?;
+            let mut stdout = process
+                .stdout
+                .take()
+                .ok_or_else(|| anyhow::anyhow!("Helper stdout unavailable"))?;
+            write_frame(&mut stdin, &identity.hello("control", None))?;
+            let (send, receive) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let welcome = read_frame(&mut stdout);
+                let _ = send.send((stdout, welcome));
+            });
+            let (stdout, welcome) = receive
+                .recv_timeout(Duration::from_secs(8))
+                .map_err(|_| anyhow::anyhow!("Python helper did not respond within 8 seconds"))?;
+            let welcome = checked_response(welcome?)?;
+            ensure!(
+                welcome["kind"] == "welcome" && welcome["version"] == 1,
+                "Unsupported helper protocol"
+            );
+            Ok((stdin, stdout, welcome))
+        })();
+        let (stdin, stdout, welcome) = match connected {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = process.kill();
+                let _ = process.wait();
+                let mut log = Vec::new();
+                if let Ok(mut file) = fs::File::open(project.join(".kl/helper.log"))
+                    && let Ok(metadata) = file.metadata()
+                    && file
+                        .seek(SeekFrom::Start(metadata.len().saturating_sub(2048)))
+                        .is_ok()
+                {
+                    let _ = file.take(2048).read_to_end(&mut log);
+                }
+                let detail = String::from_utf8_lossy(&log);
+                bail!(
+                    "{error:#}. Python: {}. Helper log: {detail}",
+                    python.display()
+                );
+            }
+        };
         Ok(Self {
             process,
             stdin,

@@ -249,7 +249,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
                 view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default() });
                 view
             })
         }).unwrap()
@@ -1340,6 +1340,8 @@ fn history_filter_equivalence_and_date_validation() {
     assert!(same_filter("outcome:error  total", "TOTAL outcome:error"));
     assert!(same_filter("from:2026-01-01", "after:2026-01-01"));
     assert!(!same_filter("outcome:error", ""));
+    assert!(!same_filter("cell:UpperCell", "cell:uppercell"));
+    assert!(same_filter("CELL:UpperCell", "cell:UpperCell"));
     assert!(history_filter_valid(""));
     assert!(history_filter_valid("after:2026-01-01 before:2026-01-01"));
     assert!(!history_filter_valid("after:2026-02-30"));
@@ -1355,26 +1357,42 @@ fn history_pending_edits_never_describe_the_list_and_clear_resets_both(cx: &mut 
         {"exec_id":"b","cell_id":"second","source":"x = 1","status":"error","start":"2026-01-02T00:00:00Z"}
     ],"cursor":null});
     cx.update_window(handle, |_, window, cx| {
-        view.update(cx, |v, cx| {
+        view.update(cx, |v, _| {
             v.surface = "History".into();
             v.history_owner = Some(0);
-            v.tabs[0].inspections.insert("History".into(), rows.clone());
-            v.history_query
-                .update(cx, |s, cx| s.set_value("outcome:error", window, cx));
+            v.tabs[0].inspections.insert("History".into(), rows);
         });
         window.render_frame(cx);
         assert_eq!(view.read(cx).tabs[0].history_applied, "");
-        window.click("apply-history-filters", cx);
+        assert!(
+            window.try_find("apply-history-filters").is_none()
+                && window.try_find("clear-history-filters").is_none(),
+            "Apply and Clear stay hidden when draft matches the applied filter"
+        );
+        // Clicking an outcome segment applies immediately without waiting for Apply.
+        window.click("outcome-error", cx);
+        window.render_frame(cx);
         assert_eq!(view.read(cx).tabs[0].history_applied, "outcome:error");
+        assert!(
+            window.try_find("apply-history-filters").is_none()
+                && window.try_find("clear-history-filters").is_none(),
+            "Immediate outcome filter leaves no pending draft"
+        );
+        // Editing the text query waits for Apply and reveals Apply/Clear.
         view.update(cx, |v, cx| {
             v.history_query
-                .update(cx, |s, cx| s.set_value("outcome:ok", window, cx));
+                .update(cx, |s, cx| s.set_value("outcome:error print", window, cx));
         });
         window.render_frame(cx);
+        assert!(
+            window.try_find("apply-history-filters").is_some()
+                && window.try_find("clear-history-filters").is_some(),
+            "Draft text query must reveal Apply and Clear"
+        );
         let v = view.read(cx);
         assert_eq!(v.tabs[0].history_applied, "outcome:error");
         let model = &v.tabs[0].model;
-        let shown = rows["items"]
+        let shown = v.tabs[0].inspections["History"]["items"]
             .as_array()
             .unwrap()
             .iter()
@@ -1383,17 +1401,24 @@ fn history_pending_edits_never_describe_the_list_and_clear_resets_both(cx: &mut 
             .collect::<Vec<_>>();
         assert_eq!(shown, ["b"]);
         window.click("clear-history-filters", cx);
+        window.render_frame(cx);
         assert_eq!(view.read(cx).tabs[0].history_applied, "");
         assert_eq!(view.read(cx).history_query.read(cx).value().to_string(), "");
+        assert!(window.try_find("apply-history-filters").is_none());
     })
     .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(
+        visual.debug_bounds("history-duration-b").is_some(),
+        "unknown duration cell remains in its aligned column"
+    );
     let sent = commands.try_iter().collect::<Vec<_>>();
     assert_eq!(
         sent.iter()
             .filter(|c| matches!(c, Command::Inspect { method, .. } if method == "executions.list"))
             .count(),
-        1,
-        "only Apply requests the list; Clear resets local filters"
+        2,
+        "Immediate outcome click and Clear each request a bounded server page"
     );
 }
 
@@ -1437,7 +1462,14 @@ fn caption_gutter_preserves_run_label_before_secondary_chrome() {
     let roomy = super::shell::header_collapse(1440., 1., false);
     assert!(!roomy.export && !roomy.navigation);
     assert!(roomy.wordmark_short);
-    assert_eq!(roomy.switcher_width, 240.);
+    assert_eq!(roomy.switcher_width, 360.);
+    let width = |text: &str| text.chars().count() as f32 * 8.0;
+    let name_28 = "kl-marimo-verify-vf_okbtf.py";
+    assert_eq!(name_28.chars().count(), 28);
+    assert_eq!(
+        super::shell::middle_ellipsis(name_28, roomy.switcher_width - 36., width),
+        name_28
+    );
 }
 
 #[test]
@@ -1900,6 +1932,241 @@ fn provider_setup_round_trip_keeps_the_question_and_context(cx: &mut TestAppCont
 }
 
 #[gpui_kit::test]
+fn settings_owns_its_width_and_return_restores_assistant(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for scale in [1., 1.5, 2.] {
+        for width in [800., 1024., 1280., 1440., 1920.] {
+            cx.simulate_window_resize(handle, size(px(width), px(600.)));
+            cx.update_window(handle, |_, window, cx| {
+                view.update(cx, |v, cx| {
+                    v.preferences.ui_scale = scale;
+                    v.tabs[0].assistant.open = true;
+                    v.settings_section = "assistant";
+                    v.select_surface("Settings", cx);
+                });
+                window.render_frame(cx);
+            })
+            .unwrap();
+            assert!(visual.debug_bounds("assistant-inspector").is_none());
+            let form = visual
+                .debug_bounds("settings-content")
+                .expect("settings form");
+            assert!(
+                form.origin.x >= px(0.) && form.origin.x + form.size.width <= px(width),
+                "{width}/{scale}: {form:?}"
+            );
+            cx.update_window(handle, |_, window, cx| {
+                assert!(view.read(cx).tabs[0].assistant.open);
+                view.update(cx, |v, cx| v.open_assistant(cx));
+                assert_eq!(view.read(cx).surface, "Notebook");
+                window.render_frame(cx);
+            })
+            .unwrap();
+            assert!(visual.debug_bounds("assistant-inspector").is_some());
+        }
+    }
+}
+
+#[gpui_kit::test]
+fn unread_source_never_looks_like_an_empty_saved_notebook(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for state in ["", "invalid", "ok"] {
+        cx.update_window(handle, |_, window, cx| {
+            view.update(cx, |v, _| {
+                v.tabs[0].model.order.clear();
+                v.tabs[0].model.cells.clear();
+                v.tabs[0].model.source_state = state.into();
+                v.tabs[0].error = (state == "invalid").then(|| "Cannot load source".into());
+            });
+            window.render_frame(cx);
+        })
+        .unwrap();
+        assert_eq!(
+            visual.debug_bounds("empty-notebook").is_some(),
+            state == "ok"
+        );
+        assert_eq!(
+            visual.debug_bounds("unloaded-notebook").is_some(),
+            state != "ok"
+        );
+    }
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::Mutate(_) | Command::Run { .. }))
+    );
+}
+
+#[gpui_kit::test]
+fn long_source_scrolls_horizontally_without_clipping_wrapped_rows(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let source = format!("value = {:?}", "x".repeat(400));
+    for width in [800., 1440.] {
+        cx.simulate_window_resize(handle, size(px(width), px(600.)));
+        cx.update_window(handle, |_, window, cx| {
+            let editor = view.update(cx, |v, cx| {
+                v.tabs[0].assistant.open = true;
+                v.tabs[0].model.cells.get_mut("first").unwrap().text = source.clone();
+                v.tabs[0].editors.remove("first");
+                v.editor(0, "first", window, cx)
+            });
+            assert_eq!(
+                editor.read(cx).cursor(),
+                0,
+                "new source opens at the leading edge"
+            );
+            editor.update(cx, |e, cx| {
+                e.set_value(source.clone(), window, cx);
+                e.focus(window, cx);
+                e.set_selected_range(source.len()..source.len(), cx);
+            });
+            window.render_frame(cx);
+            editor.update(cx, |e, cx| {
+                e.set_scroll_offset(Point::new(px(-200.), px(0.)), cx)
+            });
+            window.render_frame(cx);
+            let state = editor.read(cx);
+            assert!(
+                state.scroll_offset().x < px(0.),
+                "long source needs horizontal scroll"
+            );
+            assert_eq!(
+                state.scroll_offset().y,
+                px(0.),
+                "one source line must remain one visual row"
+            );
+            let (caret, _) = state.cursor_layout().expect("laid-out caret");
+            let bounds = state.input_bounds();
+            assert!(caret.top() >= bounds.top() && caret.bottom() <= bounds.bottom());
+        })
+        .unwrap();
+    }
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::Run { .. }))
+    );
+}
+
+#[gpui_kit::test]
+fn returning_to_history_refreshes_lists_without_replacing_details(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        for method in ["executions.list", "sessions.list", "execution.get"] {
+            let page = json!({"cursor":"page-2","session_id":"session-a"});
+            view.update(cx, |v, cx| {
+                v.tabs[0]
+                    .inspections
+                    .insert("History".into(), json!({"items":[],"_page_request":page}));
+                v.tabs[0]
+                    .inspection_method
+                    .insert("History".into(), method.into());
+                v.tabs[0].history_applied = "outcome:error".into();
+                v.select_surface("Notebook", cx);
+                v.select_surface("History", cx);
+            });
+            let refreshes = commands
+                .try_iter()
+                .filter_map(|c| match c {
+                    Command::Inspect { method, fields } => Some((method, fields)),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if method == "execution.get" {
+                assert!(refreshes.is_empty());
+            } else {
+                let mut expected = page;
+                if method == "executions.list" {
+                    expected["query"] = json!("outcome:error");
+                    expected["page_size"] = json!(100);
+                }
+                assert_eq!(refreshes, [(method.to_owned(), expected)]);
+            }
+            assert_eq!(view.read(cx).tabs[0].history_applied, "outcome:error");
+        }
+        let (send, receive) = mpsc::channel();
+        view.update(cx, |v, _| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0]
+                .inspection_method
+                .insert("History".into(), "executions.list".into());
+            v.tabs[0]
+                .inspections
+                .insert("History".into(), json!({"items":[],"_page_request":{}}));
+        });
+        for _ in 0..3 {
+            send.send(kernelledger_client::service::Event::Inspection {
+                method: "executions.list".into(),
+                value: json!({"items":[{"exec_id":"new"}],"_page_request":{}}),
+            })
+            .unwrap();
+            view.update(cx, |v, cx| v.drain(window, cx));
+        }
+        assert!(
+            view.read(cx).tabs[0].parents.is_empty(),
+            "refreshes must not accumulate Back history"
+        );
+        assert_eq!(
+            view.read(cx).tabs[0].inspections["History"]["items"][0]["exec_id"],
+            "new"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn platform_commands_and_execution_bindings_stay_distinct(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let modifier = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
+    assert_eq!(
+        super::shortcuts::platform_binding("ctrl-enter"),
+        "ctrl-enter"
+    );
+    assert_eq!(
+        super::shortcuts::platform_binding("ctrl-shift-enter"),
+        "ctrl-shift-enter"
+    );
+    assert_eq!(
+        super::shortcuts::platform_binding("ctrl-s"),
+        format!("{modifier}-s")
+    );
+    let label = super::shortcuts::shortcut_text("Save Ctrl+S; run Ctrl+Enter / Ctrl+Shift+Enter");
+    assert!(label.contains("run Ctrl+Enter / Ctrl+Shift+Enter"));
+    cx.update_window(handle, |_, window, cx| {
+        window.press(&format!("{modifier}-,"), cx);
+        assert_eq!(view.read(cx).surface, "Settings");
+        window.press(&format!("{modifier}-1"), cx);
+        assert_eq!(view.read(cx).surface, "Notebook");
+        window.press(&format!("{modifier}-s"), cx);
+        window.press(&format!("{modifier}-shift-s"), cx);
+        window.press(&format!("{modifier}-shift-p"), cx);
+        assert!(view.read(cx).palette);
+        window.press("escape", cx);
+        window.press("ctrl-enter", cx);
+    })
+    .unwrap();
+    let sent = commands.try_iter().collect::<Vec<_>>();
+    assert!(sent.iter().any(|c| matches!(c, Command::Save)));
+    assert!(
+        sent.iter()
+            .any(|c| matches!(c, Command::Runtime { method, .. } if method == "checkpoint"))
+    );
+    assert_eq!(
+        sent.iter()
+            .filter(|c| matches!(c, Command::Run { .. }))
+            .count(),
+        1
+    );
+}
+
+#[gpui_kit::test]
 fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
     cx: &mut TestAppContext,
 ) {
@@ -2352,4 +2619,592 @@ fn contextual_cell_actions_reveal_on_keyboard_focus(cx: &mut TestAppContext) {
         assert!(reached, "Second cell actions must be keyboard reachable");
     })
     .unwrap();
+}
+
+#[gpui_kit::test]
+fn source_undo_shortcuts_preserve_editor_undo_and_use_revision_checked_mutations(
+    cx: &mut TestAppContext,
+) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        let editor = view.update(cx, |v, cx| {
+            v.tabs[0]
+                .inspections
+                .insert("Source history".into(), json!({"undo":true,"redo":true}));
+            v.editor(0, "first", window, cx)
+        });
+        editor.update(cx, |e, cx| e.focus(window, cx));
+        window.press(
+            if cfg!(target_os = "macos") {
+                "cmd-z"
+            } else {
+                "ctrl-z"
+            },
+            cx,
+        );
+        assert!(
+            !commands
+                .try_iter()
+                .any(|command| matches!(command, Command::Mutate(_)))
+        );
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.mode = kernelledger_models::Mode::Command;
+            v.focus.focus(window, cx)
+        });
+        window.press(
+            if cfg!(target_os = "macos") {
+                "cmd-z"
+            } else {
+                "ctrl-z"
+            },
+            cx,
+        );
+        let request = commands
+            .try_iter()
+            .find_map(|c| {
+                if let Command::Mutate(r) = c {
+                    Some(r)
+                } else {
+                    None
+                }
+            })
+            .expect("structural undo");
+        assert_eq!(request["action"], "undo");
+        assert_eq!(request["manifest_revision"], "test");
+        assert_eq!(request["cell_revisions"]["first"], "hash");
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn shifted_native_commands_and_modal_blocking_preserve_source(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            let mut key = gpui_kit::Keystroke::parse(if cfg!(target_os = "macos") {
+                "cmd-shift-s"
+            } else {
+                "ctrl-shift-s"
+            })
+            .unwrap();
+            key.key = "S".into();
+            v.key_down(
+                &gpui_kit::KeyDownEvent {
+                    keystroke: key,
+                    is_held: false,
+                    prefer_character_input: false,
+                },
+                window,
+                cx,
+            );
+        });
+        assert_eq!(
+            commands
+                .try_iter()
+                .filter(|c| matches!(c,Command::Runtime{method,..} if method=="checkpoint"))
+                .count(),
+            1
+        );
+        window.press(
+            if cfg!(target_os = "macos") {
+                "cmd-shift-p"
+            } else {
+                "ctrl-shift-p"
+            },
+            cx,
+        );
+        window.press(
+            if cfg!(target_os = "macos") {
+                "cmd-shift-s"
+            } else {
+                "ctrl-shift-s"
+            },
+            cx,
+        );
+        assert!(view.read(cx).palette);
+        assert!(!commands.try_iter().any(|c| matches!(
+            c,
+            Command::Runtime { .. } | Command::Run { .. } | Command::Mutate(_)
+        )));
+        window.press("escape", cx);
+        assert!(!view.read(cx).palette);
+        view.update(cx, |v, _| {
+            v.confirmation = Some(("delete".into(), json!({"id": "first"})));
+        });
+        window.render_frame(cx);
+        window.press(
+            if cfg!(target_os = "macos") {
+                "cmd-shift-s"
+            } else {
+                "ctrl-shift-s"
+            },
+            cx,
+        );
+        assert!(view.read(cx).confirmation.is_some());
+        assert!(!commands.try_iter().any(|c| matches!(
+            c,
+            Command::Runtime { .. } | Command::Run { .. } | Command::Mutate(_)
+        )));
+        assert_eq!(view.read(cx).tabs[0].model.cells["first"].text, "print(42)");
+        assert!(
+            super::COMMANDS
+                .iter()
+                .all(|(_, label, _, _)| !label.contains("...")),
+            "All command labels must use typographical ellipsis instead of three ASCII dots"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn replacing_application_python_preserves_edits_and_worker_on_validation_failure(
+    cx: &mut TestAppContext,
+) {
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let (events, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0].runtime = json!({"worker_state":"idle","session_id":"retained"});
+            v.tabs[0].inspections.insert(
+                "Application Python".into(),
+                json!({"python":"old-python","ready":true}),
+            );
+            v.tabs[0].model.cells.get_mut("first").unwrap().text = "unsaved = True".into();
+        });
+        view.update(cx, |v, cx| v.choose_application_python(window, cx));
+    })
+    .unwrap();
+    cx.simulate_path_prompt_response(|_| Some(vec![PathBuf::from("replacement-python")]));
+    cx.executor().run_until_parked();
+    assert!(
+        matches!(commands.try_recv().unwrap(),Command::SelectApplicationPython(path) if path==std::path::Path::new("replacement-python"))
+    );
+    cx.update_window(handle, |_, window, cx| {
+        events
+            .send(Event::Error {
+                code: "helper_validation".into(),
+                message: "No module named kernelledger".into(),
+            })
+            .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let tab = &view.read(cx).tabs[0];
+        assert_eq!(tab.model.cells["first"].text, "unsaved = True");
+        assert_eq!(tab.runtime["session_id"], "retained");
+        assert_ne!(tab.runtime["connection_lost"], true);
+        assert!(
+            tab.error
+                .as_deref()
+                .unwrap()
+                .contains("No module named kernelledger")
+        );
+        assert!(
+            tab.error
+                .as_deref()
+                .unwrap()
+                .contains("current connection is unchanged")
+        );
+        events
+            .send(Event::Inspection {
+                method: "helper.status".into(),
+                value: json!({"python":"replacement-python","ready":true}),
+            })
+            .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert!(view.read(cx).tabs[0].error.is_none());
+        assert!(
+            !view.read(cx).tabs[0]
+                .inspections
+                .contains_key("Technical error")
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn application_python_chooser_accepts_environment_folder_without_resolving_python(
+    cx: &mut TestAppContext,
+) {
+    let root = std::env::temp_dir().join(format!("kl-python-chooser-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].inspections.insert(
+                "Application Python".into(),
+                json!({"python":"old-python","ready":true}),
+            );
+            v.choose_application_python(window, cx);
+        });
+    })
+    .unwrap();
+    cx.simulate_path_prompt_response(|options| {
+        assert!(options.files && options.directories);
+        Some(vec![root.clone()])
+    });
+    cx.executor().run_until_parked();
+    let expected = root.join(if cfg!(windows) {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    });
+    assert!(
+        matches!(commands.try_recv().unwrap(),Command::SelectApplicationPython(path) if path==expected)
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[gpui_kit::test]
+fn short_inline_cells_clamp_vertical_scroll_after_content_shrinks(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(800.), px(600.)));
+    cx.update_window(handle, |_, window, cx| {
+        let long = (0..45)
+            .map(|i| format!("value_{i} = {i}\n"))
+            .collect::<String>();
+        let short = "first = 1\nsecond = 2\n";
+        let editor = view.update(cx, |v, cx| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().text = long.clone();
+            v.editor(0, "first", window, cx)
+        });
+        editor.update(cx, |e, cx| {
+            e.focus(window, cx);
+            e.set_selected_range(long.len()..long.len(), cx);
+        });
+        window.render_frame(cx);
+        view.update(cx, |v, _| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().text = short.into()
+        });
+        editor.update(cx, |e, cx| {
+            e.set_value(short, window, cx);
+            e.set_selected_range(short.len()..short.len(), cx);
+            e.set_scroll_offset(Point::new(px(0.), px(-42.)), cx);
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+        let state = editor.read(cx);
+        assert_eq!(
+            state.scroll_offset().y,
+            px(0.),
+            "all short-cell rows fit the inline viewport"
+        );
+        assert_eq!(state.visible_row_range().unwrap().start, 0);
+        assert_eq!(
+            state.cursor(),
+            short.len(),
+            "clamping scroll must preserve the caret"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn header_runtime_label_and_checkpoint_notice_stay_concise_and_scoped(cx: &mut TestAppContext) {
+    assert_eq!(
+        super::shell::header_worker_label(false, None),
+        "Not running"
+    );
+    assert_eq!(
+        super::shell::header_worker_label(false, Some("idle")),
+        "Ready"
+    );
+    assert_eq!(
+        super::shell::header_worker_label(false, Some("running")),
+        "Running"
+    );
+    assert_eq!(
+        super::shell::header_worker_label(false, Some("stopped")),
+        "Stopped"
+    );
+    assert_eq!(
+        super::shell::header_worker_label(true, Some("idle")),
+        "Disconnected"
+    );
+
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        for (lost, state) in [
+            (false, "absent"),
+            (false, "idle"),
+            (false, "running"),
+            (false, "stopped"),
+            (true, "idle"),
+        ] {
+            view.update(cx, |v, cx| {
+                v.tabs[0].runtime = json!({
+                    "connection_lost": lost,
+                    "worker_state": state,
+                });
+                cx.notify();
+            });
+            window.render_frame(cx);
+            window.render_frame(cx);
+            assert!(
+                view.read(cx).menu_bounds.contains_key("runtime"),
+                "runtime anchor bounds must be recorded for state={state} lost={lost}"
+            );
+        }
+
+        view.update(cx, |v, cx| {
+            v.tabs[0].checkpoint_notice = Some("cp-123".into());
+            cx.notify();
+        });
+        window.render_frame(cx);
+        assert_eq!(
+            view.read(cx).tabs[0].checkpoint_notice.as_deref(),
+            Some("cp-123")
+        );
+
+        view.update(cx, |v, cx| {
+            v.select_surface("Checkpoints", cx);
+        });
+        window.render_frame(cx);
+        assert!(
+            view.read(cx).tabs[0].checkpoint_notice.is_none(),
+            "navigating to Checkpoints must clear the transient checkpoint_notice banner"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn large_500_cell_notebook_and_variables_virtualize_cleanly(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(800.)));
+    cx.update_window(handle, |_, window, cx| {
+        let cells: Vec<super::Value> = (0..500)
+            .map(|i| {
+                json!({
+                    "id": format!("cell_{i:03}"),
+                    "type": if i % 5 == 0 { "markdown" } else { "code" },
+                    "path": format!("cells/{i:03}.py"),
+                    "source": format!("metric_{i} = {i} * 2\nprint(metric_{i})"),
+                    "revision": format!("rev_{i}"),
+                    "editable": true,
+                    "state": "ok",
+                })
+            })
+            .collect();
+        view.update(cx, |v, cx| {
+            let tab = &mut v.tabs[0];
+            tab.model.apply_snapshot(
+                serde_json::from_value(json!({
+                    "state": "ok",
+                    "manifest_revision": "stress-500",
+                    "cells": cells,
+                }))
+                .unwrap(),
+            );
+            tab.list.reset(tab.model.order.len());
+            tab.reveal = Some("cell_499".into());
+            cx.notify();
+        });
+        view.update(cx, |v, cx| v.drain(window, cx));
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].model.order.len(), 500);
+        assert_eq!(
+            view.read(cx).tabs[0].model.selected.as_deref(),
+            Some("cell_499")
+        );
+
+        let vars: Vec<super::Value> = (0..100)
+            .map(|i| {
+                json!({
+                    "name": format!("var_{i:03}"),
+                    "type": "ndarray",
+                    "preview": format!("shape=(1024, {i})"),
+                    "handle": format!("h_{i}")
+                })
+            })
+            .collect();
+        view.update(cx, |v, cx| {
+            v.tabs[0]
+                .inspections
+                .insert("Variables".into(), json!({"items": vars}));
+            v.select_surface("Variables", cx);
+        });
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).surface, "Variables");
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.cells.get_mut("first").unwrap().ordinal = Some(1);
+            cx.notify();
+        });
+        assert_eq!(
+            super::notebook::cell_border_color(false, false, false, false, cx),
+            super::surface_edge(cx),
+            "unselected cells at rest must use the surface_edge hairline"
+        );
+        assert_eq!(super::notebook::boundary_button_label(false), "Insert");
+        assert_eq!(super::notebook::boundary_button_label(true), "Add cell");
+        window.render_frame(cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    let card_first = visual
+        .debug_bounds("cell-card-first")
+        .expect("first cell card");
+    let card_second = visual
+        .debug_bounds("cell-card-second")
+        .expect("second unselected cell card");
+    assert_eq!(
+        card_first.size.width, card_second.size.width,
+        "selected and unselected cell cards must share identical card frame width"
+    );
+    let boundary_first = visual
+        .debug_bounds("cell-boundary-first")
+        .expect("first cell boundary");
+    let (insert_first, insert_last) = cx
+        .update_window(handle, |_, window, _| {
+            (
+                window.find(("insert-cell", 0usize)).bounds(),
+                window.find(("insert-cell", 1usize)).bounds(),
+            )
+        })
+        .unwrap();
+    assert!(
+        insert_first.size.width >= px(64.),
+        "visible middle boundary must render the '+ Insert' pill rather than an icon-only circle, got {:?}",
+        insert_first.size
+    );
+    assert_eq!(
+        insert_first.size.height, insert_last.size.height,
+        "middle '+ Insert' and trailing '+ Add cell' pills must share the same height"
+    );
+
+    // Verify generous Marimo-style breathing room between the cell card and the + button.
+    assert!(
+        boundary_first.size.height >= px(36.),
+        "compact inter-cell boundary must be at least 36px tall, got {:?}",
+        boundary_first.size.height
+    );
+    assert!(
+        insert_first.origin.y >= card_first.origin.y + card_first.size.height + px(3.),
+        "insert button {:?} must have clear vertical gap below card {:?}",
+        insert_first,
+        card_first
+    );
+    assert!(
+        (insert_first.center().y - boundary_first.center().y).abs() <= px(1.),
+        "insert button must be vertically centered in its boundary slot"
+    );
+
+    // Verify inline cell action buttons (run, assistant, more) share the same horizontal centerline.
+    let (run_btn, assistant_btn, more_btn) = cx
+        .update_window(handle, |_, window, _| {
+            (
+                window.find(("run", 0usize)).bounds(),
+                window.find(("cell-assistant", 0usize)).bounds(),
+                window.find(("cell-more", 0usize)).bounds(),
+            )
+        })
+        .unwrap();
+    assert!(
+        (run_btn.center().y - assistant_btn.center().y).abs() <= px(1.),
+        "run button {:?} and assistant button {:?} must align on the same row centerline",
+        run_btn,
+        assistant_btn
+    );
+    assert!(
+        (run_btn.center().y - more_btn.center().y).abs() <= px(1.),
+        "run button {:?} and more button {:?} must align on the same row centerline",
+        run_btn,
+        more_btn
+    );
+
+    // Verify comfortable mode expands the inter-cell boundary to >= 48px.
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.comfortable = true;
+            v.tabs[0].list.splice(0..2, 2);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let boundary_comfortable = visual
+        .debug_bounds("cell-boundary-first")
+        .expect("comfortable boundary");
+    assert!(
+        boundary_comfortable.size.height >= px(48.),
+        "comfortable inter-cell boundary must be at least 48px tall, got {:?}",
+        boundary_comfortable.size.height
+    );
+}
+
+#[gpui_kit::test]
+fn compact_assistant_insets_notebook_and_empty_checkpoints_card_includes_action(
+    cx: &mut TestAppContext,
+) {
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(800.), px(600.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].assistant.open = true;
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    let card_first = visual.debug_bounds("cell-card-first").unwrap();
+    let assistant = visual.debug_bounds("assistant-inspector").unwrap();
+    assert!(
+        card_first.origin.x + card_first.size.width <= assistant.origin.x + px(1.),
+        "at 800px compact width, notebook cell {:?} must sit beside assistant drawer {:?} without being covered",
+        card_first,
+        assistant
+    );
+
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.surface = "Checkpoints".into();
+            v.tabs[0].runtime = json!({"worker_state": "stopped"});
+            v.tabs[0]
+                .inspections
+                .insert("Checkpoints".into(), json!({"items": [], "cursor": null}));
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let empty_card = visual
+        .debug_bounds("checkpoints-empty-card")
+        .expect("empty checkpoints card");
+    let hint = visual
+        .debug_bounds("checkpoint-empty-hint")
+        .expect("stopped runtime hint inside empty checkpoints card");
+    let create_btn = cx
+        .update_window(handle, |_, window, _| {
+            window.find("create-checkpoint").bounds()
+        })
+        .unwrap();
+    assert!(
+        create_btn.origin.x >= empty_card.origin.x
+            && create_btn.origin.y >= empty_card.origin.y
+            && create_btn.origin.y + create_btn.size.height
+                <= empty_card.origin.y + empty_card.size.height
+            && hint.origin.y >= empty_card.origin.y
+            && hint.origin.y + hint.size.height <= empty_card.origin.y + empty_card.size.height,
+        "Create checkpoint button {:?} and hint {:?} must live inside the empty checkpoints card {:?}",
+        create_btn,
+        hint,
+        empty_card
+    );
 }

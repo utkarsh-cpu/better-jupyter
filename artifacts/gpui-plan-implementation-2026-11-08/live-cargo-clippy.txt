@@ -1,0 +1,30 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/utkarsh_kaushik/.cargo/registry/index/index.crates.io-6f17d22bba15001f/.cache/cs/v-/csv-core`
+
+Caused by:
+  Permission denied (os error 13)
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[91874]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-runtime` (build script) generated 1 warning
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[91872]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-desktop` (build script) generated 1 warning
+    Checking kernelledger-ui v0.1.0 (/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/crates/ui)
+    Checking kernelledger-desktop v0.1.0 (/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/crates/app)
+    Finished `dev` profile [unoptimized] target(s) in 5.67s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

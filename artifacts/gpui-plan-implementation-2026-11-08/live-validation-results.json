@@ -1,0 +1,24 @@
+{
+  "helper_failure_recovery": "passed with environment folder, same app process",
+  "remembered_python_after_restart": "passed",
+  "invalid_replacement_keeps_worker": "passed",
+  "checkpoint_after_failed_replacement": [
+    1,
+    2
+  ],
+  "history_later_match": "exec225 after two empty candidate pages",
+  "unicode_clipboard_round_trip": "passed; original clipboard restored",
+  "move_undo_redo": "passed in command mode; IDs preserved",
+  "short_cell_after_text_undo": "passed after disabling trailing scroll rows",
+  "provider_advanced": "expanded and scrolled at 800x600",
+  "themes": [
+    "light",
+    "dark",
+    "high contrast"
+  ],
+  "ui_scale_percent": [
+    100,
+    200
+  ],
+  "accessibility_snapshot": "7 nodes, window/caption controls; content and screen-reader behavior not qualified"
+}

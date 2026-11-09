@@ -1,0 +1,95 @@
+{
+  "platform": "macOS Apple Silicon",
+  "native_events": "CGEvent posted to tracked application process",
+  "fixture_execution_count_before": 240,
+  "fixture_execution_count_after_run_all": 242,
+  "checkpoint_count_before_canceled_open": 2,
+  "checkpoint_count_after_canceled_open_and_shortcut": 3,
+  "later_desktop_locked": true,
+  "images": [
+    {
+      "file": "01-auto-discovery-notebook.png",
+      "backing_pixels": [
+        2560,
+        1600
+      ],
+      "logical_size": [
+        1280,
+        800
+      ],
+      "scale": 2
+    },
+    {
+      "file": "11-final-checkpoint-shortcut.png",
+      "backing_pixels": [
+        2560,
+        1600
+      ],
+      "logical_size": [
+        1280,
+        800
+      ],
+      "scale": 2
+    },
+    {
+      "file": "12-final-after-open-cancel.png",
+      "backing_pixels": [
+        1600,
+        1200
+      ],
+      "logical_size": [
+        800,
+        600
+      ],
+      "scale": 2
+    },
+    {
+      "file": "13-final-history-page-one.png",
+      "backing_pixels": [
+        2560,
+        1600
+      ],
+      "logical_size": [
+        1280,
+        800
+      ],
+      "scale": 2
+    },
+    {
+      "file": "14-final-history-empty-candidates.png",
+      "backing_pixels": [
+        2560,
+        1600
+      ],
+      "logical_size": [
+        1280,
+        800
+      ],
+      "scale": 2
+    },
+    {
+      "file": "16-final-runtime-settings-800.png",
+      "backing_pixels": [
+        1600,
+        1200
+      ],
+      "logical_size": [
+        800,
+        600
+      ],
+      "scale": 2
+    },
+    {
+      "file": "17-final-provider-basic-800.png",
+      "backing_pixels": [
+        1600,
+        1200
+      ],
+      "logical_size": [
+        800,
+        600
+      ],
+      "scale": 2
+    }
+  ]
+}

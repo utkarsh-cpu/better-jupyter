@@ -244,6 +244,13 @@ class Helper:
                 )[0]
                 return dict(row)
             if method in ("sessions.list", "executions.list", "checkpoints.list"):
+                if method == "executions.list" and "query" in request:
+                    from .history import execution_search
+
+                    return {
+                        **execution_search(ledger, self.blobs, request),
+                        "read_only_snapshot": immutable,
+                    }
                 if method == "executions.list":
                     sql, args = _execution_list_sql(request)
                 else:

@@ -208,13 +208,23 @@ impl Workspace {
         let interpreter = &self.tabs[self.active].runtime["interpreter"];
         let path = interpreter["executable"]
             .as_str()
-            .or(interpreter["python"].as_str())
             .or(value["path"].as_str())
             .map(str::to_owned);
         let version = interpreter["version"]
             .as_str()
-            .unwrap_or("Version available after runtime start")
-            .to_string();
+            .map(str::to_owned)
+            .or_else(|| {
+                interpreter["version"].as_array().map(|parts| {
+                    parts
+                        .iter()
+                        .filter_map(Value::as_u64)
+                        .map(|p| p.to_string())
+                        .collect::<Vec<_>>()
+                        .join(".")
+                })
+            })
+            .or_else(|| interpreter["python"].as_str().map(str::to_owned))
+            .unwrap_or_else(|| "Version metadata is unavailable for this interpreter".into());
         let details = self.tabs[self.active]
             .raw_details
             .get("interpreter-path")
@@ -346,33 +356,38 @@ impl Workspace {
                                 density,
                                 cx,
                             ))
-                            .child({
-                                let view = cx.entity();
-                                let reveal = layout_reveal.clone();
-                                let a11y_reveal = reveal.clone();
-                                Checkbox::new("show-cell-duration")
-                                    .label("Show last recorded cell duration")
-                                    .checked(self.preferences.show_cell_duration)
-                                    .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
-                                        view.update(cx, |v, cx| {
-                                            a11y_reveal.activate(v, window, cx, |v, _, cx| {
-                                                v.preferences.show_cell_duration = !v.preferences.show_cell_duration;
+                            .child(setting_row(
+                                "Execution timing",
+                                "Display the last recorded run duration badge in each cell header.",
+                                {
+                                    let view = cx.entity();
+                                    let reveal = layout_reveal.clone();
+                                    let a11y_reveal = reveal.clone();
+                                    Checkbox::new("show-cell-duration")
+                                        .label("Show last recorded cell duration")
+                                        .checked(self.preferences.show_cell_duration)
+                                        .on_a11y_action(accesskit::Action::Click, move |_, window, cx| {
+                                            view.update(cx, |v, cx| {
+                                                a11y_reveal.activate(v, window, cx, |v, _, cx| {
+                                                    v.preferences.show_cell_duration = !v.preferences.show_cell_duration;
+                                                    v.save_preferences(cx);
+                                                    for tab in &mut v.tabs { tab.list.splice(0..tab.model.order.len(), tab.model.order.len()); }
+                                                    cx.notify();
+                                                });
+                                            });
+                                        })
+                                        .on_click(cx.listener(move |v, checked: &bool, window, cx| {
+                                            let checked = *checked;
+                                            reveal.activate(v, window, cx, move |v, _, cx| {
+                                                v.preferences.show_cell_duration = checked;
                                                 v.save_preferences(cx);
                                                 for tab in &mut v.tabs { tab.list.splice(0..tab.model.order.len(), tab.model.order.len()); }
                                                 cx.notify();
                                             });
-                                        });
-                                    })
-                                    .on_click(cx.listener(move |v, checked: &bool, window, cx| {
-                                        let checked = *checked;
-                                        reveal.activate(v, window, cx, move |v, _, cx| {
-                                            v.preferences.show_cell_duration = checked;
-                                            v.save_preferences(cx);
-                                            for tab in &mut v.tabs { tab.list.splice(0..tab.model.order.len(), tab.model.order.len()); }
-                                            cx.notify();
-                                        });
-                                    }))
-                            })
+                                        }))
+                                },
+                                cx,
+                            ))
                             .child(setting_row(
                                 "Outline width",
                                 "Default width of the notebook cell outline sidebar.",
@@ -418,6 +433,11 @@ impl Workspace {
             }
             "runtime" => {
                 groups = groups
+                    .child(settings_group_with("Application Python", "Loads notebook source and desktop services. Changing it does not select the project's execution interpreter.", cx)
+                        .child(div().text_sm().whitespace_normal().child(self.tabs[self.active].inspections.get("Application Python").and_then(|v| v["python"].as_str()).unwrap_or("Not connected").to_owned()))
+                        .child(h_flex().gap_2().flex_wrap()
+                            .child(action_button("settings-helper-python").outline().small().label("Choose application Python…").on_click(cx.listener(|v, _, window, cx| v.choose_application_python(window, cx))))
+                            .child(action_button("settings-retry-helper").ghost().small().label("Retry loading").on_click(cx.listener(|v, _, _, cx| v.retry_application_python(cx))))))
                     .child(runtime_reveal.track(runtime))
                     .child(self.interactivity_settings(cx));
             }
@@ -426,6 +446,7 @@ impl Workspace {
             }
         }
         let content = v_flex()
+            .debug_selector(|| "settings-content".into())
             .flex_1()
             .min_w_0()
             .gap_4()
@@ -544,93 +565,155 @@ impl Workspace {
                 .whitespace_nowrap()
                 .child(text)
         };
+        let edge_color = surface_edge(cx);
         let cell = |index: &'static str,
                     lines: Vec<&'static str>,
                     result: Option<&'static str>,
+                    selected: bool,
                     last: bool| {
             v_flex()
                 .w_full()
-                .when(!inline, |d| {
-                    d.child(
-                        h_flex()
-                            .min_h(rems(spacing.header_min_h))
-                            .py(px(spacing.header_py))
-                            .px_3()
-                            .gap_2()
-                            .items_center()
-                            .text_xs()
-                            .text_color(muted)
-                            .child(div().font_family(mono.clone()).child(index))
-                            .child("Code")
-                            .child(div().flex_1())
-                            .child(Icon::new(Glyph::Play).with_size(px(12.)))
-                            .child("Run"),
-                    )
-                })
+                .px_3()
                 .child(
-                    h_flex()
-                        .items_start()
-                        .gap_2()
-                        .px_3()
-                        .pt(px(spacing.source_top + 8.))
-                        .pb(px(spacing.source_bottom + 8.))
+                    v_flex()
+                        .w_full()
+                        .relative()
+                        .border_1()
+                        .rounded(theme.radius_lg)
+                        .border_color(if selected {
+                            theme
+                                .primary
+                                .opacity(if self.high_contrast { 1. } else { 0.55 })
+                        } else {
+                            edge_color
+                        })
+                        .bg(if selected || self.high_contrast {
+                            theme.popover
+                        } else {
+                            theme.transparent
+                        })
                         .overflow_hidden()
-                        .when(inline, |d| {
+                        .child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(
+                            if selected {
+                                theme.primary
+                            } else {
+                                theme.transparent
+                            },
+                        ))
+                        .when(!inline, |d| {
                             d.child(
                                 h_flex()
-                                    .w(rems(4.5))
-                                    .flex_none()
+                                    .min_h(rems(spacing.header_min_h))
+                                    .py(px(spacing.header_py))
+                                    .px_3()
+                                    .gap_2()
                                     .items_center()
-                                    .gap_1()
-                                    .child(
-                                        div()
-                                            .min_h(rems(1.875))
-                                            .min_w(rems(1.75))
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .rounded_full()
-                                            .bg(theme.primary.opacity(0.11))
-                                            .text_color(theme.primary)
-                                            .child(Icon::new(Glyph::Play).small()),
-                                    )
-                                    .child(
-                                        div()
-                                            .font_family(mono.clone())
-                                            .text_xs()
-                                            .text_color(muted)
-                                            .child(index),
-                                    ),
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .when(selected || self.high_contrast, |d| {
+                                        d.border_b_1().border_color(rule)
+                                    })
+                                    .child(div().font_family(mono.clone()).child(index))
+                                    .child("Code")
+                                    .child(div().flex_1())
+                                    .child(Icon::new(Glyph::Play).with_size(px(12.)))
+                                    .child("Run"),
                             )
                         })
                         .child(
-                            v_flex()
-                                .flex_1()
-                                .min_w_0()
-                                .children(lines.into_iter().map(&code)),
+                            h_flex()
+                                .items_start()
+                                .gap_2()
+                                .px_3()
+                                .pt(px(spacing.source_top + 8.))
+                                .pb(px(spacing.source_bottom + 8.))
+                                .overflow_hidden()
+                                .when(inline, |d| {
+                                    d.child(
+                                        h_flex()
+                                            .w(rems(4.75))
+                                            .min_h(rems(1.875))
+                                            .flex_none()
+                                            .items_center()
+                                            .gap_1p5()
+                                            .child(
+                                                div()
+                                                    .min_h(rems(1.875))
+                                                    .min_w(rems(1.75))
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_center()
+                                                    .rounded_full()
+                                                    .bg(theme.primary.opacity(0.11))
+                                                    .text_color(theme.primary)
+                                                    .child(Icon::new(Glyph::Play).small()),
+                                            )
+                                            .child(
+                                                div()
+                                                    .font_family(mono.clone())
+                                                    .text_xs()
+                                                    .text_color(muted)
+                                                    .child(index),
+                                            ),
+                                    )
+                                })
+                                .child(
+                                    v_flex()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .min_h(rems(1.875))
+                                        .justify_center()
+                                        .children(lines.into_iter().map(&code)),
+                                )
+                                .when(inline, |d| {
+                                    d.child(
+                                        h_flex()
+                                            .flex_none()
+                                            .min_h(rems(1.875))
+                                            .items_center()
+                                            .child(Icon::new(Glyph::Ellipsis).small()),
+                                    )
+                                }),
                         )
-                        .when(inline, |d| {
+                        .when_some(result, |d, result| {
                             d.child(
                                 div()
-                                    .flex_none()
-                                    .min_h(rems(1.875))
-                                    .child(Icon::new(Glyph::Ellipsis).small()),
+                                    .px_4()
+                                    .py(px(spacing.output_py))
+                                    .border_t_1()
+                                    .border_color(rule)
+                                    .font_family(mono.clone())
+                                    .text_sm()
+                                    .child(result),
                             )
                         }),
                 )
-                .when_some(result, |d, result| {
+                .when(!last, |d| {
                     d.child(
-                        div()
-                            .mx_3()
-                            .py(px(spacing.output_py))
-                            .border_t_1()
-                            .border_color(rule)
-                            .font_family(mono.clone())
-                            .text_sm()
-                            .child(result),
+                        h_flex()
+                            .h(px(spacing.boundary))
+                            .gap_3()
+                            .items_center()
+                            .justify_center()
+                            .child(div().w(rems(4.)).h(px(1.)).bg(rule))
+                            .child(
+                                h_flex()
+                                    .px_2p5()
+                                    .py_0p5()
+                                    .gap_1()
+                                    .items_center()
+                                    .rounded_full()
+                                    .border_1()
+                                    .border_color(edge_color)
+                                    .bg(theme.popover)
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child(Icon::new(Glyph::Plus).xsmall())
+                                    .child("Insert"),
+                            )
+                            .child(div().w(rems(4.)).h(px(1.)).bg(rule)),
                     )
                 })
-                .when(!last, |d| d.child(div().h(px(spacing.boundary))))
         };
         v_flex()
             .id("settings-preview")
@@ -679,18 +762,20 @@ impl Workspace {
             )
             .child(
                 card(cx)
-                    .py_2()
+                    .py_3()
                     .bg(theme.background)
                     .child(cell(
                         "[1]",
                         vec!["quarters = [412_000, 389_500, 483_000]"],
                         None,
+                        true,
                         false,
                     ))
                     .child(cell(
                         "[2]",
                         vec!["total = sum(quarters)", "f\"{total:,}\""],
                         Some("'1,284,500'"),
+                        false,
                         true,
                     )),
             )

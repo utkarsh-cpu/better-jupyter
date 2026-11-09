@@ -893,28 +893,43 @@ impl Workspace {
             let items = value["items"].as_array().cloned().unwrap_or_default();
             if !items.is_empty() {
                 let mut list_card = card(cx).p_2().gap_1();
-                for (index, item) in items.iter().enumerate() {
-                    let handle = item["handle"].clone();
-                    let label = format!(
-                        "{} \u{00b7} {} \u{00b7} {}",
-                        item["name"].as_str().unwrap_or(""),
-                        item["type"].as_str().unwrap_or(""),
-                        item["preview"].as_str().unwrap_or("")
-                    );
-                    list_card = list_card.child(
-                        action_button(("variable", index))
-                            .self_start()
-                            .ghost()
-                            .small()
-                            .label(label)
-                            .on_click(cx.listener(move |view, _, _, _| {
-                                view.interactive_request(
-                                    "namespace.preview",
-                                    json!({"handle":handle}),
+                let count = items.len();
+                let scroll = self.tabs[self.active].variables_scroll.clone();
+                let view = cx.entity();
+                list_card = list_card.child(
+                    uniform_list("variables-list", count, move |range, _, _cx| {
+                        range
+                            .map(|index| {
+                                let item = &items[index];
+                                let handle = item["handle"].clone();
+                                let label = format!(
+                                    "{} \u{00b7} {} \u{00b7} {}",
+                                    item["name"].as_str().unwrap_or(""),
+                                    item["type"].as_str().unwrap_or(""),
+                                    item["preview"].as_str().unwrap_or("")
                                 );
-                            })),
-                    );
-                }
+                                let view = view.clone();
+                                div().h(rems(2.0)).flex().items_center().child(
+                                    action_button(("variable", index))
+                                        .self_start()
+                                        .ghost()
+                                        .small()
+                                        .label(label)
+                                        .on_click(move |_, _, cx| {
+                                            view.update(cx, |view, _| {
+                                                view.interactive_request(
+                                                    "namespace.preview",
+                                                    json!({"handle":handle}),
+                                                );
+                                            });
+                                        }),
+                                )
+                            })
+                            .collect()
+                    })
+                    .track_scroll(&scroll)
+                    .h(rems((count as f32 * 2.0).min(18.0))),
+                );
                 if let Some(cursor) = value["cursor"].as_str() {
                     let cursor = cursor.to_owned();
                     list_card = list_card.child(

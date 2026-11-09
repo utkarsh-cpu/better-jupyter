@@ -10,6 +10,9 @@ pub(crate) const CAPTION_GUTTER: f32 = if cfg!(target_os = "windows") {
     8.
 };
 const LEFT_CAPTION_GUTTER: f32 = if cfg!(target_os = "macos") { 80. } else { 0. };
+// Includes the longest destination label (Checkpoints) and native button padding.
+// Keep the collapse budget and rendered geometry in sync across platform fonts.
+const DESTINATION_TAB_WIDTH: f32 = 112.;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HeaderCollapse {
@@ -26,7 +29,8 @@ pub(crate) struct HeaderCollapse {
 }
 
 // These are also applied to the rendered controls. The only flexible control
-// is the notebook identity, which receives all spare room up to 240 scaled px.
+// is the notebook identity, which receives spare room up to 360 scaled px
+// while leaving at least 64px for the native window drag region.
 pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> HeaderCollapse {
     let scale = if scale.is_finite() && scale > 0. {
         scale
@@ -64,9 +68,10 @@ pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> Head
         c.switcher_width += (width
             - CAPTION_GUTTER
             - LEFT_CAPTION_GUTTER
-            - header_used(width, scale, comfortable, c))
-        .max(0.)
-        .min(144. * scale);
+            - header_used(width, scale, comfortable, c)
+            - 56. * scale)
+            .max(0.)
+            .min(264. * scale);
     }
     c
 }
@@ -85,14 +90,14 @@ fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> 
     items.push(if c.navigation {
         128. * scale
     } else {
-        300. * scale
+        (DESTINATION_TAB_WIDTH * 3. + 12.) * scale
     });
     items.push(8. * scale); // Native window drag region.
     if !tight {
         items.push(button);
     }
     if !c.runtime {
-        items.push(116. * scale);
+        items.push(128. * scale);
     }
     items.push(if c.run_label { button } else { 92. * scale });
     if !c.export {
@@ -149,6 +154,16 @@ fn runtime_compact_word(connection_lost: bool, state: Option<&str>) -> &'static 
     match state {
         Some("running" | "busy" | "starting" | "queued" | "accepted" | "pending") => "Busy",
         _ => "Idle",
+    }
+}
+
+pub(crate) fn header_worker_label(connection_lost: bool, state: Option<&str>) -> String {
+    if connection_lost {
+        return "Disconnected".into();
+    }
+    match state {
+        Some("stopped") => "Stopped".into(),
+        _ => worker_label(state),
     }
 }
 
@@ -234,16 +249,16 @@ impl Workspace {
                 .width
                 / px(1.)
         };
-        let label = middle_ellipsis(
-            &name,
-            (collapse.switcher_width - 36. * scale).max(0.),
-            measure,
-        );
+        let shaped_width = (measure(&name) + 36. * scale)
+            .ceil()
+            .max(96. * scale)
+            .min(collapse.switcher_width);
+        let label = middle_ellipsis(&name, (shaped_width - 36. * scale).max(0.), measure);
         let notebooks = action_button("notebook-switcher")
             .debug_selector("notebook-switcher")
             .ghost()
             .small()
-            .w(px(collapse.switcher_width))
+            .w(px(shaped_width))
             .hint(format!("{path} \u{2014} switch or open notebook"))
             .accessibility_label(format!("Notebook switcher: {path}"))
             .dropdown_caret(true)
@@ -356,9 +371,11 @@ impl Workspace {
                             v.focus.focus(window, cx);
                         }
                     }));
-                button = button
-                    .label(surface)
-                    .w(px(if collapse.navigation { 116. } else { 96. } * scale));
+                button = button.label(surface).w(px(if collapse.navigation {
+                    116.
+                } else {
+                    DESTINATION_TAB_WIDTH
+                } * scale));
                 if collapse.navigation {
                     button = button.dropdown_caret(true);
                 }
@@ -381,16 +398,20 @@ impl Workspace {
             );
         }
         if let Some(tab) = self.tabs.get(self.active) {
-            let state = if tab.runtime["connection_lost"] == true {
+            let connection_lost = tab.runtime["connection_lost"] == true;
+            let worker_state = tab.runtime["worker_state"].as_str();
+            let state = if connection_lost {
                 "Connection lost".to_string()
             } else {
-                worker_label(tab.runtime["worker_state"].as_str())
+                worker_label(worker_state)
             };
+            let header_state = header_worker_label(connection_lost, worker_state);
             let mut runtime = action_button("runtime-menu")
                 .debug_selector("runtime-menu")
                 .ghost()
                 .small()
                 .accessibility_label(format!("Runtime: Python ({state})"))
+                .w(px(112. * scale))
                 .hint(format!("Python ({state}) \u{2014} runtime controls"))
                 .on_click(cx.listener(|v, _, window, cx| {
                     let open = !v.runtime_menu;
@@ -402,12 +423,11 @@ impl Workspace {
                     cx.notify();
                 }));
             if tight {
-                runtime = runtime.icon(Glyph::Cpu).label(runtime_compact_word(
-                    tab.runtime["connection_lost"] == true,
-                    tab.runtime["worker_state"].as_str(),
-                ));
+                runtime = runtime
+                    .icon(Glyph::Cpu)
+                    .label(runtime_compact_word(connection_lost, worker_state));
             } else {
-                runtime = runtime.label(state.clone()).dropdown_caret(true);
+                runtime = runtime.label(header_state).dropdown_caret(true);
             }
             let color = if tab.runtime["connection_lost"] == true {
                 cx.theme().danger
@@ -420,7 +440,7 @@ impl Workspace {
             if !collapse.runtime {
                 header = header.child(
                     h_flex()
-                        .w(px(116. * scale))
+                        .w(px(128. * scale))
                         .flex_none()
                         .pl_1()
                         .gap_1()

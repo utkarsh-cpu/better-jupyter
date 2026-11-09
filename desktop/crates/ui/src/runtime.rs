@@ -190,7 +190,7 @@ impl Workspace {
                             ),
                     ),
             );
-        } else if source_state != "ok" {
+        } else if !source_state.is_empty() && source_state != "ok" {
             banners = banners.child(banner(warning, Glyph::TriangleAlert).child(
                 div().text_sm().child(format!(
                     "Source state: {source_state} \u{2014} history remains available"
@@ -378,11 +378,13 @@ impl Workspace {
                 })
                 .child(status_rule(cx))
             })
-            .child(div().id("cell-count").role(Role::Label).aria_label(format!("{} cells", tab.model.order.len())).child(format!(
+            .child(div().id("cell-count").role(Role::Label).aria_label(if tab.model.source_state != "ok" && tab.model.order.is_empty() { "Cells unavailable".to_owned() } else { format!("{} cells", tab.model.order.len()) }).child(if tab.model.source_state != "ok" && tab.model.order.is_empty() {
+                "Cells unavailable".to_owned()
+            } else {format!(
                 "{} cell{}",
                 tab.model.order.len(),
                 if tab.model.order.len() == 1 { "" } else { "s" }
-            )))
+            )}))
             .child(status_rule(cx))
             .child(
                 h_flex()
@@ -413,7 +415,9 @@ impl Workspace {
             )
             .child(status_rule(cx))
             .child({
-                let save = if tab.model.cells.values().any(|c| matches!(c.save, SaveState::Failed | SaveState::Conflict)) {
+                let save = if tab.model.source_state != "ok" && tab.model.order.is_empty() {
+                    "Source not loaded"
+                } else if tab.model.cells.values().any(|c| matches!(c.save, SaveState::Failed | SaveState::Conflict)) {
                     "Edits retained \u{2014} save needs attention"
                 } else if tab.model.cells.values().any(|c| c.save != SaveState::Saved) { "Saving\u{2026}" } else { "Saved" };
                 div().id("save-status").role(Role::Label).aria_label(save).child(save)

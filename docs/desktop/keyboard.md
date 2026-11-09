@@ -1,5 +1,12 @@
 # Keyboard guide
 
+On macOS, application commands below use Command instead of Control (for example,
+Command+O/S/comma and Command+Shift+P). Run bindings retain Control+Enter and
+Control+Shift+Enter; Shift+Enter and Option+Enter also retain their notebook meaning.
+Existing Control application shortcuts remain aliases. In-app Help, menus, and
+tooltips display the platform's primary binding. Delete means forward Delete
+(Fn+Delete on compact Mac keyboards).
+
 Run shortcuts work in edit and command mode. Ctrl+Enter runs and keeps selection;
 Shift+Enter runs and selects the next cell; Alt+Enter runs and inserts a cell below.
 Plain Enter inserts a newline while editing. During IME composition, application
@@ -21,6 +28,7 @@ Additional workbench shortcuts:
 | Move selected cell up / down | Ctrl+Alt+Up / Ctrl+Alt+Down |
 | Delete selected cell (asks for confirmation) | Ctrl+Shift+Delete |
 | Create a namespace checkpoint | Ctrl+Shift+S |
+| Undo / redo cell structure in command mode | Ctrl+Z / Ctrl+Shift+Z |
 | Interrupt execution | Ctrl+Shift+I |
 | Export notebook | Ctrl+Shift+E |
 
@@ -41,8 +49,16 @@ Long cells paginate in PDF; Word content stays editable. Completion offers **Ope
 file** and **Show in folder**. Closing the save dialog cancels the export.
 
 The Kit editor supplies selection, indentation, undo/redo and cell search.
-Structural undo and shortcut rebinding are unavailable in this development build;
-deleting a cell asks for confirmation before changing source.
+Notebook source uses horizontal scrolling for long lines, keeping one visual row
+per source line as panels and windows resize.
+In command mode, Undo cell structure and Redo cell structure restore stable cell
+IDs, source, order, and attachments. In an editor, the same keys keep their text
+undo meaning. Structural undo is local to the notebook and survives reopening;
+it retains at most 20 operations and 16 MiB of patches, with a 4 MiB limit per
+operation. Larger changes clear structural undo history. Undo refuses to overwrite
+affected files changed since that operation; save or resolve edits first. A new
+source change clears redo. Deletion and merge still ask for confirmation.
+Shortcut rebinding remains unavailable.
 
 In Commands, type to filter, use Up/Down or Home/End to select, Enter to activate,
 and Escape to return focus. Unavailable runtime actions explain why. Sidebar and

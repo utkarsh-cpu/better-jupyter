@@ -89,44 +89,72 @@ fn checkpoint_entry(field: &str, index: usize, item: &Value, cx: &App) -> Div {
 impl Workspace {
     #[inline(never)]
     pub(super) fn checkpoint_page(&mut self, value: &Value, cx: &mut Context<Self>) -> AnyElement {
+        let is_detail = value.get("checkpoint_id").is_some();
+        let items = value["items"].as_array().cloned().unwrap_or_default();
+        let empty_loaded_list = !is_detail && !value.is_null() && items.is_empty();
+        let reason = action_reason("checkpoint", &self.tabs[self.active].runtime);
+        let create_button = |cx: &mut Context<Self>| {
+            action_button("create-checkpoint")
+                .primary()
+                .small()
+                .icon(Glyph::Plus)
+                .label("Create checkpoint")
+                .unavailable(reason.is_some())
+                .hint(reason.unwrap_or("Save supported values from the live namespace"))
+                .on_click(cx.listener(|v, _, window, cx| v.run_command("checkpoint", window, cx)))
+        };
         let mut body = v_flex().gap_4().child(
             h_flex()
                 .gap_3()
                 .items_center()
                 .child(page_heading("Checkpoints", "", cx))
-                .child(
-                    action_button("create-checkpoint")
-                        .primary()
-                        .small()
-                        .icon(Glyph::Plus)
-                        .label("Create checkpoint")
-                        .unavailable(
-                            action_reason("checkpoint", &self.tabs[self.active].runtime).is_some(),
-                        )
-                        .hint(
-                            action_reason("checkpoint", &self.tabs[self.active].runtime)
-                                .unwrap_or("Save supported values from the live namespace"),
-                        )
-                        .on_click(
-                            cx.listener(|v, _, window, cx| v.run_command("checkpoint", window, cx)),
-                        ),
-                ),
+                .when(!empty_loaded_list, |d| d.child(create_button(cx))),
         );
-        if value.get("checkpoint_id").is_some() {
+        if is_detail {
             body = body
                 .child(self.record_back(cx))
                 .child(self.checkpoint_report(value, cx));
         } else {
-            let items = value["items"].as_array().cloned().unwrap_or_default();
             if items.is_empty() {
-                body = body.child(empty_row(
-                    if value.is_null() {
-                        "Loading checkpoints\u{2026}"
-                    } else {
-                        "No checkpoints yet. Run your notebook, then create a checkpoint."
-                    },
-                    cx,
-                ));
+                if value.is_null() {
+                    body = body.child(empty_row("Loading checkpoints\u{2026}", cx));
+                } else {
+                    body = body.child(
+                        card(cx)
+                            .debug_selector(|| "checkpoints-empty-card".into())
+                            .max_w(rems(42.))
+                            .p_4()
+                            .gap_3()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .whitespace_normal()
+                                    .child(
+                                        "A checkpoint saves supported values from the live namespace after a run.",
+                                    ),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_3()
+                                    .flex_wrap()
+                                    .items_center()
+                                    .child(create_button(cx))
+                                    .when_some(reason, |d, reason| {
+                                        d.child(
+                                            div()
+                                                .id("checkpoint-empty-hint")
+                                                .debug_selector(|| "checkpoint-empty-hint".into())
+                                                .role(Role::Status)
+                                                .aria_label(reason)
+                                                .text_xs()
+                                                .text_color(cx.theme().muted_foreground)
+                                                .child(reason),
+                                        )
+                                    }),
+                            ),
+                    );
+                }
             }
             let mut rows = card(cx);
             for (i, item) in items.iter().enumerate() {
@@ -370,7 +398,7 @@ impl Workspace {
                             .text_xs()
                             .text_color(muted)
                             .whitespace_normal()
-                            .child("Count not reported by this checkpoint (unknown, not zero)"),
+                            .child(value["saved_values"].as_u64().map(|count| count.to_string()).unwrap_or_else(|| "Count not reported by this checkpoint (unknown, not zero)".into())),
                     ),
             );
         for (field, title, empty) in [

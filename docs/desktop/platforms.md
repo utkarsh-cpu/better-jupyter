@@ -37,7 +37,7 @@ Fontconfig supplies a fallback when those faces are missing.
 | --- | --- |
 | `DISPLAY` or Wayland session | Required for a native window |
 | `XDG_STATE_HOME` | Desktop profile root (`…/kernelledger/desktop`) |
-| `KL_RUNTIME_PYTHON` | Interpreter for the notebook worker/supervisor |
+| `KL_RUNTIME_PYTHON` | Explicit application Python/default supervisor; project execution interpreter can be selected separately |
 | `VK_ICD_FILENAMES` | Optional; set to lavapipe ICD for software Vulkan probes |
 | `LIBGL_ALWAYS_SOFTWARE` | Optional; force Mesa software GL |
 
@@ -67,6 +67,9 @@ macOS Apple Silicon builds are checked with Rust 1.99.0. macOS target inventory
 reports native NVIDIA/AMD process checkpointing as unsupported. Assistant secrets
 use Apple Keychain; PDF export uses macOS Arial and Courier New when available.
 The title bar reserves platform-specific caption space.
+The native UI uses the macOS system font and Menlo for source; Linux font names
+are not requested on macOS. See the [native design audit](reviews/gpui-design-audit-2026-11-08.md)
+and [refinement qualification](reviews/gpui-plan-implementation-2026-11-08.md) for the verified interactive subset and remaining platform gates.
 
 The macOS CI jobs run Python and Rust tests, build the native desktop and daemon,
 and exercise disposable notebook smoke and lifecycle tests. These checks do not

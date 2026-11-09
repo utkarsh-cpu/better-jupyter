@@ -125,16 +125,16 @@ limits; Windows and the local AMD WSL target have no supported native backend.
 
 These workflows are named here so Help does not present them as finished:
 
-- **Structural undo** is unavailable. Deleting a cell removes its source. Recorded executions stay in History.
+- **Structural undo** retains at most 20 operations and 16 MiB of patches (4 MiB per operation). Larger changes clear this history. Undo refuses to overwrite newer changes to affected files. Recorded executions stay in History independently.
 - **Checkpoint preflight** is not a verified compatibility report. Provenance, source, and environment counts stay labeled unknown until the service reports them.
-- **Large history** still uses the list cursor and filters. Search executions is not a bounded page of every recorded run.
+- **History search** examines at most 100 candidate runs per request. Free text searches recorded sources up to 1 MiB each; larger or unavailable sources are flagged. An empty page can have a Next page because later candidates have not been searched yet.
 - **NVDA and IME** are not qualified. Controls have keyboard names; a screen-reader and input-method pass is still required before release.
 
 ## About this build
 
 KernelLedger desktop 0.1.0. Runtime plan 5; frontend plan 4 baseline with the frontend v6 draft implementation under development; desktop protocol v1. This development build uses the configured Python environment rather than a bundled private distribution.
 
-Structural undo, multiple-cell selection, key rebinding, detached windows, and publish/pin are not available in this build. Inspect bundle reviews a portable bundle before import; `kl import` remains available for scripted imports. See the shipped keyboard guide, desktop README and platform qualification document in docs/desktop.
+Multiple-cell selection, key rebinding, detached windows, and publish/pin are not available in this build. Inspect bundle reviews a portable bundle before import; `kl import` remains available for scripted imports. See the shipped keyboard guide, desktop README and platform qualification document in docs/desktop.
 
 Minimum window: 800 x 600 logical pixels. Below 1,024 pixels the notebook outline becomes a drawer. The Outline button opens it. A manually collapsed outline stays collapsed when resizing. Settings offers interface sizes from 100% to 200%, independent editor text size, Compact or Comfortable spacing, outline width, and System, Light, Dark or High contrast appearance. Larger interface sizes also enlarge controls and spacing; scroll supporting pages to reach later settings. Activating a settings control below the window scrolls that group into view. Reduce motion starts from the system animation setting until you change it.
 
@@ -147,13 +147,13 @@ Use Notebook, History, and Checkpoints in the header. Select the notebook name t
 
 ## Edit cell structure
 
-Add cell in the toolbar offers Code, Markdown, or Raw. Each boundary has one insertion control, visible on hover or keyboard focus; the selected boundary and Comfortable spacing keep it visible. Select a cell and open More for Duplicate, Delete, Move up, and Move down. Commands also offers these actions, Split cell at cursor, and Merge with next cell. These require saved source with no unresolved conflicts; deletion and merge require confirmation, and merge requires matching cell types. Structural undo is not yet available. Recorded executions remain separate from current source. Markdown has Edit/Preview controls and no Run action.
+Add cell in the toolbar offers Code, Markdown, or Raw. Each boundary has one insertion control, visible on hover or keyboard focus; the selected boundary and Comfortable spacing keep it visible. Select a cell and open More for Duplicate, Delete, Move up, and Move down. Commands also offers these actions, Split cell at cursor, and Merge with next cell. These require saved source with no unresolved conflicts; deletion and merge require confirmation, and merge requires matching cell types. Undo cell structure and Redo cell structure are in Commands. Ctrl+Z / Ctrl+Shift+Z use structural undo in command mode; an editor retains its text undo. Save pending edits first. Undo preserves stable IDs and attachments and refuses affected files with newer changes. Recorded executions remain separate from current source. Markdown has Edit/Preview controls and no Run action.
 
 ## Inspect results and history
 
 Output tools reveals Copy, Find, Hide output, and display-size controls. A large recorded stream is shown one page at a time. Previous page and Next page read that byte range from the recorded blob; the rest of the stream stays on disk. Copy and Find use the page on screen. Display-size controls request a new range instead of only hiding already loaded text. Copy briefly acknowledges success. Show traceback appears beside the exception summary. Images offer fit and actual size. The decoded image cache drops figures that scrolled away and stays within its byte budget; Show again reloads a figure that was evicted. Tables offer a plain-text fallback. Cell attachments show a bounded text or image preview. Arbitrary HTML and scripts are not executed.
 
-History provides text search, outcome buttons, and Cell, Session, From, and Through fields. Dates use YYYY-MM-DD; Apply stays unavailable for invalid dates or a reversed range. Advanced cell:, session:, after:YYYY-MM-DD, and before:YYYY-MM-DD queries remain supported. Filters apply to loaded records; Search executions loads all recorded executions, which is not yet bounded for large histories. Next page follows the recorded list cursor; Back restores the previous page or list. Details show recorded source once. Changed source reveals a comparison; unchanged source can be compared on request. Return to cell returns to the notebook editor. Filters and list scroll belong to each notebook.
+History provides text search, outcome buttons, and Cell, Session, From, and Through fields. Dates use YYYY-MM-DD; Apply stays unavailable for invalid dates or a reversed range. Advanced cell:, session:, after:YYYY-MM-DD, and before:YYYY-MM-DD queries remain supported. Cell and Session match exact IDs. Apply requests a bounded page of at most 100 candidates; outcome, cell, session, and date filters run in the service. Free text searches supported source blobs up to 1 MiB per execution, returning a preview of at most 1 KiB. A notice identifies sources that could not be searched. An empty page can still offer Next page because later candidates have not been searched yet. Next page follows a stable row cursor; Back restores the previous page or list. Details show recorded source once. Changed source reveals a comparison; unchanged source can be compared on request. Return to cell returns to the notebook editor. Filters and list scroll belong to each notebook.
 
 `display(value, display_id='status')` gives an output a session-scoped ID.
 `update_display(value, 'status')` updates matching displays across cells in the
@@ -234,3 +234,11 @@ To opt in, start KernelLedger and its runtime with `KL_EXPERIMENTAL_INTERACTIVIT
 in the launching environment. Restart an already running runtime after changing
 that environment. Then use **Debug selected cell** in Commands. There is no
 Settings switch for this runtime capability. Breakpoints require saved source.
+
+## Recover notebook services
+
+Application Python loads notebook source and runs the application services. It is separate from the project interpreter used to execute cells. KernelLedger tries the active environment, nearby `.venv` environments, and Python on PATH. `KL_RUNTIME_PYTHON` explicitly overrides discovery.
+
+If notebook services cannot start, use Retry loading or Choose application Python. Select the environment folder (for example, `.venv`) or a Python executable with KernelLedger installed. On macOS, choose the folder for virtual environments so the file picker does not resolve the Python symlink out of that environment; a failed selection keeps any working services attached. Settings → Runtime also offers these controls. A successful selection is remembered for this desktop profile unless the environment override is set. Retrying does not resubmit executions. Technical error in Diagnostics retains the detailed startup failure.
+
+Assistant Settings shows Model, Base URL, provider save actions, and API key first. Advanced settings reveals coding model, request limits, schema, and inference options. Save configuration before using Test saved connection; that action tests the saved endpoint and model.

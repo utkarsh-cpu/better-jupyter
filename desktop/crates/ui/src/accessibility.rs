@@ -22,7 +22,7 @@ impl Workspace {
             empty_row("No matching commands", cx).into_any_element()
         } else {
             let view = cx.entity();
-            let height = (commands.len() as f32 * 3.0 + 0.75).min(16.);
+            let height = (commands.len() as f32 * 3.0 + 0.75).min(15.75);
             // Lay out only the viewport's rows; hidden commands need no text or icon layout.
             uniform_list("command-results", commands.len(), move |range, _, cx| {
                 view.update(cx, |view, cx| {
@@ -448,7 +448,14 @@ impl Workspace {
         }
         let destructive = matches!(
             method.as_str(),
-            "restart" | "stop" | "interrupt_kill" | "migrate" | "restore"
+            "restart"
+                | "stop"
+                | "interrupt_kill"
+                | "migrate"
+                | "restore"
+                | "delete"
+                | "merge"
+                | "training-restore"
         );
         let proceed = action_button("proceed").label(verb).unavailable(
             matches!(

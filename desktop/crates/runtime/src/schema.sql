@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS executions (
  exec_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(session_id),
  ordinal INTEGER NOT NULL, cell_id TEXT, source_sha256 TEXT NOT NULL, status TEXT NOT NULL,
  start TEXT NOT NULL, end TEXT, UNIQUE(session_id,ordinal));
+CREATE INDEX IF NOT EXISTS execution_status_page ON executions(status, start);
+CREATE INDEX IF NOT EXISTS execution_cell_page ON executions(cell_id, start);
 CREATE TABLE IF NOT EXISTS events (
  exec_id TEXT NOT NULL REFERENCES executions(exec_id), seq INTEGER NOT NULL,
  kind TEXT NOT NULL, timestamp TEXT NOT NULL, payload_json TEXT NOT NULL, blob_sha256 TEXT,

@@ -23,23 +23,23 @@ pub(crate) fn cell_spacing(comfortable: bool) -> CellSpacing {
         CellSpacing {
             header_min_h: 2.75,
             header_py: 2.,
-            source_top: 6.,
-            source_bottom: 6.,
-            output_py: 8.,
+            source_top: 8.,
+            source_bottom: 8.,
+            output_py: 10.,
             output_gap: 8.,
-            boundary: 28.,
-            boundary_last: 44.,
+            boundary: 48.,
+            boundary_last: 60.,
         }
     } else {
         CellSpacing {
             header_min_h: 1.75,
             header_py: 0.,
-            source_top: 2.,
-            source_bottom: 2.,
-            output_py: 4.,
+            source_top: 6.,
+            source_bottom: 6.,
+            output_py: 6.,
             output_gap: 6.,
-            boundary: 14.,
-            boundary_last: 32.,
+            boundary: 36.,
+            boundary_last: 48.,
         }
     }
 }
@@ -199,14 +199,20 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         serde_json::from_value(syntax).expect("Audited syntax styles deserialize");
     theme.highlight_theme = std::sync::Arc::new(highlight);
     // OS-native faces with documented platform defaults (live UX LD-01).
-    // Windows: Segoe UI / Consolas. Linux: Ubuntu / Ubuntu Mono (fonts-ubuntu
+    // Windows: Segoe UI / Consolas. macOS: system UI / Menlo.
+    // Linux: Ubuntu / Ubuntu Mono (fonts-ubuntu
     // on Ubuntu 24.04). Fontconfig falls back when a face is missing.
     #[cfg(windows)]
     {
         theme.font_family = "Segoe UI".into();
         theme.mono_font_family = "Consolas".into();
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        theme.font_family = ".SystemUIFont".into();
+        theme.mono_font_family = "Menlo".into();
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         theme.font_family = "Ubuntu".into();
         theme.mono_font_family = "Ubuntu Mono".into();

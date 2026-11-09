@@ -1,0 +1,58 @@
+[
+  {
+    "requested_logical": [
+      1280,
+      800
+    ],
+    "actual_position_size": "0, 32, 1280, 800"
+  },
+  {
+    "requested_logical": [
+      800,
+      600
+    ],
+    "actual_position_size": "0, 32, 800, 600"
+  },
+  {
+    "requested_logical": [
+      1280,
+      800
+    ],
+    "actual_position_size": "0, 32, 1280, 800"
+  },
+  {
+    "requested_logical": [
+      800,
+      600
+    ],
+    "actual_position_size": "0, 32, 800, 600"
+  },
+  {
+    "requested_logical": [
+      1024,
+      768
+    ],
+    "actual_position_size": "0, 32, 1024, 768"
+  },
+  {
+    "requested_logical": [
+      1280,
+      800
+    ],
+    "actual_position_size": "0, 32, 1280, 800"
+  },
+  {
+    "requested_logical": [
+      1440,
+      900
+    ],
+    "actual_position_size": "0, 32, 1440, 900"
+  },
+  {
+    "requested_logical": [
+      1920,
+      1080
+    ],
+    "actual_position_size": "0, 32, 1512, 950"
+  }
+]

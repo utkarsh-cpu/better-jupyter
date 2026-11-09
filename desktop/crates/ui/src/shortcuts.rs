@@ -1,6 +1,57 @@
 use super::*;
 
+#[derive(Clone, PartialEq, gpui::Action)]
+#[action(namespace = kernelledger, no_json)]
+pub(super) struct WorkbenchCommand {
+    pub method: String,
+}
+
+pub(super) fn bind_commands(cx: &mut App) {
+    for (method, _, keys) in SHORTCUTS {
+        for keys in [platform_binding(keys), (*keys).into()] {
+            cx.bind_keys([KeyBinding::new(
+                &keys,
+                WorkbenchCommand {
+                    method: (*method).into(),
+                },
+                Some("KernelLedger"),
+            )]);
+        }
+    }
+}
+
+/// Application commands follow the host platform; notebook execution keeps
+/// the established Control/Shift+Enter combinations on every platform.
+pub(super) fn platform_binding(keys: &str) -> std::borrow::Cow<'_, str> {
+    if cfg!(target_os = "macos") && keys.starts_with("ctrl-") && !keys.ends_with("enter") {
+        format!("cmd-{}", &keys[5..]).into()
+    } else {
+        keys.into()
+    }
+}
+
+pub(super) fn shortcut_text(text: &str) -> String {
+    if !cfg!(target_os = "macos") {
+        return text.to_owned();
+    }
+    let mut parts = text.split("Ctrl+");
+    let mut result = parts.next().unwrap_or_default().to_owned();
+    for part in parts {
+        result.push_str(
+            if part.starts_with("Enter") || part.starts_with("Shift+Enter") {
+                "Ctrl+"
+            } else {
+                "Cmd+"
+            },
+        );
+        result.push_str(part);
+    }
+    result
+}
+
 pub(super) const SHORTCUTS: &[(&str, &str, &str)] = &[
+    ("undo-source", "Undo cell structure", "ctrl-z"),
+    ("redo-source", "Redo cell structure", "ctrl-shift-z"),
     ("notebook", "Notebook", "ctrl-1"),
     ("history", "History", "ctrl-2"),
     ("checkpoints", "Checkpoints", "ctrl-3"),
@@ -44,12 +95,19 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> bool {
         let Some((method, ..)) = SHORTCUTS.iter().find(|(.., keys)| {
-            Keystroke::parse(keys).is_ok_and(|binding| {
-                binding.key == event.keystroke.key && binding.modifiers == event.keystroke.modifiers
+            // Keep the existing Control aliases for established workflows.
+            [platform_binding(keys), (*keys).into()].iter().any(|keys| {
+                Keystroke::parse(keys).is_ok_and(|binding| {
+                    binding.key.eq_ignore_ascii_case(&event.keystroke.key)
+                        && binding.modifiers == event.keystroke.modifiers
+                })
             })
         }) else {
             return false;
         };
+        if matches!(*method, "undo-source" | "redo-source") && !self.focus.is_focused(window) {
+            return false;
+        }
         if !event.is_held {
             self.run_command(method, window, cx);
         }

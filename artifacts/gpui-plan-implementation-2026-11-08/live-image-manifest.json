@@ -1,0 +1,366 @@
+[
+  {
+    "file": "live-01-helper-failure.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "7ce7cdb6b411901987ace15e06ae874faedcd791c22e7b955901b313b034d59e"
+  },
+  {
+    "file": "live-02-helper-recovered.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "99044456e02cff16eb2e2743567c4b511375681c952f45ef6276ae45c9be6690"
+  },
+  {
+    "file": "live-03-helper-remembered-after-restart.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "99044456e02cff16eb2e2743567c4b511375681c952f45ef6276ae45c9be6690"
+  },
+  {
+    "file": "live-04-provider-basic-800.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "6a34b67340d0363ada8d9cc67e160f5199dc41765539c95d2c27f9872a41bc76"
+  },
+  {
+    "file": "live-05-provider-advanced-toggle.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "2a36f63877247ee11682afb5e63295d10c19a8bdca3a25fff2a14ca190e41a82"
+  },
+  {
+    "file": "live-06-provider-advanced-expanded-800.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "b4104a14603b450c30a7034ca966f2c663cee1c0cb23ef2554bff794d8ac4864"
+  },
+  {
+    "file": "live-08-history-first-empty.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "1e9b02fcf21bba87495b4aa90af9acf33639d0621ddf5a1593e68a6daca8fbbc"
+  },
+  {
+    "file": "live-09-history-second-empty.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "364dd9e34b5b6a6c39a6084065d6ab60609cb83e4b56abe1642e091a26c02b83"
+  },
+  {
+    "file": "live-10-history-later-match.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "815802dbde570e54fb663cf55bd87138df0fdc525fa85e2955a10a024dfd28dc"
+  },
+  {
+    "file": "live-11-unicode-clipboard-editor.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "1f1a8d2ba26b0bb771df8c007f8b8adefc152d3a471236527fe26e4e2f50dac2"
+  },
+  {
+    "file": "live-12-native-structural-undo.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "99821db582c6a8983bc687523b541a3d805041252205ac4b65211a8206d39da9"
+  },
+  {
+    "file": "live-13-runtime-version-ready.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "25ed1e4ddc4b085f19d4d5e26f83055bffbfec48e020395ef6098f7ccaebfdf8"
+  },
+  {
+    "file": "live-14-destructive-confirmation.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "55ed3816ba92416d9c366f308a1ed2fd5ce5c131c5650045d7f341cf8fbadcb4"
+  },
+  {
+    "file": "live-15-modal-tab-focus.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "1c8e02fcbe3daa28670ffd82aaf35015ef6a59f0da4eb93ba5d588a73b876630"
+  },
+  {
+    "file": "live-16-invalid-python-keeps-worker.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "2df9f5adf265968abae07e8416abe9a2ec12a31dda492a1bd7834ce6b392e0a6"
+  },
+  {
+    "file": "live-17-retained-worker-checkpoint.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "f3d13a920571121a2bec9211961df8481ecf93af2eeab43029571a6a2a25c7cb"
+  },
+  {
+    "file": "live-18-short-cell-after-text-undo-fixed.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "f160e61cffd6c111a8bd589f7e0241058775cea7596702e06fa63adfe2cfddb3"
+  },
+  {
+    "file": "live-19-settings-200-percent.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "1268e24f9f4fa3fae86452ef1f360c7b93c6e4583e45acbb8b780adac0e44a4c"
+  },
+  {
+    "file": "live-20-settings-200-percent-scrolled.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "bff70f7b0950ceae7fb0e071a21b4bc14ccda95825028faeb242e66d41f27c59"
+  },
+  {
+    "file": "live-21-invalid-replacement-clear-feedback.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "451d5f5acc4253c4bde50b607daea132ae174b2908913bc1d663c8f83badaf64"
+  },
+  {
+    "file": "live-size-1024x768.png",
+    "physical_pixels": [
+      2048,
+      1536
+    ],
+    "logical_size": [
+      1024,
+      768
+    ],
+    "backing_scale": 2,
+    "sha256": "48f331908734b026d96b150239d5ef9036faadb0ac2e4c9f29e4cba0c5225116"
+  },
+  {
+    "file": "live-size-1280x800.png",
+    "physical_pixels": [
+      2560,
+      1600
+    ],
+    "logical_size": [
+      1280,
+      800
+    ],
+    "backing_scale": 2,
+    "sha256": "81f21ff50b1c52c52f5df9c5f6d1594981c7352c2da37496a65950fcf3e6e419"
+  },
+  {
+    "file": "live-size-1440x900.png",
+    "physical_pixels": [
+      2880,
+      1800
+    ],
+    "logical_size": [
+      1440,
+      900
+    ],
+    "backing_scale": 2,
+    "sha256": "281ad42890bcf83938a00627a72b45fe5f42e72c2926eb5a6bc2129b0ced9c10"
+  },
+  {
+    "file": "live-size-1920x1080.png",
+    "physical_pixels": [
+      3024,
+      1900
+    ],
+    "logical_size": [
+      1512,
+      950
+    ],
+    "backing_scale": 2,
+    "sha256": "61c0ee90e2c4332decd02f3b438e35e8a01117aadd9c7b9c0197dd946e3a1b2b"
+  },
+  {
+    "file": "live-size-800x600.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "c61d2d6016620816bb293c977518ac335add378437dc5f88d37075806d57aaad"
+  },
+  {
+    "file": "live-theme-contrast-800.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "7c95939d552ac20ff0fcd0eda823782017c668ec04c30615303ca569778b8527"
+  },
+  {
+    "file": "live-theme-dark-800.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "c61d2d6016620816bb293c977518ac335add378437dc5f88d37075806d57aaad"
+  },
+  {
+    "file": "live-theme-light-800.png",
+    "physical_pixels": [
+      1600,
+      1200
+    ],
+    "logical_size": [
+      800,
+      600
+    ],
+    "backing_scale": 2,
+    "sha256": "bb693e8cd9670c21c8ffb060155d4d9c70f169f97b777e05fb1a7a8410e89fcf"
+  }
+]

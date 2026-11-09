@@ -18,6 +18,7 @@ mod shell;
 mod shortcuts;
 use shortcuts::command_shortcut;
 mod surfaces;
+mod welcome;
 use components::*;
 mod theme;
 use theme::*;
@@ -97,341 +98,8 @@ const SURFACES: [(&str, Glyph, &str); 10] = [
         "Appearance and interpreter preferences",
     ),
 ];
-const COMMANDS: [(&str, &str, &str, Glyph); 54] = [
-    (
-        "debugger",
-        "Debugger",
-        "Return to the paused stack and stepping controls",
-        Glyph::Code,
-    ),
-    (
-        "load-source",
-        "Load source file…",
-        "Preview a local Python file before inserting a new cell",
-        Glyph::FileText,
-    ),
-    (
-        "toggle-breakpoint",
-        "Toggle breakpoint at caret",
-        "Bind a line breakpoint to this saved source revision",
-        Glyph::Flag,
-    ),
-    (
-        "debug-cell",
-        "Debug selected cell",
-        "Run accepted source with local stepping enabled",
-        Glyph::Code,
-    ),
-    (
-        "variables",
-        "Variables",
-        "Inspect passive live namespace metadata",
-        Glyph::Code,
-    ),
-    (
-        "console",
-        "Console",
-        "Use the same notebook worker and execution queue",
-        Glyph::Code,
-    ),
-    (
-        "ai-explain",
-        "Explain cell error",
-        "Prepare recorded error context for review",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-edit",
-        "Suggest cell edit",
-        "Propose a revision-checked source edit",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-refactor",
-        "Refactor cell",
-        "Propose a cleaner cell refactoring with base source revision",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-document",
-        "Document this cell",
-        "Propose documentation for the selected cell",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-tests",
-        "Generate tests for cell",
-        "Propose a verification test cell",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-summary",
-        "Resume-work summary",
-        "Summarize notebook state with evidence",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-repro",
-        "Reproducibility review",
-        "Audit stale cells, execution order, and checkpoints",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-report",
-        "Generate notebook report",
-        "Draft a publication-ready narrative with recorded evidence",
-        Glyph::Sparkles,
-    ),
-    (
-        "ai-environment",
-        "Explain environment",
-        "Review interpreter and GPU reports",
-        Glyph::Sparkles,
-    ),
-    (
-        "assistant",
-        "Ask assistant",
-        "Review notebook context and ask a configured model",
-        Glyph::Sparkles,
-    ),
-    (
-        "notebook",
-        "Notebook",
-        "Return to notebook cells",
-        Glyph::NotebookPen,
-    ),
-    (
-        "history",
-        "History",
-        "Browse recorded executions",
-        Glyph::Clock,
-    ),
-    (
-        "find-cells",
-        "Find notebook cells",
-        "Search source in the notebook outline",
-        Glyph::Search,
-    ),
-    (
-        "export-menu",
-        "Export notebook\u{2026}",
-        "Choose PDF, Word, Jupyter, or a portable bundle",
-        Glyph::FileText,
-    ),
-    (
-        "export-pdf",
-        "Export PDF\u{2026}",
-        "Save source and recorded outputs as a paginated document",
-        Glyph::FileText,
-    ),
-    (
-        "export-docx",
-        "Export Word document\u{2026}",
-        "Save source and recorded outputs as an editable .docx document",
-        Glyph::FileText,
-    ),
-    (
-        "open",
-        "Open notebook\u{2026}",
-        "Choose a notebook directory",
-        Glyph::FolderOpen,
-    ),
-    (
-        "run-all",
-        "Run all cells",
-        "Execute every code cell in order",
-        Glyph::Play,
-    ),
-    (
-        "above",
-        "Run above",
-        "Run code cells above the selection",
-        Glyph::ChevronsUp,
-    ),
-    (
-        "below",
-        "Run below",
-        "Run code cells below the selection",
-        Glyph::ChevronsDown,
-    ),
-    (
-        "split-cell",
-        "Split cell at cursor",
-        "Split saved source at the editor cursor",
-        Glyph::FileText,
-    ),
-    (
-        "merge-cell",
-        "Merge with next cell",
-        "Combine adjacent cells of the same type",
-        Glyph::FileText,
-    ),
-    (
-        "checkpoint",
-        "Checkpoint",
-        "Snapshot the live namespace",
-        Glyph::BookmarkPlus,
-    ),
-    (
-        "interrupt",
-        "Interrupt",
-        "Interrupt the running cell",
-        Glyph::Square,
-    ),
-    (
-        "checkpoints",
-        "Checkpoints",
-        "Inspect saved state",
-        Glyph::Flag,
-    ),
-    (
-        "outline",
-        "Toggle notebook sidebar",
-        "Show or hide cell navigation",
-        Glyph::BookOpen,
-    ),
-    (
-        "settings",
-        "Settings",
-        "Appearance and interpreter",
-        Glyph::Settings,
-    ),
-    (
-        "help",
-        "Help and shortcuts",
-        "Keyboard guide, glossary and About",
-        Glyph::Info,
-    ),
-    (
-        "runtimes",
-        "All runtimes",
-        "Manage notebook runtimes",
-        Glyph::Cpu,
-    ),
-    (
-        "diagnostics",
-        "Diagnostics",
-        "Recovery and technical details",
-        Glyph::Stethoscope,
-    ),
-    (
-        "export-ipynb",
-        "Export Jupyter notebook\u{2026}",
-        "Save current source as a Jupyter notebook",
-        Glyph::FileText,
-    ),
-    (
-        "export-bundle",
-        "Export bundle\u{2026}",
-        "Save source and recorded history in a portable bundle",
-        Glyph::Database,
-    ),
-    (
-        "inspect-bundle",
-        "Inspect bundle\u{2026}",
-        "Review a portable bundle without running it or replacing source",
-        Glyph::Database,
-    ),
-    (
-        "restart",
-        "Restart empty",
-        "Discard the live namespace",
-        Glyph::RotateCcw,
-    ),
-    (
-        "stop",
-        "Stop runtime",
-        "Stop computation and shut the worker down",
-        Glyph::Power,
-    ),
-    (
-        "interrupt_kill",
-        "Terminate worker\u{2026}",
-        "Force-stop an unresponsive worker; live variables are lost",
-        Glyph::OctagonX,
-    ),
-    (
-        "training-checkpoint",
-        "Training checkpoint (Experimental)",
-        "Save registered training state at an idle safe point",
-        Glyph::BookmarkPlus,
-    ),
-    (
-        "training-list",
-        "Training snapshots",
-        "Inspect saved training state without executing source",
-        Glyph::Flag,
-    ),
-    (
-        "native-status",
-        "Native snapshot availability",
-        "Inspect native process capture capability",
-        Glyph::Cpu,
-    ),
-    (
-        "gc",
-        "Preview garbage collection",
-        "Dry run; nothing is deleted",
-        Glyph::Trash,
-    ),
-    (
-        "run-selected",
-        "Run selected cell",
-        "Execute the selected code cell",
-        Glyph::Play,
-    ),
-    (
-        "add-code",
-        "Add code cell",
-        "Insert code after the selection",
-        Glyph::Plus,
-    ),
-    (
-        "add-markdown",
-        "Add Markdown cell",
-        "Insert prose after the selection",
-        Glyph::Plus,
-    ),
-    (
-        "add-raw",
-        "Add Raw cell",
-        "Insert plain source after the selection",
-        Glyph::Plus,
-    ),
-    (
-        "duplicate-cell",
-        "Duplicate cell",
-        "Copy the selected cell",
-        Glyph::FileText,
-    ),
-    (
-        "delete-cell",
-        "Delete cell...",
-        "Confirm removal of the selected cell",
-        Glyph::Trash,
-    ),
-    (
-        "move-up",
-        "Move cell up",
-        "Move the selected cell one place earlier",
-        Glyph::ChevronsUp,
-    ),
-    (
-        "move-down",
-        "Move cell down",
-        "Move the selected cell one place later",
-        Glyph::ChevronsDown,
-    ),
-];
-
-/// Per-cell assistant actions, grouped behind the cell menu's Assistant entry.
-const CELL_ASSISTANT_ACTIONS: [(&str, &str); 5] = [
-    ("assistant", "Ask about this cell"),
-    ("ai-edit", "Suggest edit"),
-    ("ai-refactor", "Refactor cell"),
-    ("ai-document", "Document"),
-    ("ai-tests", "Generate tests"),
-];
+mod commands;
+use commands::*;
 
 struct Tab {
     assistant: assistant::AssistantView,
@@ -458,6 +126,7 @@ struct Tab {
     checkpoint_notice: Option<String>,
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
+    variables_scroll: UniformListScrollHandle,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
@@ -521,6 +190,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        shortcuts::bind_commands(cx);
         cx.bind_keys([
             KeyBinding::new("ctrl-s", Save, Some("KernelLedger")),
             KeyBinding::new("ctrl-enter", RunCell, Some("KernelLedger")),
@@ -529,6 +199,12 @@ impl Workspace {
             KeyBinding::new("ctrl-shift-p", Palette, Some("KernelLedger")),
             KeyBinding::new("ctrl-o", OpenNotebook, Some("KernelLedger")),
             KeyBinding::new("escape", CommandMode, Some("KernelLedger")),
+        ]);
+        #[cfg(target_os = "macos")]
+        cx.bind_keys([
+            KeyBinding::new("cmd-s", Save, Some("KernelLedger")),
+            KeyBinding::new("cmd-shift-p", Palette, Some("KernelLedger")),
+            KeyBinding::new("cmd-o", OpenNotebook, Some("KernelLedger")),
         ]);
         let follow_system = appearance == "system";
         let dark = if follow_system {
@@ -570,7 +246,18 @@ impl Workspace {
             tick: Task::ready(()),
             python: std::env::var_os("KL_RUNTIME_PYTHON")
                 .map(PathBuf::from)
-                .unwrap_or_else(|| "python".into()),
+                .or_else(|| {
+                    (!cfg!(test))
+                        .then(|| {
+                            std::fs::read_to_string(
+                                kernelledger_client::profile_path().join("helper-python.txt"),
+                            )
+                            .ok()
+                        })
+                        .flatten()
+                        .map(|p| PathBuf::from(p.trim()))
+                })
+                .unwrap_or_default(),
             dark,
             high_contrast,
             confirmation: None,
@@ -657,6 +344,9 @@ impl Workspace {
                 }
             }
         });
+        // Application keybindings need a focused descendant from the first
+        // frame, before a pointer click has focused a button or cell editor.
+        view.focus.focus(window, cx);
         view
     }
     fn open(&mut self, project: PathBuf, cx: &mut Context<Self>) {
@@ -691,6 +381,7 @@ impl Workspace {
             checkpoint_notice: None,
             error: None,
             attachment_pages: BTreeMap::new(),
+            variables_scroll: UniformListScrollHandle::default(),
         });
         self.active = self.tabs.len() - 1;
         cx.notify();
@@ -706,13 +397,23 @@ impl Workspace {
             fields,
         });
     }
-    fn inspect(&self, method: &str, fields: Value) {
+    fn inspect(&self, method: &str, mut fields: Value) {
+        if method == "executions.list" && fields.get("query").is_none() {
+            fields["query"] = json!(
+                self.tabs
+                    .get(self.active)
+                    .map(|tab| tab.history_applied.as_str())
+                    .unwrap_or("")
+            );
+            fields["page_size"] = json!(100);
+        }
         self.send(Command::Inspect {
             method: method.into(),
             fields,
         });
     }
     fn open_dialog(&mut self, _: &OpenNotebook, window: &mut Window, cx: &mut Context<Self>) {
+        let focus = window.focused(cx).unwrap_or_else(|| self.focus.clone());
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -720,7 +421,9 @@ impl Workspace {
             prompt: Some("Open notebook directory".into()),
         });
         cx.spawn_in(window, async move |view, window| {
-            if let Ok(Ok(Some(paths))) = paths.await
+            let selected = paths.await;
+            let _ = view.update_in(window, |_, window, cx| focus.focus(window, cx));
+            if let Ok(Ok(Some(paths))) = selected
                 && let Some(path) = paths.into_iter().next()
             {
                 let _ = view.update_in(window, |view, _, cx| view.open(path, cx));
@@ -1057,6 +760,10 @@ impl Workspace {
                         }
                     }
                     Event::Source(snapshot) => {
+                        if let Some(history) = snapshot.get("history") {
+                            tab.inspections
+                                .insert("Source history".into(), history.clone());
+                        }
                         if let Ok(snapshot) = serde_json::from_value::<SourceSnapshot>(snapshot) {
                             tab.uninitialized = snapshot.state == "missing"
                                 && !snapshot.details.contains_key("manifest");
@@ -1102,6 +809,10 @@ impl Workspace {
                         submitted,
                         snapshot,
                     } => {
+                        if let Some(history) = snapshot.get("history") {
+                            tab.inspections
+                                .insert("Source history".into(), history.clone());
+                        }
                         if let Ok(snapshot) = serde_json::from_value::<SourceSnapshot>(snapshot) {
                             tab.model.manifest_revision = snapshot.manifest_revision;
                             if let Some(source) =
@@ -1178,6 +889,31 @@ impl Workspace {
                         }
                     }
                     Event::Inspection { method, value } => {
+                        if method == "helper.status" {
+                            tab.error = None;
+                            tab.inspections.remove("Technical error");
+                            if !cfg!(test)
+                                && !self.python.as_os_str().is_empty()
+                                && value["python"]
+                                    .as_str()
+                                    .is_some_and(|p| std::path::Path::new(p) == self.python)
+                                && std::env::var_os("KL_RUNTIME_PYTHON").is_none()
+                            {
+                                let python = self.python.clone();
+                                cx.background_executor()
+                                    .spawn(async move {
+                                        let profile = kernelledger_client::profile_path();
+                                        std::fs::create_dir_all(&profile)?;
+                                        std::fs::write(
+                                            profile.join("helper-python.txt"),
+                                            python.to_string_lossy().as_bytes(),
+                                        )
+                                    })
+                                    .detach();
+                            }
+                            tab.inspections.insert("Application Python".into(), value);
+                            continue;
+                        }
                         if method == "source.execution" {
                             tab.inspections.insert("Recorded source".into(), value);
                             if event_tab == self.active {
@@ -1262,12 +998,17 @@ impl Workspace {
                         let surface = inspection_surface(&method).to_string();
                         if (matches!(
                             method.as_str(),
-                            "executions.list"
-                                | "execution.get"
-                                | "checkpoint.get"
-                                | "training.inspect"
-                        ) || (matches!(surface.as_str(), "History" | "Checkpoints")
-                            && !value["_page_request"]["cursor"].is_null()))
+                            "execution.get" | "checkpoint.get" | "training.inspect"
+                        ) || (method == "executions.list"
+                            && tab
+                                .inspection_method
+                                .get(&surface)
+                                .is_some_and(|previous| previous != &method))
+                            || (matches!(surface.as_str(), "History" | "Checkpoints")
+                                && !value["_page_request"]["cursor"].is_null()
+                                && tab.inspections.get(&surface).is_some_and(|previous| {
+                                    previous["_page_request"] != value["_page_request"]
+                                })))
                             && let Some(previous) = tab.inspections.get(&surface)
                         {
                             let scroll = tab.scrolls.get(&surface).cloned().unwrap_or_default();
@@ -1400,7 +1141,22 @@ impl Workspace {
                             "Technical error".into(),
                             json!({"code":code,"message":message}),
                         );
-                        tab.error = Some(error_message(&code).into());
+                        tab.error = Some(
+                            if code == "helper_startup" || code == "helper_validation" {
+                                let detail = message
+                                    .lines()
+                                    .find(|line| line.contains("No module named"))
+                                    .unwrap_or("Choose a Python environment with KernelLedger installed, then retry.");
+                                let status = if code == "helper_validation" {
+                                    "Selected Python could not load notebook services; the current connection is unchanged."
+                                } else {
+                                    "Notebook services could not start."
+                                };
+                                format!("{status} {}", bounded(detail, 300))
+                            } else {
+                                error_message(&code).into()
+                            },
+                        );
                     }
                 }
             }
@@ -1498,841 +1254,65 @@ impl Workspace {
             .unwrap_or("unavailable (no helper attached)");
         build_info(version)
     }
-    fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        // Intercept before the editor's Enter/newline action. Never consume an IME commit.
-        let composing = self
-            .tabs
-            .get(self.active)
-            .and_then(|t| t.model.selected.as_ref().and_then(|id| t.editors.get(id)))
-            .cloned()
-            .is_some_and(|editor| {
-                editor.update(cx, |s, cx| s.marked_text_range(window, cx).is_some())
-            });
-        if composing {
-            if event.keystroke.modifiers.control
-                || event.keystroke.modifiers.alt
-                || event.keystroke.modifiers.shift
-                || event.keystroke.key == "f1"
-            {
-                cx.stop_propagation();
-            }
+    fn retry_application_python(&mut self, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get_mut(self.active) else {
             return;
-        }
-        let key = event.keystroke.key.as_str();
-        let m = event.keystroke.modifiers;
-        if self.app_menu
-            || self.export_menu
-            || self.runtime_menu
-            || self.notebook_menu
-            || self.cell_menu.is_some()
-            || self.insert_menu.is_some()
-        {
-            if key == "escape" {
-                self.close_menu(window, cx);
-            } else if self.cell_menu.is_some() && matches!(key, "left" | "right") {
-                self.cell_menu_assistant = key == "right";
-                self.dialog_focus.focus(window, cx);
-                cx.notify();
-            } else if key == "tab" {
-                if m.shift {
-                    window.focus_prev(cx);
-                } else {
-                    window.focus_next(cx);
-                }
-                if !self.dialog_focus.contains_focused(window, cx) {
-                    self.dialog_focus.focus(window, cx);
-                }
-            } else {
-                if m.control || m.alt || key == "f1" {
-                    cx.stop_propagation();
-                }
-                return;
-            }
-            cx.stop_propagation();
-            return;
-        }
-        if self.confirmation.is_some() {
-            if key == "enter" && self.confirm_focus.is_focused(window) {
-                self.command_mode(&CommandMode, window, cx);
-                cx.stop_propagation();
-                return;
-            }
-            if key == "escape" {
-                self.command_mode(&CommandMode, window, cx);
-            } else if key == "tab" {
-                if m.shift {
-                    window.focus_prev(cx);
-                } else {
-                    window.focus_next(cx);
-                }
-                if !self.dialog_focus.contains_focused(window, cx) {
-                    self.confirm_focus.focus(window, cx);
-                }
-            } else {
-                if m.control || m.alt || key == "f1" {
-                    cx.stop_propagation();
-                }
-                return;
-            }
-            cx.stop_propagation();
-            return;
-        }
-        if self.palette {
-            let matches = COMMANDS
-                .iter()
-                .filter(|(_, label, description, _)| {
-                    label.to_lowercase().contains(&self.palette_filter)
-                        || description.to_lowercase().contains(&self.palette_filter)
-                })
-                .collect::<Vec<_>>();
-            match key {
-                "down" => {
-                    self.palette_active =
-                        (self.palette_active + 1).min(matches.len().saturating_sub(1))
-                }
-                "up" => self.palette_active = self.palette_active.saturating_sub(1),
-                "home" => self.palette_active = 0,
-                "end" => self.palette_active = matches.len().saturating_sub(1),
-                "enter" => {
-                    if let Some((method, ..)) = matches.get(self.palette_active) {
-                        self.run_command(method, window, cx);
-                    }
-                }
-                "escape" => {
-                    self.palette = false;
-                    if let Some(focus) = self.return_focus.take() {
-                        focus.focus(window, cx);
-                    }
-                }
-                _ => return,
-            }
-            if matches!(key, "down" | "up" | "home" | "end") {
-                // Reveal keyboard selections without undoing manual scrolling on redraw.
-                self.palette_scroll
-                    .scroll_to_item(self.palette_active, ScrollStrategy::Nearest);
-            }
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
-        // Dismiss before the editor's Escape action propagates to CommandMode.
-        // The popup may already be closed by the time that parent action runs.
-        if key == "escape"
-            && !m.control
-            && !m.alt
-            && !m.shift
-            && !m.platform
-            && self.surface == "Notebook"
-            && self.tabs.get(self.active).is_some_and(|tab| {
-                tab.model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.editors.get(id))
-                    .is_some_and(|editor| {
-                        let editor = editor.read(cx);
-                        editor.focus_handle(cx).is_focused(window)
-                            && (editor.completion_menu_state().open
-                                || editor.hover_popover().is_some())
-                    })
-            })
-        {
-            self.command_mode(&CommandMode, window, cx);
-            cx.stop_propagation();
-            return;
-        }
-        if self.project_shortcut(event, window, cx) {
-            return;
-        }
-        if key == "f1" {
-            self.surface = "Help".into();
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
-        if key == "left" && m.alt {
-            self.back();
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
-        if self.surface != "Notebook" {
-            if matches!(key, "up" | "down" | "home" | "end" | "enter")
-                && self.focus.is_focused(window)
-            {
-                let items = self
-                    .tabs
-                    .get(self.active)
-                    .and_then(|t| t.inspections.get(&self.surface))
-                    .and_then(|v| v["items"].as_array())
-                    .cloned()
-                    .unwrap_or_default();
-                let items = items
-                    .into_iter()
-                    .filter(|item| {
-                        self.surface != "History"
-                            || history_matches(
-                                item,
-                                &self.tabs[self.active].history_applied.to_lowercase(),
-                                &self.tabs[self.active].model,
-                            )
-                    })
-                    .collect::<Vec<_>>();
-                match key {
-                    "down" => {
-                        self.record_active =
-                            (self.record_active + 1).min(items.len().saturating_sub(1))
-                    }
-                    "up" => self.record_active = self.record_active.saturating_sub(1),
-                    "home" => self.record_active = 0,
-                    "end" => self.record_active = items.len().saturating_sub(1),
-                    "enter" => {
-                        if let Some(item) = items.get(self.record_active) {
-                            if let Some(id) = item["exec_id"].as_str() {
-                                self.inspect("execution.get", json!({"exec_id":id}));
-                            } else if let Some(id) = item["checkpoint_id"].as_str() {
-                                self.inspect("checkpoint.get", json!({"checkpoint_id":id}));
-                            } else if let Some(id) = item["snapshot"].as_str() {
-                                self.inspect("training.inspect", json!({"snapshot":id}));
-                            } else if let Some(id) = item["session_id"].as_str() {
-                                self.inspect("executions.list", json!({"session_id":id}));
-                            } else if let Some(path) = item["project_path"].as_str() {
-                                self.open(PathBuf::from(path), cx);
-                                self.surface = "Notebook".into();
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                cx.stop_propagation();
-                cx.notify();
-            }
-            return;
-        }
-        if self.sidebar_focus.contains_focused(window, cx) {
-            let tab = &mut self.tabs[self.active];
-            let query = self.query.read(cx).value().to_lowercase();
-            let ids = tab
-                .model
-                .order
-                .iter()
-                .filter(|id| tab.model.cells[*id].text.to_lowercase().contains(&query))
-                .cloned()
-                .collect::<Vec<_>>();
-            let mut index = ids
-                .iter()
-                .position(|id| Some(id) == tab.model.selected.as_ref())
-                .unwrap_or(0);
-            match key {
-                "up" => index = index.saturating_sub(1),
-                "down" => index = (index + 1).min(ids.len().saturating_sub(1)),
-                "home" => index = 0,
-                "end" => index = ids.len().saturating_sub(1),
-                "enter" => {
-                    tab.reveal = ids.get(index).cloned();
-                    self.focus.focus(window, cx);
-                }
-                _ => return,
-            }
-            if let Some(id) = ids.get(index) {
-                tab.model.selected = Some(id.clone());
-            }
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
-        if key == "enter"
-            && !m.control
-            && !m.shift
-            && !m.alt
-            && let Some(tab) = self.tabs.get_mut(self.active)
-            && tab.model.mode == Mode::Command
-            && !tab
-                .model
-                .selected
-                .as_ref()
-                .and_then(|id| tab.editors.get(id))
-                .is_some_and(|editor| editor.read(cx).focus_handle(cx).is_focused(window))
-        {
-            tab.reveal = tab.model.selected.clone();
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
-        if key == "enter" && (m.control || m.shift || m.alt) && !m.platform {
-            if event.is_held {
-                cx.stop_propagation();
-                return;
-            }
-            if m.control && m.shift {
-                self.batch("all");
-                cx.stop_propagation();
-                return;
-            }
-            self.run(&RunCell, window, cx);
-            if m.alt {
-                let index = self
-                    .tabs
-                    .get(self.active)
-                    .and_then(|t| {
-                        t.model
-                            .selected
-                            .as_ref()
-                            .and_then(|id| t.model.order.iter().position(|c| c == id))
-                    })
-                    .unwrap_or(0)
-                    + 1;
-                self.mutate(json!({"action":"add","type":"code","index":index}));
-            } else if m.shift
-                && !m.control
-                && let Some(tab) = self.tabs.get_mut(self.active)
-                && let Some(index) = tab
-                    .model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
-                && let Some(next) = tab.model.order.get(index + 1)
-            {
-                tab.reveal = Some(next.clone());
-            }
-            cx.stop_propagation();
-            cx.notify();
-        }
-    }
-    fn save(&mut self, _: &Save, _: &mut Window, _: &mut Context<Self>) {
-        self.send(Command::Save);
-    }
-    fn run(&mut self, _: &RunCell, _: &mut Window, _: &mut Context<Self>) {
-        if self.surface != "Notebook" {
-            return;
-        }
-        if let Some(id) = self
-            .tabs
-            .get(self.active)
-            .and_then(|t| t.model.selected.clone())
-        {
-            if self.tabs[self.active].model.cells[&id].disk.kind != "code" {
-                return;
-            }
-            self.send(Command::Run {
-                cell_ids: vec![id],
-                on_error: "stop".into(),
-            });
-        }
-    }
-    fn all(&mut self, _: &RunAll, _: &mut Window, _: &mut Context<Self>) {
-        if self.surface != "Notebook" {
-            return;
-        }
-        self.batch("all");
-    }
-    fn batch(&self, scope: &str) {
-        if let Some(tab) = self.tabs.get(self.active) {
-            let selected = tab
-                .model
-                .selected
-                .as_ref()
-                .and_then(|id| tab.model.order.iter().position(|c| c == id))
-                .unwrap_or(0);
-            let ids = tab
-                .model
-                .order
-                .iter()
-                .enumerate()
-                .filter(|(i, id)| {
-                    tab.model.cells[*id].disk.kind == "code"
-                        && match scope {
-                            "above" => *i < selected,
-                            "below" => *i > selected,
-                            _ => true,
-                        }
-                })
-                .map(|(_, id)| id.clone())
-                .collect();
-            self.send(Command::Run {
-                cell_ids: ids,
-                on_error: "stop".into(),
-            });
-        }
-    }
-    fn palette(&mut self, _: &Palette, window: &mut Window, cx: &mut Context<Self>) {
-        self.return_focus = window.focused(cx);
-        self.palette_active = 0;
-        self.palette = !self.palette;
-        if self.palette {
-            self.palette_scroll.scroll_to_item(0, ScrollStrategy::Top);
-            self.palette_query.update(cx, |s, cx| {
-                s.set_value("", window, cx);
-                s.focus(window, cx);
-            });
-        } else {
-            self.focus.focus(window, cx);
-        }
-        cx.notify();
-    }
-    fn command_mode(&mut self, _: &CommandMode, window: &mut Window, cx: &mut Context<Self>) {
-        if self.surface == "Console" && !self.palette && self.confirmation.is_none() {
-            let editor = self.console_editor(window, cx);
-            editor.update(cx, |editor, cx| {
-                editor.dismiss_lsp_overlays(cx);
-                editor.focus(window, cx);
-            });
-            return;
-        }
-        if let Some(editor) = self
-            .tabs
-            .get(self.active)
-            .and_then(|tab| {
-                tab.model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.editors.get(id))
-            })
-            .cloned()
-            && (editor.read(cx).completion_menu_state().open
-                || editor.read(cx).hover_popover().is_some())
-        {
-            editor.update(cx, |editor, cx| editor.dismiss_lsp_overlays(cx));
-            editor.update(cx, |editor, cx| editor.focus(window, cx));
-            return;
-        }
-        self.palette = false;
-        self.confirmation = None;
-        if let Some(tab) = self.tabs.get_mut(self.active) {
-            tab.model.mode = Mode::Command;
-        }
-        if let Some(focus) = self.return_focus.take() {
-            focus.focus(window, cx);
-        } else {
-            self.focus.focus(window, cx);
-        }
-        cx.notify();
-    }
-    fn mutate(&mut self, mut request: Value) {
-        if matches!(
-            request["action"].as_str(),
-            Some("add" | "duplicate" | "split")
-        ) {
-            let id = uuid::Uuid::new_v4().simple().to_string();
-            request["new_id"] = json!(id);
-            if let Some(tab) = self.tabs.get_mut(self.active) {
-                tab.reveal = Some(id);
-            }
-        }
-        if request["action"] == "move"
-            && let Some(tab) = self.tabs.get_mut(self.active)
-        {
-            tab.reveal = request["cell_id"].as_str().map(str::to_string);
-        }
-        if let Some(tab) = self.tabs.get(self.active) {
-            request["manifest_revision"] = json!(tab.model.manifest_revision);
-            request["cell_revisions"] = json!(
-                tab.model
-                    .cells
-                    .iter()
-                    .map(|(id, c)| (id.clone(), c.disk.revision.clone()))
-                    .collect::<BTreeMap<_, _>>()
-            );
-            self.send(Command::Mutate(request));
-        }
-    }
-    fn select_surface(&mut self, surface: &str, cx: &mut Context<Self>) {
-        // Drop destination-scoped chrome so hover/tooltips and menus cannot
-        // linger over an unrelated page (live UX E / apple-design live finding).
-        self.app_menu = false;
-        self.export_menu = false;
-        self.runtime_menu = false;
-        self.notebook_menu = false;
-        self.cell_menu = None;
-        self.insert_menu = None;
-        self.palette = false;
-        self.menu_anchor.clear();
-        self.menu_bounds.clear();
-        if let Some(tab) = self.tabs.get_mut(self.active) {
-            tab.selections
-                .insert(self.surface.clone(), self.record_active);
-            self.record_active = tab.selections.get(surface).copied().unwrap_or(0);
-        }
-        self.surface = surface.into();
-        if self
-            .tabs
-            .get(self.active)
-            .is_some_and(|t| t.inspections.contains_key(surface))
-        {
-            cx.notify();
-            return;
-        }
-        match surface {
-            "History" => self.inspect("executions.list", json!({})),
-            "Checkpoints" => self.inspect("checkpoints.list", json!({})),
-            "Diagnostics" => self.inspect("doctor", json!({})),
-            "Runtimes" => self.inspect("runtimes.list", json!({})),
-            _ => {}
-        }
-        cx.notify();
-    }
-    fn run_command(&mut self, method: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if self.command_reason(method).is_some() {
-            return;
-        }
-        if matches!(
-            method,
-            "stop" | "interrupt" | "restart" | "checkpoint" | "training-checkpoint"
-        ) && !self
-            .tabs
-            .get(self.active)
-            .is_some_and(|t| runtime_action_available(method, &t.runtime, &self.surface))
-        {
-            return;
-        }
-        if matches!(method, "run-all" | "above" | "below") && self.tabs.is_empty() {
-            return;
-        }
-        match method {
-            "ai-explain" | "ai-edit" | "ai-refactor" | "ai-document" | "ai-tests"
-            | "ai-summary" | "ai-repro" | "ai-report" | "ai-environment" => {
-                self.tabs[self.active].assistant.open = true;
-                self.tabs[self.active].assistant.selected_cells = self.tabs[self.active]
-                    .model
-                    .selected
-                    .clone()
-                    .into_iter()
-                    .collect();
-                let (task, question) = match method {
-                    "ai-explain" => ("explain", "Explain the recorded error and propose a fix."),
-                    "ai-edit" => (
-                        "edit",
-                        "Suggest an improvement to this cell. Propose an edit with its base source hash.",
-                    ),
-                    "ai-refactor" => (
-                        "refactor",
-                        "Refactor this cell for readability and modularity. Propose an edit with its base source hash.",
-                    ),
-                    "ai-document" => ("document", "Propose documentation for this cell."),
-                    "ai-tests" => (
-                        "tests",
-                        "Propose a new code cell with unit tests verifying the selected cell.",
-                    ),
-                    "ai-summary" => (
-                        "summary",
-                        "Summarize where I left off, citing recorded evidence.",
-                    ),
-                    "ai-repro" => (
-                        "reproducibility",
-                        "Review stale cells, execution order, and checkpoints for reproducibility.",
-                    ),
-                    "ai-report" => (
-                        "report",
-                        "Draft a narrative notebook report citing recorded cells, executions, and checkpoints.",
-                    ),
-                    _ => (
-                        "environment",
-                        "Explain recorded environment and GPU reports. Show installation commands only as copyable proposals.",
-                    ),
-                };
-                self.ai_preview(task, question.into(), cx);
-            }
-            "assistant" => self.open_assistant(cx),
-            "run-selected" => self.run(&RunCell, window, cx),
-            "add-code" | "add-markdown" | "add-raw" => {
-                let tab = &self.tabs[self.active];
-                let index = tab
-                    .model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
-                    .map_or(tab.model.order.len(), |i| i + 1);
-                self.mutate(json!({"action":"add","type":method.strip_prefix("add-").unwrap(),"index":index}));
-            }
-            "duplicate-cell" | "delete-cell" | "move-up" | "move-down" => {
-                let tab = &self.tabs[self.active];
-                let id = tab.model.selected.clone().unwrap();
-                let index = tab.model.order.iter().position(|c| *c == id).unwrap();
-                match method {
-                    "duplicate-cell" => self.mutate(json!({"action":"duplicate","cell_id":id})),
-                    "delete-cell" => {
-                        self.confirmation = Some(("delete".into(), json!({"cell_id":id})))
-                    }
-                    _ => self.mutate(json!({
-                        "action":"move",
-                        "cell_id":id,
-                        "index":if method=="move-up"{index-1}else{index+1}
-                    })),
-                }
-            }
-            "split-cell" => {
-                let tab = &self.tabs[self.active];
-                let id = tab.model.selected.clone().unwrap();
-                if let Some(editor) = tab.editors.get(&id) {
-                    let text = &tab.model.cells[&id].text;
-                    let offset = text[..editor.read(cx).cursor().min(text.len())]
-                        .chars()
-                        .count();
-                    self.mutate(json!({"action":"split","cell_id":id,"offset":offset}));
-                }
-            }
-            "merge-cell" => {
-                let tab = &self.tabs[self.active];
-                let id = tab.model.selected.clone().unwrap();
-                let index = tab.model.order.iter().position(|c| *c == id).unwrap();
-                self.confirmation = Some((
-                    "merge".into(),
-                    json!({"cell_id":id,"other_id":tab.model.order[index + 1]}),
-                ));
-            }
-            "export-menu" => {
-                self.palette = false;
-                self.toggle_export(window, cx);
-                return;
-            }
-            "export-pdf" => self.export_dialog("pdf", window, cx),
-            "export-docx" => self.export_dialog("docx", window, cx),
-            "export-ipynb" => self.export_dialog("ipynb", window, cx),
-            "export-bundle" => self.export_dialog("zip", window, cx),
-            "inspect-bundle" => {
-                self.palette = false;
-                self.inspect_bundle_dialog(window, cx);
-                return;
-            }
-            "stop" | "restart" | "interrupt_kill" => {
-                self.confirmation = Some((method.into(), json!({})))
-            }
-            "run-all" => self.batch("all"),
-            "above" | "below" => self.batch(method),
-            "settings" => self.select_surface("Settings", cx),
-            "notebook" => {
-                self.select_surface("Notebook", cx);
-                self.focus.focus(window, cx);
-            }
-            "history" => {
-                self.select_surface("History", cx);
-                self.focus.focus(window, cx);
-            }
-            "find-cells" => {
-                self.palette = false;
-                self.return_focus = None;
-                self.select_surface("Notebook", cx);
-                if self.compact {
-                    self.outline_drawer = true;
-                } else {
-                    self.sidebar_visible = true;
-                }
-                self.query.update(cx, |query, cx| query.focus(window, cx));
-                cx.notify();
-                return;
-            }
-            "diagnostics" => self.select_surface("Diagnostics", cx),
-            "variables" => self.select_surface("Variables", cx),
-            "console" => self.select_surface("Console", cx),
-            "debugger" => self.select_surface("Debugger", cx),
-            "debug-cell" => {
-                if let Some(cell_id) = self.tabs[self.active].model.selected.clone() {
-                    self.send(Command::DebugRun { cell_id });
-                    self.select_surface("Debugger", cx);
-                }
-            }
-            "toggle-breakpoint" => self.toggle_breakpoint(window, cx),
-            "load-source" => self.load_source_dialog(window, cx),
-            "runtimes" => self.select_surface("Runtimes", cx),
-            "checkpoints" => self.select_surface("Checkpoints", cx),
-            "help" => self.select_surface("Help", cx),
-            "outline" => {
-                if self.compact {
-                    self.outline_drawer = !self.outline_drawer;
-                    self.palette = false;
-                    if let Some(focus) = self.return_focus.take() {
-                        focus.focus(window, cx);
-                    }
-                    cx.notify();
-                    return;
-                }
-                self.sidebar_visible = !self.sidebar_visible;
-                self.preferences.outline_visible = self.sidebar_visible;
-                self.save_preferences(cx);
-            }
-            "open" => self.open_dialog(&OpenNotebook, window, cx),
-            "gc" => self.runtime(method, json!({"dry_run":true})),
-            "training-list" => {
-                self.surface = "Checkpoints".into();
-                self.inspect("training.list", json!({}));
-            }
-            "native-status" => {
-                self.surface = "Diagnostics".into();
-                self.inspect("native.status", json!({}));
-            }
-            _ => self.runtime(method, json!({})),
-        }
-        self.palette = false;
-        if let Some(focus) = self.return_focus.take() {
-            focus.focus(window, cx);
-        }
-        cx.notify();
-    }
-    fn command_reason(&self, method: &str) -> Option<&'static str> {
-        if method == "toggle-breakpoint"
-            && self
-                .tabs
-                .get(self.active)
-                .is_some_and(|tab| tab.runtime["worker_state"] != "idle")
-        {
-            return Some("Set breakpoints in a saved cell while the worker is idle");
-        }
-        if matches!(method, "debug-cell" | "toggle-breakpoint")
-            && !self.tabs.get(self.active).is_some_and(|tab| {
-                tab.runtime["interactive"]["features"]
-                    .as_array()
-                    .is_some_and(|features| features.iter().any(|feature| feature == "debugger"))
-            })
-        {
-            return Some(
-                "Experimental debugging is disabled for this runtime. See Help for technical setup.",
-            );
-        }
-        if matches!(method, "open" | "help") {
-            return None;
-        }
-        let Some(tab) = self.tabs.get(self.active) else {
-            return Some("Open a notebook to use this action");
         };
-        if method.starts_with("ai-") {
-            if tab.assistant.settings["policy"].as_str() == Some("off") {
-                return Some("Notebook AI policy is Off (change in Settings \u{2192} Assistant)");
-            }
-            if tab.assistant.settings["settings"]["enabled"].as_bool() == Some(false) {
-                return Some("Enable the Assistant in Settings \u{2192} Assistant");
-            }
-            if matches!(
-                method,
-                "ai-explain" | "ai-edit" | "ai-refactor" | "ai-document" | "ai-tests"
-            ) && tab.model.selected.is_none()
-            {
-                return Some("Select a cell first");
-            }
-        }
-        if method == "inspect-bundle"
-            && tab
-                .inspections
-                .get("Bundle review")
-                .is_some_and(|review| review["pending"] == true)
+        if let Some(path) = tab
+            .inspections
+            .get("Application Python")
+            .and_then(|v| v["python"].as_str())
         {
-            return Some("A bundle inspection is already in progress");
-        }
-        if matches!(
-            method,
-            "export-menu" | "export-pdf" | "export-docx" | "export-ipynb" | "export-bundle"
-        ) && tab
-            .model
-            .cells
-            .values()
-            .any(|cell| matches!(cell.save, SaveState::Conflict | SaveState::Failed))
-        {
-            return Some("Resolve source conflicts before exporting");
-        }
-        if method == "outline" && self.surface != "Notebook" {
-            return Some("Outline is available in Notebook");
-        }
-        if method == "run-all" {
-            if !tab.model.cells.values().any(|c| c.disk.kind == "code") {
-                return Some("Add a code cell first");
-            }
-            if tab.runtime["connection_lost"] == true {
-                return Some("Reconnect before running code");
-            }
-            if tab.model.cells.values().any(|c| {
-                c.disk.kind == "code" && matches!(c.save, SaveState::Conflict | SaveState::Failed)
-            }) {
-                return Some("Resolve source conflicts before running");
-            }
-        }
-        if method == "run-selected" {
-            if self.surface != "Notebook" {
-                return Some("Select a code cell in Notebook");
-            }
-            let Some(cell) = tab
-                .model
-                .selected
-                .as_ref()
-                .and_then(|id| tab.model.cells.get(id))
-            else {
-                return Some("Select a code cell first");
+            let path = if self.python.as_os_str().is_empty() {
+                PathBuf::from(path)
+            } else {
+                self.python.clone()
             };
-            if cell.disk.kind != "code" {
-                return Some("Only code cells can run");
-            }
-            if matches!(cell.save, SaveState::Conflict | SaveState::Failed) {
-                return Some("Resolve the source conflict before running");
-            }
+            let _ = tab
+                .service
+                .commands
+                .send(Command::SelectApplicationPython(path));
+            cx.notify();
+            return;
         }
-        if matches!(
-            method,
-            "add-code"
-                | "add-markdown"
-                | "add-raw"
-                | "duplicate-cell"
-                | "delete-cell"
-                | "move-up"
-                | "move-down"
-        ) {
-            if self.surface != "Notebook" {
-                return Some("Select a cell in Notebook");
-            }
-            if tab.model.cells.values().any(|c| c.save != SaveState::Saved) {
-                return Some("Save source and resolve conflicts before changing cell structure");
-            }
-            if !method.starts_with("add-") {
-                let Some(index) = tab
-                    .model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
-                else {
-                    return Some("Select a cell first");
-                };
-                if method == "move-up" && index == 0 {
-                    return Some("This cell is already first");
-                }
-                if method == "move-down" && index + 1 == tab.model.order.len() {
-                    return Some("This cell is already last");
-                }
-            }
-        }
-        if matches!(method, "split-cell" | "merge-cell") {
-            if self.surface != "Notebook" {
-                return Some("Select a cell in Notebook");
-            }
-            let Some(id) = &tab.model.selected else {
-                return Some("Select a cell first");
-            };
-            if tab.model.cells.values().any(|c| c.save != SaveState::Saved) {
-                return Some(
-                    "Save all source and resolve conflicts before changing cell structure",
-                );
-            }
-            if method == "split-cell" && !tab.editors.contains_key(id) {
-                return Some("Open the cell editor and place the cursor first");
-            }
-            if method == "merge-cell" {
-                let next = tab
-                    .model
-                    .order
-                    .iter()
-                    .position(|c| c == id)
-                    .and_then(|i| tab.model.order.get(i + 1));
-                let Some(next) = next else {
-                    return Some("There is no following cell");
-                };
-                if tab.model.cells[id].disk.kind != tab.model.cells[next].disk.kind {
-                    return Some("Merge requires adjacent cells of the same type");
-                }
-            }
-        }
-        action_reason(method, &tab.runtime)
+        // Preserve editors, drafts and durable operation keys; never resubmit work.
+        tab.service = NotebookService::start(tab.model.project.clone(), self.python.clone());
+        tab.error = None;
+        tab.inspections.remove("Technical error");
+        tab.inspections.remove("Application Python");
+        tab.runtime["connection_lost"] = json!(false);
+        cx.notify();
     }
+
+    fn choose_application_python(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let focus = window.focused(cx).unwrap_or_else(|| self.focus.clone());
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: true,
+            multiple: false,
+            prompt: Some("Choose a Python environment folder or executable".into()),
+        });
+        cx.spawn_in(window, async move |view, window| {
+            let selected = paths.await;
+            let _ = view.update_in(window, |v, window, cx| {
+                focus.focus(window, cx);
+                if let Ok(Ok(Some(paths))) = selected
+                    && let Some(path) = paths.into_iter().next()
+                {
+                    v.python = python_environment_executable(path);
+                    v.retry_application_python(cx);
+                }
+            });
+        })
+        .detach();
+    }
+
     fn choose_interpreter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: true,
-            directories: false,
+            directories: true,
             multiple: false,
-            prompt: Some("Select CPython 3.11 or newer".into()),
+            prompt: Some("Choose a CPython environment folder or executable".into()),
         });
         cx.spawn_in(window, async move |view, window| {
             if let Ok(Ok(Some(paths))) = paths.await
@@ -2340,7 +1320,7 @@ impl Workspace {
             {
                 let _ = view.update_in(window, |v, _, _| {
                     v.send(Command::SelectInterpreter {
-                        path,
+                        path: python_environment_executable(path),
                         remember: false,
                     })
                 });
@@ -2504,11 +1484,15 @@ impl Workspace {
                     .text_center()
                     .text_sm()
                     .text_color(muted_fg)
-                    .child(if tab.model.order.is_empty() {
-                        "No cells yet"
-                    } else {
-                        "No cells match"
-                    }),
+                    .child(
+                        if tab.model.source_state != "ok" && tab.model.order.is_empty() {
+                            "Source not loaded"
+                        } else if tab.model.order.is_empty() {
+                            "No cells yet"
+                        } else {
+                            "No cells match"
+                        },
+                    ),
             );
         }
         v_flex()
@@ -2555,274 +1539,6 @@ impl Workspace {
             .child(list)
             .into_any_element()
     }
-    #[inline(never)]
-    fn empty_notebook(&self, cx: &mut Context<Self>) -> AnyElement {
-        let muted_fg = cx.theme().muted_foreground;
-        v_flex()
-            .size_full()
-            .items_center()
-            .justify_center()
-            .p_6()
-            .child(
-                v_flex()
-                    .max_w(px(400.))
-                    .gap_3()
-                    .items_center()
-                    .child(icon_tile(Glyph::NotebookPen, 40., cx))
-                    .child(
-                        v_flex()
-                            .items_center()
-                            .gap_1()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("This notebook is empty"),
-                            )
-                            .child(
-                                div().text_sm().text_center().text_color(muted_fg).child(
-                                    "Add a cell to start writing. Nothing runs until you ask.",
-                                ),
-                            ),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .flex_wrap()
-                            .justify_center()
-                            .child(
-                                action_button("empty-code")
-                                    .primary()
-                                    .icon(Glyph::Code)
-                                    .label("Add code cell")
-                                    .on_click(cx.listener(|v, _, _, _| {
-                                        v.mutate(json!({"action":"add","type":"code"}))
-                                    })),
-                            )
-                            .child(
-                                action_button("empty-markdown")
-                                    .outline()
-                                    .icon(Glyph::Type)
-                                    .label("Add markdown cell")
-                                    .on_click(cx.listener(|v, _, _, _| {
-                                        v.mutate(json!({"action":"add","type":"markdown"}))
-                                    })),
-                            ),
-                    ),
-            )
-            .into_any_element()
-    }
-    #[inline(never)]
-    fn welcome(&self, cx: &mut Context<Self>) -> AnyElement {
-        let theme = cx.theme();
-        let muted_fg = theme.muted_foreground;
-        let shortcut_hints = [
-            ("Open", "ctrl-o"),
-            ("Commands", "ctrl-shift-p"),
-            ("Run", "shift-enter"),
-            ("Save", "ctrl-s"),
-        ];
-        let warning = theme.warning;
-        let recent = self.recent.iter().take(5).enumerate().map(|(i, item)| {
-            let path = item.path.clone();
-            let name = notebook_name(&path);
-            let folder = path
-                .parent()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default();
-            let missing = !path.is_dir();
-            let opened = item.opened.as_deref().map(relative_time);
-            let detail = match (&opened, missing) {
-                (_, true) => format!("{} \u{00b7} Not found", tail_path(&folder, 44)),
-                (Some(opened), false) => {
-                    format!("{} \u{00b7} Opened {opened}", tail_path(&folder, 44))
-                }
-                (None, false) => tail_path(&folder, 44),
-            };
-            let spoken = format!(
-                "Open {name} in {folder}{}",
-                match (&opened, missing) {
-                    (_, true) => ", folder not found".to_string(),
-                    (Some(opened), false) => format!(", opened {opened}"),
-                    (None, false) => String::new(),
-                }
-            );
-            let open_path = path.clone();
-            let removed = path.clone();
-            h_flex()
-                .w_full()
-                .min_w_0()
-                .gap_1()
-                .items_center()
-                .child(
-                    action_button(("recent", i))
-                        .ghost()
-                        .flex_1()
-                        .min_w_0()
-                        .icon(if missing {
-                            Glyph::TriangleAlert
-                        } else {
-                            Glyph::NotebookPen
-                        })
-                        .when(missing, |b| b.text_color(warning))
-                        .detail_row(name.clone(), detail)
-                        .accessibility_label(spoken)
-                        .hint(path.display().to_string())
-                        .on_click(cx.listener(move |v, _, _, cx| {
-                            if open_path.is_dir() {
-                                v.welcome_notice = None;
-                                v.open(open_path.clone(), cx);
-                            } else {
-                                v.welcome_notice = Some(missing_recent_message(&open_path));
-                                cx.notify();
-                            }
-                        })),
-                )
-                .when(missing, |row| {
-                    row.child(
-                        action_button(("recent-remove", i))
-                            .ghost()
-                            .small()
-                            .label("Remove")
-                            .accessibility_label(format!("Remove {name} from recent notebooks"))
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                kernelledger_client::recent::remove(&mut v.recent, &removed);
-                                v.welcome_notice = None;
-                                if !cfg!(test) {
-                                    let recent = v.recent.clone();
-                                    cx.background_executor()
-                                        .spawn(async move {
-                                            let _ = kernelledger_client::recent::save(
-                                                &kernelledger_client::profile_path(),
-                                                &recent,
-                                            );
-                                        })
-                                        .detach();
-                                }
-                                cx.notify();
-                            })),
-                    )
-                })
-        });
-        v_flex()
-            .flex_1()
-            .items_center()
-            .justify_center()
-            .px_6()
-            .py_6()
-            .gap_4()
-            .child(
-                v_flex()
-                    .items_center()
-                    .gap_1p5()
-                    .child(icon_tile(Glyph::NotebookPen, 40., cx))
-                    .child(
-                        div()
-                            .text_2xl()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("KernelLedger"),
-                    )
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_center()
-                            .max_w(px(440.))
-                            .text_color(muted_fg)
-                            .child("Local-first Python notebooks. Source stays in ordinary files; execution history is recorded locally in SQLite."),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_2()
-                    .flex_wrap()
-                    .justify_center()
-                    .items_center()
-                    .child(
-                        action_button("welcome-open")
-                            .primary()
-                            .icon(Glyph::FolderOpen)
-                            .label("Open notebook")
-                            .on_click(cx.listener(|v, _, window, cx| {
-                                v.open_dialog(&OpenNotebook, window, cx)
-                            })),
-                    )
-                    .child(
-                        action_button("create")
-                            .outline()
-                            .icon(Glyph::Plus)
-                            .label("Create notebook")
-                            .on_click(cx.listener(|v, _, w, cx| v.create_dialog(false, w, cx))),
-                    )
-                    .child(
-                        action_button("sample")
-                            .ghost()
-                            .label("Create sample notebook")
-                            .on_click(cx.listener(|v, _, w, cx| v.create_dialog(true, w, cx))),
-                    )
-                    .child(
-                        action_button("welcome-help")
-                            .ghost()
-                            .icon(Glyph::Info)
-                            .label("Help and shortcuts")
-                            .hint("Open Help (F1)")
-                            .on_click(cx.listener(|v, _, _, cx| {
-                                v.surface = "Help".into();
-                                cx.notify();
-                            })),
-                    ),
-            )
-            .when(!self.recent.is_empty(), |d| {
-                d.child(
-                    v_flex()
-                        .w_full()
-                        .max_w(rems(36.))
-                        .gap_1()
-                        .child(
-                            div()
-                                .px_2()
-                                .text_xs()
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(muted_fg)
-                                .child("Recent notebooks"),
-                        )
-                        .child(card(cx).p_1().gap_0p5().children(recent))
-                        .when_some(self.welcome_notice.clone(), |d, notice| {
-                            d.child(
-                                div()
-                                    .id("recent-notice")
-                                    .role(Role::Alert)
-                                    .aria_label(notice.clone())
-                                    .px_2()
-                                    .py_1p5()
-                                    .text_sm()
-                                    .whitespace_normal()
-                                    .text_color(warning)
-                                    .child(notice),
-                            )
-                        }),
-                )
-            })
-            .child(
-                h_flex()
-                    .gap_4()
-                    .flex_wrap()
-                    .justify_center()
-                    .items_center()
-                    .children(shortcut_hints.into_iter().map(|(label, keys)| {
-                        h_flex()
-                            .gap_1p5()
-                            .items_center()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted_fg)
-                                    .child(label),
-                            )
-                            .children(kbd(keys))
-                    })),
-            )
-            .into_any_element()
-    }
 }
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -2863,6 +1579,13 @@ impl Render for Workspace {
             Theme::sync_base(cx);
         }
         self.compact = window.viewport_size().width < px(1024. * self.preferences.ui_scale);
+        // Settings owns its full form width. Keep the conversation mounted in
+        // state so returning to the notebook restores its draft and context.
+        let show_assistant = self.surface != "Settings"
+            && self
+                .tabs
+                .get(self.active)
+                .is_some_and(|tab| tab.assistant.open);
         let title = self
             .tabs
             .get(self.active)
@@ -2903,6 +1626,23 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::palette))
             .on_action(cx.listener(Self::open_dialog))
             .on_action(cx.listener(Self::command_mode))
+            .on_action(
+                cx.listener(|v, action: &shortcuts::WorkbenchCommand, window, cx| {
+                    if !v.palette
+                        && v.confirmation.is_none()
+                        && !v.app_menu
+                        && !v.runtime_menu
+                        && !v.export_menu
+                        && !v.notebook_menu
+                        && v.cell_menu.is_none()
+                        && v.insert_menu.is_none()
+                        && (!matches!(action.method.as_str(), "undo-source" | "redo-source")
+                            || v.focus.is_focused(window))
+                    {
+                        v.run_command(&action.method, window, cx);
+                    }
+                }),
+            )
             .child(self.header(window, cx));
         if self.tabs.is_empty() {
             if self.surface == "Help" {
@@ -2948,6 +1688,33 @@ impl Render for Workspace {
                 .size_full()
                 .into_any_element()
             };
+            let viewport_width = window.viewport_size().width / px(1.);
+            let scale = self.preferences.ui_scale;
+            let min_notebook_w = 420.;
+            let min_drawer_w = 280.;
+            let compact_assistant_sibling =
+                show_assistant && self.compact && viewport_width >= min_notebook_w + min_drawer_w;
+            let compact_assistant_overlay =
+                show_assistant && self.compact && !compact_assistant_sibling;
+            let compact_drawer_width = if compact_assistant_sibling {
+                (viewport_width - min_notebook_w)
+                    .min((360. * scale).min(440.))
+                    .max(min_drawer_w)
+            } else {
+                (360. * scale)
+                    .min(440.)
+                    .min(viewport_width.max(min_drawer_w))
+            };
+            let center = if compact_assistant_overlay {
+                div()
+                    .size_full()
+                    .min_w_0()
+                    .pr(px(compact_drawer_width))
+                    .child(center)
+                    .into_any_element()
+            } else {
+                center
+            };
             root = root
                 .child(self.banners(window, cx))
                 .child(
@@ -2957,11 +1724,12 @@ impl Render for Workspace {
                         .relative()
                         .child(
                             h_resizable(SharedString::from(format!(
-                                "notebook-layout-v5-{}-{}-{}-{}",
+                                "notebook-layout-v5-{}-{}-{}-{}-{}",
                                 self.preferences.outline_width,
                                 self.surface,
                                 self.sidebar_visible && !self.compact,
-                                self.tabs[self.active].assistant.open && !self.compact
+                                show_assistant && !self.compact,
+                                compact_assistant_sibling
                             )))
                             .when(
                                 self.surface == "Notebook" && !self.compact && self.sidebar_visible,
@@ -2974,23 +1742,39 @@ impl Render for Workspace {
                                     )
                                 },
                             )
-                            .child(resizable_panel().child(center))
-                            .when(
-                                self.tabs[self.active].assistant.open && !self.compact,
-                                |d| {
-                                    // Keep the notebook column readable when the
-                                    // window is only just above the compact break
-                                    // (live UX B.5 / H.3).
-                                    let narrow = window.viewport_size().width
-                                        < px(1280. * self.preferences.ui_scale);
-                                    d.child(
-                                        resizable_panel()
-                                            .size(px(if narrow { 320. } else { 400. }))
-                                            .size_range(px(280.)..px(560.))
-                                            .child(self.assistant_panel(window, cx)),
-                                    )
-                                },
+                            .child(
+                                resizable_panel()
+                                    .size_range(if compact_assistant_sibling {
+                                        px(min_notebook_w)..px(4096.)
+                                    } else {
+                                        px(0.)..px(4096.)
+                                    })
+                                    .child(center),
                             )
+                            .when(show_assistant && !self.compact, |d| {
+                                // Keep the notebook column readable when the
+                                // window is only just above the compact break
+                                // (live UX B.5 / H.3).
+                                let narrow = window.viewport_size().width
+                                    < px(1280. * self.preferences.ui_scale);
+                                d.child(
+                                    resizable_panel()
+                                        .size(px(if narrow { 320. } else { 400. }))
+                                        .size_range(px(280.)..px(560.))
+                                        .child(self.assistant_panel(window, cx)),
+                                )
+                            })
+                            .when(compact_assistant_sibling, |d| {
+                                d.child(
+                                    resizable_panel()
+                                        .size(px(compact_drawer_width))
+                                        .size_range(
+                                            px(min_drawer_w)
+                                                ..px((360. * scale).min(440.).max(min_drawer_w)),
+                                        )
+                                        .child(self.assistant_panel(window, cx)),
+                                )
+                            })
                             .on_resize(cx.listener(
                                 |v,
                                  state: &Entity<gpui_kit::component::resizable::ResizableState>,
@@ -3026,16 +1810,14 @@ impl Render for Workspace {
                                 )
                             },
                         )
-                        .when(self.tabs[self.active].assistant.open && self.compact, |d| {
+                        .when(compact_assistant_overlay, |d| {
                             d.child(
                                 div()
                                     .absolute()
                                     .right_0()
                                     .top_0()
                                     .bottom_0()
-                                    // Cap overlay width so source/error rows stay
-                                    // visible beside the drawer on 800-wide windows.
-                                    .w(px((360. * self.preferences.ui_scale).min(440.)))
+                                    .w(px(compact_drawer_width))
                                     .max_w_full()
                                     .bg(cx.theme().background)
                                     .border_l_1()
@@ -3140,7 +1922,9 @@ fn worker_label(state: Option<&str>) -> String {
     }
 }
 fn kbd(keys: &str) -> Option<Kbd> {
-    Keystroke::parse(keys).ok().map(Kbd::new)
+    Keystroke::parse(&shortcuts::platform_binding(keys))
+        .ok()
+        .map(Kbd::new)
 }
 fn safe_link(url: &SharedString, _: &ClickEvent, _: &mut Window, cx: &mut App) {
     if url.starts_with("https://") || url.starts_with("http://") {
@@ -3204,12 +1988,12 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
         ),
         "merge" => (
             "Merge cells",
-            "The next cell is appended to this cell and removed from the source document. Recorded history is retained. Structural undo is not available.",
+            "The next cell is appended to this cell and removed from the source document. Recorded history is retained. Undo cell structure can restore this change while its source remains unchanged and within undo limits.",
             "Merge",
         ),
         "delete" => (
             "Delete",
-            "This build has no structural undo. Deleting removes this cell and its source from the notebook. Recorded executions remain available in History.",
+            "Deleting removes this cell and its source. Recorded executions remain in History. Undo cell structure can restore it while affected files remain unchanged; changes larger than 4 MiB exceed undo limits.",
             "Delete cell",
         ),
         "stop" => (
@@ -3256,6 +2040,9 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
 }
 fn error_message(code: &str) -> &'static str {
     match code {
+        "undo_conflict" => {
+            "Undo stopped because affected source changed. Your newer edits are retained. Review the source before changing cell structure."
+        }
         "transport" => {
             "Connection lost \u{2014} execution state unknown. Your edits are retained. Reconnect in Diagnostics to reconcile the operation."
         }
@@ -3360,6 +2147,24 @@ fn record_duration(record: &Value) -> Option<f64> {
 fn runtime_action_available(method: &str, runtime: &Value, _surface: &str) -> bool {
     action_reason(method, runtime).is_none()
 }
+/// Picking a venv executable on macOS resolves its symlink in NSOpenPanel.
+/// Picking the environment directory preserves the path needed by Python's venv.
+fn python_environment_executable(path: PathBuf) -> PathBuf {
+    if !path.is_dir() {
+        return path;
+    }
+    if cfg!(windows) {
+        let executable = path.join("python.exe");
+        if executable.is_file() {
+            executable
+        } else {
+            path.join("Scripts/python.exe")
+        }
+    } else {
+        path.join("bin/python")
+    }
+}
+
 fn action_reason(method: &str, runtime: &Value) -> Option<&'static str> {
     kernelledger_models::presentation::RuntimeAction::parse(method)
         .and_then(|action| action.unavailable_reason(runtime))

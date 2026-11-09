@@ -113,6 +113,9 @@ impl SourceService {
         let _guard = self.lock()?;
         let current = self.check(request)?;
         let before = self.files()?;
+        if matches!(request["action"].as_str(), Some("undo" | "redo")) {
+            return self.apply_history(request["action"].as_str().unwrap(), &before);
+        }
         let mut after = before.clone();
         let mut data = current["manifest"].clone();
         let mut cells = data["cells"].as_array().cloned().unwrap_or_default();
@@ -460,7 +463,204 @@ impl SourceService {
         data["cells"] = Value::Array(cells);
         files_insert(&mut after, "notebook.json".into(), manifest_bytes(&data)?);
         self.stage(&data)?;
+        self.record_history(&before, &after, action)?;
         self.publish(&before, &after)?;
+        self.read_unlocked()
+    }
+
+    fn history_directory(&self) -> PathBuf {
+        self.state().join("source-history")
+    }
+
+    fn history_state(&self) -> Result<Value> {
+        let path = self.history_directory().join("index.json");
+        if !path.exists() {
+            return Ok(json!({"schema":1,"undo":[],"redo":[]}));
+        }
+        if fs::metadata(&path)?.len() > 65536 {
+            return Err(fail(
+                "source_conflict",
+                "Source undo index exceeds its limit",
+                json!({}),
+            ));
+        }
+        let state: Value = serde_json::from_slice(&fs::read(path)?)?;
+        let valid = state["schema"] == 1
+            && ["undo", "redo"].iter().all(|key| {
+                state[*key].as_array().is_some_and(|items| {
+                    items.len() <= 20
+                        && items.iter().all(|item| {
+                            item["bytes"]
+                                .as_u64()
+                                .is_some_and(|size| size <= 4 * 1024 * 1024)
+                                && item["label"]
+                                    .as_str()
+                                    .is_some_and(|label| label.len() <= 32)
+                                && item["id"].as_str().is_some_and(|id| {
+                                    id.len() == 32
+                                        && id.bytes().all(|c| {
+                                            c.is_ascii_hexdigit() && !c.is_ascii_uppercase()
+                                        })
+                                })
+                        })
+                })
+            });
+        if !valid {
+            return Err(fail(
+                "source_conflict",
+                "Source undo index is invalid",
+                json!({}),
+            ));
+        }
+        Ok(state)
+    }
+
+    fn history_info(&self) -> Value {
+        match self.history_state() {
+            Ok(state) => {
+                json!({"undo": !state["undo"].as_array().unwrap().is_empty(), "redo": !state["redo"].as_array().unwrap().is_empty(), "undo_label":state["undo"].as_array().unwrap().last().map(|entry| entry["label"].clone()).unwrap_or(json!("")), "reason":state["reason"].as_str().unwrap_or("")})
+            }
+            Err(_) => {
+                json!({"undo":false,"redo":false,"reason":"Source undo history is unavailable"})
+            }
+        }
+    }
+
+    fn save_history(&self, state: &Value) -> Result<()> {
+        atomic(
+            &self.history_directory().join("index.json"),
+            &serde_json::to_vec(state)?,
+        )
+    }
+
+    fn record_history(&self, before: &Files, after: &Files, action: &str) -> Result<()> {
+        // Optional undo metadata must never prevent a normal source edit.
+        let mut state = self
+            .history_state()
+            .unwrap_or_else(|_| json!({"schema":1,"undo":[],"redo":[]}));
+        let mut removed = state["redo"].as_array().unwrap().clone();
+        state["redo"] = json!([]);
+        let structural = matches!(
+            action,
+            "add"
+                | "duplicate"
+                | "delete"
+                | "move"
+                | "split"
+                | "merge"
+                | "convert"
+                | "paste"
+                | "insert_cells"
+        );
+        if structural && before != after {
+            let mut paths = Map::new();
+            for (name, _) in before.iter().chain(after.iter()) {
+                if files_get(before, name) != files_get(after, name) {
+                    paths.insert(name.clone(), json!({"before":files_get(before, name).map(|bytes| PASTE_BASE64.encode(bytes)), "after":files_get(after, name).map(|bytes| PASTE_BASE64.encode(bytes))}));
+                }
+            }
+            let encoded = serde_json::to_vec(&json!({"paths":paths}))?;
+            if encoded.len() > 4 * 1024 * 1024 {
+                removed.extend(state["undo"].as_array().unwrap().clone());
+                state["undo"] = json!([]);
+                state["reason"] = json!("This change exceeds the 4 MiB undo limit");
+            } else {
+                let entry = json!({"id":uuid::Uuid::new_v4().simple().to_string(),"label":action,"bytes":encoded.len()});
+                atomic(
+                    &self
+                        .history_directory()
+                        .join(format!("{}.json", entry["id"].as_str().unwrap())),
+                    &encoded,
+                )?;
+                state.as_object_mut().unwrap().remove("reason");
+                let undo = state["undo"].as_array_mut().unwrap();
+                undo.push(entry);
+                while undo.len() > 20
+                    || undo
+                        .iter()
+                        .map(|e| e["bytes"].as_u64().unwrap_or(0))
+                        .sum::<u64>()
+                        > 16 * 1024 * 1024
+                {
+                    removed.push(undo.remove(0));
+                }
+            }
+        }
+        self.save_history(&state)?;
+        for entry in removed {
+            let _ = fs::remove_file(
+                self.history_directory()
+                    .join(format!("{}.json", entry["id"].as_str().unwrap())),
+            );
+        }
+        Ok(())
+    }
+
+    fn apply_history(&self, action: &str, before: &Files) -> Result<Value> {
+        let mut state = self.history_state()?;
+        let entry = state[action]
+            .as_array()
+            .and_then(|items| items.last())
+            .cloned()
+            .ok_or_else(|| {
+                fail(
+                    "invalid_request",
+                    format!("No source change to {action}"),
+                    json!({}),
+                )
+            })?;
+        let path = self
+            .history_directory()
+            .join(format!("{}.json", entry["id"].as_str().unwrap()));
+        if fs::metadata(&path)?.len() > 4 * 1024 * 1024 {
+            return Err(fail(
+                "source_conflict",
+                "Source undo record exceeds its limit",
+                json!({}),
+            ));
+        }
+        let patch: Value = serde_json::from_slice(&fs::read(path)?)?;
+        let (expected, target) = if action == "undo" {
+            ("after", "before")
+        } else {
+            ("before", "after")
+        };
+        let mut after = before.clone();
+        for (name, versions) in patch["paths"].as_object().context("undo paths")? {
+            self.checked(name)?;
+            let decode = |value: &Value| -> Result<Option<Vec<u8>>> {
+                if value.is_null() {
+                    Ok(None)
+                } else {
+                    Ok(Some(
+                        PASTE_BASE64.decode(value.as_str().context("undo bytes")?)?,
+                    ))
+                }
+            };
+            if files_get(before, name) != decode(&versions[expected])?.as_deref() {
+                return Err(fail(
+                    "undo_conflict",
+                    "Source changed since this operation; undo preserves external and newer edits",
+                    json!({}),
+                ));
+            }
+            match decode(&versions[target])? {
+                Some(bytes) => files_insert(&mut after, name.clone(), bytes),
+                None => {
+                    files_pop(&mut after, name);
+                }
+            }
+        }
+        let manifest: Value =
+            serde_json::from_slice(files_get(&after, "notebook.json").context("undo manifest")?)?;
+        self.stage(&manifest)?;
+        state[action].as_array_mut().unwrap().pop();
+        state[if action == "undo" { "redo" } else { "undo" }]
+            .as_array_mut()
+            .unwrap()
+            .push(entry);
+        self.save_history(&state)?;
+        self.publish(before, &after)?;
         self.read_unlocked()
     }
 
@@ -696,6 +896,7 @@ impl SourceService {
         Ok(json!({
             "state": state,
             "manifest": data,
+            "history": self.history_info(),
             "manifest_revision": format!("{:x}", Sha256::digest(manifest_bytes(&data)?)),
             "cells": cells,
             "files": files,
@@ -724,19 +925,12 @@ impl SourceService {
         {
             return Err(fail("invalid_request", "invalid source path", json!({})));
         }
-        if name
-            .split(['/', '\\'])
-            .any(|part| part == ".." || part.is_empty())
-            && name != "notebook.json"
-        {
-            // Empty parts come from a trailing slash. `..` is an escape.
-            if name.split('/').any(|part| part == "..") {
-                return Err(fail(
-                    "source_invalid",
-                    "source path escapes notebook",
-                    json!({"path": name}),
-                ));
-            }
+        if name.contains('\\') || name.split('/').any(|part| matches!(part, "" | "." | "..")) {
+            return Err(fail(
+                "source_invalid",
+                "source path is not canonical",
+                json!({"path": name}),
+            ));
         }
         let path = self.root.join(name);
         if path
@@ -1179,6 +1373,53 @@ fn strip_verbatim(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn structural_history_restores_ids_and_refuses_changed_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("cells")).unwrap();
+        fs::write(
+            dir.path().join("notebook.json"),
+            manifest_bytes(
+                &json!({"schema":1,"id":uuid::Uuid::new_v4().to_string(),"metadata":{},"cells":[]}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let source = SourceService::new(dir.path());
+        let mutate = |action: &str, mut fields: Value| {
+            let current = source.read().unwrap();
+            fields["action"] = json!(action);
+            fields["manifest_revision"] = current["manifest_revision"].clone();
+            fields["cell_revisions"] = json!(
+                current["cells"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|c| (c["id"].as_str().unwrap().to_owned(), c["revision"].clone()))
+                    .collect::<Map<String, Value>>()
+            );
+            source.mutate(&fields)
+        };
+        mutate(
+            "add",
+            json!({"type":"code","new_id":"stable","source":"answer=42"}),
+        )
+        .unwrap();
+        mutate("delete", json!({"cell_id":"stable"})).unwrap();
+        let restored = mutate("undo", json!({})).unwrap();
+        assert_eq!(restored["cells"][0]["id"], "stable");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("cells/stable.py")).unwrap(),
+            "answer=42"
+        );
+        fs::write(dir.path().join("cells/stable.py"), "newer external source").unwrap();
+        assert!(mutate("redo", json!({})).is_err());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("cells/stable.py")).unwrap(),
+            "newer external source"
+        );
+    }
 
     #[test]
     fn json_text_matches_python_dumps() {

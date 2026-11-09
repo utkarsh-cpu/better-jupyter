@@ -1,0 +1,314 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/utkarsh_kaushik/.cargo/registry/index/index.crates.io-6f17d22bba15001f/.cache/cs/v-/csv-core`
+
+Caused by:
+  Permission denied (os error 13)
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[51866]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[51881]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-runtime` (build script) generated 1 warning
+warning: `kernelledger-desktop` (build script) generated 1 warning
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[14105]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[14101]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[14104]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[14069]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-client` (example "lifecycle_regression") generated 1 warning
+warning: `kernelledger-client` (example "vertical_slice") generated 1 warning
+warning: `kernelledger-models` (lib test) generated 1 warning
+warning: `kernelledger-client` (lib test) generated 1 warning
+   Compiling kernelledger-ui v0.1.0 (/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/crates/ui)
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[16255]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[51965]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-runtime` (lib test) generated 1 warning
+warning: `kernelledger-protocol` (lib test) generated 1 warning
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[16286]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-daemon` (bin "kernelledger-daemon" test) generated 1 warning
+   Compiling kernelledger-desktop v0.1.0 (/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/crates/app)
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[47946]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-desktop` (bin "kernelledger-desktop" test) generated 1 warning
+warning: stripping debug info with `rust-objcopy` failed: signal: 6 (SIGABRT)
+  |
+  = note: dyld[47974]: Library not loaded: @rpath/libLLVM.dylib
+            Referenced from: <D6B3C499-A2AF-3E42-8F77-C42BD658AAB5> /private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/rust-objcopy
+            Reason: tried: '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/private/tmp/kernelledger-mac-rustup/toolchains/1.99.0-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin/../lib/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/Projects/better-jupyter/desktop/target/debug/deps/libLLVM.dylib' (no such file), '/Users/utkarsh_kaushik/lib/libLLVM.dylib' (no such file), '/usr/local/lib/libLLVM.dylib' (no such file), '/usr/lib/libLLVM.dylib' (no such file, not in dyld cache)
+          
+
+warning: `kernelledger-ui` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 7.21s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (desktop/target/debug/deps/kernelledger_client-5e4a217d38992d5e)
+
+running 31 tests
+test media::tests::active_exports_are_bounded_and_slots_are_released ... ok
+test math::tests::arbitrary_tex_and_excessive_work_are_refused ... ok
+test math::tests::nested_math_and_scripts_bind_to_the_last_atom ... ok
+test assistant::tests::assistant_stream_fixture_round_trips_bounded_frames ... ok
+test output::tests::image_cache_drops_offscreen_records_before_visible_ones ... ok
+test output::tests::attachment_names_reject_path_separators ... ok
+test display::tests::clear_and_rerun_retire_targets_and_do_not_apply_earlier_updates ... ok
+test display::tests::broadcast_replay_keeps_history_identity_and_reapplies_after_refold ... ok
+test output::tests::text_window_keeps_character_boundaries ... ok
+test media::tests::corrupt_oversized_or_inconsistent_outputs_publish_nothing ... ok
+test output::tests::truncation_is_unicode_safe ... ok
+test output::tests::text_blob_reads_one_page_of_a_large_stream ... ok
+test preferences::tests::old_partial_preferences_receive_defaults_and_stale_dimensions_are_clamped ... ok
+test output::tests::table_discards_active_content ... ok
+test recent::tests::record_moves_to_front_and_limits_without_duplicates ... ok
+test preferences::tests::schema_one_migrates_without_losing_layout_and_scale_is_normalized ... ok
+test recent::tests::path_only_recents_survive_with_unknown_times_and_keep_their_format ... ok
+test recent::tests::unreadable_time_file_keeps_every_path ... ok
+test recorded::tests::source_locations_accept_only_recorded_notebook_filenames ... ok
+test service::tests::recorded_timing_joins_only_the_matching_execution_without_extra_reads ... ok
+test service::tests::source_membership_changes_reload_current_outputs_without_new_ledger_events ... ok
+test preferences::tests::save_replaces_own_file_and_preserves_other_preferences_and_future_schema ... ok
+test service::tests::display_backlog_advances_without_rewalking_unchanged_executions ... ok
+test output::tests::stored_images_stay_inside_the_cache_budget ... ok
+test tests::rejects_length_before_allocating ... ok
+test tests::structured_errors_survive_transport ... ok
+test service::tests::unchanged_watermark_does_not_call_fold_get ... ok
+test tests::shared_fixture_frames ... ok
+test media::tests::export_verifies_every_page_and_never_overwrites ... ok
+test display::tests::a_refold_never_expands_beyond_the_view_budget ... ok
+test display::tests::content_and_target_bounds_report_unfollowed_outputs ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running unittests src/main.rs (desktop/target/debug/deps/kernelledger_daemon-d0c35be3b59d58ee)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (desktop/target/debug/deps/kernelledger_desktop-e22b45e11b3bd146)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (desktop/target/debug/deps/kernelledger_models-44e53e2452d5dc6c)
+
+running 7 tests
+test tests::reconnect_retains_operation_key_and_unknown_is_final ... ok
+test presentation::tests::checkpoint_reasons_are_readable_and_unknown_codes_fall_back ... ok
+test presentation::tests::snapshots_require_idle_and_training_requires_capability ... ok
+test tests::replayed_feed_deduplicates ... ok
+test tests::run_waits_for_acknowledged_content ... ok
+test tests::conflict_preserves_both_versions ... ok
+test tests::typing_during_save_remains_dirty ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (desktop/target/debug/deps/kernelledger_protocol-57c59bf074c4eb2f)
+
+running 3 tests
+test tests::fragmented_and_invalid_frames ... ok
+test tests::corrupt_binary_and_limits ... ok
+test tests::python_hash_fixtures ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (desktop/target/debug/deps/kernelledger_runtime-4fa4258284b43729)
+
+running 24 tests
+test capture::tests::budget_never_splits_unicode_or_forgets_dropped_bytes ... ok
+test capture::tests::incremental_utf8_preserves_split_characters_and_replaces_invalid_bytes ... ok
+test ledger::tests::uri_escaping ... ok
+test notebook::tests::ids_and_canonical_source ... ok
+test ledger::tests::fold_matches_python_semantics ... ok
+test helper::tests::capabilities_match_the_configured_fallback ... ok
+test source::tests::json_text_matches_python_dumps ... ok
+test source::tests::manifest_bytes_match_python_indentation_and_order ... ok
+test store::tests::json_encodings_match_python_detection ... ok
+test store::tests::references_follow_python_rules ... ok
+test supervisor::accept::tests::blocking_accept_wakes_and_idle_shutdown_joins_both_listeners ... ok
+test resources::tests::validation_cache_requires_exact_bytes_and_has_hard_entry_and_byte_limits ... ok
+test supervisor::desktop::tests::interactive_reads_do_not_wait_behind_bulk_worker_writes ... ok
+test store::tests::publish_is_content_addressed_and_does_not_replace_existing ... ok
+test store::tests::verification_detects_corruption_and_missing ... ok
+test store::tests::operation_local_evidence_rejects_changes_and_next_request_rehashes ... ok
+test publication::tests::cleanup_removes_only_the_publishing_instance ... ok
+test capture::tests::closing_does_not_wait_for_an_inherited_pipe_handle_to_reach_eof ... ok
+test supervisor::desktop::tests::stop_admission_bypasses_a_held_lifecycle_gate ... ok
+test writer::tests::desktop_admission_is_atomic_and_cancellation_wins_before_dispatch ... ok
+test writer::tests::lock_acceptance_takeover_and_terminal_results ... ok
+test writer::tests::input_answer_failure_rolls_back_and_retry_records_one_redacted_reply ... ok
+test writer::tests::rejected_publication_and_lost_reply_leave_recoverable_state ... ok
+test source::tests::structural_history_restores_ids_and_refuses_changed_files ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running unittests src/lib.rs (desktop/target/debug/deps/kernelledger_ui-406638ab0445e7cc)
+
+running 75 tests
+test images::tests::offscreen_images_leave_on_the_following_frame ... ok
+test images::tests::budget_evicts_offscreen_images_before_the_one_just_shown ... ok
+test interactive::tests::unicode_positions_and_static_fallback ... ok
+test tests::assistant_provider_save_preserves_unedited_options ... ok
+test tests::assistant_receipt_and_export_present_real_text_and_honest_citations ... ok
+test tests::assistant_setup_follows_settings_and_test_results_without_leaking_keys ... ok
+test tests::application_python_chooser_accepts_environment_folder_without_resolving_python ... ok
+test tests::assistant_conversation_load_replaces_answer_proposals_and_task ... ok
+test tests::assistant_error_action_prepares_only_selected_cell_and_execution ... ok
+test tests::caption_gutter_preserves_run_label_before_secondary_chrome ... ok
+test tests::assistant_extended_commands_and_unavailable_reasons_work ... ok
+test tests::assistant_previews_context_without_sending_or_applying ... ok
+test tests::attachment_preview_requests_the_first_text_window ... ok
+test tests::assistant_typed_failure_consumes_receipt_and_rebuilds_without_sending ... ok
+test tests::changing_destination_clears_menus_and_palette ... ok
+test tests::application_menu_rows_span_the_panel_and_start_on_the_leading_edge ... ok
+test tests::checkpoint_commands_work_from_checkpoint_page_and_reject_unknown_runtime ... ok
+test tests::comfortable_actions_have_a_full_touch_target ... ok
+test tests::assistant_idle_suggestions_preview_from_the_composer ... ok
+test tests::cell_shortcuts_reuse_source_guards_and_delete_confirmation ... ok
+test tests::command_mode_run_bindings_preserve_source ... ok
+test tests::console_editor_newline_and_shortcuts_preserve_notebook_source ... ok
+test tests::compact_cells_remove_a_header_row_and_preserve_notable_states ... ok
+test tests::contextual_commands_preserve_ids_and_reject_irrelevant_or_unsaved_actions ... ok
+test tests::cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell ... ok
+test tests::bundle_review_inspects_without_running_and_keeps_source_conflicts ... ok
+test tests::clipped_settings_control_scrolls_into_view_before_it_runs ... ok
+test tests::contextual_cell_actions_reveal_on_keyboard_focus ... ok
+test tests::debug_gutter_and_navigation_bind_to_the_executed_revision ... ok
+test tests::display_replay_limits_offer_an_explicit_reload_without_running ... ok
+test tests::collapsed_destinations_and_export_remain_reachable ... ok
+test tests::filters_combine_cell_outcome_session_and_time ... ok
+test tests::delete_requires_confirmation_and_escape_preserves_source ... ok
+test tests::header_run_action_executes_an_unselected_cell_once ... ok
+test tests::history_filter_equivalence_and_date_validation ... ok
+test tests::export_menu_blocks_background_actions_and_escape_restores_focus ... ok
+test tests::escape_dismisses_completion_before_command_mode_and_preserves_editing ... ok
+test tests::duration_preference_is_optional_and_last_execution_identity_controls_the_badge ... ok
+test tests::history_cursor_keeps_session_scope_and_return_to_cell_restores_editor ... ok
+test tests::export_selection_sends_format_and_cancellation_sends_nothing ... ok
+test tests::dialog_starts_on_cancel_and_traps_keyboard_focus ... ok
+test tests::late_output_pages_and_images_cannot_replace_an_updated_display ... ok
+test tests::markdown_reading_blocks_keep_heading_body_and_code_content ... ok
+test tests::disabled_titlebar_action_stays_centered_and_runtime_actions_live_in_menu ... ok
+test tests::large_output_paging_requests_the_next_recorded_window ... ok
+test tests::middle_ellipsis_respects_measured_width_and_keeps_the_suffix ... ok
+test tests::history_filters_validate_dates_and_keep_existing_text_and_outcome ... ok
+test tests::ime_composition_suppresses_run_shortcuts ... ok
+test tests::markdown_edit_targets_the_invoking_cell_and_semantics_expose_rendered_content ... ok
+test tests::media_save_requires_a_selected_path_and_cancellation_sends_nothing ... ok
+test tests::menu_blocks_background_execution_and_escape_returns_focus ... ok
+test tests::product_mark_keeps_run_label_at_standard_compact_width ... ok
+test tests::history_pending_edits_never_describe_the_list_and_clear_resets_both ... ok
+test tests::palette_filters_navigates_and_restores_focus ... ok
+test tests::long_source_scrolls_horizontally_without_clipping_wrapped_rows ... ok
+test tests::output_tools_are_in_cell_header_and_outputs_use_the_full_reading_width ... ok
+test tests::replacing_application_python_preserves_edits_and_worker_on_validation_failure ... ok
+test tests::returning_to_history_refreshes_lists_without_replacing_details ... ok
+test tests::reveal_after_a_structural_reset_renders_the_unmeasured_target ... ok
+test tests::project_shortcuts_navigate_find_and_preserve_editor_text ... ok
+test tests::platform_commands_and_execution_bindings_stay_distinct ... ok
+test tests::provider_setup_round_trip_keeps_the_question_and_context ... ok
+test tests::run_keys_precede_editor_newline_and_submit_once ... ok
+test tests::shifted_native_commands_and_modal_blocking_preserve_source ... ok
+test tests::short_inline_cells_clamp_vertical_scroll_after_content_shrinks ... ok
+test tests::surface_results_and_runtime_actions_are_scoped ... ok
+test tests::source_undo_shortcuts_preserve_editor_undo_and_use_revision_checked_mutations ... ok
+test tests::structural_commands_respect_saved_source_and_require_merge_confirmation ... ok
+test tests::theme_text_and_focus_tokens_meet_contrast_thresholds ... ok
+test tests::unread_source_never_looks_like_an_empty_saved_notebook ... ok
+test tests::palette_manual_scroll_survives_redraw_and_keyboard_reveals_selection ... ok
+test tests::settings_segments_change_preferences_through_native_buttons ... ok
+test tests::scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width ... ok
+test tests::outline_is_contextual_and_collapse_survives_ten_resize_cycles ... ok
+test tests::settings_owns_its_width_and_return_restores_assistant ... ok
+
+test result: ok. 75 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.45s
+
+   Doc-tests kernelledger_client
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_models
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests kernelledger_ui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

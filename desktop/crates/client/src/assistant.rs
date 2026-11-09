@@ -10,7 +10,7 @@ pub struct AssistantService {
 }
 
 impl AssistantService {
-    pub fn new(project: PathBuf, python: PathBuf, events: mpsc::Sender<Event>) -> Self {
+    pub fn new(project: PathBuf, mut python: PathBuf, events: mpsc::Sender<Event>) -> Self {
         let (requests, receive) = mpsc::channel::<(String, Value)>();
         let process = Arc::new(Mutex::new(None::<Child>));
         let child = process.clone();
@@ -19,6 +19,17 @@ impl AssistantService {
         std::thread::spawn(move || {
             let mut transport: Option<(ChildStdin, ChildStdout)> = None;
             while let Ok((method, mut fields)) = receive.recv() {
+                if method == "application.python" {
+                    if let Some(path) = fields["path"].as_str() {
+                        python = path.into();
+                        transport = None;
+                        if let Some(mut old) = child.lock().unwrap().take() {
+                            let _ = old.kill();
+                            let _ = old.wait();
+                        }
+                    }
+                    continue;
+                }
                 let generation = worker_generation.load(std::sync::atomic::Ordering::SeqCst);
                 let publish = |event| {
                     if worker_generation.load(std::sync::atomic::Ordering::SeqCst) == generation {

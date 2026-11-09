@@ -605,3 +605,118 @@ def test_native_source_rejects_stale_revision_and_shares_the_lock(tmp_path: Path
         worker.join()
     assert sorted(results) == ["ok", "source_conflict"]
     assert (shared / "cells/a.py").read_text(encoding="utf-8") == "from-race\n"
+
+
+def test_source_history_interoperates_between_python_and_native(tmp_path: Path) -> None:
+    root = seeded(tmp_path / "shared")
+    service = SourceService(root)
+    service.mutate(mutate_request(root, action="delete", cell_id="a"))
+    result = mutate_native(root, action="undo")
+    assert [c["id"] for c in result["cells"]] == ["a", "m"]
+    result = mutate_native(root, action="redo")
+    assert [c["id"] for c in result["cells"]] == ["m"]
+    result = service.mutate(mutate_request(root, action="undo"))
+    assert [c["id"] for c in result["cells"]] == ["a", "m"]
+    # Optional history damage cannot make otherwise valid source uneditable.
+    (root / ".kl/source-history/index.json").write_text("[]")
+    assert not service.read()["history"]["undo"]
+    result = mutate_native(root, action="edit", cell_id="a", source="safe = True\n")
+    assert result["cells"][0]["source"] == "safe = True\n"
+    (root / ".kl/source-history/index.json").write_text("{")
+    result = service.mutate(mutate_request(root, action="edit", cell_id="a", source="safe = 2\n"))
+    assert result["cells"][0]["source"] == "safe = 2\n"
+
+
+def test_bounded_history_search_native_python_parity(tmp_path: Path) -> None:
+    root = seeded(tmp_path / "search")
+    ledger = Ledger(root / ".kl/ledger.sqlite")
+    blobs = BlobStore(root / ".kl")
+    ledger.db.execute(
+        "INSERT INTO sessions(session_id,notebook_id,state,start,environment_json,supervisor_json) VALUES ('s','n','stopped','2026-11-08T00:00:00Z','{}','{}')"
+    )
+    for i in range(240):
+        source = ("x" * 6000 + " needle") if i == 225 else f"value={i}"
+        digest = blobs.put(source.encode())
+        ledger.db.execute(
+            "INSERT INTO executions VALUES (?,?,?,?,?,?,?,?)",
+            (f"exec{i}", "s", i + 1, "a", digest, "ok", "2026-11-08T00:00:00Z", None),
+        )
+    ledger.db.commit()
+    ledger.db.close()
+    python = Helper(root)
+    native = NativeHelper(root)
+    try:
+        request = {"query": "needle cell:a outcome:ok after:2026-11-08", "page_size": 100}
+        for expected_scanned in (100, 100, 40):
+            actual = native_result(native, "executions.list", **request)
+            expected = python.dispatch({"method": "executions.list", **request})
+            assert actual == expected
+            assert actual["scanned"] == expected_scanned
+            request["cursor"] = actual["cursor"]
+        assert [item["exec_id"] for item in actual["items"]] == ["exec225"]
+        assert actual["items"][0]["source_preview_truncated"]
+        assert "needle" not in actual["items"][0]["source"]
+        assert actual["cursor"] is None
+        ledger = Ledger(root / ".kl/ledger.sqlite")
+        ledger.db.execute("UPDATE executions SET cell_id='UpperCell' WHERE exec_id='exec225'")
+        ledger.db.commit()
+        ledger.db.close()
+        request = {"query": "NEEDLE cell:UpperCell OUTCOME:OK", "page_size": 100}
+        actual = native_result(native, "executions.list", **request)
+        assert actual == python.dispatch({"method": "executions.list", **request})
+        assert [item["exec_id"] for item in actual["items"]] == ["exec225"]
+    finally:
+        native.close()
+
+
+@pytest.mark.parametrize("backend", ["python", "native"])
+def test_large_structural_change_clears_undo_without_blocking_source(
+    tmp_path: Path, backend: str
+) -> None:
+    root = seeded(tmp_path / backend)
+    attachment = tmp_path / "large.bin"
+    attachment.write_bytes(b"x" * (3 * 1024 * 1024))
+    service = SourceService(root)
+    service.mutate(
+        mutate_request(
+            root, action="attach", cell_id="m", filename="large.bin", file_path=str(attachment)
+        )
+    )
+    if backend == "native":
+        result = mutate_native(root, action="delete", cell_id="m")
+    else:
+        result = service.mutate(mutate_request(root, action="delete", cell_id="m"))
+    assert [cell["id"] for cell in result["cells"]] == ["a"]
+    assert not result["history"]["undo"]
+    assert "4 MiB" in result["history"]["reason"]
+
+
+@pytest.mark.parametrize("backend", ["python", "native"])
+@pytest.mark.parametrize(
+    "path", ["cells/../.kl/undo-canary", "cells//a.py", "cells/./a.py", "cells/..\\.kl/undo-canary"]
+)
+def test_tampered_undo_cannot_bypass_revision_guards_with_path_aliases(
+    tmp_path: Path, backend: str, path: str
+) -> None:
+    root = seeded(tmp_path / backend)
+    service = SourceService(root)
+    service.mutate(mutate_request(root, action="add", type="code", new_id="b"))
+    canary = root / ".kl/undo-canary"
+    canary.write_bytes(b"keep")
+    original = service._files()
+    index = json.loads((root / ".kl/source-history/index.json").read_text())
+    record = root / ".kl/source-history" / (index["undo"][-1]["id"] + ".json")
+    record.write_text(json.dumps({"paths": {path: {"after": None, "before": "Zm9yZ2Vk"}}}))
+    if backend == "python":
+        with pytest.raises(SourceError) as error:
+            service.mutate(mutate_request(root, action="undo"))
+        assert error.value.code == "source_invalid"
+    else:
+        native = NativeHelper(root)
+        try:
+            frame, _ = native.call("source.mutate", **mutate_request(root, action="undo"))
+            assert frame["error"]["code"] == "source_invalid", frame
+        finally:
+            native.close()
+    assert canary.read_bytes() == b"keep"
+    assert service._files() == original

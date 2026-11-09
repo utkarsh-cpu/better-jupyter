@@ -10,6 +10,7 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub enum Command {
+    SelectApplicationPython(PathBuf),
     OutputError(String),
     RecordedSource(crate::recorded::Location),
     SaveOutput {
@@ -319,14 +320,74 @@ impl NotebookService {
         let (commands, receive) = mpsc::channel();
         let (send, events) = mpsc::channel();
         std::thread::spawn(move || {
-            if let Err(error) = Session::new(project, python, send.clone())
-                .and_then(|mut session| session.run(receive))
-            {
-                report(&send, error);
+            let candidates = if python.as_os_str().is_empty() {
+                helper_candidates(&project)
+            } else {
+                vec![python]
+            };
+            let mut failures = Vec::new();
+            for python in candidates {
+                match Session::new(project.clone(), python.clone(), send.clone()) {
+                    Ok(mut session) => {
+                        let _ = send.send(Event::Inspection {
+                            method: "helper.status".into(),
+                            value: json!({"python":python,"ready":true}),
+                        });
+                        if let Err(error) = session.run(receive) {
+                            report(&send, error);
+                        }
+                        return;
+                    }
+                    Err(error) => failures.push(format!("{}: {error:#}", python.display())),
+                }
             }
+            let _ = send.send(Event::Error {
+                code: "helper_startup".into(),
+                message: format!("Application Python could not load KernelLedger. Choose a Python environment with KernelLedger installed, then retry.\n{}", failures.join("\n")),
+            });
         });
         Self { commands, events }
     }
+}
+
+/// Discovery runs on the service thread. Never resolve venv symlinks: Python
+/// needs the invoked venv path to select its installed packages.
+fn helper_candidates(project: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    let mut add = |path: PathBuf| {
+        if !candidates.contains(&path) {
+            candidates.push(path);
+        }
+    };
+    let binary = if cfg!(windows) {
+        "Scripts/python.exe"
+    } else {
+        "bin/python"
+    };
+    if let Some(venv) = std::env::var_os("VIRTUAL_ENV") {
+        add(PathBuf::from(venv).join(binary));
+    }
+    for start in [
+        std::env::current_dir().ok(),
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(Path::to_path_buf)),
+        Some(project.to_path_buf()),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        for directory in start.ancestors().take(6) {
+            let path = directory.join(".venv").join(binary);
+            if path.is_file() {
+                add(path);
+            }
+        }
+    }
+    for command in ["python3", "python"] {
+        add(command.into());
+    }
+    candidates
 }
 impl Drop for NotebookService {
     fn drop(&mut self) {
@@ -592,6 +653,32 @@ impl Session {
     }
     fn handle(&mut self, command: Command) -> Result<bool> {
         match command {
+            Command::SelectApplicationPython(path) => {
+                // Switch on the owning service thread, keeping drafts, operation
+                // keys and worker attachment. Existing edits reconcile by hash.
+                let helper = match HelperClient::start(&path, &self.project, &self.identity) {
+                    Ok(helper) => helper,
+                    Err(error) => {
+                        let _ = self.events.send(Event::Error {
+                            code: "helper_validation".into(),
+                            message: format!("{error:#}"),
+                        });
+                        return Ok(true);
+                    }
+                };
+                self.helper = helper;
+                self.python = path.clone();
+                let _ = self
+                    .assistant
+                    .requests
+                    .send(("application.python".into(), json!({"path":path})));
+                self.refresh()?;
+                self.save_all()?;
+                let _ = self.events.send(Event::Inspection {
+                    method: "helper.status".into(),
+                    value: json!({"python":path,"ready":true}),
+                });
+            }
             Command::OutputError(message) => {
                 let _ = self.events.send(Event::Error {
                     code: "output_export".into(),

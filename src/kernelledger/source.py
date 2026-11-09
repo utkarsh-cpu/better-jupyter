@@ -90,6 +90,8 @@ class SourceService:
                     fcntl.flock(file.fileno(), fcntl.LOCK_UN)
 
     def _path(self, name: str) -> Path:
+        if "\\" in name or any(part in ("", ".", "..") for part in name.split("/")):
+            raise SourceError("source_invalid", "source path is not canonical", {"path": name})
         path = self.root / name
         if path.is_symlink() or not path.resolve().is_relative_to(self.root):
             raise SourceError("source_invalid", "source path escapes notebook", {"path": name})
@@ -143,6 +145,7 @@ class SourceService:
             return {
                 "state": "missing" if missing else "conflict_markers" if markers else "ok",
                 "manifest": data,
+                "history": self._history_info(),
                 "manifest_revision": hashlib.sha256(manifest_bytes(data)).hexdigest(),
                 "cells": cells,
                 "files": missing or markers,
@@ -249,10 +252,154 @@ class SourceService:
                 self._publish(before, after)
                 return result
 
+    def _history_state(self) -> Any:
+        path = self.state / "source-history" / "index.json"
+        if not path.exists():
+            return {"schema": 1, "undo": [], "redo": []}
+        if path.stat().st_size > 65536:
+            raise SourceError("source_conflict", "Source undo index exceeds its limit")
+        state: Any = json.loads(path.read_bytes())
+        if not isinstance(state, dict):
+            raise SourceError("source_conflict", "Source undo index is invalid")
+        state = cast(dict[str, Any], state)
+
+        def valid_entry(value: Any) -> bool:
+            if not isinstance(value, dict):
+                return False
+            identifier = cast(dict[str, Any], value).get("id")
+            size = cast(dict[str, Any], value).get("bytes")
+            label = cast(dict[str, Any], value).get("label")
+            return (
+                isinstance(identifier, str)
+                and len(identifier) == 32
+                and all(c in "0123456789abcdef" for c in identifier)
+                and type(size) is int
+                and 0 <= size <= 4 * 1024 * 1024
+                and isinstance(label, str)
+                and len(label) <= 32
+            )
+
+        if state.get("schema") != 1 or any(
+            not isinstance(state.get(key), list)
+            or len(state[key]) > 20
+            or any(not valid_entry(item) for item in state[key])
+            for key in ("undo", "redo")
+        ):
+            raise SourceError("source_conflict", "Source undo index is invalid")
+        return state
+
+    def _history_info(self) -> Any:
+        try:
+            state = self._history_state()
+            return {
+                "undo": bool(state["undo"]),
+                "redo": bool(state["redo"]),
+                "undo_label": state["undo"][-1]["label"] if state["undo"] else "",
+                "reason": state.get("reason", ""),
+            }
+        except (ValueError, KeyError, OSError, TypeError):
+            return {"undo": False, "redo": False, "reason": "Source undo history is unavailable"}
+
+    def _save_history(self, state: Any) -> None:
+        atomic(self.state / "source-history" / "index.json", json.dumps(state).encode())
+
+    def _record_history(self, before: Any, after: Any, action: str) -> None:
+        structural = {
+            "add",
+            "duplicate",
+            "delete",
+            "move",
+            "split",
+            "merge",
+            "convert",
+            "paste",
+            "insert_cells",
+        }
+        state: Any
+        try:
+            state = self._history_state()
+        except (ValueError, KeyError, OSError, TypeError):
+            # Undo is optional metadata: its loss must not block normal editing.
+            state = {"schema": 1, "undo": [], "redo": []}
+        removed: list[Any] = list(state["redo"])
+        state["redo"] = []
+        if action in structural and before != after:
+            paths = {
+                name: {
+                    key: base64.b64encode(files[name]).decode() if name in files else None
+                    for key, files in (("before", before), ("after", after))
+                }
+                for name in before.keys() | after.keys()
+                if before.get(name) != after.get(name)
+            }
+            encoded = json.dumps({"paths": paths}).encode()
+            if len(encoded) > 4 * 1024 * 1024:
+                removed += state["undo"]
+                state["undo"] = []
+                state["reason"] = "This change exceeds the 4 MiB undo limit"
+            else:
+                entry: dict[str, Any] = {
+                    "id": uuid.uuid4().hex,
+                    "label": action,
+                    "bytes": len(encoded),
+                }
+                atomic(self.state / "source-history" / (entry["id"] + ".json"), encoded)
+                state["undo"].append(entry)
+                state.pop("reason", None)
+                while (
+                    len(state["undo"]) > 20
+                    or sum(item.get("bytes", 0) for item in state["undo"]) > 16 * 1024 * 1024
+                ):
+                    removed.append(state["undo"].pop(0))
+        self._save_history(state)
+        for entry in removed:
+            (self.state / "source-history" / (entry["id"] + ".json")).unlink(missing_ok=True)
+
+    def _apply_history(self, action: str, before: Any) -> Any:
+        state = self._history_state()
+        if not state[action]:
+            raise SourceError("invalid_request", "No source change to " + action)
+        entry = state[action][-1]
+        path = self.state / "source-history" / (entry["id"] + ".json")
+        if path.stat().st_size > 4 * 1024 * 1024:
+            raise SourceError("source_conflict", "Source undo record exceeds its limit")
+        patch = json.loads(path.read_bytes())["paths"]
+        expected, target = ("after", "before") if action == "undo" else ("before", "after")
+        after = dict(before)
+        for name, versions in patch.items():
+            self._path(name)
+
+            def decode(value: Any) -> Any:
+                return base64.b64decode(value, validate=True) if value is not None else None
+
+            if before.get(name) != decode(versions[expected]):
+                raise SourceError(
+                    "undo_conflict",
+                    "Source changed since this operation; undo preserves external and newer edits",
+                )
+            value = decode(versions[target])
+            if value is None:
+                after.pop(name, None)
+            else:
+                after[name] = value
+        with tempfile.TemporaryDirectory() as directory:
+            staged = Notebook(directory)
+            staged.path.write_bytes(after["notebook.json"])
+            staged.read()
+        state[action].pop()
+        state["redo" if action == "undo" else "undo"].append(entry)
+        # A crash between these writes leaves a guarded, unusable entry rather
+        # than allowing a later undo to overwrite source with an unknown base.
+        self._save_history(state)
+        self._publish(before, after)
+        return self._read()
+
     def mutate(self, request: Any) -> Any:
         with self.locked():
             current = self._check(request)
             before = self._files()
+            if request["action"] in ("undo", "redo"):
+                return self._apply_history(request["action"], before)
             after = dict(before)
             data = copy.deepcopy(current["manifest"])
             cells = data["cells"]
@@ -398,6 +545,7 @@ class SourceService:
                 staged = Notebook(directory)
                 staged.path.write_bytes(after["notebook.json"])
                 staged.read()
+            self._record_history(before, after, action)
             self._publish(before, after)
             return self._read()
 

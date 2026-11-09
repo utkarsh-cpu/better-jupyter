@@ -86,13 +86,7 @@ impl Workspace {
         }
         let mut body = v_flex()
             .w_full()
-            .max_w(rems(
-                if self.surface == "Settings" || self.surface == "Help" {
-                    52.
-                } else {
-                    76.
-                },
-            ))
+            .max_w(rems(if self.surface == "Help" { 52. } else { 76. }))
             .min_w_0()
             .gap_4()
             .child(header_row);
@@ -364,35 +358,27 @@ impl Workspace {
             body = body.child(section("Operations this session", cx).child(rows));
         }
         if !value.is_null() {
+            let open = self.tabs[self.active]
+                .raw_details
+                .get(&self.surface)
+                .copied()
+                .unwrap_or(false);
             body = body.child(
                 action_button("raw-details")
                     .self_start()
                     .ghost()
                     .small()
-                    .label(
-                        if self.tabs[self.active]
-                            .raw_details
-                            .get(&self.surface)
-                            .copied()
-                            .unwrap_or(false)
-                        {
-                            "Hide JSON"
-                        } else {
-                            "Show JSON"
-                        },
-                    )
-                    .accessibility_label(
-                        if self.tabs[self.active]
-                            .raw_details
-                            .get(&self.surface)
-                            .copied()
-                            .unwrap_or(false)
-                        {
-                            "Hide technical details"
-                        } else {
-                            "Technical details"
-                        },
-                    )
+                    .icon(if open {
+                        Glyph::ChevronUp
+                    } else {
+                        Glyph::ChevronDown
+                    })
+                    .label(if open { "Hide JSON" } else { "Show JSON" })
+                    .accessibility_label(if open {
+                        "Hide technical details"
+                    } else {
+                        "Technical details"
+                    })
                     .on_click(cx.listener(|v, _, _, cx| {
                         let expanded = v.tabs[v.active]
                             .raw_details

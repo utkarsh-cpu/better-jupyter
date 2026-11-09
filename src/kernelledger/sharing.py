@@ -114,6 +114,11 @@ def descriptor(ledger: Any, blobs: Any, checkpoint_id: Any) -> Any:
         "manifest_sha256": row["manifest_sha256"],
         "blob_hashes": sorted(blobs.closure([row["manifest_sha256"]])),
         "status": row["status"],
+        "timestamp": row["timestamp"],
+        "session_id": row["session_id"],
+        "saved_values": len(manifest["bindings"])
+        if isinstance(manifest.get("bindings"), dict)
+        else None,
         "excluded": manifest["excluded"],
         "notes": manifest["notes"],
     }

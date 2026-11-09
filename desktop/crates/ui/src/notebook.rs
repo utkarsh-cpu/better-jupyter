@@ -10,6 +10,28 @@ pub(crate) fn compact_source_layout(
     !comfortable && scale <= 1.25 && editor_size <= 18. && !debugger
 }
 
+pub(crate) fn cell_border_color(
+    selected: bool,
+    editor_focused: bool,
+    has_error: bool,
+    high_contrast: bool,
+    cx: &App,
+) -> Hsla {
+    let theme = cx.theme();
+    if selected || editor_focused {
+        theme.primary.opacity(if high_contrast { 1. } else { 0.55 })
+    } else if has_error {
+        // Failure cue independent of color-only badges (live UX D).
+        theme.danger.opacity(if high_contrast { 1. } else { 0.45 })
+    } else {
+        surface_edge(cx)
+    }
+}
+
+pub(crate) fn boundary_button_label(last: bool) -> &'static str {
+    if last { "Add cell" } else { "Insert" }
+}
+
 impl Workspace {
     pub(super) fn editor(
         &mut self,
@@ -25,14 +47,25 @@ impl Workspace {
         let text = cell.text.clone();
         let kind = cell.disk.kind.clone();
         let editor = cx.new(|cx| {
-            let mut s = EditorState::new(window, cx).language(if kind == "code" {
-                "python"
-            } else if kind == "markdown" {
-                "markdown"
-            } else {
-                "text"
-            });
+            // Height follows source lines. Soft wrapping would add visual rows
+            // behind that fixed viewport and clip a continuation after resizing.
+            // Keep source geometry stable and use the editor's horizontal scroll.
+            let mut s = EditorState::new(window, cx)
+                .soft_wrap(false)
+                // Inline cells already size to their content. Full-file editor
+                // trailing space can leave short cells scrolled past line one.
+                .scroll_beyond_last_line(Some(0))
+                .language(if kind == "code" {
+                    "python"
+                } else if kind == "markdown" {
+                    "markdown"
+                } else {
+                    "text"
+                });
             s.set_value(text, window, cx);
+            // Initial source inspection starts at the leading edge even when
+            // the end of a long line lies outside a narrow editor viewport.
+            s.set_selected_range(0..0, cx);
             s
         });
         let id = id.to_string();
@@ -427,17 +460,14 @@ impl Workspace {
             .relative()
             .border_1()
             .rounded(cx.theme().radius_lg)
-            .border_color(if selected {
-                primary.opacity(if self.high_contrast { 1. } else { 0.55 })
-            } else if has_error {
-                // Failure cue independent of color-only badges (live UX D).
-                danger.opacity(if self.high_contrast { 1. } else { 0.45 })
-            } else if self.high_contrast {
-                edge(cx)
-            } else {
-                transparent
-            })
-            .bg(if selected || self.high_contrast {
+            .border_color(cell_border_color(
+                selected,
+                editor_focused,
+                has_error,
+                self.high_contrast,
+                cx,
+            ))
+            .bg(if selected || editor_focused || self.high_contrast {
                 popover
             } else {
                 transparent
@@ -446,21 +476,15 @@ impl Workspace {
                 d.hover(move |s| s.bg(popover))
             })
             .overflow_hidden()
-            .child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top_0()
-                    .bottom_0()
-                    .w(px(2.))
-                    .bg(if selected {
-                        primary
-                    } else if has_error {
-                        danger
-                    } else {
-                        transparent
-                    }),
-            )
+            .child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(
+                if selected || editor_focused {
+                    primary
+                } else if has_error {
+                    danger
+                } else {
+                    transparent
+                },
+            ))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener({
@@ -501,17 +525,21 @@ impl Workspace {
                                     .relative()
                                     .w_full()
                                     .items_start()
+                                    .gap_2()
                                     .when(inline_code, |d| {
+                                        let row_h = px((self.preferences.editor_size * 1.5
+                                            + 18. * self.preferences.ui_scale)
+                                            .max(30. * self.preferences.ui_scale));
                                         d.child(
                                             h_flex()
-                                                .flex_wrap()
                                                 .flex_none()
+                                                .min_h(row_h)
                                                 .w(rems(if self.preferences.show_cell_duration {
-                                                    5.5
+                                                    6.0
                                                 } else {
-                                                    4.5
+                                                    4.75
                                                 }))
-                                                .gap_0p5()
+                                                .gap_1p5()
                                                 .items_center()
                                                 .children(inline_run.take())
                                                 .when_some(cell.ordinal, |d, n| {
@@ -573,9 +601,14 @@ impl Workspace {
                                             .bordered(false),
                                     )
                                     .when(inline_code || inline_markdown, |d| {
+                                        let row_h = px((self.preferences.editor_size * 1.5
+                                            + 18. * self.preferences.ui_scale)
+                                            .max(30. * self.preferences.ui_scale));
                                         d.child(
                                             h_flex()
                                                 .flex_none()
+                                                .min_h(row_h)
+                                                .items_center()
                                                 .pl_2()
                                                 .children(inline_actions.take()),
                                         )
@@ -588,18 +621,26 @@ impl Workspace {
             card = card.child(self.cell_conflict_banner(index, &id, &cell.disk.source, cx));
         }
         if cell.disk.kind == "markdown" && !(selected && tab.model.mode == Mode::Edit) {
+            let row_h = px(
+                (self.preferences.editor_size * 1.5 + 18. * self.preferences.ui_scale)
+                    .max(30. * self.preferences.ui_scale),
+            );
             card = card.child(
                 h_flex()
                     .w_full()
                     .items_start()
-                    .px_5()
-                    .py_3()
+                    .px_3()
+                    .pt(px(spacing.source_top))
+                    .pb(px(spacing.source_bottom))
                     .gap_2()
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .max_w(rems(52.))
+                            .min_h(row_h)
+                            .px_2()
+                            .py_1()
                             // TextView's pinned Markdown renderer paints spans without
                             // content semantics. Expose one readable document per cell.
                             .id(("markdown-content", index))
@@ -620,7 +661,14 @@ impl Workspace {
                             ),
                     )
                     .when(inline_markdown, |d| {
-                        d.child(h_flex().flex_none().children(inline_actions.take()))
+                        d.child(
+                            h_flex()
+                                .flex_none()
+                                .min_h(row_h)
+                                .items_center()
+                                .pl_2()
+                                .children(inline_actions.take()),
+                        )
                     }),
             );
         }
@@ -724,6 +772,20 @@ impl Workspace {
                     }))
             });
         }
+        let boundary_group: SharedString = format!("boundary-{id}").into();
+        let boundary_visible = last || self.preferences.comfortable || selected;
+        let rule_color = divider(cx);
+        let card_edge = surface_edge(cx);
+        let line_rule = |group: SharedString| {
+            div()
+                .flex_1()
+                .max_w(rems(8.))
+                .h(px(1.))
+                .bg(rule_color)
+                .when(!boundary_visible, |d| {
+                    d.opacity(0.).group_hover(group, |s| s.opacity(1.))
+                })
+        };
         div()
             .debug_selector({
                 let id = id.clone();
@@ -740,32 +802,42 @@ impl Workspace {
             }))
             .mx_auto()
             .px_4()
-            .pt(px(if index == 0 { 12. } else { 0. }))
-            .pb(px(if last { 20. } else { 0. }))
+            .pt(px(if index == 0 { 16. } else { 0. }))
+            .pb(px(if last { 24. } else { 0. }))
             .child(card)
             .child(
                 h_flex()
-                    .group(SharedString::from(format!("boundary-{id}")))
+                    .debug_selector({
+                        let id = id.clone();
+                        move || format!("cell-boundary-{id}")
+                    })
+                    .group(boundary_group.clone())
+                    .w_full()
                     .h(px(if last {
                         spacing.boundary_last
                     } else {
                         spacing.boundary
                     }))
+                    .py_1p5()
+                    .gap_3()
                     .items_center()
                     .justify_center()
+                    .child(line_rule(boundary_group.clone()))
                     .child(
                         self.anchored(
                             format!("insert-{id}"),
                             action_button(("insert-cell", index))
                                 .ghost()
                                 .small()
+                                .rounded_full()
+                                .px_2p5()
+                                .border_1()
+                                .border_color(card_edge)
+                                .bg(popover)
                                 .icon(Glyph::Plus)
-                                .when(last, |b| b.label("Add cell"))
+                                .label(boundary_button_label(last))
                                 .text_color(muted_fg)
-                                .contextual(
-                                    SharedString::from(format!("boundary-{id}")),
-                                    last || self.preferences.comfortable || selected,
-                                )
+                                .contextual(boundary_group.clone(), boundary_visible)
                                 .accessibility_label(if last {
                                     "Add cell at end of notebook".to_string()
                                 } else {
@@ -784,7 +856,8 @@ impl Workspace {
                                 })),
                             cx,
                         ),
-                    ),
+                    )
+                    .child(line_rule(boundary_group)),
             )
             .into_any_element()
     }

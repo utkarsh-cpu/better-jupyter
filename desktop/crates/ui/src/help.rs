@@ -8,6 +8,7 @@ impl Workspace {
             .strip_prefix("# Help and shortcuts")
             .unwrap_or(include_str!("../../../../docs/desktop/help.md"))
             .trim_start();
+        let source = shortcuts::shortcut_text(source);
         let content = if query.trim().is_empty() {
             source.to_owned()
         } else {

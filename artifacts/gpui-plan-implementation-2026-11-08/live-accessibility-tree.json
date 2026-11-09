@@ -1,0 +1,32 @@
+[
+  {
+    "depth" : "0",
+    "role" : "AXApplication",
+    "title" : "kernelledger-desktop"
+  },
+  {
+    "depth" : "1",
+    "role" : "AXWindow",
+    "title" : "KernelLedger — Precision notebook"
+  },
+  {
+    "depth" : "2",
+    "role" : "AXGroup"
+  },
+  {
+    "depth" : "2",
+    "role" : "AXButton"
+  },
+  {
+    "depth" : "2",
+    "role" : "AXButton"
+  },
+  {
+    "depth" : "3",
+    "role" : "AXGroup"
+  },
+  {
+    "depth" : "2",
+    "role" : "AXButton"
+  }
+]

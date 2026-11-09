@@ -144,7 +144,7 @@ impl WorkbenchButton {
         self
     }
     pub fn hint(mut self, label: impl Into<SharedString>) -> Self {
-        let text = label.into();
+        let text: SharedString = shortcuts::shortcut_text(&label.into()).into();
         // Use GPUI's element-owned tooltip lifecycle, rather than Kit's global
         // managed overlay, whose hover owner can outlive a destination change.
         self.inner
