@@ -833,9 +833,21 @@ impl RenderOnce for OutputBlock {
                         }),
                 );
             }
-            body = body
-                .child(sizing)
-                .child(html_output::host(view, html_blocked, html_height));
+            let hosted = self
+                .workspace
+                .as_ref()
+                .map(|workspace| workspace.read(cx).html_hosted.clone());
+            let hosted_key = self.id.to_string();
+            body = body.child(sizing).child(html_output::host(
+                view,
+                html_blocked,
+                html_height,
+                move |_| {
+                    if let Some(hosted) = &hosted {
+                        hosted.borrow_mut().insert(hosted_key.clone());
+                    }
+                },
+            ));
             return body.into_any_element();
         }
         if html_pending {
