@@ -45,7 +45,13 @@ use kernelledger_client::{
 };
 use kernelledger_models::{Mode, NotebookModel, SaveState, SourceSnapshot};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, path::PathBuf, time::Duration};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+    rc::Rc,
+    time::Duration,
+};
 
 actions!(
     kernelledger,
@@ -169,6 +175,8 @@ pub struct Workspace {
     html_network_error: Option<String>,
     html_signals: std::sync::mpsc::SyncSender<html_output::HtmlSignal>,
     html_signal_receiver: std::sync::mpsc::Receiver<html_output::HtmlSignal>,
+    /// Output keys whose webviews painted in the previous notebook frame.
+    html_hosted: Rc<RefCell<BTreeSet<String>>>,
     compact: bool,
     outline_drawer: bool,
     follow_system: bool,
@@ -298,6 +306,7 @@ impl Workspace {
             html_network_error: None,
             html_signals,
             html_signal_receiver,
+            html_hosted: Rc::new(RefCell::new(BTreeSet::new())),
             compact: false,
             outline_drawer: false,
             follow_system,
@@ -1236,11 +1245,11 @@ impl Workspace {
                             if let Some(height) = signal.value["height"].as_f64()
                                 && height.is_finite()
                             {
-                                let height = (height as f32).clamp(160., 800.);
+                                let height = (height as f32)
+                                    .clamp(html_output::MIN_HEIGHT, html_output::MAX_HEIGHT);
                                 if (state.height - height).abs() > 2. {
                                     state.height = height;
-                                    tab.list
-                                        .splice(0..tab.model.order.len(), tab.model.order.len());
+                                    html_output::refresh_cell_for_key(tab, &signal.key);
                                 }
                             }
                         }
@@ -1636,7 +1645,7 @@ impl Workspace {
 }
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.conceal_html_views(cx);
+        self.sync_html_view_visibility(cx);
         if self.confirmation.is_some() && !self.dialog_open {
             self.return_focus = window.focused(cx);
             self.confirm_focus.focus(window, cx);
