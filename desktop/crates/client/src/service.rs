@@ -124,6 +124,11 @@ pub enum Command {
         mime: String,
         digest: String,
     },
+    LoadHtml {
+        key: String,
+        token: String,
+        digest: String,
+    },
     PreviewAttachment {
         cell_id: String,
         name: String,
@@ -134,6 +139,11 @@ pub enum Command {
 }
 #[derive(Debug, Clone)]
 pub enum Event {
+    HtmlLoaded {
+        key: String,
+        token: String,
+        result: std::result::Result<String, String>,
+    },
     AssistantDelta(Value),
     AssistantProposal(Value),
     AssistantDone {
@@ -1166,6 +1176,16 @@ impl Session {
                     end,
                     total: page.total,
                 });
+            }
+            Command::LoadHtml { key, token, digest } => {
+                let result = super::output::read_limited(
+                    |hash, offset, length| self.helper.blob_range(hash, offset, length),
+                    &digest,
+                    super::output::HTML_BYTE_LIMIT,
+                )
+                .and_then(|bytes| String::from_utf8(bytes).map_err(Into::into))
+                .map_err(|error| error.to_string());
+                let _ = self.events.send(Event::HtmlLoaded { key, token, result });
             }
             Command::ShowImage {
                 cell_id,

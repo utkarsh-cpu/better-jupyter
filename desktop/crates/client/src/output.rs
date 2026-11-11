@@ -1,12 +1,15 @@
 //! Safe native output preparation. No HTML engine, SVG or network resources.
 use super::*;
+use base64::Engine as _;
 use html5ever::{parse_document, tendril::TendrilSink};
 use markup5ever_rcdom::{Handle, NodeData, RcDom};
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 use std::{collections::BTreeSet, io::Cursor, sync::Mutex};
 
 pub const VIEW_TEXT_LIMIT: usize = 65_536;
 pub const MAX_PAGE_BYTES: usize = 262_144;
+pub const HTML_BYTE_LIMIT: usize = 32 * 1024 * 1024;
 pub const IMAGE_CACHE_BUDGET: u64 = 64 * 1024 * 1024;
 const IMAGE_BYTE_LIMIT: usize = 32 * 1024 * 1024;
 const IMAGE_PIXEL_LIMIT: u64 = 16_000_000;
@@ -79,6 +82,78 @@ fn rows(node: &Handle, result: &mut Vec<Vec<String>>) {
         rows(child, result);
     }
 }
+/// True when recorded `text/html` is leftover interactive markup rather than a
+/// native table: missing extracted rows, or script/iframe/embed/`javascript:` /
+/// inline event handlers. Table extraction itself is unchanged and remains the default.
+pub fn html_is_interactive(event: &Value) -> bool {
+    let Some(html) = event["bundle"]["text/html"]["value"].as_str() else {
+        return false;
+    };
+    if html.is_empty() {
+        return false;
+    }
+    let has_rows = event["bundle"]["text/html"]["rows"]
+        .as_array()
+        .is_some_and(|rows| !rows.is_empty());
+    !has_rows || html_has_active_content(html)
+}
+
+/// Large HTML stays in a blob until the user requests a complete document.
+pub fn html_output_available(event: &Value) -> bool {
+    let Some(html) = event["bundle"]["text/html"]["value"].as_str() else {
+        return false;
+    };
+    if html.is_empty() {
+        return false;
+    }
+    let total = event["bundle"]["text/html"]["page"]["total"]
+        .as_u64()
+        .unwrap_or(html.len() as u64);
+    total <= HTML_BYTE_LIMIT as u64
+        && html.len() <= HTML_BYTE_LIMIT
+        && (total == html.len() as u64
+            || event["bundle"]["text/html"]["blob"]
+                .as_str()
+                .is_some_and(|s| !s.is_empty()))
+        && !html.contains("[output truncated at 65536 characters]")
+}
+
+pub fn html_has_active_content(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    lower.contains("<script")
+        || lower.contains("<iframe")
+        || lower.contains("<object")
+        || lower.contains("<embed")
+        || lower.contains("javascript:")
+        || has_inline_event_handler(&lower)
+}
+
+fn has_inline_event_handler(html: &str) -> bool {
+    let bytes = html.as_bytes();
+    let mut i = 0;
+    while i + 3 < bytes.len() {
+        if matches!(bytes[i], b' ' | b'\t' | b'\n' | b'\r' | b'<')
+            && bytes[i + 1] == b'o'
+            && bytes[i + 2] == b'n'
+        {
+            let mut j = i + 3;
+            while j < bytes.len() && bytes[j].is_ascii_alphabetic() {
+                j += 1;
+            }
+            if j > i + 3 {
+                while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
+                if j < bytes.len() && bytes[j] == b'=' {
+                    return true;
+                }
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
 pub fn table(html: &str) -> Result<Vec<Vec<String>>> {
     ensure!(
         html.len() <= 8 * 1024 * 1024,
@@ -333,17 +408,24 @@ pub fn read_limited(
         }
         let want = (limit - all.len()).min(FRAME_LIMIT);
         let page = read(digest, all.len() as u64, want)?;
+        ensure!(
+            page.total <= limit as u64,
+            "Output exceeds the {} MiB viewer limit",
+            limit / 1024 / 1024
+        );
+        ensure!(
+            page.offset == all.len() as u64,
+            "Output page has an unexpected offset"
+        );
         if page.bytes.is_empty() {
+            ensure!(all.len() as u64 == page.total, "Output is incomplete");
             break;
         }
         let room = limit - all.len();
         let take = page.bytes.len().min(room);
         all.extend_from_slice(&page.bytes[..take]);
         if all.len() as u64 >= page.total || take < page.bytes.len() {
-            ensure!(
-                page.total <= limit as u64,
-                "Image exceeds 32 MiB viewer limit"
-            );
+            ensure!(page.total <= limit as u64, "Output exceeds viewer limit");
             break;
         }
     }
@@ -369,9 +451,31 @@ pub fn resolve_event(
     }
     if let Some(bundle) = event["bundle"].as_object_mut() {
         for (mime, value) in bundle {
+            // Older workers and imported MIME bundles may store base64 inline.
+            if matches!(mime.as_str(), "image/png" | "image/jpeg")
+                && let Some(encoded) = value["value"].as_str()
+            {
+                ensure!(
+                    encoded.len() <= IMAGE_BYTE_LIMIT * 4 / 3 + 4,
+                    "Encoded image exceeds viewer limit"
+                );
+                let bytes = base64::engine::general_purpose::STANDARD.decode(encoded)?;
+                prepare_image(&bytes)?;
+                let digest = format!("{:x}", sha2::Sha256::digest(&bytes));
+                value["local_path"] = json!(store_cached_image(
+                    cache_dir,
+                    &digest,
+                    &bytes,
+                    IMAGE_CACHE_BUDGET
+                )?);
+                // Keep the recorded base64 value unchanged for export/provenance.
+            }
             if let Some(hash) = value["blob"].as_str().map(str::to_owned) {
                 if matches!(mime.as_str(), "image/png" | "image/jpeg") {
-                    let bytes = read_limited(&mut read, &hash, IMAGE_BYTE_LIMIT)?;
+                    let mut bytes = read_limited(&mut read, &hash, IMAGE_BYTE_LIMIT)?;
+                    if value["encoding"] == "utf8" {
+                        bytes = base64::engine::general_purpose::STANDARD.decode(&bytes)?;
+                    }
                     prepare_image(&bytes)?;
                     let path = store_cached_image(cache_dir, &hash, &bytes, IMAGE_CACHE_BUDGET)?;
                     value["local_path"] = json!(path);
@@ -402,10 +506,226 @@ pub fn resolve_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn large_html_requires_a_complete_source_and_obeys_the_render_budget() {
+        let mut event = json!({"bundle":{"text/html":{"value":"<script>ok()</script>", "page":{"total":1_000_000}}}});
+        assert!(
+            !html_output_available(&event),
+            "An incomplete preview alone is not a document"
+        );
+        event["bundle"]["text/html"]["blob"] = json!("recorded-html");
+        assert!(html_output_available(&event));
+        event["bundle"]["text/html"]["page"]["total"] = json!(HTML_BYTE_LIMIT + 1);
+        assert!(!html_output_available(&event));
+        assert!(
+            read_limited(
+                |_, _, _| Ok(BlobPage {
+                    bytes: vec![1; 10],
+                    offset: 0,
+                    total: 100
+                }),
+                "blob",
+                10
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn imported_base64_png_is_validated_and_prepared_for_the_native_cache() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut image = Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image::RgbaImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let bytes = image.into_inner();
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let mut event = json!({"bundle":{"image/png":{"value":encoded}}});
+        resolve_event(
+            &mut event,
+            |_, _, _| panic!("Inline image must not read a blob"),
+            directory.path(),
+        )
+        .unwrap();
+        let path = event["bundle"]["image/png"]["local_path"].as_str().unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+        assert_eq!(event["bundle"]["image/png"]["value"], encoded);
+        event = json!({"bundle":{"image/png":{"value":"not base64"}}});
+        assert!(resolve_event(&mut event, |_, _, _| unreachable!(), directory.path()).is_err());
+    }
     #[test]
     fn table_discards_active_content() {
         let rows = table("<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script><img src='https://evil'></td></tr></table>").unwrap();
         assert_eq!(rows, vec![vec!["Name", "Safe"]]);
+    }
+    const PANDAS_HTML: &str = r#"<style type="text/css">#T_abc th{color:red}</style>
+<table id="T_abc" class="dataframe">
+<thead><tr><th>A</th><th>B</th></tr></thead>
+<tbody><tr><td>1</td><td>2</td></tr></tbody>
+</table>"#;
+    const PLOTLY_CDN: &str = r#"<div>
+<script>window.PlotlyConfig={MathJaxConfig:'local'};</script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<div id="plotly-fig" class="plotly-graph-div"></div>
+<script>window.PLOTLYENV=window.PLOTLYENV||{};Plotly.newPlot("plotly-fig",[]);</script>
+</div>"#;
+    const BOKEH_CDN: &str = r#"<script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.4.0.min.js"></script>
+<div class="bk-root" id="bokeh-fig"></div>
+<script>Bokeh.embed.embed_item({"target_id":"bokeh-fig"});</script>"#;
+    const ALTAIR: &str = r##"<div id="vis"></div>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script>vegaEmbed("#vis",{"mark":"bar"});</script>"##;
+
+    fn html_event(html: &str, rows: Option<Value>) -> Value {
+        let mut slot = json!({"value": html});
+        if let Some(rows) = rows {
+            slot["rows"] = rows;
+        }
+        json!({"kind":"display","bundle":{"text/html": slot}})
+    }
+
+    #[test]
+    fn html_output_kinds_are_classified() {
+        let pandas_rows = json!([["A", "B"], ["1", "2"]]);
+        let cases: &[(&str, Value, bool, bool)] = &[
+            (
+                "pandas DataFrame to_html",
+                html_event(PANDAS_HTML, Some(pandas_rows.clone())),
+                false,
+                true,
+            ),
+            (
+                "pandas Styler style-only wrapper still a table",
+                html_event(PANDAS_HTML, Some(pandas_rows)),
+                false,
+                true,
+            ),
+            (
+                "table with onclick",
+                html_event(
+                    "<table><tr><td onclick='evil()'>Safe</td></tr></table>",
+                    Some(json!([["Safe"]])),
+                ),
+                true,
+                true,
+            ),
+            (
+                "table with script",
+                html_event(
+                    "<table><tr><td>Safe<script>evil()</script></td></tr></table>",
+                    Some(json!([["Safe"]])),
+                ),
+                true,
+                true,
+            ),
+            ("Plotly CDN page", html_event(PLOTLY_CDN, None), true, true),
+            (
+                "Plotly PNG+HTML",
+                json!({"kind":"display","bundle":{
+                    "image/png":{"local_path":"plot.png"},
+                    "text/html":{"value":PLOTLY_CDN}
+                }}),
+                true,
+                true,
+            ),
+            ("Bokeh embed", html_event(BOKEH_CDN, None), true, true),
+            ("Altair/Vega embed", html_event(ALTAIR, None), true, true),
+            (
+                "IPython HTML with script",
+                html_event("<h1>Hi</h1><script>console.log(1)</script>", None),
+                true,
+                true,
+            ),
+            (
+                "custom leftover HTML without a table",
+                html_event("<div>hello</div>", None),
+                true,
+                true,
+            ),
+            (
+                "iframe",
+                html_event("<iframe src='about:blank'></iframe>", None),
+                true,
+                true,
+            ),
+            (
+                "object",
+                html_event("<object data='about:blank'></object>", None),
+                true,
+                true,
+            ),
+            (
+                "embed",
+                html_event("<embed src='about:blank'>", None),
+                true,
+                true,
+            ),
+            (
+                "javascript: handler",
+                html_event("<a href='javascript:alert(1)'>go</a>", None),
+                true,
+                true,
+            ),
+            (
+                "SVG-only HTML leftover",
+                html_event(
+                    "<svg xmlns='http://www.w3.org/2000/svg'><circle/></svg>",
+                    None,
+                ),
+                true,
+                true,
+            ),
+            ("empty HTML", html_event("", None), false, false),
+            (
+                "oversize Plotly",
+                json!({"kind":"display","bundle":{"text/html":{
+                    "value":PLOTLY_CDN,
+                    "page":{"offset":0,"end":32,"total":VIEW_TEXT_LIMIT as u64 + 1}
+                }}}),
+                true,
+                false,
+            ),
+        ];
+        for (name, event, interactive, available) in cases {
+            assert_eq!(
+                html_is_interactive(event),
+                *interactive,
+                "{name}: interactive"
+            );
+            assert_eq!(
+                html_output_available(event),
+                *available,
+                "{name}: available"
+            );
+        }
+        assert!(!html_is_interactive(&json!({"kind":"stdout","text":"hi"})));
+    }
+
+    #[test]
+    fn resolve_event_extracts_pandas_tables_and_leaves_js_charts() {
+        let mut pandas = json!({"kind":"display","bundle":{"text/html":{"value":PANDAS_HTML}}});
+        resolve_event(&mut pandas, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert_eq!(
+            pandas["bundle"]["text/html"]["rows"],
+            json!([["A", "B"], ["1", "2"]])
+        );
+        assert!(!html_is_interactive(&pandas));
+
+        let mut plotly = json!({"kind":"display","bundle":{"text/html":{"value":PLOTLY_CDN}}});
+        resolve_event(&mut plotly, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert!(plotly["bundle"]["text/html"]["rows"].is_null());
+        assert!(html_is_interactive(&plotly));
+
+        let mut mixed = json!({"kind":"display","bundle":{"text/html":{"value":
+            "<table><tr><th>Name</th><td onclick='evil()'>Safe<script>evil()</script></td></tr></table>"
+        }}});
+        resolve_event(&mut mixed, |_, _, _| unreachable!(), Path::new("unused")).unwrap();
+        assert_eq!(
+            mixed["bundle"]["text/html"]["rows"],
+            json!([["Name", "Safe"]])
+        );
+        assert!(html_is_interactive(&mixed));
     }
     #[test]
     fn truncation_is_unicode_safe() {

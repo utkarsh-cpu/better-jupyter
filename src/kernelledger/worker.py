@@ -50,6 +50,7 @@ from typing import Any, cast
 
 SCHEMA = 1
 INLINE = 65536
+RICH_OUTPUT_LIMIT = 32 * 1024 * 1024
 ENGINE_IDENTITY = {"name": "custom", "version": 1, "transformer": "kernelledger.notebook/2"}
 INTERACTIVE_FEATURES = [
     "timing",
@@ -2415,7 +2416,37 @@ class Worker:
         bundle = {}
         metadata: dict[str, Any] = {}
         try:
-            if hasattr(obj, "_repr_mimebundle_"):
+            # Plotly's terminal default is the external browser renderer, whose
+            # MIME bundle is empty. Build a complete, offline notebook document
+            # without changing the user's global renderer or importing Plotly
+            # for unrelated objects. Explicit static/JSON renderers still apply.
+            plotly_figure = any(
+                base.__name__ == "BaseFigure" and base.__module__.startswith("plotly.")
+                for base in type(obj).__mro__
+            )
+            plotly_html = False
+            if plotly_figure and not os.environ.get("PLOTLY_RENDERER"):
+                pio = importlib.import_module("plotly.io")
+
+                plotly_html = pio.renderers.default in (
+                    "",
+                    "browser",
+                    "plotly_mimetype",
+                    "jupyterlab",
+                    "vscode",
+                    "nteract",
+                    "notebook",
+                    "notebook_connected",
+                )
+            if plotly_html:
+                bundle["text/html"] = obj.to_html(
+                    full_html=False,
+                    include_plotlyjs=True,
+                    include_mathjax=False,
+                    default_height=360,
+                    config={"responsive": True},
+                )
+            elif hasattr(obj, "_repr_mimebundle_"):
                 value = obj._repr_mimebundle_()
                 if (
                     isinstance(value, tuple)
@@ -2473,6 +2504,27 @@ class Worker:
         result = {}
         for mime, value in bundle.items():
             if type(mime) is not str or len(mime) > 256:
+                continue
+            if mime in ("image/png", "image/jpeg") and isinstance(value, str):
+                try:
+                    if len(value) > (RICH_OUTPUT_LIMIT + 2) // 3 * 4:
+                        raise ValueError("encoded image exceeds the attachment limit")
+                    value = base64.b64decode(value, validate=True)
+                except ValueError as error:
+                    self.emit("stderr", text=f"{mime} output is invalid: {error}\n")
+                    continue
+            if mime == "text/html" and isinstance(value, str):
+                data = value.encode()
+                if len(data) > RICH_OUTPUT_LIMIT:
+                    self.emit(
+                        "stderr", text="text/html output exceeds the 32 MiB attachment limit\n"
+                    )
+                    continue
+                result[mime] = (
+                    {"value": value}
+                    if len(data) < INLINE // 2
+                    else {"blob": self.channel.blob(data), "encoding": "utf8"}
+                )
                 continue
             if isinstance(value, bytes):
                 if len(value) > 32 * 1024 * 1024:

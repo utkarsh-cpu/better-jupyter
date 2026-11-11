@@ -2,6 +2,68 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HtmlNetworkPolicy {
+    #[default]
+    Offline,
+    AllowedDomains,
+    Full,
+}
+
+impl HtmlNetworkPolicy {
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Offline => {
+                "Network access is off. Use self-contained HTML or change HTML network access in Settings."
+            }
+            Self::AllowedDomains => {
+                "Network access is limited to the allowed domains in Settings. API requests still require CORS permission."
+            }
+            Self::Full => {
+                "HTTP(S) and WebSocket network access is enabled. API requests still require CORS permission."
+            }
+        }
+    }
+}
+
+/// Exact network origins, never arbitrary CSP source expressions. Bare domains use HTTPS.
+pub fn parse_html_origins(input: &str) -> anyhow::Result<Vec<String>> {
+    let mut origins = Vec::new();
+    for entry in input
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|s| !s.is_empty())
+    {
+        anyhow::ensure!(
+            !entry.contains([';', '\'', '"', '*', '\\']),
+            "Use exact domains or HTTP(S)/WS(S) origins, without wildcards or credentials."
+        );
+        let value = if entry.contains("://") {
+            entry.to_owned()
+        } else {
+            format!("https://{entry}")
+        };
+        let url = url::Url::parse(&value)?;
+        anyhow::ensure!(
+            matches!(url.scheme(), "http" | "https" | "ws" | "wss")
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.path() == "/"
+                && url.query().is_none()
+                && url.fragment().is_none()
+                && url.host_str().is_some_and(|host| host
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.')),
+            "Use exact domains or HTTP(S)/WS(S) origins, without paths, credentials or IPv6 literals."
+        );
+        let origin = url.origin().ascii_serialization();
+        if !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+    Ok(origins)
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Preferences {
@@ -12,6 +74,9 @@ pub struct Preferences {
     pub comfortable: bool,
     pub reduced_motion: bool,
     pub show_cell_duration: bool,
+    pub allow_html_output: bool,
+    pub html_network_policy: HtmlNetworkPolicy,
+    pub html_allowed_origins: Vec<String>,
     pub ui_scale: f32,
 }
 
@@ -25,6 +90,9 @@ impl Default for Preferences {
             comfortable: false,
             reduced_motion: false,
             show_cell_duration: false,
+            allow_html_output: false,
+            html_network_policy: HtmlNetworkPolicy::Offline,
+            html_allowed_origins: Vec::new(),
             ui_scale: 1.,
         }
     }
@@ -32,6 +100,9 @@ impl Default for Preferences {
 
 impl Preferences {
     pub fn normalize(&mut self) {
+        // An invalid saved list must fail closed rather than weaken the CSP.
+        self.html_allowed_origins =
+            parse_html_origins(&self.html_allowed_origins.join(" ")).unwrap_or_default();
         self.ui_scale = if self.ui_scale.is_finite() {
             self.ui_scale.clamp(1., 2.)
         } else {
@@ -94,6 +165,35 @@ mod tests {
         assert!(!p.outline_visible);
         assert!(!p.comfortable);
         assert!(!p.show_cell_duration);
+        assert!(!p.allow_html_output);
+        assert_eq!(p.html_network_policy, HtmlNetworkPolicy::Offline);
+        assert!(p.html_allowed_origins.is_empty());
+    }
+
+    #[test]
+    fn html_origins_canonicalize_and_reject_policy_injection() {
+        assert_eq!(parse_html_origins("CDN.PLOT.LY, https://cdn.plot.ly/\nhttp://127.0.0.1:18763 wss://api.example.com:444").unwrap(), vec!["https://cdn.plot.ly", "http://127.0.0.1:18763", "wss://api.example.com:444"]);
+        for bad in [
+            "https://good.example;script-src",
+            "https://*.example.com",
+            "https://user:pass@example.com",
+            "https://example.com/path",
+            "https://example.com?x=1",
+            "https://example.com#x",
+            "file:///tmp/page",
+            "data:text/html,hi",
+            "https://example.com\\evil",
+            "https://example.com:'unsafe-inline'",
+            "http://[::1]:8000",
+        ] {
+            assert!(parse_html_origins(bad).is_err(), "{bad}");
+        }
+        let mut prefs = Preferences {
+            html_allowed_origins: vec!["https://good.example;script-src *".into()],
+            ..Default::default()
+        };
+        prefs.normalize();
+        assert!(prefs.html_allowed_origins.is_empty());
     }
     #[test]
     fn schema_one_migrates_without_losing_layout_and_scale_is_normalized() {
@@ -134,6 +234,9 @@ mod tests {
         prefs.outline_visible = false;
         prefs.editor_size = 18.;
         prefs.show_cell_duration = true;
+        prefs.html_network_policy = HtmlNetworkPolicy::AllowedDomains;
+        prefs.html_allowed_origins =
+            vec!["https://cdn.plot.ly".into(), "http://localhost:8000".into()];
         prefs.save(&directory).unwrap();
         assert_eq!(Preferences::load(&directory).unwrap(), prefs);
         assert_eq!(std::fs::read_to_string(&appearance).unwrap(), "contrast");

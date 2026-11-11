@@ -12,6 +12,7 @@ pub(super) struct OutputBlock {
     pub index: usize,
     pub worker_generation: Option<String>,
     pub project: Option<PathBuf>,
+    pub workspace: Option<Entity<Workspace>>,
 }
 
 #[derive(Clone)]
@@ -63,6 +64,7 @@ pub(super) fn cell_tools(id: SharedString, window: &mut Window, cx: &mut App) ->
 
 pub(super) fn is_wide_output(event: &Value) -> bool {
     event["bundle"]["text/html"]["rows"].is_array()
+        || kernelledger_client::output::html_is_interactive(event)
         || ["image/png", "image/jpeg"]
             .iter()
             .any(|mime| event["bundle"][*mime]["local_path"].is_string())
@@ -107,6 +109,7 @@ struct OutputState {
     tools: bool,
     copied: bool,
     copy_revision: u64,
+    html: bool,
 }
 
 impl RenderOnce for OutputBlock {
@@ -123,6 +126,7 @@ impl RenderOnce for OutputBlock {
                 tools: false,
                 copied: false,
                 copy_revision: 0,
+                html: false,
             },
         );
         let query =
@@ -318,6 +322,108 @@ impl RenderOnce for OutputBlock {
                     }),
             );
         }
+        let html_interactive = kernelledger_client::output::html_is_interactive(event);
+        let html_available = kernelledger_client::output::html_output_available(event);
+        let allow_html = self
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.read(cx).preferences.allow_html_output)
+            .unwrap_or(false);
+        let html_network = self
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.read(cx).preferences.html_network_policy)
+            .unwrap_or_default()
+            .description();
+        let html_view = self
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.read(cx).html_view(self.id.as_ref()));
+        let html_note = self
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.read(cx).html_note(self.id.as_ref()));
+        let html_blocked = self
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.read(cx).html_views_blocked())
+            .unwrap_or(false);
+        let html_live = html_view.is_some();
+        let html_pending = self
+            .workspace
+            .as_ref()
+            .is_some_and(|workspace| workspace.read(cx).html_pending(self.id.as_ref()));
+        let html_height = self
+            .workspace
+            .as_ref()
+            .map_or(html_output::HOST_HEIGHT, |workspace| {
+                workspace.read(cx).html_height(self.id.as_ref())
+            });
+        let html_has_rows = event["bundle"]["text/html"]["rows"]
+            .as_array()
+            .is_some_and(|rows| !rows.is_empty());
+        let html_toggle = if html_available {
+            let workspace = self.workspace.clone();
+            let output_id = self.id.to_string();
+            let html_source = event["bundle"]["text/html"]["value"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            let html_state = state.clone();
+            let html_digest = event["bundle"]["text/html"]["blob"]
+                .as_str()
+                .map(str::to_owned);
+            let html_exec = self.exec_id.to_string();
+            Some(
+                action_button((ElementId::from(self.id.clone()), "render-html"))
+                    .outline()
+                    .small()
+                    .label(if html_live {
+                        "Stop rendering"
+                    } else if html_pending {
+                        "Cancel loading"
+                    } else if html_has_rows {
+                        "Render original HTML"
+                    } else {
+                        "Render HTML"
+                    })
+                    .unavailable(!allow_html)
+                    .hint(if allow_html {
+                        format!("Render this recorded HTML. {html_network}")
+                    } else {
+                        "Enable interactive HTML in Settings, then press Render HTML. Network access follows your HTML network setting.".to_owned()
+                    })
+                    .accessibility_label(if html_live {
+                        format!("Stop rendering HTML: {}", self.context)
+                    } else {
+                        format!("Render HTML: {}", self.context)
+                    })
+                    .on_click(move |_, window, cx| {
+                        if !allow_html {
+                            return;
+                        }
+                        let start = html_state.update(cx, |s, cx| {
+                            s.html = !(html_live || html_pending);
+                            cx.notify();
+                            s.html
+                        });
+                        if let Some(workspace) = &workspace {
+                            let key = output_id.clone();
+                            let html = html_source.clone();
+                            workspace.update(cx, |ws, cx| {
+                                if start {
+                                    ws.request_html_output(key, html, html_digest.clone(), html_exec.clone(), window, cx);
+                                } else {
+                                    ws.stop_html_output(&key, cx);
+                                }
+                                cx.notify();
+                            });
+                        }
+                    }),
+            )
+        } else {
+            None
+        };
         let mut body = v_flex()
             .debug_selector({
                 let id = self.id.clone();
@@ -337,6 +443,10 @@ impl RenderOnce for OutputBlock {
                     event["ename"].as_str().unwrap_or("Error"),
                     event["evalue"].as_str().unwrap_or_default()
                 )
+            } else if html_live {
+                format!("Interactive HTML output: {}", self.context)
+            } else if html_interactive {
+                format!("Interactive HTML recorded: {}", self.context)
             } else if let Some(text) = &text {
                 format!("Recorded output: {}", bounded(text, 4096))
             } else if image_path.is_some() {
@@ -373,7 +483,10 @@ impl RenderOnce for OutputBlock {
                     ),
                 )
             })
-            .when(tools, |d| d.child(actions));
+            .when(tools, |d| d.child(actions))
+            .children(html_toggle.filter(|_| {
+                !html_has_rows || html_interactive || html_live || html_pending || tools
+            }));
         if collapsed {
             return body
                 .child(
@@ -682,6 +795,52 @@ impl RenderOnce for OutputBlock {
             }
             body = body.child(widget_row);
         }
+        if html_interactive && !html_available {
+            body = body.child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child("Interactive HTML preview unavailable; recorded data retained."),
+            );
+        }
+        if let Some(note) = html_note {
+            body = body.child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(note),
+            );
+        }
+        if let Some(view) = html_view {
+            let mut sizing = h_flex().gap_2().flex_wrap();
+            for (id, label, delta) in [
+                ("html-shorter", "Shorter", Some(-120.)),
+                ("html-taller", "Taller", Some(120.)),
+                ("html-fit", "Fit content", None),
+            ] {
+                let workspace = self.workspace.clone();
+                let key = self.id.to_string();
+                sizing = sizing.child(
+                    action_button((ElementId::from(self.id.clone()), id))
+                        .small()
+                        .ghost()
+                        .label(label)
+                        .on_click(move |_, _, cx| {
+                            if let Some(workspace) = &workspace {
+                                workspace
+                                    .update(cx, |ws, cx| ws.resize_html_output(&key, delta, cx));
+                            }
+                        }),
+                );
+            }
+            body = body
+                .child(sizing)
+                .child(html_output::host(view, html_blocked, html_height));
+            return body.into_any_element();
+        }
+        if html_pending {
+            return body.into_any_element();
+        }
         let prefer_rich = image_path.is_some()
             || event["bundle"]["text/latex"]["value"].is_string()
             || event["bundle"]["application/vnd.kernelledger.table+json"]["value"]["rows"]
@@ -689,6 +848,7 @@ impl RenderOnce for OutputBlock {
             || event["bundle"]["application/vnd.kernelledger.profile+json"]["value"]["rows"]
                 .is_array()
             || event["bundle"]["text/html"]["rows"].is_array()
+            || html_interactive
             || event["bundle"]["text/markdown"]["value"].is_string()
             || !event["bundle"]["application/json"]["value"].is_null();
         if let Some(text) = text.filter(|_| !prefer_rich || search) {
@@ -822,6 +982,17 @@ impl RenderOnce for OutputBlock {
                     )
                     .into_any_element()
             });
+        } else if html_interactive && !html_has_rows && html_available {
+            body = body.child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(if allow_html {
+                        format!("Press Render HTML to show this page. {html_network}")
+                    } else {
+                        "Enable interactive HTML in Settings, then press Render HTML.".to_owned()
+                    }),
+            );
         } else {
             body = body.child(output_inner(
                 event,

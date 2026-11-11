@@ -1,6 +1,6 @@
 //! Decoded image cache with a byte budget. Off-screen images are dropped on the
 //! following frame so GPU textures do not accumulate for scrolled-away output.
-use gpui::{
+use gpui_kit::{
     AnyImageCache, App, AppContext, ElementId, Entity, ImageCache, ImageCacheError, ImageCacheItem,
     ImageCacheProvider, RenderImage, Resource, Window,
 };
@@ -65,6 +65,7 @@ pub struct BoundedImageCache {
     budget: u64,
     generation: u64,
     clock: u64,
+    cleanup_scheduled: bool,
 }
 
 impl BoundedImageCache {
@@ -74,6 +75,7 @@ impl BoundedImageCache {
             budget,
             generation: 0,
             clock: 0,
+            cleanup_scheduled: false,
         });
         cx.observe_release(&entity, |cache, cx| {
             for (_, slot) in std::mem::take(&mut cache.entries) {
@@ -111,6 +113,7 @@ impl BoundedImageCache {
     }
 
     fn begin_frame(&mut self) -> Vec<Arc<RenderImage>> {
+        self.cleanup_scheduled = false;
         self.generation += 1;
         let stale = stale_keys(&self.residents(), self.generation);
         self.take(&stale)
@@ -136,7 +139,7 @@ impl ImageCache for BoundedImageCache {
         window: &mut Window,
         cx: &mut App,
     ) -> Option<Result<Arc<RenderImage>, ImageCacheError>> {
-        let key = gpui::hash(resource);
+        let key = gpui_kit::hash(resource);
         self.clock += 1;
         let clock = self.clock;
         let generation = self.generation;
@@ -186,9 +189,22 @@ impl ImageCacheProvider for BoundedImageCacheProvider {
                 (entity.clone(), entity)
             })
         });
-        let dropped = entity.update(cx, |cache, _| cache.begin_frame());
-        for image in dropped {
-            cx.drop_image(image, Some(window));
+        // GPUI asks for this provider during both layout and paint. Advancing
+        // here would age an image twice per frame and cancel pending loads.
+        let schedule = entity.update(cx, |cache, _| {
+            let schedule = !cache.cleanup_scheduled && !cache.entries.is_empty();
+            cache.cleanup_scheduled |= schedule;
+            schedule
+        });
+        if schedule {
+            let cache = entity.downgrade();
+            window.on_next_frame(move |window, cx| {
+                let _ = cache.update(cx, |cache, cx| {
+                    for image in cache.begin_frame() {
+                        cx.drop_image(image, Some(window));
+                    }
+                });
+            });
         }
         entity.into()
     }
@@ -197,6 +213,59 @@ impl ImageCacheProvider for BoundedImageCacheProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui_kit::{
+        Context, InteractiveElement, IntoElement, ParentElement, Render, TestAppContext,
+        WindowOptions, img,
+        test::{TestSupportExt, TestWindowExt},
+    };
+
+    struct TestImage(std::path::PathBuf);
+
+    impl Render for TestImage {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            gpui_kit::image_cache(workspace_cache("test-images"))
+                .child(img(self.0.clone()).id("loaded-image").test_support())
+        }
+    }
+
+    #[gpui_kit::test]
+    fn image_load_survives_layout_and_paint_cache_requests(cx: &mut TestAppContext) {
+        let path = std::env::temp_dir().join(format!("kl-cache-{}.png", uuid::Uuid::new_v4()));
+        // A real 2×2 PNG, decoded asynchronously by the same loader as notebook output.
+        std::fs::write(
+            &path,
+            [
+                137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2, 0, 0, 0,
+                2, 8, 2, 0, 0, 0, 253, 212, 154, 115, 0, 0, 0, 22, 73, 68, 65, 84, 120, 156, 99,
+                252, 207, 192, 192, 192, 192, 192, 196, 192, 192, 192, 192, 192, 0, 0, 13, 29, 1,
+                3, 106, 194, 155, 233, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+            ],
+        )
+        .unwrap();
+        let (handle, _) = cx.update(|cx| {
+            gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| {
+                cx.new(|_| TestImage(path.clone()))
+            })
+            .unwrap()
+        });
+        for _ in 0..3 {
+            cx.update_window(handle, |_, window, cx| {
+                window.refresh();
+                window.render_frame(cx);
+                window.simulate_next_frame(cx);
+            })
+            .unwrap();
+            cx.run_until_parked();
+        }
+        cx.update_window(handle, |_, window, _| {
+            assert_eq!(
+                window.find("loaded-image").bounds().size,
+                gpui_kit::size(gpui_kit::px(2.), gpui_kit::px(2.))
+            );
+        })
+        .unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
 
     fn resident(key: u64, bytes: u64, seen: u64, used: u64) -> Resident {
         Resident {

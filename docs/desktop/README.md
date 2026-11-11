@@ -23,8 +23,8 @@ cargo run --locked -- ../analysis
 
 Windows builds require MSVC C++ tools and a Windows SDK. `KL_RUNTIME_PYTHON`
 selects the installed KernelLedger Python, separately from the project worker
-interpreter chosen in Settings. Rust 1.99.0, GPUI Kit 0.7.0 and GPUI snapshots
-0.3.7 are pinned along with the complete dependency graph in Cargo.lock.
+interpreter chosen in Settings. Rust 1.99.0, GPUI Kit 0.9.1 and the GPUI Fast
+0.1.14 backend are pinned along with the complete dependency graph in Cargo.lock.
 
 ```powershell
 python -m pytest -q

@@ -840,6 +840,7 @@ impl Workspace {
                         index,
                         worker_generation: None,
                         project: Some(self.tabs[self.active].model.project.clone()),
+                        workspace: Some(cx.entity()),
                     });
                 }
                 body = body.child(out_card);
