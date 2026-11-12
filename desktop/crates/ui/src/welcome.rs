@@ -223,65 +223,102 @@ impl Workspace {
             .justify_center()
             .px_6()
             .py_6()
-            .gap_4()
+            .gap_6()
             .child(
                 v_flex()
                     .items_center()
-                    .gap_1p5()
-                    .child(icon_tile(Glyph::NotebookPen, 40., cx))
+                    .gap_3()
+                    // The same mark as the title bar, at a size that can carry the page.
                     .child(
                         div()
-                            .text_2xl()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("KernelLedger"),
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(52.))
+                            .rounded(px(13.))
+                            .bg(theme.primary)
+                            .text_color(theme.primary_foreground)
+                            .font_weight(FontWeight::BOLD)
+                            .text_lg()
+                            .child("KL"),
                     )
                     .child(
-                        div()
-                            .text_sm()
-                            .text_center()
-                            .max_w(px(440.))
-                            .text_color(muted_fg)
-                            .child("Local-first Python notebooks. Source stays in ordinary files; execution history is recorded locally in SQLite."),
+                        v_flex()
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_2xl()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("KernelLedger"),
+                            )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_center()
+                                    .max_w(px(420.))
+                                    .text_color(muted_fg)
+                                    .child("Python notebooks with a durable record of every run. Source stays in ordinary files on this computer."),
+                            ),
                     ),
             )
             .child(
-                h_flex()
-                    .gap_2()
-                    .flex_wrap()
-                    .justify_center()
+                v_flex()
                     .items_center()
+                    .gap_2()
                     .child(
-                        action_button("welcome-open")
-                            .primary()
-                            .icon(Glyph::FolderOpen)
-                            .label("Open notebook")
-                            .on_click(cx.listener(|v, _, window, cx| {
-                                v.open_dialog(&OpenNotebook, window, cx)
-                            })),
+                        h_flex()
+                            .gap_2()
+                            .flex_wrap()
+                            .justify_center()
+                            .child(
+                                action_button("welcome-open")
+                                    .primary()
+                                    .icon(Glyph::FolderOpen)
+                                    .label("Open notebook")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.open_dialog(&OpenNotebook, window, cx)
+                                    })),
+                            )
+                            .child(
+                                action_button("create")
+                                    .outline()
+                                    .icon(Glyph::Plus)
+                                    .label("New notebook")
+                                    .on_click(
+                                        cx.listener(|v, _, w, cx| v.create_dialog(false, w, cx)),
+                                    ),
+                            ),
                     )
                     .child(
-                        action_button("create")
-                            .outline()
-                            .icon(Glyph::Plus)
-                            .label("Create notebook")
-                            .on_click(cx.listener(|v, _, w, cx| v.create_dialog(false, w, cx))),
-                    )
-                    .child(
-                        action_button("sample")
-                            .ghost()
-                            .label("Create sample notebook")
-                            .on_click(cx.listener(|v, _, w, cx| v.create_dialog(true, w, cx))),
-                    )
-                    .child(
-                        action_button("welcome-help")
-                            .ghost()
-                            .icon(Glyph::Info)
-                            .label("Help and shortcuts")
-                            .hint("Open Help (F1)")
-                            .on_click(cx.listener(|v, _, _, cx| {
-                                v.surface = "Help".into();
-                                cx.notify();
-                            })),
+                        h_flex()
+                            .gap_1()
+                            .flex_wrap()
+                            .justify_center()
+                            .items_center()
+                            .child(
+                                action_button("sample")
+                                    .ghost()
+                                    .small()
+                                    .text_color(muted_fg)
+                                    .label("Try a sample notebook")
+                                    .on_click(
+                                        cx.listener(|v, _, w, cx| v.create_dialog(true, w, cx)),
+                                    ),
+                            )
+                            .child(status_rule(cx))
+                            .child(
+                                action_button("welcome-help")
+                                    .ghost()
+                                    .small()
+                                    .text_color(muted_fg)
+                                    .label("Help and shortcuts")
+                                    .hint("Open Help (F1)")
+                                    .on_click(cx.listener(|v, _, _, cx| {
+                                        v.surface = "Help".into();
+                                        cx.notify();
+                                    })),
+                            ),
                     ),
             )
             .when(!self.recent.is_empty(), |d| {

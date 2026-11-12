@@ -54,14 +54,22 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         Some(window),
         cx,
     );
-    // Quiet ledger tokens (named for the live UX plan). Cool slate paper —
-    // not warm cream — with precision cobalt. Chrome shares the canvas.
+    // Ledger tokens. Surfaces follow GPUI's elevation model: chrome is the
+    // background layer, the notebook page is the working surface, and menus
+    // and dialogs are elevated. Neutrals lean toward the accent, an indelible
+    // copying-ink violet, the pigment ledgers were historically written in.
     //
-    // Light: Paper #EEF1F5, Ink #161B21, Mist #E2E6EC, Cobalt #0B5CAB,
-    //        Card #F7F9FC. Dark: Night #101317, Fog #ECEEF1, Cobalt #6CB6FF.
-    let accent: Hsla = rgb(if dark { 0x6CB6FF } else { 0x0B5CAB }).into();
+    //             Light     Dark
+    // Page        #FCFCFD   #16171D   document canvas, brightest working layer
+    // Chrome      #F2F2F7   #101117   title, outline and status bars
+    // Well        #F4F4F9   #1E1F27   source editors and quiet fills
+    // Raised      #FFFFFF   #24252E   menus, dialogs, selected segments
+    // Hairline    #E2E2EA   #2D2E39   decorative rules and panel outlines
+    // Control     #85859A   #717286   input boundaries, 3:1 against every surface
+    // Ink         #4A46C4   #A9ABFF   accent
+    let accent: Hsla = rgb(if dark { 0xA9ABFF } else { 0x4A46C4 }).into();
     let on_accent = if dark {
-        hsla(215. / 360., 0.50, 0.09, 1.)
+        hsla(243. / 360., 0.45, 0.12, 1.)
     } else {
         hsla(0., 0., 1., 1.)
     };
@@ -71,25 +79,28 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     };
     let theme = Theme::global_mut(cx);
     let colors = &mut theme.colors;
-    colors.background = rgb(if dark { 0x101317 } else { 0xEEF1F5 }).into();
-    colors.foreground = rgb(if dark { 0xECEEF1 } else { 0x161B21 }).into();
-    colors.muted_foreground = rgb(if dark { 0xA6B0B9 } else { 0x505A62 }).into();
-    colors.muted = rgb(if dark { 0x171B21 } else { 0xE2E6EC }).into();
+    let chrome: Hsla = rgb(if dark { 0x101117 } else { 0xF2F2F7 }).into();
+    colors.background = rgb(if dark { 0x16171D } else { 0xFCFCFD }).into();
+    colors.foreground = rgb(if dark { 0xECECF3 } else { 0x1A1A26 }).into();
+    colors.muted_foreground = rgb(if dark { 0xA8A8B8 } else { 0x595968 }).into();
+    colors.muted = rgb(if dark { 0x1E1F27 } else { 0xF4F4F9 }).into();
     colors.danger = rgb(if dark { 0xFF9A9A } else { 0xB4232C }).into();
     colors.success = rgb(if dark { 0x8ED6A4 } else { 0x1E6F43 }).into();
     colors.warning = rgb(if dark { 0xE8C078 } else { 0x7D5200 }).into();
     colors.info = accent;
-    // Sidebars, title, and status share the canvas. Hairlines carry hierarchy.
-    colors.sidebar = colors.background;
+    colors.sidebar = chrome;
     colors.sidebar_foreground = colors.foreground;
-    colors.border = rgb(if dark { 0x6B7784 } else { 0x7A868F }).into();
+    colors.border = rgb(if dark { 0x2D2E39 } else { 0xE2E2EA }).into();
+    colors.input = rgb(if dark { 0x717286 } else { 0x85859A }).into();
     colors.sidebar_border = colors.border;
-    colors.title_bar = colors.background;
+    colors.title_bar = chrome;
     colors.title_bar_border = colors.border;
-    colors.status_bar = colors.background;
+    colors.status_bar = chrome;
     colors.status_bar_border = colors.border;
-    colors.popover = rgb(if dark { 0x1A1F25 } else { 0xF7F9FC }).into();
+    colors.popover = rgb(if dark { 0x24252E } else { 0xFFFFFF }).into();
     colors.popover_foreground = colors.foreground;
+    colors.selection = accent.opacity(if dark { 0.32 } else { 0.22 });
+    colors.caret = accent;
     colors.primary = accent;
     colors.primary_hover = shade(-0.05);
     colors.primary_active = shade(-0.10);
@@ -103,13 +114,13 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     colors.list_active = accent.opacity(0.12);
     colors.list_active_border = accent;
     colors.list_hover = if dark {
-        hsla(210. / 360., 0.18, 0.85, 0.07)
+        hsla(243. / 360., 0.18, 0.85, 0.07)
     } else {
-        hsla(210. / 360., 0.18, 0.15, 0.05)
+        hsla(243. / 360., 0.18, 0.15, 0.05)
     };
     colors.sidebar_primary = accent;
     colors.sidebar_primary_foreground = on_accent;
-    colors.overlay = hsla(215. / 360., 0.20, 0.04, if dark { 0.56 } else { 0.26 });
+    colors.overlay = hsla(243. / 360., 0.20, 0.06, if dark { 0.52 } else { 0.18 });
     if high_contrast {
         let black = hsla(0., 0., 0., 1.);
         let white = hsla(0., 0., 1., 1.);
@@ -127,7 +138,10 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
         colors.status_bar = black;
         colors.status_bar_border = white;
         colors.border = white;
+        colors.input = white;
         colors.sidebar_border = white;
+        colors.selection = yellow.opacity(0.4);
+        colors.caret = yellow;
         colors.primary = yellow;
         colors.primary_foreground = black;
         colors.button_primary = yellow;
@@ -169,9 +183,10 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     let muted = colors.muted;
     let muted_foreground = colors.muted_foreground;
     let mut highlight = (*theme.highlight_theme).clone();
-    highlight.style.editor_background = Some(background);
+    // Source sits in the well, so the editor and its gutter paint that surface.
+    highlight.style.editor_background = Some(muted);
     highlight.style.editor_foreground = Some(foreground);
-    highlight.style.editor_gutter_background = Some(background);
+    highlight.style.editor_gutter_background = Some(muted);
     // Pinned Kit 0.7 paints the active line even in unfocused editors and
     // offers no per-Editor override. The caret and source focus rail carry
     // editing focus; suppress the misleading persistent row wash.
@@ -182,6 +197,24 @@ pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, 
     // Keep usable syntax colors; use normal foreground when a supplied style is too faint.
     let mut syntax =
         serde_json::to_value(&highlight.style.syntax).expect("Syntax styles serialize");
+    if !high_contrast {
+        // Keywords carry the ledger ink; data literals stay warm, names cool.
+        for (keys, light, night) in [
+            (&["keyword", "preproc"][..], 0x4A46C4, 0xB6B8FF),
+            (&["string", "string.special"][..], 0x1E6F43, 0x8ED6A4),
+            (&["number", "boolean", "constant"][..], 0x8F4A00, 0xE8C078),
+            (&["function", "constructor"][..], 0x1F5C99, 0x82C4F5),
+            (&["type", "enum"][..], 0x883A8C, 0xE2A9E8),
+            (&["comment", "comment_doc"][..], 0x66667A, 0x9091A4),
+        ] {
+            let color: Hsla = rgb(if dark { night } else { light }).into();
+            for key in keys {
+                syntax[*key] = serde_json::json!({
+                    "color": serde_json::to_value(color).expect("Theme color serializes"),
+                });
+            }
+        }
+    }
     for style in syntax
         .as_object_mut()
         .expect("Syntax styles are an object")

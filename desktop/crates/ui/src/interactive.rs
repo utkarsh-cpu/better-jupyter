@@ -331,6 +331,14 @@ impl Workspace {
             cx,
         )
         .child(actions)
+        .when(!attached, |d| {
+            d.child(
+                div()
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child("Available while the runtime is ready. Run a cell to start it."),
+            )
+        })
     }
     pub(super) fn interactive_request(&self, method: &str, mut fields: Value) {
         if let Some(tab) = self.tabs.get(self.active) {

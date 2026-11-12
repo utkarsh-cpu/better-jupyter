@@ -1,5 +1,17 @@
 use super::*;
 
+/// The everyday notebook actions, offered first in the command palette.
+const PALETTE_FIRST: [&str; 8] = [
+    "run-selected",
+    "run-all",
+    "add-code",
+    "add-markdown",
+    "checkpoint",
+    "find-cells",
+    "export-menu",
+    "assistant",
+];
+
 pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 56] = [
     (
         "undo-source",
@@ -435,13 +447,7 @@ impl Workspace {
             return;
         }
         if self.palette {
-            let matches = COMMANDS
-                .iter()
-                .filter(|(_, label, description, _)| {
-                    label.to_lowercase().contains(&self.palette_filter)
-                        || description.to_lowercase().contains(&self.palette_filter)
-                })
-                .collect::<Vec<_>>();
+            let matches = self.palette_matches(&self.palette_filter);
             match key {
                 "down" => {
                     self.palette_active =
@@ -510,6 +516,11 @@ impl Workspace {
             self.back();
             cx.stop_propagation();
             cx.notify();
+            return;
+        }
+        // The assistant composer owns plain keys such as Enter; notebook
+        // navigation must not act on the selected cell while typing there.
+        if self.assistant_focus.contains_focused(window, cx) {
             return;
         }
         if self.surface != "Notebook" {
@@ -714,6 +725,30 @@ impl Workspace {
                 on_error: "stop".into(),
             });
         }
+    }
+
+    /// Commands matching `filter`: what can run now first, everyday actions
+    /// ahead of the rest. The sort is stable, so other commands keep their order.
+    pub(super) fn palette_matches(
+        &self,
+        filter: &str,
+    ) -> Vec<(&'static str, &'static str, &'static str, Glyph)> {
+        let mut matches = COMMANDS
+            .into_iter()
+            .filter(|(_, label, description, _)| {
+                label.to_lowercase().contains(filter) || description.to_lowercase().contains(filter)
+            })
+            .collect::<Vec<_>>();
+        matches.sort_by_key(|(method, ..)| {
+            (
+                self.command_reason(method).is_some(),
+                PALETTE_FIRST
+                    .iter()
+                    .position(|first| first == method)
+                    .unwrap_or(PALETTE_FIRST.len()),
+            )
+        });
+        matches
     }
 
     pub(super) fn palette(&mut self, _: &Palette, window: &mut Window, cx: &mut Context<Self>) {

@@ -360,22 +360,8 @@ impl Workspace {
             .border_color(divider(cx))
             .text_xs()
             .text_color(muted_fg)
-            .child(
-                div()
-                    .id("status-wordmark")
-                    .role(Role::Label)
-                    .aria_label("KernelLedger")
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.foreground)
-                    .child("KernelLedger"),
-            )
-            .child(status_rule(cx))
             .when(self.surface == "Notebook", |d| {
-                d.child(if edit {
-                    "Editing"
-                } else {
-                    "Cell navigation"
-                })
+                d.child(if edit { "Edit mode" } else { "Command mode" })
                 .child(status_rule(cx))
             })
             .child(div().id("cell-count").role(Role::Label).aria_label(if tab.model.source_state != "ok" && tab.model.order.is_empty() { "Cells unavailable".to_owned() } else { format!("{} cells", tab.model.order.len()) }).child(if tab.model.source_state != "ok" && tab.model.order.is_empty() {

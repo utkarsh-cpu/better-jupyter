@@ -11,8 +11,12 @@ gpui_kit::assets::icon_assets!(
     AppIcons,
     [
         Activity,
+        ArrowUp,
         BookOpen,
         BookmarkPlus,
+        ChevronDown,
+        ChevronLeft,
+        ChevronUp,
         ChevronsDown,
         ChevronsUp,
         CircleAlert,
@@ -39,6 +43,7 @@ gpui_kit::assets::icon_assets!(
         RotateCcw,
         Search,
         Settings,
+        Sparkles,
         Square,
         Stethoscope,
         Sun,
@@ -87,11 +92,16 @@ fn main() {
         gpui_kit::component::init(cx);
         cx.activate(true);
         let bounds = Bounds::centered(None, size(px(1280.), px(850.)), cx);
+        let mut chrome = TitleBar::window_options();
+        // Centers the macOS window controls on the 44px workbench title bar.
+        if let Some(titlebar) = chrome.titlebar.as_mut() {
+            titlebar.traffic_light_position = Some(point(px(14.), px(15.)));
+        }
         cx.open_window(
             WindowOptions {
                 window_min_size: Some(size(px(800.), px(600.))),
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
-                ..TitleBar::window_options()
+                ..chrome
             },
             |window, cx| {
                 let view = cx.new(|cx| Workspace::new(project, &appearance, recent, window, cx));
