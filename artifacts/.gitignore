@@ -582,3 +582,25 @@
 !/gpui-usability-2026-11-09/provider-local-800.png
 !/gpui-usability-2026-11-09/provider-openai-800.png
 !/gpui-usability-2026-11-09/history-auto-search-1280.png
+
+# ui-overhaul-2026-11-11
+!/ui-overhaul-2026-11-11/README.md
+!/ui-overhaul-2026-11-11/after-assistant-answer.png
+!/ui-overhaul-2026-11-11/after-assistant-review.png
+!/ui-overhaul-2026-11-11/after-assistant-welcome.png
+!/ui-overhaul-2026-11-11/after-delete-dialog.png
+!/ui-overhaul-2026-11-11/after-history-detail.png
+!/ui-overhaul-2026-11-11/after-history.png
+!/ui-overhaul-2026-11-11/after-notebook-dark.png
+!/ui-overhaul-2026-11-11/after-notebook-light.png
+!/ui-overhaul-2026-11-11/after-palette.png
+!/ui-overhaul-2026-11-11/after-settings-appearance.png
+!/ui-overhaul-2026-11-11/after-settings-assistant.png
+!/ui-overhaul-2026-11-11/after-welcome.png
+!/ui-overhaul-2026-11-11/before-assistant.png
+!/ui-overhaul-2026-11-11/before-delete-dialog.png
+!/ui-overhaul-2026-11-11/before-history-detail.png
+!/ui-overhaul-2026-11-11/before-history.png
+!/ui-overhaul-2026-11-11/before-notebook.png
+!/ui-overhaul-2026-11-11/before-palette.png
+!/ui-overhaul-2026-11-11/before-settings.png
