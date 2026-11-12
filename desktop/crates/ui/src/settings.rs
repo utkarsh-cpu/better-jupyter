@@ -401,7 +401,7 @@ impl Workspace {
                     appearance_reveal
                         .track(
                             settings_group_with(
-                                "Appearance",
+                                "Theme",
                                 "Match your operating system or choose a dedicated contrast mode.",
                                 cx,
                             )
@@ -566,11 +566,32 @@ impl Workspace {
                 groups = groups.child(self.ai_settings(window, cx));
             }
         }
+        let (_, section_title, section_description) = SECTIONS
+            .iter()
+            .copied()
+            .find(|(key, ..)| *key == section)
+            .unwrap_or(SECTIONS[0]);
         let content = v_flex()
             .debug_selector(|| "settings-content".into())
             .flex_1()
             .min_w_0()
             .gap_4()
+            .child(
+                v_flex()
+                    .gap_0p5()
+                    .child(
+                        div()
+                            .text_base()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child(section_title),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground)
+                            .child(section_description),
+                    ),
+            )
             .child(groups)
             .when(matches!(section, "appearance" | "editor" | "layout"), |d| {
                 d.child(self.settings_preview(cx))
@@ -623,23 +644,24 @@ impl Workspace {
     }
 
     fn settings_rail(&self, cx: &mut Context<Self>) -> Div {
+        // A quiet source list: the selected section carries the only fill.
         let mut rail = v_flex()
             .id("settings-sections")
             .role(Role::List)
             .aria_label("Settings sections")
             .w(rems(12.5))
             .flex_none()
-            .gap(px(2.))
-            .p(px(3.))
-            .rounded(px(8.))
-            .bg(cx.theme().muted);
-        for (key, title, description) in SECTIONS {
+            .gap(px(2.));
+        for (key, title, _) in SECTIONS {
+            let selected = self.settings_section == key;
             rail = rail.child(
                 action_button(SharedString::from(format!("settings-nav-{key}")))
+                    .ghost()
+                    .icon(section_glyph(key))
                     .menu_item(title, None)
-                    .segment(self.settings_section == key)
+                    .quiet_toggle(selected)
+                    .selected(selected)
                     .accessibility_label(format!("{title} settings"))
-                    .hint(description)
                     .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
             );
         }
@@ -648,14 +670,13 @@ impl Workspace {
 
     fn settings_selector(&self, cx: &mut Context<Self>) -> Div {
         let mut track = segmented_track(cx);
-        for (key, title, description) in SECTIONS {
+        for (key, title, _) in SECTIONS {
             track = track.child(
                 action_button(SharedString::from(format!("settings-nav-{key}")))
                     .small()
                     .label(title.split(" & ").next().unwrap_or(title))
                     .segment(self.settings_section == key)
                     .accessibility_label(format!("{title} settings"))
-                    .hint(description)
                     .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
             );
         }
@@ -692,6 +713,7 @@ impl Workspace {
                     result: Option<&'static str>,
                     selected: bool,
                     last: bool| {
+            let margin = 3.;
             v_flex()
                 .w_full()
                 .px_3()
@@ -699,110 +721,94 @@ impl Workspace {
                     v_flex()
                         .w_full()
                         .relative()
-                        .border_1()
-                        .rounded(theme.radius_lg)
-                        .border_color(if selected {
-                            theme
-                                .primary
-                                .opacity(if self.high_contrast { 1. } else { 0.55 })
-                        } else {
-                            edge_color
-                        })
-                        .bg(if selected || self.high_contrast {
-                            theme.popover
-                        } else {
-                            theme.transparent
-                        })
-                        .overflow_hidden()
-                        .child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(
-                            if selected {
-                                theme.primary
-                            } else {
-                                theme.transparent
-                            },
-                        ))
+                        .child(
+                            div()
+                                .absolute()
+                                .left_0()
+                                .top_0()
+                                .bottom_0()
+                                .w(px(2.))
+                                .rounded_full()
+                                .bg(if selected {
+                                    theme.primary
+                                } else {
+                                    theme.transparent
+                                }),
+                        )
                         .when(!inline, |d| {
                             d.child(
                                 h_flex()
                                     .min_h(rems(spacing.header_min_h))
                                     .py(px(spacing.header_py))
-                                    .px_3()
+                                    .pl(rems(margin))
                                     .gap_2()
                                     .items_center()
                                     .text_xs()
                                     .text_color(muted)
-                                    .when(selected || self.high_contrast, |d| {
-                                        d.border_b_1().border_color(rule)
-                                    })
-                                    .child(div().font_family(mono.clone()).child(index))
-                                    .child("Code")
-                                    .child(div().flex_1())
                                     .child(Icon::new(Glyph::Play).with_size(px(12.)))
-                                    .child("Run"),
+                                    .child(div().font_family(mono.clone()).child(index)),
                             )
                         })
                         .child(
                             h_flex()
                                 .items_start()
-                                .gap_2()
-                                .px_3()
-                                .pt(px(spacing.source_top + 8.))
-                                .pb(px(spacing.source_bottom + 8.))
-                                .overflow_hidden()
-                                .when(inline, |d| {
-                                    d.child(
-                                        h_flex()
-                                            .w(rems(4.75))
-                                            .min_h(rems(1.875))
-                                            .flex_none()
-                                            .items_center()
-                                            .gap_1p5()
-                                            .child(
+                                .pt(px(spacing.source_top))
+                                .pb(px(spacing.source_bottom))
+                                .child(
+                                    v_flex()
+                                        .w(rems(margin))
+                                        .flex_none()
+                                        .pt(px(5.))
+                                        .items_center()
+                                        .when(inline, |d| {
+                                            d.child(
                                                 div()
-                                                    .min_h(rems(1.875))
-                                                    .min_w(rems(1.75))
+                                                    .min_h(rems(1.75))
                                                     .flex()
                                                     .items_center()
-                                                    .justify_center()
-                                                    .rounded_full()
-                                                    .bg(theme.primary.opacity(0.11))
-                                                    .text_color(theme.primary)
+                                                    .text_color(if selected {
+                                                        theme.primary
+                                                    } else {
+                                                        muted
+                                                    })
                                                     .child(Icon::new(Glyph::Play).small()),
                                             )
                                             .child(
                                                 div()
                                                     .font_family(mono.clone())
-                                                    .text_xs()
+                                                    .text_size(rems(0.6875))
                                                     .text_color(muted)
                                                     .child(index),
-                                            ),
-                                    )
-                                })
+                                            )
+                                        }),
+                                )
                                 .child(
                                     v_flex()
                                         .flex_1()
                                         .min_w_0()
-                                        .min_h(rems(1.875))
-                                        .justify_center()
+                                        .px_3()
+                                        .py(px(8.))
+                                        .rounded(px(6.))
+                                        .bg(theme.muted)
+                                        .border_1()
+                                        .border_color(if selected {
+                                            theme.primary.opacity(if self.high_contrast {
+                                                1.
+                                            } else {
+                                                0.55
+                                            })
+                                        } else {
+                                            edge_color
+                                        })
+                                        .overflow_hidden()
                                         .children(lines.into_iter().map(&code)),
-                                )
-                                .when(inline, |d| {
-                                    d.child(
-                                        h_flex()
-                                            .flex_none()
-                                            .min_h(rems(1.875))
-                                            .items_center()
-                                            .child(Icon::new(Glyph::Ellipsis).small()),
-                                    )
-                                }),
+                                ),
                         )
                         .when_some(result, |d, result| {
                             d.child(
                                 div()
-                                    .px_4()
-                                    .py(px(spacing.output_py))
-                                    .border_t_1()
-                                    .border_color(rule)
+                                    .pl(rems(margin + 0.75))
+                                    .pb(px(spacing.output_py))
                                     .font_family(mono.clone())
                                     .text_sm()
                                     .child(result),
@@ -859,29 +865,6 @@ impl Workspace {
                     ),
             )
             .child(
-                h_flex()
-                    .px_3()
-                    .py_1()
-                    .gap_2()
-                    .items_center()
-                    .rounded(theme.radius)
-                    .bg(theme.background)
-                    .border_1()
-                    .border_color(rule)
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("KernelLedger"),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child("Quiet ledger · cool paper · precision cobalt"),
-                    ),
-            )
-            .child(
                 card(cx)
                     .py_3()
                     .bg(theme.background)
@@ -900,6 +883,16 @@ impl Workspace {
                         true,
                     )),
             )
+    }
+}
+
+fn section_glyph(key: &str) -> Glyph {
+    match key {
+        "appearance" => Glyph::Sun,
+        "editor" => Glyph::Type,
+        "layout" => Glyph::PanelLeft,
+        "runtime" => Glyph::Cpu,
+        _ => Glyph::Sparkles,
     }
 }
 

@@ -234,7 +234,8 @@ impl Workspace {
             .self_start()
             .ghost()
             .small()
-            .label("Back")
+            .icon(Glyph::ChevronLeft)
+            .label(self.surface.clone())
             .accessibility_label("Back to list")
             .hint("Back to list (Alt+Left)")
             .on_click(cx.listener(|v, _, _, cx| {
@@ -594,7 +595,7 @@ impl Workspace {
                                 ),
                         )
                         .child(
-                            card(cx).p_3().child(
+                            div().child(
                                 TextView::markdown(
                                     "history-source",
                                     format!("```python\n{}\n```", bounded(source, 65536)),
@@ -623,24 +624,6 @@ impl Workspace {
                                 d.child(badge("Edited since run", cx.theme().warning))
                             })
                             .child(
-                                action_button("compare-current-source")
-                                    .ghost()
-                                    .small()
-                                    .label(if comparing {
-                                        "Hide comparison"
-                                    } else {
-                                        "Compare source"
-                                    })
-                                    .on_click(cx.listener(|v, _, _, cx| {
-                                        let flag = v.tabs[v.active]
-                                            .raw_details
-                                            .entry("source-comparison".into())
-                                            .or_default();
-                                        *flag = !*flag;
-                                        cx.notify();
-                                    })),
-                            )
-                            .child(
                                 action_button("return-to-cell")
                                     .outline()
                                     .small()
@@ -658,12 +641,30 @@ impl Workspace {
                                         }
                                         cx.notify();
                                     })),
+                            )
+                            .child(
+                                action_button("compare-current-source")
+                                    .ghost()
+                                    .small()
+                                    .label(if comparing {
+                                        "Hide comparison"
+                                    } else {
+                                        "Compare source"
+                                    })
+                                    .on_click(cx.listener(|v, _, _, cx| {
+                                        let flag = v.tabs[v.active]
+                                            .raw_details
+                                            .entry("source-comparison".into())
+                                            .or_default();
+                                        *flag = !*flag;
+                                        cx.notify();
+                                    })),
                             ),
                     );
                     if changed || comparing {
                         body = body.child(
                             section("Current source", cx).child(
-                                card(cx).p_3().child(
+                                div().child(
                                     TextView::markdown(
                                         "history-current-source",
                                         format!(
@@ -915,7 +916,7 @@ impl Workspace {
                                 cx.theme().warning,
                             ),
                             (false, true) => (
-                                "Showing one page of recorded runs.".to_string(),
+                                String::new(),
                                 cx.theme().muted_foreground,
                             ),
                             (false, false) => (
@@ -932,7 +933,9 @@ impl Workspace {
                             .text_xs()
                             .text_color(cx.theme().muted_foreground)
                             .when(pending, |d| d.child(dot(color)))
-                            .child(div().whitespace_normal().child(text))
+                            .when(!text.is_empty(), |d| {
+                                d.child(div().whitespace_normal().child(text))
+                            })
                     }),
             );
             if value["source_search_limited"].as_u64().unwrap_or(0) > 0 {
@@ -993,7 +996,8 @@ impl Workspace {
                         cx,
                     )
                 };
-                rows = rows.child(record.child(
+                let row_group: SharedString = format!("history-row-{i}").into();
+                rows = rows.child(record.group(row_group.clone()).child(
                     h_flex()
                         .flex_none()
                         .gap_1()
@@ -1006,6 +1010,7 @@ impl Workspace {
                                 .ghost()
                                 .small()
                                 .icon(Glyph::Sparkles)
+                                .contextual(row_group.clone(), i == self.record_active)
                                 .accessibility_label("Explain execution in Assistant")
                                 .hint("Open in Assistant with this execution attached")
                                 .on_click(cx.listener(move |v, _, _, cx| {
@@ -1061,6 +1066,7 @@ impl Workspace {
                     }),
                 ));
             }
+            let filtered = !applied.trim().is_empty();
             if count == 0 {
                 body = body.child(empty_row(
                     if value.is_null() {
@@ -1080,6 +1086,18 @@ impl Workspace {
                     },
                     cx,
                 ));
+                if filtered && !value.is_null() {
+                    body = body.child(
+                        action_button("history-empty-clear")
+                            .self_start()
+                            .outline()
+                            .small()
+                            .label("Clear search and filters")
+                            .on_click(
+                                cx.listener(|v, _, window, cx| v.clear_history_filters(window, cx)),
+                            ),
+                    );
+                }
             } else {
                 body = body.child(rows);
             }

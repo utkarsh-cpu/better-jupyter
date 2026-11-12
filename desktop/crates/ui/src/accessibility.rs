@@ -12,12 +12,7 @@ impl Workspace {
         );
         let sep = divider(cx);
         let query = self.palette_query.read(cx).value().to_lowercase();
-        let commands = COMMANDS
-            .into_iter()
-            .filter(|(_, label, description, _)| {
-                label.to_lowercase().contains(&query) || description.to_lowercase().contains(&query)
-            })
-            .collect::<Vec<_>>();
+        let commands = self.palette_matches(&query);
         let items = if commands.is_empty() {
             empty_row("No matching commands", cx).into_any_element()
         } else {
@@ -75,8 +70,11 @@ impl Workspace {
                     .bg(cx.theme().muted.opacity(0.45))
                     .text_xs()
                     .text_color(muted_fg)
-                    .children(kbd("escape"))
-                    .child("to close"),
+                    .child("\u{2191}\u{2193} to move")
+                    .child(status_rule(cx))
+                    .child("\u{21b5} to run")
+                    .child(status_rule(cx))
+                    .child("Esc to close"),
             );
         div()
             .id("palette-backdrop")
@@ -297,74 +295,66 @@ impl Workspace {
         }
         let (title, consequence, verb) = confirmation_copy(&method);
         let target = self.target_summary(&fields);
+        let target = target.trim_start_matches('#').trim().to_owned();
+        let destructive = matches!(
+            method.as_str(),
+            "restart"
+                | "stop"
+                | "interrupt_kill"
+                | "migrate"
+                | "restore"
+                | "delete"
+                | "merge"
+                | "training-restore"
+        );
+        let (danger, _) = (cx.theme().danger, warning);
+        let tint = if destructive { danger } else { warning };
+        // Other windows sharing this runtime are the one fact worth adding here.
+        let others = clients
+            .as_u64()
+            .filter(|_| matches!(method.as_str(), "restart" | "stop" | "interrupt_kill"))
+            .map(|count| count.saturating_sub(1))
+            .filter(|count| *count > 0);
+        let _ = (&mono, muted, sep);
 
-        let mut content = v_flex()
-            .gap_3()
-            .child(
-                h_flex()
-                    .gap_3()
-                    .items_start()
-                    .child(
-                        div()
-                            .flex_none()
-                            .size(px(36.))
-                            .rounded_full()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .bg(warning.opacity(0.12))
-                            .text_color(warning)
-                            .child(Icon::new(Glyph::TriangleAlert)),
-                    )
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .gap_1()
-                            .min_w_0()
-                            .whitespace_normal()
-                            .child(
-                                div()
-                                    .text_base()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(format!("{title} {target}?")),
-                            )
-                            .child(div().text_sm().text_color(muted_fg).child(consequence)),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .gap_1p5()
-                    .p_3()
-                    .rounded(px(7.))
-                    .bg(muted.opacity(0.65))
-                    .border_1()
-                    .border_color(sep)
-                    .text_xs()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(110.))
-                                    .text_color(muted_fg)
-                                    .child("Attached clients"),
-                            )
-                            .child(div().font_family(mono.clone()).child(clients.to_string())),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(div().w(px(110.)).text_color(muted_fg).child("Target"))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .font_family(mono.clone())
-                                    .whitespace_normal()
-                                    .child(target),
-                            ),
-                    ),
-            );
+        let mut content = v_flex().gap_3().child(
+            h_flex()
+                .gap_3()
+                .items_start()
+                .child(
+                    div()
+                        .flex_none()
+                        .size(px(32.))
+                        .rounded_full()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .bg(tint.opacity(0.12))
+                        .text_color(tint)
+                        .child(Icon::new(Glyph::TriangleAlert).small()),
+                )
+                .child(
+                    v_flex()
+                        .flex_1()
+                        .gap_1()
+                        .min_w_0()
+                        .whitespace_normal()
+                        .child(
+                            div()
+                                .text_base()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(format!("{title} \u{201c}{target}\u{201d}?")),
+                        )
+                        .child(div().text_sm().text_color(muted_fg).child(consequence))
+                        .when_some(others, |d, count| {
+                            d.child(div().text_sm().text_color(warning).child(format!(
+                                "{count} other window{} {} using this runtime.",
+                                if count == 1 { "" } else { "s" },
+                                if count == 1 { "is" } else { "are" }
+                            )))
+                        }),
+                ),
+        );
         if method == "bundle_import" {
             content = content.child(
                 Checkbox::new("bundle-trust")
@@ -446,17 +436,6 @@ impl Workspace {
                     "Review the checkpoint report before overriding a Python version mismatch.",
                 ));
         }
-        let destructive = matches!(
-            method.as_str(),
-            "restart"
-                | "stop"
-                | "interrupt_kill"
-                | "migrate"
-                | "restore"
-                | "delete"
-                | "merge"
-                | "training-restore"
-        );
         let proceed = action_button("proceed").label(verb).unavailable(
             matches!(
                 method.as_str(),

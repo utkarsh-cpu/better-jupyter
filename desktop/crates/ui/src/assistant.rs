@@ -247,6 +247,32 @@ impl Workspace {
         cx.notify();
     }
 
+    /// True for a new chat: nothing asked yet and nothing in progress.
+    fn assistant_idle(&self) -> bool {
+        let ai = &self.tabs[self.active].assistant;
+        ai.transcript.is_empty()
+            && ai.receipt.is_null()
+            && ai.answer.is_null()
+            && ai.proposals.is_empty()
+            && !ai.busy
+    }
+
+    /// Prepares the composer's question for review and clears the composer.
+    fn submit_question(
+        &mut self,
+        input: Entity<TextareaState>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let question = input.read(cx).value().trim().to_string();
+        if question.is_empty() || self.tabs[self.active].assistant.busy {
+            return;
+        }
+        let task = self.tabs[self.active].assistant.task.clone();
+        self.ai_preview(if task.is_empty() { "ask" } else { &task }, question, cx);
+        input.update(cx, |state, cx| state.set_value("", window, cx));
+    }
+
     /// The readable name a cell has in the notebook, falling back to its id once removed.
     pub(super) fn context_cell_title(&self, id: &str) -> String {
         self.tabs[self.active]
@@ -259,12 +285,8 @@ impl Workspace {
 
     #[inline(never)]
     fn assistant_setup_card(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let idle = self.assistant_idle();
         let ai = &self.tabs[self.active].assistant;
-        let idle = ai.transcript.is_empty()
-            && ai.receipt.is_null()
-            && ai.answer.is_null()
-            && ai.proposals.is_empty()
-            && !ai.busy;
         let setup = assistant_setup(&ai.settings, &ai.connection);
         let model = ai.settings["settings"]["model"]
             .as_str()
@@ -274,67 +296,70 @@ impl Workspace {
         if !(idle || failed) || matches!(setup, Setup::Loading | Setup::Ready) {
             return None;
         }
-        let theme = cx.theme();
-        let (muted, warning, info) = (theme.muted_foreground, theme.warning, theme.info);
-        let (title, body, accent): (&str, String, Hsla) = match &setup {
+        let muted = cx.theme().muted_foreground;
+        let (title, body): (&str, String) = match &setup {
             Setup::Off => (
                 "Assistant is off for this notebook",
-                "The notebook's AI policy blocks requests. You can change the policy in provider settings.".into(),
-                muted,
+                "The notebook's AI policy blocks requests. You can change it in provider settings."
+                    .into(),
             ),
             Setup::Unconfigured => (
-                "Connect a provider",
-                "The Assistant uses a model you choose: a local server such as Ollama or LM Studio, or the OpenAI API. Nothing from this notebook is sent until you review exactly what will be shared.".into(),
-                info,
+                "Connect a model",
+                "Use a local server such as Ollama or LM Studio, or the OpenAI API. Nothing from this notebook is shared until you approve it.".into(),
             ),
             Setup::Untested => (
                 "Test the connection",
-                format!("Provider settings are saved for {model}. Test the connection once before your first request; the test sends no notebook content."),
-                info,
+                format!("Settings are saved for {model}. The test sends no notebook content."),
             ),
             Setup::Testing => (
                 "Testing the connection\u{2026}",
                 "Checking that the provider responds. No notebook content is sent.".into(),
-                info,
             ),
             Setup::Failed(message) => (
                 "Connection failed",
                 format!(
-                    "{}. Check the base URL, model, and API key in provider settings, then try again.",
+                    "{}. Check the base URL, model, and API key in provider settings.",
                     message.trim_end_matches('.')
                 ),
-                warning,
             ),
             Setup::Loading | Setup::Ready => unreachable!(),
         };
         let testing = setup == Setup::Testing;
         let can_test = matches!(setup, Setup::Untested | Setup::Failed(_));
         Some(
-            card(cx)
+            v_flex()
                 .id("assistant-setup")
                 .role(Role::Group)
                 .aria_label(title)
-                .p_3()
-                .gap_2()
-                .border_l_2()
-                .border_color(accent)
+                .w_full()
+                .items_center()
+                .gap_3()
+                .child(icon_tile(Glyph::Sparkles, 36., cx))
                 .child(
-                    div()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child(title),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(muted)
-                        .whitespace_normal()
-                        .child(body),
+                    v_flex()
+                        .items_center()
+                        .gap_1()
+                        .child(
+                            div()
+                                .text_base()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(title),
+                        )
+                        .child(
+                            div()
+                                .max_w(rems(20.))
+                                .text_sm()
+                                .text_center()
+                                .text_color(muted)
+                                .whitespace_normal()
+                                .child(body),
+                        ),
                 )
                 .child(
                     h_flex()
                         .gap_1p5()
                         .flex_wrap()
+                        .justify_center()
                         .when(can_test, |d| {
                             d.child(
                                 action_button("assistant-test")
@@ -355,20 +380,59 @@ impl Workspace {
                                     ),
                             )
                         })
-                        .child(
-                            action_button("assistant-open-settings")
-                                .outline()
+                        .child({
+                            let settings = action_button("assistant-open-settings")
                                 .small()
                                 .icon(Glyph::Settings)
                                 .label("Open provider settings")
                                 .unavailable(testing)
                                 .on_click_accessible(
                                     cx.listener(|v, _, _, cx| v.open_provider_settings(cx)),
-                                ),
-                        ),
+                                );
+                            if can_test || testing {
+                                settings.outline()
+                            } else {
+                                settings.primary()
+                            }
+                        }),
                 )
                 .into_any_element(),
         )
+    }
+
+    /// The composer: grows from one to six lines; Enter sends, Shift+Enter adds a line.
+    fn ai_question(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<TextareaState> {
+        let key = format!(
+            "ai-{}-Question",
+            self.tabs[self.active].model.project.display()
+        );
+        if let Some(question) = self.questions.get(&key) {
+            return question.clone();
+        }
+        let question = cx.new(|cx| {
+            TextareaState::new(window, cx)
+                .placeholder("Ask about this notebook\u{2026}")
+                .auto_grow(1, 6)
+                .submit_on_enter(true)
+        });
+        let subscription = cx.subscribe_in(
+            &question,
+            window,
+            |v, question, event: &InputEvent, window, cx| match event {
+                InputEvent::PressEnter { shift: false, .. } => {
+                    v.submit_question(question.clone(), window, cx)
+                }
+                InputEvent::Change => cx.notify(),
+                _ => {}
+            },
+        );
+        self.tabs[self.active].subscriptions.push(subscription);
+        self.questions.insert(key, question.clone());
+        question
     }
 
     fn ai_input(
@@ -384,18 +448,20 @@ impl Workspace {
         );
         if !self.prompts.contains_key(&key) {
             let input = cx.new(|cx| {
-                let placeholder = if name == "Question" {
-                    "Ask about this notebook\u{2026}"
-                } else {
-                    name
-                };
-                let mut state = InputState::new(window, cx).placeholder(placeholder);
+                let mut state = InputState::new(window, cx).placeholder(name);
                 state.set_value(initial.to_owned(), window, cx);
                 if name == "API key" {
                     state.set_masked(true, window, cx);
                 }
                 state
             });
+            // Redraw on edit so inline validation follows typing.
+            let subscription = cx.subscribe(&input, |_, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    cx.notify();
+                }
+            });
+            self.tabs[self.active].subscriptions.push(subscription);
             self.prompts.insert(key.clone(), input);
         }
         self.prompts[&key].clone()
@@ -506,61 +572,18 @@ impl Workspace {
         let state = &self.tabs[self.active].assistant;
         let busy = state.busy;
         let show_history = state.show_history;
-        let settings_root = state.settings.clone();
-        let theme = cx.theme();
-        let (primary, success, warning, danger, info) = (
-            theme.primary,
-            theme.success,
-            theme.warning,
-            theme.danger,
-            theme.info,
-        );
-        let policy = settings_root["policy"].as_str().unwrap_or("allowed");
-        let provider_name = settings_root["settings"]["provider"].as_str().unwrap_or("");
-        let active_model = effective_model(&settings_root, &state.task);
-        let model_name = active_model.as_str();
-        let dest_label = settings_root["destination"]["label"]
-            .as_str()
-            .unwrap_or("Local");
-        let dest_local = settings_root["destination"]["local"]
-            .as_bool()
-            .unwrap_or(true);
-
-        let status_badge = if policy == "off" {
-            badge("Off", danger)
-        } else if provider_name.is_empty() || model_name.is_empty() {
-            badge("Setup", warning)
-        } else if policy == "local_only" {
-            badge("Local only", warning)
-        } else {
-            badge(
-                dest_label.to_string(),
-                if dest_local { success } else { info },
-            )
-        };
-
         h_flex()
-            .px_3()
-            .py_1p5()
+            .flex_none()
+            .h(rems(2.5))
+            .pl_3p5()
+            .pr_1p5()
             .justify_between()
             .items_center()
-            .gap_1p5()
-            .bg(theme.title_bar)
-            .border_b_1()
-            .border_color(divider(cx))
             .child(
-                h_flex()
-                    .gap_1p5()
-                    .items_center()
-                    .min_w_0()
-                    .child(Icon::new(Glyph::Sparkles).small().text_color(primary))
-                    .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Assistant"),
-                    )
-                    .child(status_badge),
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child(if show_history { "History" } else { "Assistant" }),
             )
             .child(
                 h_flex()
@@ -591,9 +614,9 @@ impl Workspace {
                             .ghost()
                             .small()
                             .icon(Glyph::Clock)
-                            .selected(show_history)
+                            .quiet_toggle(show_history)
                             .accessibility_label("Conversations")
-                            .hint("Search history & saved conversations")
+                            .hint("Saved conversations and history search")
                             .unavailable(busy)
                             .on_click_accessible(cx.listener(|v, _, _, cx| {
                                 let next = !v.tabs[v.active].assistant.show_history;
@@ -603,30 +626,6 @@ impl Workspace {
                                 }
                                 cx.notify();
                             })),
-                    )
-                    .child(
-                        action_button("assistant-proposals-btn")
-                            .ghost()
-                            .small()
-                            .icon(Glyph::FileText)
-                            .accessibility_label("Proposals")
-                            .hint("List cell and code proposals")
-                            .unavailable(busy)
-                            .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                v.ai("proposals.list", json!({}));
-                                cx.notify();
-                            })),
-                    )
-                    .child(
-                        action_button("assistant-config")
-                            .ghost()
-                            .small()
-                            .icon(Glyph::Settings)
-                            .accessibility_label("Assistant provider settings")
-                            .hint("AI provider, models, and privacy settings")
-                            .on_click_accessible(
-                                cx.listener(|v, _, _, cx| v.open_provider_settings(cx)),
-                            ),
                     )
                     .child(
                         action_button("assistant-close")
@@ -645,95 +644,6 @@ impl Workspace {
     }
 
     #[inline(never)]
-    fn assistant_health_banner(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let state = &self.tabs[self.active].assistant;
-        let busy = state.busy;
-        let settings_root = &state.settings;
-        let stale_count = settings_root["analysis"]["stale_cells"]
-            .as_array()
-            .map_or(0, Vec::len);
-        let repro_status = settings_root["analysis"]["reproducibility"]["status"]
-            .as_str()
-            .unwrap_or("ready")
-            .to_owned();
-        if stale_count == 0 && repro_status == "ready" {
-            return None;
-        }
-        let warning = cx.theme().warning;
-        Some(
-            h_flex()
-                .px_2p5()
-                .py_1p5()
-                .rounded(px(8.))
-                .border_1()
-                .border_color(warning.opacity(0.35))
-                .bg(warning.opacity(0.06))
-                .justify_between()
-                .items_center()
-                .gap_2()
-                .flex_wrap()
-                .child(
-                    h_flex()
-                        .gap_1p5()
-                        .items_center()
-                        .child(dot(warning))
-                        .when(stale_count > 0, |d| {
-                            d.child(badge(
-                                format!(
-                                    "{stale_count} stale cell{}",
-                                    if stale_count == 1 { "" } else { "s" }
-                                ),
-                                warning,
-                            ))
-                        })
-                        .when(repro_status != "ready", |d| {
-                            d.child(badge(format!("Repro: {repro_status}"), warning))
-                        }),
-                )
-                .child(
-                    h_flex()
-                        .gap_1()
-                        .flex_wrap()
-                        .when(stale_count > 0, |d| {
-                            d.child(
-                                action_button("ai-banner-stale")
-                                    .ghost()
-                                    .small()
-                                    .icon(Glyph::Sparkles)
-                                    .label("Review stale")
-                                    .unavailable(busy)
-                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                        v.ai_preview(
-                                            "stale",
-                                            "Identify stale or out-of-order cells and recommend the minimal safe rerun or checkpoint recovery.".into(),
-                                            cx,
-                                        );
-                                    })),
-                            )
-                        })
-                        .when(repro_status != "ready", |d| {
-                            d.child(
-                                action_button("ai-banner-repro")
-                                    .ghost()
-                                    .small()
-                                    .icon(Glyph::Sparkles)
-                                    .label("Audit repro")
-                                    .unavailable(busy)
-                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                        v.ai_preview(
-                                            "reproducibility",
-                                            "Review reproducibility from recorded evidence.".into(),
-                                            cx,
-                                        );
-                                    })),
-                            )
-                        }),
-                )
-                .into_any_element(),
-        )
-    }
-
-    #[inline(never)]
     fn assistant_context_section(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let busy = self.tabs[self.active].assistant.busy;
         let selected_cells = self.tabs[self.active].assistant.selected_cells.clone();
@@ -748,6 +658,7 @@ impl Workspace {
         }
 
         let mut pills = h_flex().gap_1().flex_wrap().items_center();
+        let chip = |title: &str| short_title(title.trim_start_matches('#').trim_start(), 24);
 
         for id in &selected_cells {
             let cell_id = id.clone();
@@ -757,7 +668,7 @@ impl Workspace {
                     .outline()
                     .small()
                     .icon(Glyph::Code)
-                    .label(format!("{} \u{00d7}", short_title(&title, 28)))
+                    .label(format!("{} \u{00d7}", chip(&title)))
                     .accessibility_label(format!("Remove {title} from context"))
                     .hint(format!("{title} \u{2014} remove from context"))
                     .unavailable(busy)
@@ -817,7 +728,8 @@ impl Workspace {
                 action_button("ai-focus-cell")
                     .ghost()
                     .small()
-                    .label(format!("+ {}", short_title(&title, 28)))
+                    .text_color(cx.theme().muted_foreground)
+                    .label(format!("+ {}", chip(&title)))
                     .accessibility_label(format!("Add {title} to context"))
                     .hint("Add the selected cell to the context for review")
                     .unavailable(busy)
@@ -881,138 +793,135 @@ impl Workspace {
                 .id("assistant-context")
                 .role(Role::Group)
                 .aria_label(summary.clone())
-                .gap_1()
-                .child(
-                    div()
-                        .text_xs()
-                        .font_weight(FontWeight::MEDIUM)
-                        .text_color(cx.theme().muted_foreground)
-                        .child(summary),
-                )
                 .child(pills)
                 .into_any_element(),
         )
     }
 
     #[inline(never)]
-    fn assistant_workflows_section(
-        &mut self,
-        idle: bool,
-        cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
-        if !idle {
-            return None;
-        }
-        let busy = self.tabs[self.active].assistant.busy;
+    fn assistant_workflows_section(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        const SUMMARY: &str = "Summarize this notebook's recorded state and what I can continue from. Cite every recorded fact.";
+        const EXPLAIN: &str = "Explain this cell's recorded error and propose a fix.";
+        const REPRO: &str = "Review reproducibility from recorded evidence.";
+        const STALE: &str = "Identify stale or out-of-order cells and recommend the minimal safe rerun or checkpoint recovery.";
+        let analysis = &self.tabs[self.active].assistant.settings["analysis"];
+        let stale_count = analysis["stale_cells"].as_array().map_or(0, Vec::len);
+        let repro_status = analysis["reproducibility"]["status"]
+            .as_str()
+            .unwrap_or("ready")
+            .to_owned();
         let has_error = self.tabs[self.active].model.cells.values().any(|cell| {
             matches!(cell.outcome.as_str(), "error" | "failed")
                 || cell.output.iter().any(|event| event["kind"] == "error")
         });
-        let view_for_explain = cx.entity();
-        let view_for_summary = cx.entity();
-        let view_for_repro = cx.entity();
+        let mut rows = vec![(
+            "assistant-summary",
+            "Resume summary".to_owned(),
+            "What is recorded and where to continue".to_owned(),
+            "summary",
+            SUMMARY,
+        )];
+        if has_error {
+            rows.push((
+                "assistant-explain",
+                "Explain error".to_owned(),
+                "Why the selected cell failed and a fix".to_owned(),
+                "explain",
+                EXPLAIN,
+            ));
+        }
+        if stale_count > 0 {
+            rows.push((
+                "ai-banner-stale",
+                format!(
+                    "Review {stale_count} stale cell{}",
+                    if stale_count == 1 { "" } else { "s" }
+                ),
+                "The smallest safe rerun or recovery".to_owned(),
+                "stale",
+                STALE,
+            ));
+        }
+        rows.push((
+            "assistant-repro",
+            "Check reproducibility".to_owned(),
+            if repro_status == "ready" {
+                "Audit from the recorded runs".to_owned()
+            } else {
+                format!("Current status: {repro_status}")
+            },
+            "reproducibility",
+            REPRO,
+        ));
+        let mut list = v_flex().w_full().gap_1p5();
+        for (id, title, detail, task, prompt) in rows {
+            let view = cx.entity();
+            list = list.child(
+                action_button(id)
+                    .debug_selector(id)
+                    .suggestion(title, detail)
+                    .on_a11y_click(move |_, cx| {
+                        view.update(cx, |v, cx| v.ai_preview(task, prompt.into(), cx));
+                    })
+                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
+                        v.ai_preview(task, prompt.into(), cx);
+                    })),
+            );
+        }
+        list.into_any_element()
+    }
 
-        Some(
-            h_flex()
-                .gap_1()
-                .flex_wrap()
-                .items_center()
-                .child(
-                    action_button("assistant-summary")
-                        .ghost()
-                        .small()
-                        .debug_selector("assistant-summary")
-                        .label("Resume summary")
-                        .hint("Summarize recorded state and what you can continue from")
-                        .unavailable(busy)
-                        .on_a11y_click(move |_, cx| {
-                            view_for_summary.update(cx, |v, cx| {
-                                v.ai_preview(
-                                    "summary",
-                                    "Summarize this notebook's recorded state and what I can continue from. Cite every recorded fact.".into(),
-                                    cx,
-                                );
-                            });
-                        })
-                        .on_click_accessible(cx.listener(|v, _, _, cx| {
-                            v.ai_preview(
-                                "summary",
-                                "Summarize this notebook's recorded state and what I can continue from. Cite every recorded fact.".into(),
-                                cx,
-                            );
-                        })),
-                )
-                .when(has_error, |d| {
-                    d.child(
-                        action_button("assistant-explain")
-                            .ghost()
-                            .small()
-                            .label("Explain error")
-                            .hint("Explain the selected cell's recorded error and propose a fix")
-                            .unavailable(busy)
-                            .on_a11y_click(move |_, cx| {
-                                view_for_explain.update(cx, |v, cx| {
-                                    v.ai_preview(
-                                        "explain",
-                                        "Explain this cell's recorded error and propose a fix."
-                                            .into(),
-                                        cx,
-                                    );
-                                });
-                            })
-                            .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                v.ai_preview(
-                                    "explain",
-                                    "Explain this cell's recorded error and propose a fix.".into(),
-                                    cx,
-                                );
-                            })),
-                    )
-                })
-                .child(
-                    action_button("assistant-repro")
-                        .ghost()
-                        .small()
-                        .label("Reproducibility")
-                        .hint("Review reproducibility from recorded ledger evidence")
-                        .unavailable(busy)
-                        .on_a11y_click(move |_, cx| {
-                            view_for_repro.update(cx, |v, cx| {
-                                v.ai_preview(
-                                    "reproducibility",
-                                    "Review reproducibility from recorded evidence.".into(),
-                                    cx,
-                                );
-                            });
-                        })
-                        .on_click_accessible(cx.listener(|v, _, _, cx| {
-                            v.ai_preview(
-                                "reproducibility",
-                                "Review reproducibility from recorded evidence.".into(),
-                                cx,
-                            );
-                        })),
-                )
-                .into_any_element(),
-        )
+    /// The new-chat screen: setup when a provider is still needed, otherwise
+    /// a short greeting and suggestions.
+    #[inline(never)]
+    fn assistant_welcome(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        if let Some(setup) = self.assistant_setup_card(cx) {
+            return setup;
+        }
+        let suggestions = self.assistant_workflows_section(cx);
+        v_flex()
+            .w_full()
+            .gap_5()
+            .child(
+                v_flex()
+                    .items_center()
+                    .gap_3()
+                    .child(icon_tile(Glyph::Sparkles, 36., cx))
+                    .child(
+                        v_flex()
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_base()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Ask about this notebook"),
+                            )
+                            .child(
+                                div()
+                                    .max_w(rems(20.))
+                                    .text_sm()
+                                    .text_center()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .whitespace_normal()
+                                    .child(
+                                        "Answers cite your cells and runs. You approve what is shared before anything is sent.",
+                                    ),
+                            ),
+                    ),
+            )
+            .child(suggestions)
+            .into_any_element()
     }
 
     #[inline(never)]
     fn assistant_composer_dock(
         &mut self,
-        input: Entity<InputState>,
+        input: Entity<TextareaState>,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let context_sec = self.assistant_context_section(cx);
-        let idle = {
-            let ai = &self.tabs[self.active].assistant;
-            ai.transcript.is_empty()
-                && ai.receipt.is_null()
-                && ai.answer.is_null()
-                && ai.proposals.is_empty()
-                && !ai.busy
-        };
-        let workflows = self.assistant_workflows_section(idle, cx);
         let state = &self.tabs[self.active].assistant;
         let busy = state.busy;
         let active_task = if state.task.is_empty() {
@@ -1020,101 +929,126 @@ impl Workspace {
         } else {
             state.task.clone()
         };
-        let settings_root = state.settings.clone();
-        let model_name =
-            Some(effective_model(&settings_root, &active_task)).filter(|s| !s.is_empty());
-        let dest_local = settings_root["destination"]["local"]
+        let model_name = effective_model(&state.settings, &active_task);
+        let dest_local = state.settings["destination"]["local"]
             .as_bool()
             .unwrap_or(true);
-
+        let dest_label = state.settings["destination"]["label"]
+            .as_str()
+            .unwrap_or("Local")
+            .to_owned();
+        let empty = input.read(cx).value().trim().is_empty();
+        let focused = input.read(cx).focus_handle(cx).is_focused(window);
         let theme = cx.theme();
-        let (primary, muted, success, info, mono) = (
+        let (primary, muted, success, warning) = (
             theme.primary,
             theme.muted_foreground,
             theme.success,
-            theme.info,
-            theme.mono_font_family.clone(),
+            theme.warning,
         );
-        let view_for_preview = cx.entity();
-        let input_for_a11y = input.clone();
-        let input_for_click = input.clone();
-
+        let popover = theme.popover;
+        let model_label = if model_name.is_empty() {
+            "Choose a model".to_owned()
+        } else {
+            short_title(&model_name, 26)
+        };
+        let action = if busy {
+            action_button("assistant-cancel")
+                .small()
+                .rounded_full()
+                .icon(Glyph::Square)
+                .accessibility_label("Cancel request")
+                .hint("Cancel request")
+                .on_click_accessible(cx.listener(|v, _, _, cx| {
+                    v.send(Command::AssistantCancel);
+                    let ai = &mut v.tabs[v.active].assistant;
+                    ai.busy = false;
+                    ai.receipt = Value::Null;
+                    ai.receipt_state = ReceiptState::Consumed;
+                    ai.started = None;
+                    ai.error = false;
+                    ai.rebuild = true;
+                    ai.status = "Cancelled; prepare fresh context to continue.".into();
+                    cx.notify();
+                }))
+        } else {
+            let view = cx.entity();
+            let for_a11y = input.clone();
+            let for_click = input.clone();
+            action_button("assistant-preview")
+                .primary()
+                .small()
+                .rounded_full()
+                .icon(Glyph::ArrowUp)
+                .accessibility_label("Review context")
+                .hint("Review what will be shared (Enter). Nothing is sent until you approve it.")
+                .unavailable(empty)
+                .on_a11y_click(move |window, cx| {
+                    let input = for_a11y.clone();
+                    view.update(cx, |v, cx| v.submit_question(input, window, cx));
+                })
+                .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                    v.submit_question(for_click.clone(), window, cx);
+                }))
+        };
         v_flex()
-            .p_2p5()
-            .gap_2()
-            .bg(theme.title_bar)
-            .border_t_1()
-            .border_color(divider(cx))
-            .when_some(workflows, |d, el| d.child(el))
-            .when_some(context_sec, |d, el| d.child(el))
+            .flex_none()
+            .px_3()
+            .pt_1()
+            .pb_3()
             .child(
                 v_flex()
                     .p_2()
-                    .gap_2()
-                    .rounded(px(8.))
+                    .gap_1p5()
+                    .rounded(px(12.))
                     .border_1()
-                    .border_color(surface_edge(cx))
-                    .bg(theme.background)
-                    .child(Input::new(&input).cleanable(true))
+                    .border_color(if focused {
+                        primary.opacity(0.6)
+                    } else {
+                        surface_edge(cx)
+                    })
+                    .bg(popover)
+                    .when(!self.high_contrast, |d| d.shadow_sm())
+                    .when_some(context_sec, |d, el| d.child(el))
+                    .child(
+                        Textarea::new(&input)
+                            .appearance(false)
+                            .aria_label("Question for the Assistant"),
+                    )
                     .child(
                         h_flex()
                             .justify_between()
                             .items_center()
                             .gap_2()
-                            .flex_wrap()
                             .child(
                                 h_flex()
-                                    .gap_1p5()
-                                    .items_center()
                                     .min_w_0()
-                                    .when_some(model_name, |d, name| {
-                                        d.child(dot(if dest_local { success } else { info }))
-                                            .child(
-                                                div()
-                                                    .text_xs()
-                                                    .font_family(mono)
-                                                    .text_color(muted)
-                                                    .truncate()
-                                                    .child(name),
-                                            )
+                                    .gap_1()
+                                    .items_center()
+                                    .child(
+                                        action_button("assistant-config")
+                                            .ghost()
+                                            .small()
+                                            .text_color(muted)
+                                            .label(model_label)
+                                            .accessibility_label("Assistant provider settings")
+                                            .hint(format!(
+                                                "{dest_label} \u{00b7} change provider, model, and privacy settings"
+                                            ))
+                                            .on_click_accessible(cx.listener(|v, _, _, cx| {
+                                                v.open_provider_settings(cx)
+                                            })),
+                                    )
+                                    .when(!model_name.is_empty(), |d| {
+                                        d.child(dot(if dest_local { success } else { warning }))
                                     })
                                     .when(active_task != "ask", |d| {
                                         d.child(badge(format!("/{active_task}"), primary))
                                     }),
                             )
-                            .child(
-                                action_button("assistant-preview")
-                                    .primary()
-                                    .small()
-                                    .icon(Glyph::Sparkles)
-                                    .label("Review context")
-                                    .hint("Preview exactly what will be shared; nothing is sent until you approve it")
-                                    .unavailable(busy)
-                                    .on_a11y_click(move |_, cx| {
-                                        let question = input_for_a11y.read(cx).value().to_string();
-                                        view_for_preview.update(cx, |v, cx| {
-                                            let task = v.tabs[v.active].assistant.task.clone();
-                                            v.ai_preview(if task.is_empty() { "ask" } else { &task }, question, cx);
-                                        });
-                                    })
-                                    .on_click_accessible(cx.listener(move |v, _, _, cx| {
-                                        let question = input_for_click.read(cx).value().to_string();
-                                        let task = v.tabs[v.active].assistant.task.clone();
-                                        v.ai_preview(if task.is_empty() { "ask" } else { &task }, question, cx);
-                                    })),
-                            ),
+                            .child(action),
                     ),
             )
-            .when(idle, |d| {
-                d.child(
-                    div()
-                        .px_1()
-                        .text_xs()
-                        .text_color(muted)
-                        .whitespace_normal()
-                        .child("Review context lists exactly what would be shared. Nothing is sent until you approve it."),
-                )
-            })
             .into_any_element()
     }
 
@@ -1124,7 +1058,7 @@ impl Workspace {
         let busy = state.busy;
         let status_text = if busy {
             format!(
-                "{}; {} s elapsed; final answer may follow model reasoning",
+                "{} {} s",
                 state.status,
                 state.started.map(|s| s.elapsed().as_secs()).unwrap_or(0)
             )
@@ -1136,77 +1070,53 @@ impl Workspace {
         if status_text.is_empty() && !busy {
             return None;
         }
+        // The review card already says what to do next.
+        if !busy
+            && !state.error
+            && (state.receipt_state == ReceiptState::Prepared || !state.answer.is_null())
+        {
+            return None;
+        }
         let theme = cx.theme();
-        let (muted, success, warning, danger, info) = (
-            theme.muted_foreground,
-            theme.success,
-            theme.warning,
-            theme.danger,
-            theme.info,
-        );
+        let (muted, danger, info) = (theme.muted_foreground, theme.danger, theme.info);
         let is_err = state.error;
+        let reduced_motion = self.preferences.reduced_motion;
         let status_color = if is_err {
             danger
         } else if busy {
             info
         } else {
-            success
+            muted
         };
+        let indicator = dot(status_color);
         let mut col = v_flex().gap_2().child(
-            card(cx)
+            h_flex()
                 .id("assistant-status-card")
                 .role(if is_err { Role::Alert } else { Role::Status })
                 .aria_label(status_text.clone())
-                .p_2p5()
                 .gap_2()
-                .border_l_2()
-                .border_color(status_color)
-                .child(
-                    h_flex()
-                        .justify_between()
-                        .items_center()
-                        .gap_2()
-                        .flex_wrap()
-                        .child(
-                            h_flex()
-                                .gap_2()
-                                .items_center()
-                                .min_w_0()
-                                .flex_1()
-                                .child(dot(status_color))
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .font_weight(FontWeight::MEDIUM)
-                                        .whitespace_normal()
-                                        .min_w_0()
-                                        .flex_1()
-                                        .child(status_text),
-                                ),
+                .items_center()
+                .text_xs()
+                .text_color(if is_err { danger } else { muted })
+                .child(if busy && !reduced_motion {
+                    indicator
+                        .with_animation(
+                            "assistant-working",
+                            Animation::new(Duration::from_millis(1100))
+                                .repeat()
+                                .with_easing(pulsating_between(0.35, 1.)),
+                            |dot, delta| dot.opacity(delta),
                         )
-                        .when(busy, |d| {
-                            d.child(
-                                action_button("assistant-cancel")
-                                    .outline()
-                                    .small()
-                                    .icon(Glyph::Square)
-                                    .label("Cancel")
-                                    .accessibility_label("Cancel request")
-                                    .on_click_accessible(cx.listener(|v, _, _, cx| {
-                                        v.send(Command::AssistantCancel);
-                                        let ai = &mut v.tabs[v.active].assistant;
-                                        ai.busy = false;
-                                        ai.receipt = Value::Null;
-                                        ai.receipt_state = ReceiptState::Consumed;
-                                        ai.started = None;
-                                        ai.error = false;
-                                        ai.rebuild = true;
-                                        ai.status =
-                                            "Cancelled; prepare fresh context to continue.".into();
-                                        cx.notify();
-                                    })),
-                            )
-                        }),
+                        .into_any_element()
+                } else {
+                    indicator.into_any_element()
+                })
+                .child(
+                    div()
+                        .min_w_0()
+                        .flex_1()
+                        .whitespace_normal()
+                        .child(status_text),
                 ),
         );
         if rebuild {
@@ -1225,22 +1135,15 @@ impl Workspace {
         }
         if !draft.is_empty() && busy {
             col = col.child(
-                card(cx)
-                    .p_3()
-                    .gap_2()
+                v_flex()
+                    .gap_1()
+                    .child(TextView::markdown("ai-stream-draft", safe_markdown(&draft)))
                     .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .child(badge("Streaming draft", warning))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted)
-                                    .child("Verifying citations\u{2026}"),
-                            ),
-                    )
-                    .child(TextView::markdown("ai-stream-draft", safe_markdown(&draft))),
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child("Draft \u{00b7} verifying citations\u{2026}"),
+                    ),
             );
         }
         Some(col.into_any_element())
@@ -1272,61 +1175,71 @@ impl Workspace {
         let auto_approved = receipt["auto_approved"] == true;
         let sendable = state.receipt_state == ReceiptState::Prepared;
 
+        let expanded = state.payload_expanded;
+        let included = receipt["items"].as_array().map_or(0, Vec::len);
+        let summary = format!(
+            "{included} record{} \u{00b7} ~{} tokens \u{00b7} {r_label} \u{00b7} {r_model}",
+            if included == 1 { "" } else { "s" },
+            receipt["token_estimate"],
+        );
+        // Once sent, the receipt folds to one line and stays available for audit.
+        if !sendable && !busy && !expanded {
+            return Some(
+                h_flex()
+                    .id("assistant-receipt-sent")
+                    .gap_1()
+                    .items_center()
+                    .text_xs()
+                    .text_color(muted)
+                    .child(
+                        div()
+                            .min_w_0()
+                            .flex_1()
+                            .truncate()
+                            .child(format!("Shared {summary}")),
+                    )
+                    .child(
+                        action_button("assistant-exact-payload")
+                            .ghost()
+                            .small()
+                            .label("Details")
+                            .accessibility_label("Show exact payload and system prompt")
+                            .on_click_accessible(cx.listener(|v, _, _, cx| {
+                                v.tabs[v.active].assistant.payload_expanded = true;
+                                cx.notify();
+                            })),
+                    )
+                    .into_any_element(),
+            );
+        }
+
         let mut receipt_card = card(cx)
             .p_3()
             .gap_2()
-            .border_l_2()
-            .border_color(if r_local {
-                success.opacity(0.6)
-            } else {
-                warning.opacity(0.75)
-            })
             .child(
                 h_flex()
                     .justify_between()
                     .items_center()
                     .gap_2()
-                    .flex_wrap()
                     .child(
-                        h_flex()
-                            .gap_1p5()
-                            .items_center()
-                            .flex_wrap()
-                            .child(Icon::new(Glyph::Terminal).small().text_color(muted))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .font_family(mono.clone())
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Context receipt"),
-                            )
-                            .child(badge(
-                                r_label.to_string(),
-                                if r_local { success } else { warning },
-                            ))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .font_family(mono.clone())
-                                    .child(format!("{r_host} \u{00b7} {r_model}")),
-                            ),
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("Review before sending"),
                     )
-                    .when(auto_approved, |d| d.child(badge("Auto-approved", info))),
+                    .when(auto_approved, |d| d.child(badge("Auto-approved", info)))
+                    .when(!r_local, |d| d.child(badge("Leaves this device", warning))),
             )
             .child(
-                div()
+                h_flex()
+                    .gap_1p5()
+                    .items_center()
                     .text_xs()
-                    .font_family(mono.clone())
                     .text_color(muted)
-                    .child(format!(
-                        "{} B \u{00b7} ~{} tokens \u{00b7} #{}",
-                        receipt["bytes"],
-                        receipt["token_estimate"],
-                        &r_hash[..r_hash.len().min(12)]
-                    )),
+                    .child(dot(if r_local { success } else { warning }))
+                    .child(div().min_w_0().flex_1().whitespace_normal().child(summary)),
             );
 
-        receipt_card = receipt_card.child(div().text_xs().whitespace_normal().child(format!("Question: {}\nIncluded records: {}; omitted: {}; truncated: {}\nOutput allowance: {} tokens; context window: {} (configured; unknown if null)", receipt["question"].as_str().unwrap_or(""), receipt["selection"]["included"], receipt["selection"]["omitted"], receipt["selection"]["truncated"], receipt["profile"]["max_output_tokens"], receipt["profile"]["context_window"])));
         if let Some(omitted) = receipt["omitted"].as_array() {
             for item in omitted {
                 receipt_card = receipt_card.child(
@@ -1342,93 +1255,60 @@ impl Workspace {
             }
         }
         if let Some(items) = receipt["items"].as_array() {
-            let mut items_col = v_flex().gap_1p5();
+            let mut items_col = v_flex().gap_1();
             for (index, item) in items.iter().enumerate() {
-                let text = receipt_text(item);
                 let kind = item["kind"].as_str().unwrap_or("item");
                 let id = item["id"].as_str().unwrap_or("");
-                let redacted = item["redacted"] == true;
-                let truncated = item["truncated"] == true;
-                let title = (kind == "cell" && !id.is_empty()).then(|| self.context_cell_title(id));
+                let name = if kind == "cell" && !id.is_empty() {
+                    self.context_cell_title(id)
+                        .trim_start_matches('#')
+                        .trim_start()
+                        .to_owned()
+                } else {
+                    format!("{kind} {}", short_title(id, 16))
+                };
                 items_col = items_col.child(
-                    v_flex()
-                        .p_2()
-                        .gap_1()
-                        .rounded(px(6.))
-                        .border_1()
-                        .border_color(divider(cx))
-                        .bg(theme.background)
+                    h_flex()
+                        .gap_1p5()
+                        .items_center()
+                        .text_xs()
                         .child(
-                            h_flex()
-                                .justify_between()
-                                .items_center()
-                                .gap_2()
-                                .flex_wrap()
-                                .child(
-                                    h_flex()
-                                        .gap_1p5()
-                                        .items_center()
-                                        .child(badge(kind.to_string(), muted))
-                                        .when_some(title, |d, title| {
-                                            d.child(
-                                                div()
-                                                    .text_xs()
-                                                    .font_weight(FontWeight::MEDIUM)
-                                                    .child(short_title(&title, 40)),
-                                            )
-                                        })
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .font_family(mono.clone())
-                                                .text_color(muted)
-                                                .child(id.to_string()),
-                                        ),
-                                )
-                                .child(
-                                    h_flex()
-                                        .gap_1p5()
-                                        .items_center()
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .font_family(mono.clone())
-                                                .text_color(muted)
-                                                .child(format!("{} B", item["bytes"])),
-                                        )
-                                        .when(redacted, |d| d.child(badge("redacted", warning)))
-                                        .when(truncated, |d| d.child(badge("truncated", info))),
-                                ),
+                            div()
+                                .min_w_0()
+                                .flex_1()
+                                .truncate()
+                                .font_family(mono.clone())
+                                .child(name),
                         )
+                        .when(item["redacted"] == true, |d| {
+                            d.child(badge("redacted", warning))
+                        })
+                        .when(item["truncated"] == true, |d| {
+                            d.child(badge("truncated", info))
+                        })
                         .child(
+                            div()
+                                .flex_none()
+                                .text_color(muted)
+                                .child(format!("{} B", item["bytes"])),
+                        ),
+                );
+                if expanded {
+                    items_col = items_col.child(
+                        div().p_2().rounded(px(6.)).bg(theme.muted).child(
                             TextView::markdown(
                                 SharedString::from(format!("ai-receipt-{index}")),
-                                safe_markdown(&text),
+                                safe_markdown(&receipt_text(item)),
                             )
                             .selectable(true),
                         ),
-                );
+                    );
+                }
             }
             receipt_card = receipt_card.child(items_col);
         }
 
         let full = serde_json::to_string_pretty(&receipt).unwrap_or_default();
-        let expanded = state.payload_expanded;
-        receipt_card = receipt_card.child(
-            action_button("assistant-exact-payload")
-                .outline()
-                .small()
-                .label(if expanded {
-                    "Hide exact payload and system prompt"
-                } else {
-                    "Show exact payload and system prompt"
-                })
-                .on_click_accessible(cx.listener(|v, _, _, cx| {
-                    v.tabs[v.active].assistant.payload_expanded =
-                        !v.tabs[v.active].assistant.payload_expanded;
-                    cx.notify();
-                })),
-        );
         if expanded {
             receipt_card = receipt_card.child(
                 TextView::markdown(
@@ -1452,14 +1332,11 @@ impl Workspace {
                 .gap_1p5()
                 .flex_wrap()
                 .items_center()
-                .pt_2()
-                .border_t_1()
-                .border_color(divider(cx))
+                .pt_1()
                 .child(
                     action_button("assistant-send")
                         .primary()
                         .small()
-                        .icon(Glyph::Sparkles)
                         .label("Approve & send")
                         .accessibility_label("Approve context and send")
                         .unavailable(busy || !sendable)
@@ -1471,16 +1348,34 @@ impl Workspace {
                         })),
                 )
                 .child(
-                    action_button("ai-receipt-copy")
+                    action_button("assistant-exact-payload")
                         .ghost()
                         .small()
-                        .label("Copy receipt")
-                        .accessibility_label("Copy full receipt and system prompt")
-                        .hint("Copy full JSON receipt and system prompt to clipboard")
-                        .on_click_accessible(cx.listener(move |_, _, _, cx| {
-                            copy_acknowledged(full.clone(), cx);
+                        .label(if expanded { "Hide details" } else { "Details" })
+                        .accessibility_label(if expanded {
+                            "Hide exact payload and system prompt"
+                        } else {
+                            "Show exact payload and system prompt"
+                        })
+                        .on_click_accessible(cx.listener(|v, _, _, cx| {
+                            v.tabs[v.active].assistant.payload_expanded =
+                                !v.tabs[v.active].assistant.payload_expanded;
+                            cx.notify();
                         })),
                 )
+                .when(expanded, |d| {
+                    d.child(
+                        action_button("ai-receipt-copy")
+                            .ghost()
+                            .small()
+                            .icon(Glyph::Copy)
+                            .accessibility_label("Copy full receipt and system prompt")
+                            .hint("Copy full JSON receipt and system prompt to clipboard")
+                            .on_click_accessible(cx.listener(move |_, _, _, cx| {
+                                copy_acknowledged(full.clone(), cx);
+                            })),
+                    )
+                })
                 .when(!approval_url.is_empty(), |d| {
                     d.child(
                         action_button("ai-receipt-remember")
@@ -1556,99 +1451,84 @@ impl Workspace {
         let citations = answer["citations"].as_array().cloned().unwrap_or_default();
         let resolved = citations.iter().filter(|c| c["verified"] == true).count();
         let supplied = citations.iter().filter(|c| c["in_context"] == true).count();
-        let mut answer_card = card(cx)
-            .p_3()
-            .gap_2()
+        let meta = format!(
+            "{resolved}/{} sources found{}",
+            citations.len(),
+            answer["usage"]["total_tokens"]
+                .as_u64()
+                .map(|tokens| format!(" \u{00b7} {tokens} tokens"))
+                .unwrap_or_default()
+        );
+        let _ = (primary, success, supplied, &mono);
+        let action_bar = h_flex()
+            .gap_0p5()
+            .items_center()
             .child(
-                h_flex()
-                    .justify_between()
-                    .items_center()
-                    .gap_2()
-                    .flex_wrap()
-                    .child(
-                        h_flex()
-                            .gap_1p5()
-                            .items_center()
-                            .child(Icon::new(Glyph::Sparkles).small().text_color(primary))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Assistant"),
-                            )
-                            .child(badge(format!("{resolved}/{} targets found; {supplied} in context", citations.len()), if resolved > 0 { success } else { muted }))
-                            .child(info_tip(
-                                "ai-evidence-tip",
-                                "Citation targets are verified against the ledger where marked. Uncited claims and suggested causes are unverified.",
-                                cx,
-                            ))
-                            .when_some(
-                                answer["usage"]["total_tokens"].as_u64(),
-                                |d, tokens| {
-                                    d.child(
-                                        div()
-                                            .text_xs()
-                                            .font_family(mono)
-                                            .text_color(muted)
-                                            .child(format!("{tokens} tok")),
-                                    )
-                                },
-                            ),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_1()
-                            .items_center()
-                            .child(
-                                action_button("ai-copy-answer")
-                                    .ghost()
-                                    .small()
-                                    .label("Copy")
-                                    .accessibility_label("Copy answer")
-                                    .on_click_accessible(cx.listener(move |_, _, _, cx| {
-                                        copy_acknowledged(copy_text.clone(), cx);
-                                    })),
-                            )
-                            .child(
-                                action_button("ai-export-pdf")
-                                    .ghost()
-                                    .small()
-                                    .icon(Glyph::FileText)
-                                    .label("PDF")
-                                    .accessibility_label("Export PDF")
-                                    .hint("Export this reviewed answer as PDF")
-                                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
-                                        v.export_answer_dialog("pdf", pdf_text.clone(), window, cx);
-                                    })),
-                            )
-                            .child(
-                                action_button("ai-export-docx")
-                                    .ghost()
-                                    .small()
-                                    .icon(Glyph::FileText)
-                                    .label("Word")
-                                    .accessibility_label("Export Word")
-                                    .hint("Export this reviewed answer as Word (.docx)")
-                                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
-                                        v.export_answer_dialog("docx", word_text.clone(), window, cx);
-                                    })),
-                            ),
-                    ),
+                action_button("ai-copy-answer")
+                    .ghost()
+                    .small()
+                    .icon(Glyph::Copy)
+                    .accessibility_label("Copy answer")
+                    .hint("Copy answer")
+                    .on_click_accessible(cx.listener(move |_, _, _, cx| {
+                        copy_acknowledged(copy_text.clone(), cx);
+                    })),
             )
             .child(
+                action_button("ai-export-pdf")
+                    .ghost()
+                    .small()
+                    .text_color(muted)
+                    .label("PDF")
+                    .accessibility_label("Export PDF")
+                    .hint("Export this reviewed answer as PDF")
+                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                        v.export_answer_dialog("pdf", pdf_text.clone(), window, cx);
+                    })),
+            )
+            .child(
+                action_button("ai-export-docx")
+                    .ghost()
+                    .small()
+                    .text_color(muted)
+                    .label("Word")
+                    .accessibility_label("Export Word")
+                    .hint("Export this reviewed answer as Word (.docx)")
+                    .on_click_accessible(cx.listener(move |v, _, window, cx| {
+                        v.export_answer_dialog("docx", word_text.clone(), window, cx);
+                    })),
+            )
+            .child(div().flex_1())
+            .child(
                 div()
-                    .id("assistant-answer-region")
-                    .role(Role::Document)
-                    .aria_label("Assistant answer")
-                    .a11y_synthetic_children({
-                        let nodes = super::notebook::markdown_accessibility_nodes(text);
-                        move |tree| { for (i, node) in nodes.into_iter().enumerate() { let id = tree.synthetic_node_id(i); tree.push_child(id, node); } }
-                    })
-                    .child(
-                        TextView::markdown("assistant-answer", safe_markdown(text))
-                            .selectable(true),
-                    ),
-            );
+                    .flex_none()
+                    .text_xs()
+                    .text_color(muted)
+                    .child(meta),
+            )
+            .child(info_tip(
+                "ai-evidence-tip",
+                "Citation targets are verified against the ledger where marked. Uncited claims and suggested causes are unverified.",
+                cx,
+            ));
+        let mut answer_card = v_flex().w_full().gap_2().child(
+            div()
+                .id("assistant-answer-region")
+                .role(Role::Document)
+                .aria_label("Assistant answer")
+                .a11y_synthetic_children({
+                    let nodes = super::notebook::markdown_accessibility_nodes(text);
+                    move |tree| {
+                        for (i, node) in nodes.into_iter().enumerate() {
+                            let id = tree.synthetic_node_id(i);
+                            tree.push_child(id, node);
+                        }
+                    }
+                })
+                .child(
+                    TextView::markdown("assistant-answer", safe_markdown(text)).selectable(true),
+                ),
+        );
 
         if let Some(citations) = answer["citations"].as_array()
             && !citations.is_empty()
@@ -1691,14 +1571,7 @@ impl Workspace {
                         })),
                 );
             }
-            answer_card = answer_card.child(
-                v_flex()
-                    .gap_1()
-                    .pt_1p5()
-                    .border_t_1()
-                    .border_color(divider(cx))
-                    .child(cite_row),
-            );
+            answer_card = answer_card.child(cite_row);
         }
 
         if let Some(warnings) = answer["warnings"].as_array() {
@@ -1720,7 +1593,7 @@ impl Workspace {
                 );
             }
         }
-        Some(answer_card.into_any_element())
+        Some(answer_card.child(action_bar).into_any_element())
     }
 
     #[inline(never)]
@@ -1775,8 +1648,6 @@ impl Workspace {
             let mut prop_card = card(cx)
                 .p_3()
                 .gap_2()
-                .border_l_2()
-                .border_color(state_tone)
                 .child(
                     h_flex()
                         .justify_between()
@@ -1983,7 +1854,7 @@ impl Workspace {
     }
 
     #[inline(never)]
-    fn assistant_search_and_conversations(
+    fn assistant_history_view(
         &mut self,
         search_input: Entity<InputState>,
         cx: &mut Context<Self>,
@@ -1991,10 +1862,9 @@ impl Workspace {
         let state = &self.tabs[self.active].assistant;
         let busy = state.busy;
         let show_history = state.show_history;
-        let transcript = state.transcript.clone();
         let active_conv = state.conversation.clone();
         let theme = cx.theme();
-        let (primary, info, mono) = (theme.primary, theme.info, theme.mono_font_family.clone());
+        let (muted, mono) = (theme.muted_foreground, theme.mono_font_family.clone());
         let search_results = self.tabs[self.active]
             .inspections
             .get("AI search")
@@ -2008,15 +1878,15 @@ impl Workspace {
             .cloned()
             .unwrap_or_default();
 
-        if !show_history && search_results.is_empty() && transcript.is_empty() {
+        if !show_history {
             return None;
         }
 
-        let mut col = v_flex().gap_2();
+        let mut col = v_flex().gap_3();
 
-        if show_history || !search_results.is_empty() {
+        {
             let search_for_click = search_input.clone();
-            let mut search_card = card(cx).p_2().gap_2().child(
+            let mut search_card = v_flex().gap_2().child(
                 h_flex()
                     .gap_1p5()
                     .items_center()
@@ -2133,114 +2003,141 @@ impl Workspace {
                 }
                 search_card = search_card.child(results_col);
             }
-            if !conversations.is_empty() {
-                let mut conv_chips = h_flex().gap_1().flex_wrap().pt_1();
-                for (i, row) in conversations.iter().enumerate() {
-                    let id = row["id"].as_str().unwrap_or("").to_owned();
-                    let is_selected = active_conv.as_deref() == Some(id.as_str());
-                    conv_chips = conv_chips.child(
-                        action_button(("ai-conversation", i))
-                            .ghost()
-                            .small()
-                            .selected(is_selected)
-                            .label(row["title"].as_str().unwrap_or("Conversation").to_owned())
-                            .on_click_accessible(cx.listener(move |v, _, _, cx| {
-                                let ai = &mut v.tabs[v.active].assistant;
-                                ai.conversation = Some(id.clone());
-                                ai.answer = Value::Null;
-                                ai.receipt = Value::Null;
-                                ai.proposals.clear();
-                                ai.transcript.clear();
-                                ai.exec_ids.clear();
-                                ai.selected_cells.clear();
-                                ai.task = "ask".into();
-                                v.ai("conversation.get", json!({"conversation_id": id}));
-                                cx.notify();
-                            })),
-                    );
-                }
-                search_card = search_card.child(conv_chips);
-            }
-            col = col.child(search_card);
-        }
-
-        if !transcript.is_empty() {
-            let mut transcript_col = v_flex().gap_2();
-            for (i, message) in transcript.iter().enumerate() {
-                let role = message["role"].as_str().unwrap_or("assistant");
-                if role == "assistant"
-                    && message["request_id"]
-                        == self.tabs[self.active].assistant.answer["request_id"]
-                    && !self.tabs[self.active].assistant.answer.is_null()
-                {
-                    continue;
-                }
-                let text = message["text"].as_str().unwrap_or("");
-                let is_user = role == "user";
-                transcript_col = transcript_col.child(
-                    v_flex()
-                        .p_2p5()
-                        .gap_1p5()
-                        .rounded(px(8.))
-                        .border_1()
-                        .border_color(divider(cx))
-                        .bg(if is_user {
-                            theme.popover
-                        } else {
-                            theme.background
-                        })
-                        .child(
-                            h_flex()
-                                .gap_1p5()
-                                .items_center()
-                                .when(!is_user, |d| {
-                                    d.child(Icon::new(Glyph::Sparkles).small().text_color(primary))
-                                })
-                                .child(badge(
-                                    if is_user { "You" } else { "Assistant" },
-                                    if is_user { info } else { primary },
-                                )),
+            let mut conv_rows = v_flex().gap_0p5();
+            for (i, row) in conversations.iter().enumerate() {
+                let id = row["id"].as_str().unwrap_or("").to_owned();
+                let is_selected = active_conv.as_deref() == Some(id.as_str());
+                conv_rows = conv_rows.child(
+                    action_button(("ai-conversation", i))
+                        .ghost()
+                        .w_full()
+                        .menu_item(
+                            row["title"].as_str().unwrap_or("Conversation").to_owned(),
+                            None,
                         )
-                        .child(
-                            TextView::markdown(
-                                SharedString::from(format!("ai-message-{i}")),
-                                safe_markdown(text),
-                            )
-                            .selectable(true),
-                        ),
+                        .selected(is_selected)
+                        .on_click_accessible(cx.listener(move |v, _, _, cx| {
+                            let ai = &mut v.tabs[v.active].assistant;
+                            ai.conversation = Some(id.clone());
+                            ai.answer = Value::Null;
+                            ai.receipt = Value::Null;
+                            ai.proposals.clear();
+                            ai.transcript.clear();
+                            ai.exec_ids.clear();
+                            ai.selected_cells.clear();
+                            ai.task = "ask".into();
+                            ai.show_history = false;
+                            v.ai("conversation.get", json!({"conversation_id": id}));
+                            cx.notify();
+                        })),
                 );
             }
-            col = col.child(transcript_col);
-            for (turn, message) in transcript.iter().enumerate() {
-                if message["request_id"] == self.tabs[self.active].assistant.answer["request_id"]
-                    && !self.tabs[self.active].assistant.answer.is_null()
-                {
-                    continue;
-                }
-                if let Some(citations) = message["citations"].as_array() {
-                    let mut links = h_flex().gap_1().flex_wrap();
-                    for (index, citation) in citations.iter().enumerate() {
-                        let kind = citation["kind"].as_str().unwrap_or("").to_owned();
-                        let id = citation["id"].as_str().unwrap_or("").to_owned();
-                        links = links.child(
-                            action_button(("ai-history-target", turn * 100 + index))
-                                .outline()
-                                .small()
-                                .label(format!(
-                                    "Turn {}: @{}:{}",
-                                    turn + 1,
-                                    kind,
-                                    short_title(&id, 24)
-                                ))
-                                .unavailable(citation["verified"] != true)
-                                .on_click_accessible(cx.listener(move |v, _, _, cx| {
-                                    v.navigate_citation(&kind, &id, cx)
-                                })),
-                        );
-                    }
-                    col = col.child(links);
-                }
+            col = col.child(search_card).child(
+                v_flex()
+                    .gap_1()
+                    .child(
+                        div()
+                            .px_1()
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(muted)
+                            .child("Conversations"),
+                    )
+                    .when(conversations.is_empty(), |d| {
+                        d.child(
+                            div()
+                                .px_1()
+                                .text_sm()
+                                .text_color(muted)
+                                .child("No saved conversations yet."),
+                        )
+                    })
+                    .child(conv_rows),
+            );
+            col = col.child(
+                action_button("assistant-proposals-btn")
+                    .ghost()
+                    .small()
+                    .self_start()
+                    .icon(Glyph::FileText)
+                    .label("Show proposals")
+                    .accessibility_label("Proposals")
+                    .hint("List cell and code proposals")
+                    .unavailable(busy)
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].assistant.show_history = false;
+                        v.ai("proposals.list", json!({}));
+                        cx.notify();
+                    })),
+            );
+        }
+        Some(col.into_any_element())
+    }
+
+    /// A question from the person, as a right-aligned bubble.
+    fn assistant_user_bubble(text: &str, cx: &App) -> Div {
+        h_flex().w_full().justify_end().child(
+            div()
+                .max_w(relative(0.85))
+                .px_3()
+                .py_2()
+                .rounded(px(14.))
+                .bg(cx.theme().muted)
+                .text_sm()
+                .whitespace_normal()
+                .child(text.to_owned()),
+        )
+    }
+
+    /// Earlier turns. The current answer renders after this with its action bar.
+    #[inline(never)]
+    fn assistant_transcript(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let state = &self.tabs[self.active].assistant;
+        if state.transcript.is_empty() {
+            return None;
+        }
+        let transcript = state.transcript.clone();
+        let current = state.answer["request_id"].clone();
+        let has_answer = !state.answer.is_null();
+        let mut col = v_flex().w_full().gap_4();
+        for (i, message) in transcript.iter().enumerate() {
+            let is_current = has_answer && message["request_id"] == current;
+            let text = message["text"].as_str().unwrap_or("");
+            if message["role"].as_str() == Some("user") {
+                col = col.child(Self::assistant_user_bubble(text, cx));
+                continue;
             }
+            if is_current {
+                continue;
+            }
+            let mut turn = v_flex().w_full().gap_2().child(
+                TextView::markdown(
+                    SharedString::from(format!("ai-message-{i}")),
+                    safe_markdown(text),
+                )
+                .selectable(true),
+            );
+            if let Some(citations) = message["citations"].as_array()
+                && !citations.is_empty()
+            {
+                let mut links = h_flex().gap_1().flex_wrap();
+                for (index, citation) in citations.iter().enumerate() {
+                    let kind = citation["kind"].as_str().unwrap_or("").to_owned();
+                    let id = citation["id"].as_str().unwrap_or("").to_owned();
+                    links = links.child(
+                        action_button(("ai-history-target", i * 100 + index))
+                            .outline()
+                            .small()
+                            .label(format!("@{}:{}", kind, short_title(&id, 24)))
+                            .unavailable(citation["verified"] != true)
+                            .on_click_accessible(
+                                cx.listener(move |v, _, _, cx| v.navigate_citation(&kind, &id, cx)),
+                            ),
+                    );
+                }
+                turn = turn.child(links);
+            }
+            col = col.child(turn);
         }
         Some(col.into_any_element())
     }
@@ -2251,60 +2148,104 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let input = self.ai_input("Question", "", window, cx);
+        let input = self.ai_question(window, cx);
         let search_input = self.ai_input("Search history query", "", window, cx);
 
         let header = self.assistant_header(cx);
-        let setup = self.assistant_setup_card(cx);
-        let health = self.assistant_health_banner(cx);
-        let search_conv_sec = self.assistant_search_and_conversations(search_input, cx);
-        let receipt_sec = self.assistant_receipt_section(cx);
-        let status_sec = self.assistant_status_section(cx);
-        let answer_sec = self.assistant_answer_section(cx);
-        let proposals_sec = self.assistant_proposals_section(cx);
-        let composer_dock = self.assistant_composer_dock(input, cx);
+        let composer = self.assistant_composer_dock(input, window, cx);
+        let idle = self.assistant_idle();
+        let history = self.assistant_history_view(search_input, cx);
+        let thread = match history {
+            Some(history) => v_flex().w_full().p_3().child(history),
+            None if idle => {
+                let welcome = self.assistant_welcome(cx);
+                // A new chat shows only work in progress or a failure, not
+                // diagnostic notes left over from a connection test.
+                let ai = &self.tabs[self.active].assistant;
+                let status = if ai.busy || ai.error {
+                    self.assistant_status_section(cx)
+                } else {
+                    None
+                };
+                v_flex()
+                    .w_full()
+                    .min_h_full()
+                    .justify_center()
+                    .gap_4()
+                    .p_4()
+                    .child(welcome)
+                    .children(status)
+            }
+            None => {
+                let setup = self.assistant_setup_card(cx);
+                let transcript = self.assistant_transcript(cx);
+                let receipt = self.assistant_receipt_section(cx);
+                let status = self.assistant_status_section(cx);
+                let answer = self.assistant_answer_section(cx);
+                let proposals = self.assistant_proposals_section(cx);
+                let ai = &self.tabs[self.active].assistant;
+                let pending = (ai.answer.is_null()
+                    && !ai.last_question.is_empty()
+                    && (ai.busy || !ai.receipt.is_null()))
+                .then(|| Self::assistant_user_bubble(&ai.last_question, cx));
+                v_flex()
+                    .w_full()
+                    .min_w_0()
+                    .gap_4()
+                    .p_4()
+                    .children(setup)
+                    .children(transcript)
+                    .children(pending)
+                    .children(receipt)
+                    .children(status)
+                    .children(answer)
+                    .children(proposals)
+            }
+        };
 
-        let bar_bg = cx.theme().sidebar;
-        let mut feed = v_flex().gap_2().p_3().w_full().min_w_0();
-        if let Some(el) = setup {
-            feed = feed.child(el);
-        }
-        if let Some(el) = health {
-            feed = feed.child(el);
-        }
-        if let Some(el) = search_conv_sec {
-            feed = feed.child(el);
-        }
-        if let Some(el) = receipt_sec {
-            feed = feed.child(el);
-        }
-
-        if let Some(el) = answer_sec {
-            feed = feed.child(el);
-        }
-        if let Some(el) = proposals_sec {
-            feed = feed.child(el);
+        // Follow the conversation: always on a new step, and while a draft
+        // streams only if the reader has not scrolled up.
+        let ai = &self.tabs[self.active].assistant;
+        let mark = (
+            ai.transcript.len(),
+            ai.receipt.is_null(),
+            ai.answer.is_null(),
+            ai.proposals.len(),
+            ai.busy,
+            ai.draft.len(),
+        );
+        let previous = self.assistant_scroll_mark;
+        if mark != previous {
+            let structural = (mark.0, mark.1, mark.2, mark.3, mark.4)
+                != (previous.0, previous.1, previous.2, previous.3, previous.4);
+            let near_bottom =
+                self.assistant_scroll.offset().y <= -self.assistant_scroll.max_offset().y + px(48.);
+            if structural || near_bottom {
+                self.assistant_scroll.scroll_to_bottom();
+            }
+            self.assistant_scroll_mark = mark;
         }
 
         v_flex()
             .id("assistant-inspector")
             .debug_selector(|| "assistant-inspector".into())
+            .track_focus(&self.assistant_focus)
             .size_full()
             .min_w_0()
-            .bg(bar_bg)
+            .bg(cx.theme().background)
             .border_l_1()
             .border_color(divider(cx))
             .child(header)
-            .when_some(status_sec, |d, el| d.child(div().px_2().py_1().child(el)))
             .child(
                 div()
                     .id("assistant-inspector-scroll")
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
-                    .child(feed),
+                    .track_scroll(&self.assistant_scroll)
+                    .child(thread),
             )
-            .child(composer_dock)
+            .child(composer)
             .into_any_element()
     }
 
@@ -2443,6 +2384,25 @@ impl Workspace {
                 }
                 cx.notify();
             }));
+        // Inline validation: each numeric field reports its own problem, and
+        // Save stays unavailable until every field holds a whole number.
+        let invalid_budget = [&cap, &output, &context_bytes, &retention]
+            .iter()
+            .any(|input| input.read(cx).value().trim().parse::<u64>().is_err());
+        let invalid_deadline = timeout.read(cx).value().trim().parse::<u64>().is_err();
+        let window_text = context_window.read(cx).value().trim().to_owned();
+        let invalid_window = !window_text.is_empty() && window_text.parse::<u64>().is_err();
+        let form_problem = if invalid_budget {
+            Some(
+                "Budgets must be whole numbers. Fix the highlighted field under Privacy and limits.",
+            )
+        } else if invalid_deadline {
+            Some("Request deadline must be a whole number of seconds (Advanced settings).")
+        } else if invalid_window {
+            Some("Context window must be empty or a whole number of tokens (Advanced settings).")
+        } else {
+            None
+        };
         let connection = self.tabs[self.active].assistant.connection.clone();
         let advanced_settings = self.tabs[self.active].assistant.advanced_settings;
         let theme = cx.theme();
@@ -2524,6 +2484,8 @@ impl Workspace {
                 .primary()
                 .small()
                 .label("Save configuration")
+                .unavailable(form_problem.is_some())
+                .hint(form_problem.unwrap_or("Save provider, model, and budgets"))
                 .on_click_accessible(cx.listener(move |v, _, _, cx| {
                     let mut config = v.tabs[v.active].assistant.settings["settings"].clone();
                     if !config.is_object() {
@@ -2742,15 +2704,28 @@ impl Workspace {
                     Connection::Ready => badge("Connected", success),
                     Connection::Failed(_) => badge("Connection failed", danger),
                 }))
-            .child(action_button("ai-open-sidebar").ghost().small().self_start().label("Open Assistant")
-                .on_click_accessible(cx.listener(|v, _, _, cx| {v.select_surface("Notebook", cx);v.open_assistant(cx);})))
-            .child(action_button("ai-advanced-settings").ghost().small().self_start()
-                .label(if advanced_settings { "Hide advanced settings" } else { "Advanced settings" })
-                .selected(advanced_settings)
-                .on_click_accessible(cx.listener(|v, _, _, cx| {
-                    v.tabs[v.active].assistant.advanced_settings = !v.tabs[v.active].assistant.advanced_settings;
-                    cx.notify();
-                })))
+            .when_some(form_problem, |d, problem| {
+                d.child(
+                    div()
+                        .id("ai-form-error")
+                        .role(Role::Alert)
+                        .aria_label(problem)
+                        .text_sm()
+                        .text_color(danger)
+                        .whitespace_normal()
+                        .child(problem),
+                )
+            })
+            .child(h_flex().gap_1().flex_wrap()
+                .child(action_button("ai-advanced-settings").ghost().small()
+                    .label(if advanced_settings { "Hide advanced settings" } else { "Advanced settings" })
+                    .dropdown_caret(true)
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].assistant.advanced_settings = !v.tabs[v.active].assistant.advanced_settings;
+                        cx.notify();
+                    })))
+                .child(action_button("ai-open-sidebar").ghost().small().label("Open Assistant")
+                    .on_click_accessible(cx.listener(|v, _, _, cx| {v.select_surface("Notebook", cx);v.open_assistant(cx);}))))
             .when(advanced_settings, |d| d
             .child(h_flex().gap_2().flex_wrap()
                 .child(action_button("ai-load-settings").outline().small().label("Reload saved settings")
@@ -2814,20 +2789,13 @@ impl Workspace {
             cx,
         );
         let theme = cx.theme();
-        let (muted, success, warning, danger, info, mono) = (
-            theme.muted_foreground,
-            theme.success,
-            theme.warning,
-            theme.danger,
-            theme.info,
-            theme.mono_font_family.clone(),
-        );
+        let (muted, mono) = (theme.muted_foreground, theme.mono_font_family.clone());
 
         let mut policy_track = segmented_track(cx);
         for (pol_key, pol_label) in [
-            ("off", "off"),
-            ("local_only", "local_only"),
-            ("allowed", "allowed"),
+            ("off", "Off"),
+            ("local_only", "Local only"),
+            ("allowed", "Allowed"),
         ] {
             let selected = current_policy == pol_key;
             policy_track = policy_track.child(
@@ -2891,49 +2859,59 @@ impl Workspace {
             }
         }
 
-        settings_group("AI assistant \u{2014} Policy, budgets & privacy", cx)
+        let danger = cx.theme().danger;
+        let labeled = |label: &'static str, input: &Entity<InputState>| {
+            let invalid = input.read(cx).value().trim().parse::<u64>().is_err();
+            v_flex()
+                .min_w(px(130.))
+                .flex_1()
+                .gap_1()
+                .child(div().text_xs().text_color(muted).child(label))
+                .child(
+                    div()
+                        .rounded(px(6.))
+                        .when(invalid, |d| d.border_1().border_color(danger))
+                        .child(Input::new(input)),
+                )
+                .when(invalid, |d| {
+                    d.child(
+                        div()
+                            .id(SharedString::from(format!("ai-invalid-{label}")))
+                            .role(Role::Alert)
+                            .aria_label(format!("{label}: enter a whole number"))
+                            .text_xs()
+                            .text_color(danger)
+                            .child("Enter a whole number"),
+                    )
+                })
+        };
+        settings_group("Privacy and limits", cx)
             .id("settings-ai-policy")
             .child(setting_row(
-                "Enterprise policy",
-                "Off blocks all AI features. local_only restricts requests to loopback addresses (127.0.0.1, ::1, localhost).",
-                h_flex()
-                    .gap_2()
-                    .items_center()
-                    .flex_wrap()
-                    .child(badge(
-                        current_policy.clone(),
-                        match current_policy.as_str() {
-                            "off" => danger,
-                            "local_only" => warning,
-                            _ => success,
-                        },
-                    ))
-                    .child(policy_track),
+                "Policy",
+                "Off blocks all AI features. Local only restricts requests to this computer (127.0.0.1, ::1, localhost).",
+                policy_track,
                 cx,
             ))
             .child(setting_row(
-                "Token budgets & retention",
-                "Daily token cap, max output tokens, context byte budget (1 KB \u{2013} 256 KB), and conversation retention days. Save via the provider button above.",
+                "Budgets",
+                "Context bytes range from 1 KB to 256 KB. Save with Save configuration above.",
                 v_flex()
                     .gap_2()
                     .child(
                         h_flex()
                             .gap_2()
                             .flex_wrap()
-                            .child(div().min_w(px(130.)).flex_1().child(Input::new(&cap)))
-                            .child(div().min_w(px(130.)).flex_1().child(Input::new(&output)))
-                            .child(
-                                div()
-                                    .min_w(px(130.))
-                                    .flex_1()
-                                    .child(Input::new(&context_bytes)),
-                            )
-                            .child(div().min_w(px(130.)).flex_1().child(Input::new(&retention))),
+                            .items_start()
+                            .child(labeled("Daily tokens", &cap))
+                            .child(labeled("Max output tokens", &output))
+                            .child(labeled("Context bytes", &context_bytes))
+                            .child(labeled("Keep history (days)", &retention)),
                     )
                     .child(
-                        div().text_xs().font_family(mono).text_color(info).child(format!(
-                            "Reserved today: {} tokens (this notebook/provider, UTC; includes failures and tests)",
-                            root["usage"]["used_today"].as_u64().map(|v| v.to_string()).unwrap_or_else(|| "Unknown".into())
+                        div().text_xs().text_color(muted).whitespace_normal().child(format!(
+                            "Used today: {} tokens, counting failed requests and tests (UTC).",
+                            root["usage"]["used_today"].as_u64().map(|v| v.to_string()).unwrap_or_else(|| "unknown".into())
                         )),
                     ),
                 cx,

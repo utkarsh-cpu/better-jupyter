@@ -10,9 +10,16 @@ pub(crate) const CAPTION_GUTTER: f32 = if cfg!(target_os = "windows") {
     8.
 };
 const LEFT_CAPTION_GUTTER: f32 = if cfg!(target_os = "macos") { 80. } else { 0. };
-// Includes the longest destination label (Checkpoints) and native button padding.
-// Keep the collapse budget and rendered geometry in sync across platform fonts.
-const DESTINATION_TAB_WIDTH: f32 = 112.;
+// Fit each label plus native button padding, so the tabs read as words rather
+// than a fixed grid. Keep the collapse budget and rendered geometry in sync.
+const DESTINATIONS_WIDTH: f32 = 84. + 72. + 104.;
+fn destination_width(surface: &str) -> f32 {
+    match surface {
+        "Notebook" => 84.,
+        "History" => 72.,
+        _ => 104.,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HeaderCollapse {
@@ -38,7 +45,8 @@ pub(crate) fn header_collapse(width: f32, scale: f32, comfortable: bool) -> Head
         1.
     };
     let mut c = HeaderCollapse {
-        export_label: false,
+        // Export is a secondary action: its icon and tooltip are enough.
+        export_label: true,
         run_label: false,
         navigation: false,
         switcher: false,
@@ -90,7 +98,7 @@ fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> 
     items.push(if c.navigation {
         128. * scale
     } else {
-        (DESTINATION_TAB_WIDTH * 3. + 12.) * scale
+        (DESTINATIONS_WIDTH + 12.) * scale
     });
     items.push(8. * scale); // Native window drag region.
     if !tight {
@@ -112,6 +120,42 @@ fn header_used(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> 
 
 pub(crate) fn header_fits(width: f32, scale: f32, comfortable: bool, c: HeaderCollapse) -> bool {
     header_used(width, scale, comfortable, c) <= width - CAPTION_GUTTER - LEFT_CAPTION_GUTTER + 0.01
+}
+
+/// Room the collapse budget reserved for controls that are not drawn as wide
+/// as their worst case. The budget must hold for every destination and runtime
+/// state, so it reserves the Outline toggle and Run all (both shown only on
+/// Notebook) and a runtime label as long as "Disconnected". Handing the unused
+/// part back to the notebook name
+/// stops short names truncating beside empty title bar. `runtime_saving` is the
+/// shaped width of "Disconnected" minus the current label, so it follows the
+/// platform UI font (Segoe UI on Windows, SF on macOS) instead of a guess.
+pub(crate) fn switcher_slack(
+    width: f32,
+    scale: f32,
+    comfortable: bool,
+    c: HeaderCollapse,
+    notebook_surface: bool,
+    runtime_saving: f32,
+) -> f32 {
+    if c.switcher {
+        return 0.;
+    }
+    let compact = width < 1280. * scale;
+    let tight = compact && (scale > 1. || comfortable);
+    let gap = if compact { 4. } else { 8. } * scale;
+    let button = if comfortable { 44. } else { 28. } * scale;
+    let mut slack = 0.;
+    if !notebook_surface {
+        // Outline toggle, then Run all, each with its gap.
+        slack += button + gap;
+        slack += if c.run_label { button } else { 92. * scale } + gap;
+    }
+    // The tight runtime control is an icon plus a short word, not the label.
+    if !c.runtime && !tight {
+        slack += runtime_saving.max(0.);
+    }
+    slack
 }
 
 /// Keep a distinguishing suffix; ask the actual text shaper, not a character budget.
@@ -206,6 +250,7 @@ impl Workspace {
             .flex_1()
             .min_w_0()
             .h_full()
+            .when(cfg!(target_os = "macos"), |d| d.pl_2())
             .pr_2()
             .gap(rems(if compact { 0.25 } else { 0.5 }))
             .items_center();
@@ -249,17 +294,40 @@ impl Workspace {
                 .width
                 / px(1.)
         };
+        let runtime_saving = self
+            .tabs
+            .get(self.active)
+            .map(|tab| {
+                let label = header_worker_label(
+                    tab.runtime["connection_lost"] == true,
+                    tab.runtime["worker_state"].as_str(),
+                );
+                (measure("Disconnected") - measure(&label)).floor()
+            })
+            .unwrap_or(0.);
+        let switcher_budget = (collapse.switcher_width
+            + switcher_slack(
+                width,
+                scale,
+                self.preferences.comfortable,
+                collapse,
+                self.surface == "Notebook",
+                runtime_saving,
+            ))
+        .min(360. * scale);
         let shaped_width = (measure(&name) + 36. * scale)
             .ceil()
-            .max(96. * scale)
-            .min(collapse.switcher_width);
+            .max(64. * scale)
+            .min(switcher_budget);
         let label = middle_ellipsis(&name, (shaped_width - 36. * scale).max(0.), measure);
         let notebooks = action_button("notebook-switcher")
             .debug_selector("notebook-switcher")
             .ghost()
             .small()
             .w(px(shaped_width))
-            .hint(format!("{path} \u{2014} switch or open notebook"))
+            .when(!self.notebook_menu, |b| {
+                b.hint(format!("{path} \u{2014} switch or open notebook"))
+            })
             .accessibility_label(format!("Notebook switcher: {path}"))
             .dropdown_caret(true)
             .label(label)
@@ -279,12 +347,15 @@ impl Workspace {
                 .role(Role::Label)
                 .aria_label("KernelLedger")
                 .flex_none()
-                .px_1()
-                .rounded(cx.theme().radius)
-                .bg(cx.theme().primary.opacity(0.12))
-                .text_color(cx.theme().primary)
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(rems(1.25))
+                .rounded(px(5.))
+                .bg(cx.theme().primary)
+                .text_color(cx.theme().primary_foreground)
                 .font_weight(FontWeight::BOLD)
-                .text_xs()
+                .text_size(rems(0.625))
                 .child("KL"),
         );
         if !self.tabs.is_empty() {
@@ -297,7 +368,7 @@ impl Workspace {
                         .icon(Glyph::PanelLeft)
                         .accessibility_label("Outline")
                         .hint("Toggle notebook outline (Ctrl+B)")
-                        .selected(if self.compact {
+                        .quiet_toggle(if self.compact {
                             self.outline_drawer
                         } else {
                             self.sidebar_visible
@@ -317,7 +388,7 @@ impl Workspace {
             if !collapse.switcher {
                 header = header.child(self.anchored("switcher", notebooks, cx));
             }
-            let mut destinations = segmented_track(cx).self_center().flex_none().flex_nowrap();
+            let mut destinations = h_flex().self_center().flex_none().gap(px(2.));
             for (surface, _icon) in [
                 ("Notebook", Glyph::NotebookPen),
                 ("History", Glyph::Clock),
@@ -374,7 +445,7 @@ impl Workspace {
                 button = button.label(surface).w(px(if collapse.navigation {
                     116.
                 } else {
-                    DESTINATION_TAB_WIDTH
+                    destination_width(surface)
                 } * scale));
                 if collapse.navigation {
                     button = button.dropdown_caret(true);
@@ -411,8 +482,9 @@ impl Workspace {
                 .ghost()
                 .small()
                 .accessibility_label(format!("Runtime: Python ({state})"))
-                .w(px(112. * scale))
-                .hint(format!("Python ({state}) \u{2014} runtime controls"))
+                .when(!self.runtime_menu, |b| {
+                    b.hint(format!("Python ({state}) \u{2014} runtime controls"))
+                })
                 .on_click(cx.listener(|v, _, window, cx| {
                     let open = !v.runtime_menu;
                     v.close_menu(window, cx);
@@ -440,7 +512,6 @@ impl Workspace {
             if !collapse.runtime {
                 header = header.child(
                     h_flex()
-                        .w(px(128. * scale))
                         .flex_none()
                         .pl_1()
                         .gap_1()
@@ -482,7 +553,9 @@ impl Workspace {
                     .small()
                     .icon(Glyph::FileText)
                     .accessibility_label("Export notebook")
-                    .hint("Export PDF, Word, Jupyter, or bundle (Ctrl+Shift+E)")
+                    .when(!self.export_menu, |b| {
+                        b.hint("Export PDF, Word, Jupyter, or bundle (Ctrl+Shift+E)")
+                    })
                     .unavailable(self.command_reason("export-menu").is_some())
                     .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx)));
                 if !collapse.export_label {
@@ -532,7 +605,7 @@ impl Workspace {
                     .small()
                     .icon(Glyph::Ellipsis)
                     .accessibility_label("Menu")
-                    .hint("Workspace menu")
+                    .when(!self.app_menu, |b| b.hint("Workspace menu"))
                     .on_click(cx.listener(|v, _, window, cx| {
                         let open = !v.app_menu;
                         v.close_menu(window, cx);
@@ -549,7 +622,7 @@ impl Workspace {
             .h(rems(if self.preferences.comfortable {
                 3.25
             } else {
-                2.875
+                2.75
             }))
             .bg(cx.theme().title_bar)
             .border_b_1()
@@ -697,7 +770,7 @@ impl Workspace {
                         action_button("cell-menu-assistant")
                             .ghost()
                             .w_full()
-                            .menu_item(format!("{label} \u{203a}"), Some("right"))
+                            .submenu_item(label)
                             .accessibility_label("Assistant actions")
                             .hint("Ask, suggest an edit, refactor, document, or generate tests")
                             .on_click(cx.listener(|v, _, window, cx| {
@@ -715,6 +788,7 @@ impl Workspace {
                     action_button(action)
                         .ghost()
                         .w_full()
+                        .when(action == "delete", |b| b.text_color(cx.theme().danger))
                         .menu_item(
                             label,
                             match action {
@@ -792,7 +866,8 @@ impl Workspace {
                             }
                         ))
                         .hint(tab.model.project.display().to_string())
-                        .segment(index == self.active)
+                        .quiet_toggle(index == self.active)
+                        .selected(index == self.active)
                         .on_click(cx.listener(move |v, _, window, cx| {
                             if let Some(tab) = v.tabs.get_mut(v.active) {
                                 tab.selections.insert(v.surface.clone(), v.record_active);
@@ -1000,7 +1075,8 @@ impl Workspace {
                         .ghost()
                         .w_full()
                         .menu_item(surface, Some(shortcut))
-                        .segment(self.surface == surface)
+                        .quiet_toggle(self.surface == surface)
+                        .selected(self.surface == surface)
                         .accessibility_label(format!(
                             "{surface}{}",
                             if self.surface == surface {

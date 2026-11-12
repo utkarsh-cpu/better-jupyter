@@ -788,12 +788,9 @@ fn palette_filters_navigates_and_restores_focus(cx: &mut TestAppContext) {
         });
         window.render_frame(cx);
         view.update(cx, |v, _| {
-            v.palette_active = super::COMMANDS
+            v.palette_active = v
+                .palette_matches("checkpoint")
                 .iter()
-                .filter(|(_, label, description, _)| {
-                    label.to_lowercase().contains("checkpoint")
-                        || description.to_lowercase().contains("checkpoint")
-                })
                 .position(|(method, ..)| *method == "checkpoint")
                 .unwrap();
         });
@@ -1542,6 +1539,26 @@ fn product_mark_keeps_run_label_at_standard_compact_width() {
     assert!(!roomy.run_label);
 }
 
+#[test]
+fn switcher_reclaims_only_room_reserved_for_undrawn_controls() {
+    use super::shell::{header_collapse, switcher_slack};
+    let c = header_collapse(800., 1., false);
+    // Notebook draws Outline and Run all; "Disconnected" fills its reserve.
+    assert_eq!(switcher_slack(800., 1., false, c, true, 0.), 0.);
+    // Other destinations hand back Outline (28 + 4) and Run all (92 + 4).
+    assert_eq!(switcher_slack(800., 1., false, c, false, 0.), 128.);
+    // A shorter runtime label returns its measured saving; never a negative one.
+    assert_eq!(switcher_slack(800., 1., false, c, true, 30.), 30.);
+    assert_eq!(switcher_slack(800., 1., false, c, true, -5.), 0.);
+    // Tight chrome shows an icon and short word, so no label saving applies.
+    let tight = header_collapse(800., 1., true);
+    assert_eq!(switcher_slack(800., 1., true, tight, true, 30.), 0.);
+    // A collapsed switcher has no width to grow.
+    let mut hidden = c;
+    hidden.switcher = true;
+    assert_eq!(switcher_slack(800., 1., false, hidden, false, 30.), 0.);
+}
+
 #[gpui_kit::test]
 fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
     cx: &mut TestAppContext,
@@ -1969,7 +1986,7 @@ fn provider_setup_round_trip_keeps_the_question_and_context(cx: &mut TestAppCont
         window.render_frame(cx);
         let question = view
             .read(cx)
-            .prompts
+            .questions
             .iter()
             .find(|(key, _)| key.ends_with("-Question"))
             .map(|(_, input)| input.clone())
@@ -2618,6 +2635,9 @@ fn duration_preference_is_optional_and_last_execution_identity_controls_the_badg
         });
         window.render_frame(cx);
         window.click("show-cell-duration", cx);
+        // The section heading leaves this group partly clipped in the test
+        // window, so it scrolls into view and the setting applies next frame.
+        window.simulate_next_frame(cx);
         assert!(view.read(cx).preferences.show_cell_duration);
         view.update(cx, |v, _| v.surface = "Notebook".into());
         window.render_frame(cx);
@@ -2743,6 +2763,9 @@ fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
         });
         window.render_frame(cx);
         window.click("allow-html-output", cx);
+        // The section heading leaves this group partly clipped in the test
+        // window, so it scrolls into view and the setting applies next frame.
+        window.simulate_next_frame(cx);
         assert!(view.read(cx).preferences.allow_html_output);
         assert!(view.read(cx).tabs[0].html_views.is_empty());
         view.update(cx, |v, _| v.surface = "Notebook".into());
@@ -3441,7 +3464,7 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         "insert button must be vertically centered in its boundary slot"
     );
 
-    // Verify inline cell action buttons (run, assistant, more) share the same horizontal centerline.
+    // Cell tools share one centerline and float above the source, never over it.
     let (run_btn, assistant_btn, more_btn) = cx
         .update_window(handle, |_, window, _| {
             (
@@ -3452,16 +3475,21 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         })
         .unwrap();
     assert!(
-        (run_btn.center().y - assistant_btn.center().y).abs() <= px(1.),
-        "run button {:?} and assistant button {:?} must align on the same row centerline",
-        run_btn,
-        assistant_btn
+        (assistant_btn.center().y - more_btn.center().y).abs() <= px(1.),
+        "assistant button {:?} and more button {:?} must align on the same row centerline",
+        assistant_btn,
+        more_btn
+    );
+    let source_first = visual
+        .debug_bounds("cell-source-first")
+        .expect("first cell source");
+    assert!(
+        more_btn.origin.y + more_btn.size.height <= source_first.origin.y,
+        "cell tools {more_btn:?} must not cover the source {source_first:?}"
     );
     assert!(
-        (run_btn.center().y - more_btn.center().y).abs() <= px(1.),
-        "run button {:?} and more button {:?} must align on the same row centerline",
-        run_btn,
-        more_btn
+        run_btn.origin.x + run_btn.size.width <= source_first.origin.x,
+        "run control {run_btn:?} must sit in the margin left of the source {source_first:?}"
     );
 
     // Verify comfortable mode expands the inter-cell boundary to >= 48px.
@@ -3678,4 +3706,36 @@ fn html_load_cancellation_and_signal_tokens_prevent_stale_updates(cx: &mut TestA
         assert_eq!(view.read(cx).html_height(&key), 800.);
     })
     .unwrap();
+}
+
+#[gpui_kit::test]
+fn invalid_budget_is_reported_inline_and_blocks_save(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            v.surface = "Settings".into();
+            v.settings_section = "assistant";
+            v.tabs[0].assistant.settings =
+                json!({"settings":{"provider":"openai-compatible","model":"m"}});
+        });
+        window.render_frame(cx);
+        let cap = view
+            .read(cx)
+            .prompts
+            .iter()
+            .find(|(key, _)| key.ends_with("-Daily token cap"))
+            .map(|(_, input)| input.clone())
+            .expect("daily token field");
+        cap.update(cx, |s, cx| s.set_value("abc", window, cx));
+        window.render_frame(cx);
+        window.click("ai-save-provider", cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+    assert!(
+        !commands
+            .try_iter()
+            .any(|c| matches!(c, Command::Assistant { method, .. } if method == "settings.update")),
+        "an invalid budget must not be saved"
+    );
 }

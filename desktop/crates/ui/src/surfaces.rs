@@ -101,7 +101,8 @@ impl Workspace {
                     .self_start()
                     .ghost()
                     .small()
-                    .label("Back")
+                    .icon(Glyph::ChevronLeft)
+                    .label(self.surface.clone())
                     .accessibility_label("Back to list")
                     .hint("Back to the list (Alt+Left)")
                     .on_click(cx.listener(|v, _, _, cx| {
@@ -788,43 +789,72 @@ impl Workspace {
                 let _ = label;
                 let path_for_open = item["project_path"].as_str().map(PathBuf::from);
                 let path_for_stop = path_for_open.clone();
+                // Lead with the notebook's name; the full path is detail.
+                let detail = record_label(item, &self.tabs[self.active].model);
+                let name = path_for_open
+                    .as_ref()
+                    .and_then(|path| path.file_name())
+                    .map(|name| name.to_string_lossy().to_string())
+                    .unwrap_or_else(|| detail.clone());
+                let theme = cx.theme();
+                let (muted_fg, active_bg, hover_bg) =
+                    (theme.muted_foreground, theme.list_active, theme.list_hover);
                 rows = rows.child(
-                    record_row(
-                        Glyph::Cpu,
-                        &record_label(item, &self.tabs[self.active].model),
-                        &status,
-                        i == self.record_active,
-                        cx,
-                    )
-                    .child(
-                        action_button(("runtime-open", i))
-                            .small()
-                            .outline()
-                            .label("Open")
-                            .accessibility_label("Open notebook")
-                            .unavailable(path_for_open.is_none())
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                if let Some(path) = path_for_open.clone() {
-                                    v.open(path, cx);
-                                    v.surface = "Notebook".into();
-                                }
-                            })),
-                    )
-                    .child(
-                        action_button(("runtime-stop", i))
-                            .small()
-                            .outline()
-                            .label("Stop")
-                            .accessibility_label("Stop runtime")
-                            .unavailable(status != "verified")
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                if let Some(path) = path_for_stop.clone() {
-                                    v.open(path, cx);
-                                    v.confirmation = Some(("stop".into(), json!({})));
-                                    cx.notify();
-                                }
-                            })),
-                    ),
+                    row(cx)
+                        .when(i == self.record_active, |d| d.bg(active_bg))
+                        .hover(move |s| s.bg(hover_bg))
+                        .child(Icon::new(Glyph::Cpu).small().text_color(muted_fg))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .truncate()
+                                        .child(name),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(muted_fg)
+                                        .truncate()
+                                        .child(detail),
+                                ),
+                        )
+                        .when(notable_status(&status), |d| {
+                            d.child(badge(outcome_label(&status).to_string(), tone(&status, cx)))
+                        })
+                        .child(
+                            action_button(("runtime-open", i))
+                                .small()
+                                .outline()
+                                .label("Open")
+                                .accessibility_label("Open notebook")
+                                .unavailable(path_for_open.is_none())
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    if let Some(path) = path_for_open.clone() {
+                                        v.open(path, cx);
+                                        v.surface = "Notebook".into();
+                                    }
+                                })),
+                        )
+                        .child(
+                            action_button(("runtime-stop", i))
+                                .small()
+                                .outline()
+                                .label("Stop")
+                                .accessibility_label("Stop runtime")
+                                .unavailable(status != "verified")
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    if let Some(path) = path_for_stop.clone() {
+                                        v.open(path, cx);
+                                        v.confirmation = Some(("stop".into(), json!({})));
+                                        cx.notify();
+                                    }
+                                })),
+                        ),
                 );
             }
         }

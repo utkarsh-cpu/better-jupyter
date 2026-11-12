@@ -95,16 +95,14 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
     let id = id.into();
     WorkbenchButton {
         inner: Button::new(id.clone())
-            // Interactive controls must occlude the title bar's native drag
-            // hitbox, and must not arm its manual drag handler on other hosts.
-            .occlude()
+            // Must not arm the title bar's manual drag handler on other hosts.
             .on_mouse_down(MouseButton::Left, |_, window, cx| {
                 window.prevent_default();
                 cx.stop_propagation();
             })
-            .rounded(px(6.))
+            .rounded(px(5.))
             .font_weight(FontWeight::MEDIUM)
-            .min_h(rems(1.875))
+            .min_h(rems(1.75))
             .min_w(rems(1.75))
             .flex_none(),
         id,
@@ -113,6 +111,7 @@ pub(super) fn action_button(id: impl Into<ElementId>) -> WorkbenchButton {
         treatment: ButtonTreatment::Secondary,
         a11y_click: None,
         full_row: false,
+        occlude: true,
     }
 }
 
@@ -129,6 +128,8 @@ pub(super) struct WorkbenchButton {
     treatment: ButtonTreatment,
     a11y_click: Option<AccessibilityClick>,
     full_row: bool,
+    /// Blocks the title bar's native drag hitbox beneath the control.
+    occlude: bool,
 }
 enum ButtonTreatment {
     Secondary,
@@ -167,6 +168,9 @@ impl WorkbenchButton {
                 .opacity(0.)
                 .group_hover(group, |style| style.opacity(1.))
                 .focus(|style| style.opacity(1.));
+            // An occluding button would hide its group's hitbox, so a pointer
+            // resting on the button would stop hovering the group and hide it.
+            self.occlude = false;
         }
         self
     }
@@ -218,6 +222,24 @@ impl WorkbenchButton {
             );
         self
     }
+    /// A menu row that opens a nested menu with the Right arrow key.
+    ///
+    /// macOS shows the key as an arrow keycap ("→"), which reads as the shortcut
+    /// it is. Elsewhere the keycap would spell the word "Right", so Windows and
+    /// Linux get the trailing chevron their native menus use for submenus.
+    pub fn submenu_item(self, label: impl Into<SharedString>) -> Self {
+        if cfg!(target_os = "macos") {
+            return self.menu_item(label, Some("right"));
+        }
+        let mut item = self.menu_item(label, None);
+        item.inner = item.inner.child(
+            div()
+                .flex_none()
+                .opacity(0.72)
+                .child(Icon::new(Glyph::ChevronRight).small()),
+        );
+        item
+    }
     /// A full-width row: the label truncates on the leading side, quieter
     /// detail text sits on the trailing edge.
     pub fn detail_row(
@@ -250,6 +272,43 @@ impl WorkbenchButton {
                             .text_xs()
                             .font_weight(FontWeight::NORMAL)
                             .opacity(0.78)
+                            .child(detail.into()),
+                    ),
+            );
+        self
+    }
+    /// A full-width two-line row: a title with a quieter line of detail below.
+    pub fn suggestion(
+        mut self,
+        title: impl Into<SharedString>,
+        detail: impl Into<SharedString>,
+    ) -> Self {
+        let text = title.into();
+        self.name = Some(text.clone());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .h_auto()
+            .justify_start()
+            .rounded(px(8.))
+            .px_3()
+            .py_2()
+            .accessibility_label(text.clone())
+            .child(
+                v_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .gap_0p5()
+                    .child(div().text_left().truncate().child(text))
+                    .child(
+                        div()
+                            .text_left()
+                            .text_xs()
+                            .font_weight(FontWeight::NORMAL)
+                            .opacity(0.72)
+                            .truncate()
                             .child(detail.into()),
                     ),
             );
@@ -304,6 +363,11 @@ impl WorkbenchButton {
             .rounded(px(5.));
         self
     }
+    /// A toggle whose resting "on" state needs no fill, such as a panel switch.
+    pub fn quiet_toggle(mut self, on: bool) -> Self {
+        self.inner = self.inner.ghost().selected(false).toggled(on);
+        self
+    }
     pub fn dropdown_caret(mut self, value: bool) -> Self {
         self.inner = self.inner.dropdown_caret(value);
         self
@@ -350,6 +414,9 @@ impl Styled for WorkbenchButton {
 impl RenderOnce for WorkbenchButton {
     fn render(mut self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         use gpui_kit::component::button::ButtonCustomVariant;
+        if self.occlude {
+            self.inner = self.inner.occlude();
+        }
         let theme = cx.theme();
         let high_contrast = theme.background.l == 0.;
         match self.treatment {
@@ -362,10 +429,14 @@ impl RenderOnce for WorkbenchButton {
                             .foreground(theme.foreground)
                             .hover(theme.muted)
                             .active(theme.list_active)
-                            .shadow(!high_contrast),
+                            .shadow(false),
                     )
                     .border_1()
-                    .border_color(edge(cx));
+                    .border_color(if high_contrast {
+                        edge(cx)
+                    } else {
+                        surface_edge(cx)
+                    });
             }
             ButtonTreatment::Segment(selected) => {
                 self.inner = self
@@ -396,7 +467,11 @@ impl RenderOnce for WorkbenchButton {
                     .when(selected && !high_contrast, |button| button.shadow_sm())
                     .border_1()
                     .border_color(if selected {
-                        if high_contrast { theme.ring } else { edge(cx) }
+                        if high_contrast {
+                            theme.ring
+                        } else {
+                            surface_edge(cx)
+                        }
                     } else {
                         theme.transparent
                     });
@@ -408,6 +483,9 @@ impl RenderOnce for WorkbenchButton {
             .is_some_and(|p| p.comfortable)
         {
             self.inner = self.inner.min_h(rems(2.75)).min_w(rems(2.75));
+        } else {
+            // Chrome reads at the macOS control size; prose stays at body size.
+            self.inner = self.inner.text_size(rems(0.8125));
         }
         let align_self = self.inner.style().align_self;
         let a11y_click = self.a11y_click.take();
@@ -480,7 +558,11 @@ impl Render for WorkbenchHint {
             .bg(cx.theme().popover)
             .text_color(cx.theme().popover_foreground)
             .border_1()
-            .border_color(edge(cx))
+            .border_color(if high_contrast {
+                edge(cx)
+            } else {
+                surface_edge(cx)
+            })
             .when(!high_contrast, |d| d.shadow_sm())
             .text_xs()
             .line_height(rems(1.15))
@@ -510,35 +592,21 @@ pub(super) fn info_tip(
         .tooltip(move |_, cx| cx.new(|_| WorkbenchHint(tip.clone())).into())
 }
 
+/// Decorative rule between regions. Theme `border` is already a hairline.
 pub(super) fn divider(cx: &App) -> Hsla {
-    let color = cx.theme().border;
-    // High contrast keeps explicit boundaries; decorative lines elsewhere are
-    // deliberately independent of the focus ring and control-border roles.
-    if cx.theme().background.l == 0. {
-        color
-    } else {
-        color.opacity(0.18)
-    }
-}
-
-/// Boundary of an interactive control (button, input, segmented track).
-///
-/// Decorative rules may fade to `divider`. A control edge is what tells a user
-/// where the control begins, so it uses the border token at full strength:
-/// 3.3:1 in light and 3.8:1 in dark, over background, muted, and popover alike.
-pub(super) fn edge(cx: &App) -> Hsla {
     cx.theme().border
 }
 
+/// Boundary of a control whose edge is its only affordance, such as a text
+/// field or segmented track: at least 3:1 against every surface.
+pub(super) fn edge(cx: &App) -> Hsla {
+    cx.theme().input
+}
+
 /// Quiet outline for panels and records. Selection and focus use `edge` or the
-/// accent bar; resting cards should not compete with the content they hold.
+/// accent rail; resting surfaces should not compete with the content they hold.
 pub(super) fn surface_edge(cx: &App) -> Hsla {
-    let color = cx.theme().border;
-    if cx.theme().background.l == 0. {
-        color
-    } else {
-        color.opacity(0.22)
-    }
+    cx.theme().border
 }
 
 pub(super) fn outcome_label(value: &str) -> &str {
@@ -546,6 +614,8 @@ pub(super) fn outcome_label(value: &str) -> &str {
         "ok" => "Succeeded",
         "error" => "Failed",
         "complete" => "Complete",
+        "completed" => "Completed",
+        "canceled" | "cancelled" => "Canceled",
         "partial" => "Partial",
         "interrupted" => "Interrupted",
         "idle" => "Ready",

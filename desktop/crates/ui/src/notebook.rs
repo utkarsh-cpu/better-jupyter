@@ -28,6 +28,15 @@ pub(crate) fn cell_border_color(
     }
 }
 
+/// Width of the ledger margin that holds a cell's run control and execution
+/// number. Source, prose, and outputs all share the column to its right.
+const CELL_MARGIN: f32 = 3.;
+/// Reading column shared by source, prose, and regular outputs. Matches the
+/// inner width of a standard cell frame so wide outputs do not shift the source.
+const READING_WIDTH: f32 = 62.;
+/// Height of the gap above a cell that its floating tools occupy.
+const TOOLS_RESERVE: f32 = 30.;
+
 pub(crate) fn boundary_button_label(last: bool) -> &'static str {
     if last { "Add cell" } else { "Insert" }
 }
@@ -135,11 +144,13 @@ impl Workspace {
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (muted_fg, primary, transparent, popover) = (
+        let (muted_fg, primary, transparent, popover, muted, hairline) = (
             theme.muted_foreground,
             theme.primary,
             theme.transparent,
             theme.popover,
+            theme.muted,
+            theme.border,
         );
         let mono = theme.mono_font_family.clone();
         let (warning, danger, info) = (theme.warning, theme.danger, theme.info);
@@ -195,9 +206,7 @@ impl Workspace {
                 action_button(("run", index))
                     .ghost()
                     .small()
-                    .rounded(px(15.))
-                    .bg(primary.opacity(0.11))
-                    .text_color(primary)
+                    .text_color(if selected { primary } else { muted_fg })
                     .icon(Glyph::Play)
                     .hint("Run cell (Ctrl+Enter)")
                     .accessibility_label(format!("Run {}", cell_title(&cell.text, &cell.disk.kind)))
@@ -220,6 +229,7 @@ impl Workspace {
                 action_button(("edit-markdown", index))
                     .ghost()
                     .small()
+                    .contextual(group.clone(), selected || self.preferences.comfortable)
                     .label(if selected && tab.model.mode == Mode::Edit {
                         "Preview"
                     } else {
@@ -257,6 +267,10 @@ impl Workspace {
                 action_button(("collapse", index))
                     .ghost()
                     .small()
+                    .contextual(
+                        group.clone(),
+                        selected || self.preferences.comfortable || cell.collapsed,
+                    )
                     .icon(if cell.collapsed {
                         Glyph::Eye
                     } else {
@@ -316,7 +330,10 @@ impl Workspace {
                     .small()
                     .icon(Glyph::Ellipsis)
                     .contextual(group.clone(), selected || self.preferences.comfortable)
-                    .hint("Cell actions")
+                    .when(
+                        self.cell_menu.as_ref().is_none_or(|(open, _)| *open != id),
+                        |b| b.hint("Cell actions"),
+                    )
                     .accessibility_label(format!(
                         "More actions for {}",
                         cell_title(&cell.text, &cell.disk.kind)
@@ -357,17 +374,21 @@ impl Workspace {
         };
         let notable_outcome = notable_status(&cell.outcome);
         let spacing = cell_spacing(self.preferences.comfortable);
+        // A narrow split gives the margin back to the source.
+        let margin = if narrow_split { 0.75 } else { CELL_MARGIN };
+        let wide_output = cell.output.iter().any(outputs::is_wide_output);
         let header = h_flex()
             .min_h(rems(spacing.header_min_h))
-            .px_3()
+            .w_full()
+            .max_w(rems(READING_WIDTH))
+            .mx_auto()
+            .pl(rems(margin))
+            .pr_1()
             .gap_1p5()
             .items_center()
             .flex_wrap()
             .py(px(spacing.header_py))
             .when_some(run_action, |d, button| d.child(button))
-            .when(selected || self.high_contrast, |d| {
-                d.border_b_1().border_color(divider(cx))
-            })
             .when_some(
                 cell.ordinal
                     .filter(|_| cell.disk.kind == "code" && !inline_code),
@@ -459,35 +480,30 @@ impl Workspace {
                 if editor_focused { ", editing" } else { "" },
                 if has_error { ", failed" } else { "" }
             ))
-            .group(group)
             .relative()
-            .border_1()
-            .rounded(cx.theme().radius_lg)
-            .border_color(cell_border_color(
-                selected,
-                editor_focused,
-                has_error,
-                self.high_contrast,
-                cx,
-            ))
-            .bg(if selected || editor_focused || self.high_contrast {
-                popover
-            } else {
-                transparent
-            })
-            .when(!selected && !self.high_contrast, |d| {
-                d.hover(move |s| s.bg(popover))
-            })
-            .overflow_hidden()
-            .child(div().absolute().left_0().top_0().bottom_0().w(px(2.)).bg(
-                if selected || editor_focused {
+            // The state rail runs the full height of the entry, in the margin.
+            .child({
+                let rail = if selected || editor_focused {
                     primary
                 } else if has_error {
                     danger
+                } else if cell.stale() {
+                    warning
                 } else {
                     transparent
-                },
-            ))
+                };
+                div()
+                    .absolute()
+                    .left_0()
+                    .top_0()
+                    .bottom_0()
+                    .w(px(2.))
+                    .rounded_full()
+                    .bg(rail)
+                    .when(rail == transparent, |d| {
+                        d.group_hover(group.clone(), move |s| s.bg(hairline))
+                    })
+            })
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener({
@@ -505,89 +521,90 @@ impl Workspace {
             .when(
                 cell.disk.kind != "markdown" || (selected && tab.model.mode == Mode::Edit),
                 |d| {
+                    let row_h = px((self.preferences.editor_size * 1.5
+                        + 18. * self.preferences.ui_scale)
+                        .max(30. * self.preferences.ui_scale));
                     d.child(
-                        div()
-                            .debug_selector({
-                                let id = id.clone();
-                                move || format!("cell-source-{id}")
-                            })
+                        h_flex()
                             .w_full()
-                            .max_w(rems(64.))
+                            .max_w(rems(READING_WIDTH))
                             .mx_auto()
-                            .px_3()
+                            .items_start()
                             .pt(px(spacing.source_top))
                             .pb(px(spacing.source_bottom))
-                            .border_l_2()
-                            .border_color(if editor_focused {
-                                primary.opacity(0.7)
-                            } else {
-                                transparent
-                            })
                             .child(
-                                h_flex()
-                                    .relative()
-                                    .w_full()
-                                    .items_start()
-                                    .gap_2()
+                                v_flex()
+                                    .flex_none()
+                                    .w(rems(margin))
+                                    // Fixed so the stack cannot grow a one-line
+                                    // cell; the execution number overhangs into
+                                    // the otherwise empty margin below.
+                                    .h(row_h)
+                                    // Centers the run control on the first source line.
+                                    .pt(px(5.))
+                                    .items_center()
                                     .when(inline_code, |d| {
-                                        let row_h = px((self.preferences.editor_size * 1.5
-                                            + 18. * self.preferences.ui_scale)
-                                            .max(30. * self.preferences.ui_scale));
-                                        d.child(
-                                            h_flex()
-                                                .flex_none()
-                                                .min_h(row_h)
-                                                .w(rems(if self.preferences.show_cell_duration {
-                                                    6.0
-                                                } else {
-                                                    4.75
-                                                }))
-                                                .gap_1p5()
-                                                .items_center()
-                                                .children(inline_run.take())
-                                                .when_some(cell.ordinal, |d, n| {
+                                        d.children(inline_run.take())
+                                            .when_some(cell.ordinal, |d, n| {
+                                                d.child(
+                                                    div()
+                                                        .font_family(mono.clone())
+                                                        .text_size(rems(0.6875))
+                                                        .text_color(muted_fg)
+                                                        .child(format!("[{n}]")),
+                                                )
+                                            })
+                                            .when_some(
+                                                cell.execution_seconds.filter(|_| {
+                                                    self.preferences.show_cell_duration
+                                                }),
+                                                |d, seconds| {
                                                     d.child(
                                                         div()
+                                                            .id(("cell-duration", index))
+                                                            .debug_selector({
+                                                                let id = id.clone();
+                                                                move || {
+                                                                    format!("cell-duration-{id}")
+                                                                }
+                                                            })
                                                             .font_family(mono.clone())
-                                                            .text_xs()
+                                                            .text_size(rems(0.625))
                                                             .text_color(muted_fg)
-                                                            .child(format!("[{n}]")),
+                                                            .role(Role::Label)
+                                                            .aria_label(format!(
+                                                                "Last run duration: {}",
+                                                                history::format_duration(seconds)
+                                                            ))
+                                                            .child(history::format_duration(
+                                                                seconds,
+                                                            )),
                                                     )
-                                                })
-                                                .when_some(
-                                                    cell.execution_seconds.filter(|_| {
-                                                        self.preferences.show_cell_duration
-                                                    }),
-                                                    |d, seconds| {
-                                                        d.child(
-                                                            div()
-                                                                .id(("cell-duration", index))
-                                                                .debug_selector({
-                                                                    let id = id.clone();
-                                                                    move || {
-                                                                        format!(
-                                                                            "cell-duration-{id}"
-                                                                        )
-                                                                    }
-                                                                })
-                                                                .font_family(mono.clone())
-                                                                .text_xs()
-                                                                .text_color(muted_fg)
-                                                                .role(Role::Label)
-                                                                .aria_label(format!(
-                                                                    "Last run duration: {}",
-                                                                    history::format_duration(
-                                                                        seconds
-                                                                    )
-                                                                ))
-                                                                .child(history::format_duration(
-                                                                    seconds,
-                                                                )),
-                                                        )
-                                                    },
-                                                ),
-                                        )
+                                                },
+                                            )
+                                    }),
+                            )
+                            .child(
+                                h_flex()
+                                    .debug_selector({
+                                        let id = id.clone();
+                                        move || format!("cell-source-{id}")
                                     })
+                                    .flex_1()
+                                    .min_w_0()
+                                    .items_start()
+                                    .gap_2()
+                                    .pr_2()
+                                    .rounded(px(6.))
+                                    .bg(muted)
+                                    .border_1()
+                                    .border_color(cell_border_color(
+                                        selected,
+                                        editor_focused,
+                                        has_error,
+                                        self.high_contrast,
+                                        cx,
+                                    ))
                                     .child(gutter)
                                     .child(
                                         div()
@@ -615,20 +632,7 @@ impl Workspace {
                                                     ))
                                                     .bordered(false),
                                             ),
-                                    )
-                                    .when(inline_code || inline_markdown, |d| {
-                                        let row_h = px((self.preferences.editor_size * 1.5
-                                            + 18. * self.preferences.ui_scale)
-                                            .max(30. * self.preferences.ui_scale));
-                                        d.child(
-                                            h_flex()
-                                                .flex_none()
-                                                .min_h(row_h)
-                                                .items_center()
-                                                .pl_2()
-                                                .children(inline_actions.take()),
-                                        )
-                                    }),
+                                    ),
                             ),
                     )
                 },
@@ -644,18 +648,20 @@ impl Workspace {
             card = card.child(
                 h_flex()
                     .w_full()
+                    .max_w(rems(READING_WIDTH))
+                    .mx_auto()
                     .items_start()
-                    .px_3()
+                    .pl(rems(margin))
+                    .pr_3()
                     .pt(px(spacing.source_top))
                     .pb(px(spacing.source_bottom))
-                    .gap_2()
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
-                            .max_w(rems(52.))
+                            .max_w(rems(46.))
                             .min_h(row_h)
-                            .px_2()
+                            .px_3()
                             .py_1()
                             // TextView's pinned Markdown renderer paints spans without
                             // content semantics. Expose one readable document per cell.
@@ -675,19 +681,32 @@ impl Workspace {
                                 TextView::markdown(("preview", index), safe_markdown(&cell.text))
                                     .on_link_click(safe_link),
                             ),
-                    )
-                    .when(inline_markdown, |d| {
-                        d.child(
-                            h_flex()
-                                .flex_none()
-                                .min_h(row_h)
-                                .items_center()
-                                .pl_2()
-                                .children(inline_actions.take()),
-                        )
-                    }),
+                    ),
             );
         }
+        // Tools float in the gap above the entry, so they never cover source
+        // and the same control keeps the same position on every cell. The
+        // hover group reaches up to include them; otherwise moving the pointer
+        // onto a tool would leave the cell and hide it.
+        let entry = div()
+            .relative()
+            .w_full()
+            .mt(px(-TOOLS_RESERVE))
+            .pt(px(TOOLS_RESERVE))
+            .group(group)
+            .when_some(inline_actions.take(), |d, tools| {
+                d.child(
+                    h_flex()
+                        .debug_selector({
+                            let id = id.clone();
+                            move || format!("cell-tools-{id}")
+                        })
+                        .absolute()
+                        .top_0()
+                        .right_0()
+                        .child(tools),
+                )
+            });
         let attachment_names = cell
             .disk
             .metadata
@@ -710,7 +729,8 @@ impl Workspace {
                 .collect::<Vec<_>>();
             card = card.child(
                 v_flex()
-                    .px_4()
+                    .pl(rems(margin + 0.75))
+                    .pr_3()
                     .py_2()
                     .gap_2()
                     .children(previews.into_iter().map(|(name, preview)| {
@@ -736,12 +756,13 @@ impl Workspace {
         if !cell.output.is_empty() {
             card = card.child(if cell.collapsed {
                 h_flex()
-                    .px_4()
-                    .py_1p5()
+                    .w_full()
+                    .max_w(rems(READING_WIDTH))
+                    .mx_auto()
+                    .pl(rems(margin + 0.75))
+                    .pb_1()
                     .gap_2()
                     .items_center()
-                    .border_t_1()
-                    .border_color(divider(cx))
                     .text_xs()
                     .text_color(muted_fg)
                     .child(Icon::new(Glyph::EyeOff).xsmall())
@@ -752,11 +773,13 @@ impl Workspace {
                     ))
             } else {
                 v_flex()
-                    .px_4()
-                    .py(px(spacing.output_py))
+                    .w_full()
+                    .when(!wide_output, |d| d.max_w(rems(READING_WIDTH)).mx_auto())
+                    .pl(rems(margin + 0.75))
+                    .pr_3()
+                    .pt(px(spacing.output_py / 2.))
+                    .pb(px(spacing.output_py))
                     .gap(px(spacing.output_gap))
-                    .border_t_1()
-                    .border_color(divider(cx))
                     .children(cell.output.iter().enumerate().map(|(i, e)| {
                         let mut e = e.clone();
                         if let Some(handle) = e["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["handle"].as_str().map(str::to_owned)
@@ -812,16 +835,12 @@ impl Workspace {
             .flex()
             .flex_col()
             // Tables and plots may use the wider canvas; source stays readable.
-            .max_w(rems(if cell.output.iter().any(outputs::is_wide_output) {
-                80.
-            } else {
-                64.
-            }))
+            .max_w(rems(if wide_output { 80. } else { 64. }))
             .mx_auto()
             .px_4()
-            .pt(px(if index == 0 { 16. } else { 0. }))
+            .pt(px(if index == 0 { TOOLS_RESERVE + 2. } else { 0. }))
             .pb(px(if last { 24. } else { 0. }))
-            .child(card)
+            .child(entry.child(card))
             .child(
                 h_flex()
                     .debug_selector({
@@ -893,9 +912,12 @@ impl Workspace {
         let id = id.to_owned();
         v_flex()
             .gap_2()
+            .ml(rems(CELL_MARGIN))
+            .mt_1()
             .px_4()
             .py_3()
-            .border_t_1()
+            .rounded(px(6.))
+            .border_1()
             .border_color(danger.opacity(0.3))
             .bg(danger.opacity(0.06))
             .child(

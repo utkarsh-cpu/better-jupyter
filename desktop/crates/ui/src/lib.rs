@@ -30,7 +30,7 @@ use gpui_kit::component::{
     button::{Button, ButtonVariants},
     checkbox::Checkbox,
     h_flex,
-    input::{Editor, EditorState, Input, InputEvent, InputState},
+    input::{Editor, EditorState, Input, InputEvent, InputState, Textarea, TextareaState},
     kbd::Kbd,
     resizable::{h_resizable, resizable_panel},
     text::TextView,
@@ -141,6 +141,8 @@ pub struct Workspace {
     query: Entity<InputState>,
     palette_query: Entity<InputState>,
     prompts: BTreeMap<String, Entity<InputState>>,
+    /// The Assistant composer for each notebook, kept across panel toggles.
+    questions: BTreeMap<String, Entity<TextareaState>>,
     console_editors: BTreeMap<String, Entity<EditorState>>,
     tick: Task<()>,
     python: PathBuf,
@@ -150,6 +152,8 @@ pub struct Workspace {
     palette_active: usize,
     palette_filter: String,
     palette_scroll: UniformListScrollHandle,
+    assistant_scroll: ScrollHandle,
+    assistant_scroll_mark: (usize, bool, bool, usize, bool, usize),
     return_focus: Option<FocusHandle>,
     sidebar_visible: bool,
     app_menu: bool,
@@ -182,6 +186,7 @@ pub struct Workspace {
     help_query: Entity<InputState>,
     record_active: usize,
     sidebar_focus: FocusHandle,
+    assistant_focus: FocusHandle,
     confirm_focus: FocusHandle,
     dialog_focus: FocusHandle,
     dialog_open: bool,
@@ -257,6 +262,7 @@ impl Workspace {
             query: cx.new(|cx| InputState::new(window, cx).placeholder("Filter cells")),
             palette_query: cx.new(|cx| InputState::new(window, cx).placeholder("Type a command")),
             prompts: BTreeMap::new(),
+            questions: BTreeMap::new(),
             console_editors: BTreeMap::new(),
             tick: Task::ready(()),
             python: std::env::var_os("KL_RUNTIME_PYTHON")
@@ -279,6 +285,8 @@ impl Workspace {
             palette_active: 0,
             palette_filter: String::new(),
             palette_scroll: UniformListScrollHandle::default(),
+            assistant_scroll: ScrollHandle::new(),
+            assistant_scroll_mark: Default::default(),
             return_focus: None,
             sidebar_visible: preferences.outline_visible,
             app_menu: false,
@@ -312,6 +320,7 @@ impl Workspace {
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
+            assistant_focus: cx.focus_handle(),
             confirm_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
             dialog_open: false,
@@ -1472,12 +1481,20 @@ impl Workspace {
             }
             shown += 1;
             let selected = tab.model.selected.as_deref() == Some(id.as_str());
-            let preview = cell
-                .text
-                .lines()
-                .map(str::trim)
-                .find(|l| !l.is_empty())
-                .map(|l| l.chars().take(80).collect::<String>());
+            let first_line = cell.text.lines().map(str::trim).find(|l| !l.is_empty());
+            // Prose reads by its heading, and sub-headings nest; code stays literal.
+            let heading = (cell.disk.kind == "markdown")
+                .then(|| first_line.map_or(0, |l| l.chars().take_while(|c| *c == '#').count()))
+                .filter(|level| (1..=6).contains(level));
+            let preview = first_line.map(|l| {
+                let text = if cell.disk.kind == "markdown" {
+                    l.trim_start_matches('#').trim_start()
+                } else {
+                    l
+                };
+                text.chars().take(80).collect::<String>()
+            });
+            let is_code = cell.disk.kind == "code";
             let marker = if matches!(cell.save, SaveState::Conflict | SaveState::Failed)
                 || matches!(cell.outcome.as_str(), "error" | "failed")
             {
@@ -1520,8 +1537,12 @@ impl Workspace {
                     .py_1()
                     .items_center()
                     .rounded(radius)
-                    .border_l_2()
-                    .border_color(if selected { primary } else { transparent })
+                    .when(heading.is_some_and(|level| level > 1), |d| d.ml_3())
+                    // Fill and icon carry selection; contrast mode adds the bar.
+                    .when(self.high_contrast, |d| {
+                        d.border_l_2()
+                            .border_color(if selected { primary } else { transparent })
+                    })
                     .cursor_pointer()
                     .when(selected, |d| d.bg(active_bg))
                     .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
@@ -1536,8 +1557,17 @@ impl Workspace {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .text_sm()
-                            .when(selected, |d| d.font_weight(FontWeight::MEDIUM))
+                            .when(is_code, |d| {
+                                d.font_family(mono.clone())
+                                    .text_size(rems(0.75))
+                                    .text_color(muted_fg)
+                            })
+                            .when(!is_code, |d| d.text_size(rems(0.8125)))
+                            .when(heading.is_some(), |d| d.font_weight(FontWeight::SEMIBOLD))
+                            .when(selected, |d| {
+                                d.font_weight(FontWeight::MEDIUM)
+                                    .text_color(cx.theme().foreground)
+                            })
                             .when(preview.is_none(), |d| d.italic().text_color(muted_fg))
                             .child(preview.unwrap_or_else(|| {
                                 format!("Empty {} cell", kind_label(&cell.disk.kind))
@@ -1595,8 +1625,6 @@ impl Workspace {
             .track_focus(&self.sidebar_focus)
             .size_full()
             .bg(bar)
-            .border_r_1()
-            .border_color(divider(cx))
             .child(
                 h_flex()
                     .flex_none()
@@ -1610,7 +1638,7 @@ impl Workspace {
                             .text_xs()
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(muted_fg)
-                            .child("Cells"),
+                            .child("Outline"),
                     )
                     .child(
                         div()
@@ -2074,57 +2102,57 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
     match method {
         "interrupt_kill" => (
             "Terminate worker for",
-            "Forcibly stops the worker process. Live variables and in-progress computation are lost; recorded history and saved source remain available.",
+            "Force-stops the worker. Live variables and running work are lost; saved source and history are kept.",
             "Terminate worker",
         ),
         "training-restore" => (
             "Restore training for",
-            "Executes the captured reconstruction factory in a fresh worker. After success it replaces your live namespace. Registered training state is restored; notebook variables and native process state are excluded. Failed reconstruction preserves the current worker.",
+            "Runs the saved reconstruction code in a fresh worker and replaces your live namespace with the restored training state. If reconstruction fails, it preserves the current worker.",
             "Trust and restore training",
         ),
         "merge" => (
             "Merge cells",
-            "The next cell is appended to this cell and removed from the source document. Recorded history is retained. Undo cell structure can restore this change while its source remains unchanged and within undo limits.",
+            "The next cell is appended to this one and removed. Recorded history is kept, and you can undo this.",
             "Merge",
         ),
         "delete" => (
             "Delete",
-            "Deleting removes this cell and its source. Recorded executions remain in History. Undo cell structure can restore it while affected files remain unchanged; changes larger than 4 MiB exceed undo limits.",
+            "The cell and its source are removed. Its recorded runs stay in History, and you can undo this for changes up to 4 MiB.",
             "Delete cell",
         ),
         "stop" => (
             "Stop runtime for",
-            "Stops computation and shuts down the supervisor and worker for all attached clients. Unsaved live variables are lost. Saved source and recorded history remain available. Running again starts a runtime.",
+            "Stops running code and shuts down the runtime for every open window. Live variables are lost; saved source and history are kept.",
             "Stop runtime",
         ),
         "restart" => (
             "Restart runtime for",
-            "Discards the live namespace and starts an empty worker. Saved source and history remain available.",
+            "Starts an empty worker. Live variables are lost; saved source and history are kept.",
             "Restart empty",
         ),
         "restore" => (
             "Restore",
-            "Restores recorded checkpoint values into a new session. Checkpoint omissions remain absent. Review the checkpoint report before restoring.",
+            "Loads the checkpoint's saved values into a new session. Values the checkpoint excluded stay absent.",
             "Restore checkpoint",
         ),
         "continue" => (
             "Continue from",
-            "Restores the checkpoint and runs later saved code. Code may repeat file and network side effects.",
+            "Restores the checkpoint, then runs the code recorded after it. File and network side effects may repeat.",
             "Continue",
         ),
         "replay" => (
             "Replay",
-            "Runs recorded code in a new session. File and network side effects can repeat; secret input must be supplied again.",
+            "Runs the recorded code in a new session. File and network side effects may repeat, and secret input must be entered again.",
             "Replay session",
         ),
         "bundle_import" => (
             "Import recorded history from",
-            "Copies sessions, executions, and checkpoints into this notebook. Local records with the same identifiers are kept. Notebook source is not replaced, and no code runs. Saved code in the bundle can run later only if you restore or replay it.",
+            "Copies sessions, runs, and checkpoints into this notebook; no code runs and your source is not replaced. Existing records with the same IDs are kept.",
             "Import recorded history",
         ),
         "migrate" => (
             "Migrate ledger for",
-            "Creates a schema 1 backup before migration. Older clients cannot open the migrated ledger.",
+            "Backs up the ledger, then upgrades it. Older versions of KernelLedger cannot open the upgraded ledger.",
             "Migrate ledger",
         ),
         _ => (

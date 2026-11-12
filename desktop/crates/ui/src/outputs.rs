@@ -875,12 +875,13 @@ impl RenderOnce for OutputBlock {
                 body = body.child(
                     TextView::markdown(
                         (ElementId::from(self.id.clone()), "text"),
-                        format!("```text\n{}\n```", shown.replace("```", "~~~")),
+                        format!("```\n{}\n```", shown.replace("```", "~~~")),
                     )
                     .style(gpui_kit::component::text::TextViewStyle {
                         paragraph_gap: rems(0.),
                         code_block: div()
                             .p_0()
+                            .border_0()
                             .bg(cx.theme().transparent)
                             .rounded(px(0.))
                             .style()
