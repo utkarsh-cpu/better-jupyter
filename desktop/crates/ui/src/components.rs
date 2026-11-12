@@ -222,6 +222,24 @@ impl WorkbenchButton {
             );
         self
     }
+    /// A menu row that opens a nested menu with the Right arrow key.
+    ///
+    /// macOS shows the key as an arrow keycap ("→"), which reads as the shortcut
+    /// it is. Elsewhere the keycap would spell the word "Right", so Windows and
+    /// Linux get the trailing chevron their native menus use for submenus.
+    pub fn submenu_item(self, label: impl Into<SharedString>) -> Self {
+        if cfg!(target_os = "macos") {
+            return self.menu_item(label, Some("right"));
+        }
+        let mut item = self.menu_item(label, None);
+        item.inner = item.inner.child(
+            div()
+                .flex_none()
+                .opacity(0.72)
+                .child(Icon::new(Glyph::ChevronRight).small()),
+        );
+        item
+    }
     /// A full-width row: the label truncates on the leading side, quieter
     /// detail text sits on the trailing edge.
     pub fn detail_row(

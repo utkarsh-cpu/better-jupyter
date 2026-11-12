@@ -122,6 +122,42 @@ pub(crate) fn header_fits(width: f32, scale: f32, comfortable: bool, c: HeaderCo
     header_used(width, scale, comfortable, c) <= width - CAPTION_GUTTER - LEFT_CAPTION_GUTTER + 0.01
 }
 
+/// Room the collapse budget reserved for controls that are not drawn as wide
+/// as their worst case. The budget must hold for every destination and runtime
+/// state, so it reserves the Outline toggle and Run all (both shown only on
+/// Notebook) and a runtime label as long as "Disconnected". Handing the unused
+/// part back to the notebook name
+/// stops short names truncating beside empty title bar. `runtime_saving` is the
+/// shaped width of "Disconnected" minus the current label, so it follows the
+/// platform UI font (Segoe UI on Windows, SF on macOS) instead of a guess.
+pub(crate) fn switcher_slack(
+    width: f32,
+    scale: f32,
+    comfortable: bool,
+    c: HeaderCollapse,
+    notebook_surface: bool,
+    runtime_saving: f32,
+) -> f32 {
+    if c.switcher {
+        return 0.;
+    }
+    let compact = width < 1280. * scale;
+    let tight = compact && (scale > 1. || comfortable);
+    let gap = if compact { 4. } else { 8. } * scale;
+    let button = if comfortable { 44. } else { 28. } * scale;
+    let mut slack = 0.;
+    if !notebook_surface {
+        // Outline toggle, then Run all, each with its gap.
+        slack += button + gap;
+        slack += if c.run_label { button } else { 92. * scale } + gap;
+    }
+    // The tight runtime control is an icon plus a short word, not the label.
+    if !c.runtime && !tight {
+        slack += runtime_saving.max(0.);
+    }
+    slack
+}
+
 /// Keep a distinguishing suffix; ask the actual text shaper, not a character budget.
 pub(crate) fn middle_ellipsis(name: &str, budget: f32, measure: impl Fn(&str) -> f32) -> String {
     if measure(name) <= budget {
@@ -258,10 +294,31 @@ impl Workspace {
                 .width
                 / px(1.)
         };
+        let runtime_saving = self
+            .tabs
+            .get(self.active)
+            .map(|tab| {
+                let label = header_worker_label(
+                    tab.runtime["connection_lost"] == true,
+                    tab.runtime["worker_state"].as_str(),
+                );
+                (measure("Disconnected") - measure(&label)).floor()
+            })
+            .unwrap_or(0.);
+        let switcher_budget = (collapse.switcher_width
+            + switcher_slack(
+                width,
+                scale,
+                self.preferences.comfortable,
+                collapse,
+                self.surface == "Notebook",
+                runtime_saving,
+            ))
+        .min(360. * scale);
         let shaped_width = (measure(&name) + 36. * scale)
             .ceil()
             .max(64. * scale)
-            .min(collapse.switcher_width);
+            .min(switcher_budget);
         let label = middle_ellipsis(&name, (shaped_width - 36. * scale).max(0.), measure);
         let notebooks = action_button("notebook-switcher")
             .debug_selector("notebook-switcher")
@@ -713,7 +770,7 @@ impl Workspace {
                         action_button("cell-menu-assistant")
                             .ghost()
                             .w_full()
-                            .menu_item(label, Some("right"))
+                            .submenu_item(label)
                             .accessibility_label("Assistant actions")
                             .hint("Ask, suggest an edit, refactor, document, or generate tests")
                             .on_click(cx.listener(|v, _, window, cx| {

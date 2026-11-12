@@ -16,6 +16,7 @@ gpui_kit::assets::icon_assets!(
         BookmarkPlus,
         ChevronDown,
         ChevronLeft,
+        ChevronRight,
         ChevronUp,
         ChevronsDown,
         ChevronsUp,

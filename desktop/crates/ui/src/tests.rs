@@ -1539,6 +1539,26 @@ fn product_mark_keeps_run_label_at_standard_compact_width() {
     assert!(!roomy.run_label);
 }
 
+#[test]
+fn switcher_reclaims_only_room_reserved_for_undrawn_controls() {
+    use super::shell::{header_collapse, switcher_slack};
+    let c = header_collapse(800., 1., false);
+    // Notebook draws Outline and Run all; "Disconnected" fills its reserve.
+    assert_eq!(switcher_slack(800., 1., false, c, true, 0.), 0.);
+    // Other destinations hand back Outline (28 + 4) and Run all (92 + 4).
+    assert_eq!(switcher_slack(800., 1., false, c, false, 0.), 128.);
+    // A shorter runtime label returns its measured saving; never a negative one.
+    assert_eq!(switcher_slack(800., 1., false, c, true, 30.), 30.);
+    assert_eq!(switcher_slack(800., 1., false, c, true, -5.), 0.);
+    // Tight chrome shows an icon and short word, so no label saving applies.
+    let tight = header_collapse(800., 1., true);
+    assert_eq!(switcher_slack(800., 1., true, tight, true, 30.), 0.);
+    // A collapsed switcher has no width to grow.
+    let mut hidden = c;
+    hidden.switcher = true;
+    assert_eq!(switcher_slack(800., 1., false, hidden, false, 30.), 0.);
+}
+
 #[gpui_kit::test]
 fn scaled_chrome_keeps_core_actions_inside_the_client_at_every_supported_width(
     cx: &mut TestAppContext,
