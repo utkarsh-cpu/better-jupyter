@@ -225,7 +225,7 @@ impl Workspace {
     /// Opens Settings at the Assistant section. The question draft and the chosen
     /// context stay in the panel, so returning to the notebook resumes the same request.
     pub(super) fn open_provider_settings(&mut self, cx: &mut Context<Self>) {
-        self.settings_section = "assistant";
+        self.settings_section = settings::SettingsSection::Assistant;
         self.ai("settings.get", json!({}));
         self.select_surface("Settings", cx);
         cx.notify();

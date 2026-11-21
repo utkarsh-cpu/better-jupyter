@@ -396,7 +396,7 @@ impl Workspace {
         }
         let mut groups = sheet(cx);
         match section {
-            "appearance" => {
+            SettingsSection::Appearance => {
                 groups = groups.child(
                     appearance_reveal
                         .track(
@@ -410,7 +410,7 @@ impl Workspace {
                         .child(appearance),
                 );
             }
-            "editor" => {
+            SettingsSection::Editor => {
                 groups = groups.child(
                     type_reveal
                         .track(settings_group("Typography", cx).id("settings-typography"))
@@ -428,7 +428,7 @@ impl Workspace {
                         )),
                 );
             }
-            "layout" => {
+            SettingsSection::Layout => {
                 groups = groups
                     .child(
                         layout_reveal
@@ -552,7 +552,7 @@ impl Workspace {
                         ),
                     );
             }
-            "runtime" => {
+            SettingsSection::Runtime => {
                 groups = groups
                     .child(settings_group_with("Application Python", "Loads notebook source and desktop services. Changing it does not select the project's execution interpreter.", cx)
                         .child(div().text_sm().whitespace_normal().child(self.tabs[self.active].inspections.get("Application Python").and_then(|v| v["python"].as_str()).unwrap_or("Not connected").to_owned()))
@@ -562,15 +562,12 @@ impl Workspace {
                     .child(runtime_reveal.track(runtime))
                     .child(self.interactivity_settings(cx));
             }
-            _ => {
+            SettingsSection::Assistant => {
                 groups = groups.child(self.ai_settings(window, cx));
             }
         }
-        let (_, section_title, section_description) = SECTIONS
-            .iter()
-            .copied()
-            .find(|(key, ..)| *key == section)
-            .unwrap_or(SECTIONS[0]);
+        let section_title = section.title();
+        let section_description = section.description();
         let content = v_flex()
             .debug_selector(|| "settings-content".into())
             .flex_1()
@@ -593,10 +590,16 @@ impl Workspace {
                     ),
             )
             .child(groups)
-            .when(matches!(section, "appearance" | "editor" | "layout"), |d| {
-                d.child(self.settings_preview(cx))
-            })
-            .when(section == "runtime" && !value.is_null(), |d| {
+            .when(
+                matches!(
+                    section,
+                    SettingsSection::Appearance
+                        | SettingsSection::Editor
+                        | SettingsSection::Layout
+                ),
+                |d| d.child(self.settings_preview(cx)),
+            )
+            .when(section == SettingsSection::Runtime && !value.is_null(), |d| {
                 d.child(self.record_details_in(value, Some(details_reveal), cx))
             });
         let heading = h_flex()
@@ -633,10 +636,12 @@ impl Workspace {
         self.record_page(body, cx)
     }
 
-    fn select_settings_section(&mut self, key: &'static str, cx: &mut Context<Self>) {
-        if self.settings_section != key {
-            self.settings_section = key;
-            if key == "assistant" && self.tabs[self.active].assistant.settings.is_null() {
+    fn select_settings_section(&mut self, section: SettingsSection, cx: &mut Context<Self>) {
+        if self.settings_section != section {
+            self.settings_section = section;
+            if section == SettingsSection::Assistant
+                && self.tabs[self.active].assistant.settings.is_null()
+            {
                 self.ai("settings.get", json!({}));
             }
             cx.notify();
@@ -652,17 +657,21 @@ impl Workspace {
             .w(rems(12.5))
             .flex_none()
             .gap(px(2.));
-        for (key, title, _) in SECTIONS {
-            let selected = self.settings_section == key;
+        for section in SettingsSection::ALL {
+            let key = section.key();
+            let title = section.title();
+            let selected = self.settings_section == section;
             rail = rail.child(
                 action_button(SharedString::from(format!("settings-nav-{key}")))
                     .ghost()
-                    .icon(section_glyph(key))
+                    .icon(section.glyph())
                     .menu_item(title, None)
                     .quiet_toggle(selected)
                     .selected(selected)
                     .accessibility_label(format!("{title} settings"))
-                    .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
+                    .on_click(
+                        cx.listener(move |v, _, _, cx| v.select_settings_section(section, cx)),
+                    ),
             );
         }
         div().child(rail)
@@ -670,14 +679,18 @@ impl Workspace {
 
     fn settings_selector(&self, cx: &mut Context<Self>) -> Div {
         let mut track = segmented_track(cx);
-        for (key, title, _) in SECTIONS {
+        for section in SettingsSection::ALL {
+            let key = section.key();
+            let title = section.title();
             track = track.child(
                 action_button(SharedString::from(format!("settings-nav-{key}")))
                     .small()
                     .label(title.split(" & ").next().unwrap_or(title))
-                    .segment(self.settings_section == key)
+                    .segment(self.settings_section == section)
                     .accessibility_label(format!("{title} settings"))
-                    .on_click(cx.listener(move |v, _, _, cx| v.select_settings_section(key, cx))),
+                    .on_click(
+                        cx.listener(move |v, _, _, cx| v.select_settings_section(section, cx)),
+                    ),
             );
         }
         track
@@ -886,41 +899,62 @@ impl Workspace {
     }
 }
 
-fn section_glyph(key: &str) -> Glyph {
-    match key {
-        "appearance" => Glyph::Sun,
-        "editor" => Glyph::Type,
-        "layout" => Glyph::PanelLeft,
-        "runtime" => Glyph::Cpu,
-        _ => Glyph::Sparkles,
-    }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum SettingsSection {
+    #[default]
+    Appearance,
+    Editor,
+    Layout,
+    Runtime,
+    Assistant,
 }
 
-/// Section key, title and one-line description, in navigation order.
-pub(super) const SECTIONS: [(&str, &str, &str); 5] = [
-    (
-        "appearance",
-        "Appearance",
-        "Color theme and contrast for every surface.",
-    ),
-    (
-        "editor",
-        "Editor",
-        "Interface size and the font size used inside notebook cells.",
-    ),
-    (
-        "layout",
-        "Layout & accessibility",
-        "Cell spacing, outline width, and motion.",
-    ),
-    (
-        "runtime",
-        "Runtime",
-        "The project interpreter and optional result shortcuts.",
-    ),
-    (
-        "assistant",
-        "Assistant",
-        "Provider, model, budgets, and what may be sent.",
-    ),
-];
+impl SettingsSection {
+    pub(super) const ALL: [Self; 5] = [
+        Self::Appearance,
+        Self::Editor,
+        Self::Layout,
+        Self::Runtime,
+        Self::Assistant,
+    ];
+
+    pub(super) const fn key(self) -> &'static str {
+        match self {
+            Self::Appearance => "appearance",
+            Self::Editor => "editor",
+            Self::Layout => "layout",
+            Self::Runtime => "runtime",
+            Self::Assistant => "assistant",
+        }
+    }
+
+    pub(super) const fn title(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Editor => "Editor",
+            Self::Layout => "Layout & accessibility",
+            Self::Runtime => "Runtime",
+            Self::Assistant => "Assistant",
+        }
+    }
+
+    pub(super) const fn description(self) -> &'static str {
+        match self {
+            Self::Appearance => "Color theme and contrast for every surface.",
+            Self::Editor => "Interface size and the font size used inside notebook cells.",
+            Self::Layout => "Cell spacing, outline width, and motion.",
+            Self::Runtime => "The project interpreter and optional result shortcuts.",
+            Self::Assistant => "Provider, model, budgets, and what may be sent.",
+        }
+    }
+
+    pub(super) const fn glyph(self) -> Glyph {
+        match self {
+            Self::Appearance => Glyph::Sun,
+            Self::Editor => Glyph::Type,
+            Self::Layout => Glyph::PanelLeft,
+            Self::Runtime => Glyph::Cpu,
+            Self::Assistant => Glyph::Sparkles,
+        }
+    }
+}

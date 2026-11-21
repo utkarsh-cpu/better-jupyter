@@ -123,7 +123,7 @@ impl Workspace {
     /// Settings remembers one scroll position per section; other pages use one per surface.
     pub(super) fn scroll_key(&self) -> String {
         if self.surface == "Settings" {
-            format!("Settings/{}", self.settings_section)
+            format!("Settings/{}", self.settings_section.key())
         } else {
             self.surface.clone()
         }

@@ -9,7 +9,7 @@ use lsp_types::{
 
 pub(super) struct NotebookCompletion {
     pub view: WeakEntity<Workspace>,
-    pub tab: usize,
+    pub tab_id: TabId,
     pub editor: WeakEntity<EditorState>,
 }
 
@@ -68,13 +68,12 @@ impl CompletionProvider for NotebookCompletion {
         let cursor = source[..offset].chars().count();
         let current = self.view.upgrade().and_then(|view| {
             view.read(cx)
-                .tabs
-                .get(self.tab)
+                .tab_by_id(self.tab_id)
                 .map(|tab| (tab.model.project.clone(), tab.runtime.clone()))
         });
         let editor = self.editor.clone();
         let view = self.view.clone();
-        let tab_index = self.tab;
+        let tab_id = self.tab_id;
         cx.spawn(async move |cx| {
             let expected = source.clone();
             let value = cx
@@ -108,7 +107,7 @@ impl CompletionProvider for NotebookCompletion {
             let generation_current = value["origin"] == "static"
                 || view.upgrade().is_some_and(|view| {
                     view.read_with(cx, |view, _| {
-                        view.tabs.get(tab_index).is_some_and(|tab| {
+                        view.tab_by_id(tab_id).is_some_and(|tab| {
                             tab.runtime["interactive"]["worker_generation"]
                                 == value["worker_generation"]
                                 && tab.runtime["interactive"]["namespace_epoch"]
@@ -184,13 +183,12 @@ impl HoverProvider for NotebookCompletion {
         let name = source[start..end].to_owned();
         let current = self.view.upgrade().and_then(|view| {
             view.read(cx)
-                .tabs
-                .get(self.tab)
+                .tab_by_id(self.tab_id)
                 .map(|tab| (tab.model.project.clone(), tab.runtime.clone()))
         });
         let editor = self.editor.clone();
         let view = self.view.clone();
-        let tab_index = self.tab;
+        let tab_id = self.tab_id;
         cx.spawn(async move |cx| {
             let expected = source.clone();
             let value = cx.background_executor().spawn(async move {
@@ -206,7 +204,7 @@ impl HoverProvider for NotebookCompletion {
                 result.ok()
             }).await;
             if value.as_ref().is_some_and(|value| !view.upgrade().is_some_and(|view| view.read_with(cx, |view, _|
-                view.tabs.get(tab_index).is_some_and(|tab| tab.runtime["interactive"]["worker_generation"] == value["worker_generation"] && tab.runtime["interactive"]["namespace_epoch"] == value["namespace_epoch"])) )) {
+                view.tab_by_id(tab_id).is_some_and(|tab| tab.runtime["interactive"]["worker_generation"] == value["worker_generation"] && tab.runtime["interactive"]["namespace_epoch"] == value["namespace_epoch"])) )) {
                 return Ok(None);
             }
             if !editor.upgrade().is_some_and(|editor| editor.read_with(cx, |editor, _| editor.value() == expected)) {
@@ -275,10 +273,11 @@ impl Workspace {
         if let Some(editor) = self.console_editors.get(&key) {
             return editor.clone();
         }
+        let tab_id = self.tabs[self.active].id;
         let editor = cx.new(|cx| EditorState::new(window, cx).language("python"));
         let provider = std::rc::Rc::new(NotebookCompletion {
             view: cx.entity().downgrade(),
-            tab: self.active,
+            tab_id,
             editor: editor.downgrade(),
         });
         editor.update(cx, |editor, _| {

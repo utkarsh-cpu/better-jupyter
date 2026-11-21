@@ -137,13 +137,15 @@ impl Workspace {
     }
 
     pub(super) fn toggle_export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let open = !self.export_menu;
+        let open = !matches!(self.menu, Some(ActiveMenu::Export));
         let origin = self.return_focus.clone().or_else(|| window.focused(cx));
         self.close_menu(window, cx);
-        self.return_focus = origin;
-        self.menu_anchor = "export".into();
-        self.export_menu = open;
-        self.dialog_focus.focus(window, cx);
+        if open {
+            self.return_focus = origin;
+            self.menu_anchor = "export".into();
+            self.menu = Some(ActiveMenu::Export);
+            self.dialog_focus.focus(window, cx);
+        }
         cx.notify();
     }
 }

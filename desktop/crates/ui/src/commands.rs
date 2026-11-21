@@ -389,17 +389,13 @@ impl Workspace {
         }
         let key = event.keystroke.key.as_str();
         let m = event.keystroke.modifiers;
-        if self.app_menu
-            || self.export_menu
-            || self.runtime_menu
-            || self.notebook_menu
-            || self.cell_menu.is_some()
-            || self.insert_menu.is_some()
-        {
+        if self.has_menu() {
             if key == "escape" {
                 self.close_menu(window, cx);
-            } else if self.cell_menu.is_some() && matches!(key, "left" | "right") {
-                self.cell_menu_assistant = key == "right";
+            } else if let Some(ActiveMenu::Cell { assistant, .. }) = &mut self.menu
+                && matches!(key, "left" | "right")
+            {
+                *assistant = key == "right";
                 self.dialog_focus.focus(window, cx);
                 cx.notify();
             } else if key == "tab" {
@@ -843,12 +839,7 @@ impl Workspace {
     pub(super) fn select_surface(&mut self, surface: &str, cx: &mut Context<Self>) {
         // Drop destination-scoped chrome so hover/tooltips and menus cannot
         // linger over an unrelated page (live UX E / apple-design live finding).
-        self.app_menu = false;
-        self.export_menu = false;
-        self.runtime_menu = false;
-        self.notebook_menu = false;
-        self.cell_menu = None;
-        self.insert_menu = None;
+        self.menu = None;
         self.palette = false;
         self.menu_anchor.clear();
         self.menu_bounds.clear();

@@ -113,6 +113,7 @@ fn sandboxed_builder(
     preferences: &Preferences,
     path: String,
     signals: std::sync::mpsc::SyncSender<HtmlSignal>,
+    wake: std::sync::Arc<dyn Fn() + Send + Sync>,
     key: String,
     token: String,
 ) -> WebViewBuilder<'static> {
@@ -130,7 +131,16 @@ fn sandboxed_builder(
             if request.body().len() <= 1024
                 && let Ok(value) = serde_json::from_str::<Value>(request.body())
             {
-                let _ = signals.try_send(HtmlSignal { key: key.clone(), token: token.clone(), value });
+                if signals
+                    .try_send(HtmlSignal {
+                        key: key.clone(),
+                        token: token.clone(),
+                        value,
+                    })
+                    .is_ok()
+                {
+                    wake();
+                }
             }
         })
         // CSP connect-src does not cover WebRTC's direct peer/STUN traffic.
@@ -258,14 +268,7 @@ impl Workspace {
     }
 
     pub(super) fn html_views_blocked(&self) -> bool {
-        self.app_menu
-            || self.export_menu
-            || self.runtime_menu
-            || self.notebook_menu
-            || self.cell_menu.is_some()
-            || self.insert_menu.is_some()
-            || self.palette
-            || self.confirmation.is_some()
+        self.has_menu() || self.palette || self.confirmation.is_some()
     }
 
     pub(super) fn conceal_html_views(&self, cx: &mut App) {
@@ -458,6 +461,7 @@ impl Workspace {
                 &self.preferences,
                 path,
                 self.html_signals.clone(),
+                self.wake_notifier(),
                 key.clone(),
                 token,
             ),

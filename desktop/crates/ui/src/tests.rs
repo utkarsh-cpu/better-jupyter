@@ -1,6 +1,6 @@
 use super::{
-    Palette, Tab, Workspace, confirmation_copy, history_matches, inspection_surface,
-    runtime_action_available,
+    ActiveMenu, Palette, Tab, TabId, Workspace, confirmation_copy, history_matches,
+    inspection_surface, runtime_action_available, settings::SettingsSection,
 };
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Entity, Focusable, ListAlignment, ListState, Point,
@@ -307,7 +307,9 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut view = Workspace::new(None, "system", vec![], window, cx);
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
-                view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
+                let tab_id = TabId(view.next_tab_id);
+                view.next_tab_id += 1;
+                view.tabs.push(Tab { id: tab_id, assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
                     debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
                 view
             })
@@ -565,21 +567,21 @@ fn export_menu_blocks_background_actions_and_escape_restores_focus(cx: &mut Test
         view.update(cx, |v, cx| v.focus.focus(window, cx));
         window.render_frame(cx);
         window.press("ctrl-shift-e", cx);
-        assert!(view.read(cx).export_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Export));
         assert!(view.read(cx).dialog_focus.is_focused(window));
         window.render_frame(cx);
         window.press("ctrl-shift-n", cx);
         window.press("ctrl-shift-enter", cx);
         assert!(commands.try_recv().is_err());
         window.press("escape", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
         view.update(cx, |v, _| {
             v.tabs[0].model.cells.get_mut("first").unwrap().save =
                 kernelledger_models::SaveState::Conflict
         });
         window.press("ctrl-shift-e", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
     })
     .unwrap();
 }
@@ -596,7 +598,7 @@ fn export_selection_sends_format_and_cancellation_sends_nothing(cx: &mut TestApp
             window.press("ctrl-shift-e", cx);
             window.render_frame(cx);
             window.click(format!("export-{format}"), cx);
-            assert!(!view.read(cx).export_menu);
+            assert!(view.read(cx).menu.is_none());
         })
         .unwrap();
         assert!(cx.did_prompt_for_new_path());
@@ -1020,8 +1022,8 @@ fn theme_text_and_focus_tokens_meet_contrast_thresholds(cx: &mut TestAppContext)
 #[gpui_kit::test]
 fn clipped_settings_control_scrolls_into_view_before_it_runs(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
-    let (section, id) = ("editor", "editor-size-24");
-    let key = format!("Settings/{section}");
+    let (section, id) = (SettingsSection::Editor, "editor-size-24");
+    let key = format!("Settings/{}", section.key());
     let observe = |cx: &mut TestAppContext, height: f32| {
         cx.simulate_window_resize(handle, size(px(800.), px(height)));
         cx.update_window(handle, |_, window, cx| {
@@ -1034,7 +1036,7 @@ fn clipped_settings_control_scrolls_into_view_before_it_runs(cx: &mut TestAppCon
             window.render_frame(cx);
             let viewport = view.read(cx).tabs[0]
                 .scrolls
-                .get(&format!("Settings/{section}"))
+                .get(&format!("Settings/{}", section.key()))
                 .expect("each Settings section keeps a scroll handle")
                 .bounds();
             let node = window.find(id);
@@ -1122,7 +1124,7 @@ fn settings_segments_change_preferences_through_native_buttons(cx: &mut TestAppC
         window.render_frame(cx);
         assert!(window.try_find("editor-size-16").is_none());
         window.click("settings-nav-editor", cx);
-        assert_eq!(view.read(cx).settings_section, "editor");
+        assert_eq!(view.read(cx).settings_section, SettingsSection::Editor);
         window.render_frame(cx);
         assert!(window.try_find("appearance-dark").is_none());
         window.click("editor-size-16", cx);
@@ -1243,13 +1245,13 @@ fn menu_blocks_background_execution_and_escape_returns_focus(cx: &mut TestAppCon
             v.tabs[0].model.selected = Some("first".into());
             v.focus.focus(window, cx);
             v.return_focus = Some(v.focus.clone());
-            v.app_menu = true;
+            v.menu = Some(ActiveMenu::Application);
             v.dialog_focus.focus(window, cx);
         });
         window.render_frame(cx);
         window.press("ctrl-enter", cx);
         window.press("escape", cx);
-        assert!(!view.read(cx).app_menu);
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
     })
     .unwrap();
@@ -1265,19 +1267,15 @@ fn changing_destination_clears_menus_and_palette(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, cx| {
-            v.app_menu = true;
-            v.export_menu = true;
-            v.runtime_menu = true;
+            v.menu = Some(ActiveMenu::Cell {
+                cell_id: "first".into(),
+                index: 0,
+                assistant: true,
+            });
             v.palette = true;
-            v.cell_menu = Some(("first".into(), 0));
-            v.insert_menu = Some(0);
             v.select_surface("History", cx);
-            assert!(!v.app_menu);
-            assert!(!v.export_menu);
-            assert!(!v.runtime_menu);
+            assert!(v.menu.is_none());
             assert!(!v.palette);
-            assert!(v.cell_menu.is_none());
-            assert!(v.insert_menu.is_none());
             assert_eq!(v.surface, "History");
         });
         window.render_frame(cx);
@@ -1293,7 +1291,7 @@ fn application_menu_rows_span_the_panel_and_start_on_the_leading_edge(cx: &mut T
         window.render_frame(cx);
         window.click("application-menu", cx);
         window.render_frame(cx);
-        assert!(view.read(cx).app_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Application));
     })
     .unwrap();
     let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
@@ -1359,7 +1357,7 @@ fn history_filters_validate_dates_and_keep_existing_text_and_outcome(cx: &mut Te
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, cx| {
             v.surface = "History".into();
-            v.history_owner = Some(0);
+            v.history_owner = Some(v.tabs[0].id);
             v.history_query
                 .update(cx, |s, cx| s.set_value("outcome:error total", window, cx));
             v.tabs[0]
@@ -1415,7 +1413,7 @@ fn history_pending_edits_never_describe_the_list_and_clear_resets_both(cx: &mut 
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "History".into();
-            v.history_owner = Some(0);
+            v.history_owner = Some(v.tabs[0].id);
             v.tabs[0].inspections.insert("History".into(), rows);
         });
         window.render_frame(cx);
@@ -1483,7 +1481,7 @@ fn history_cursor_keeps_session_scope_and_return_to_cell_restores_editor(cx: &mu
     let (handle, view, commands) = mount(cx);
     cx.update_window(handle,|_,window,cx|{
         view.update(cx,|v,cx|{
-            v.surface="History".into();v.history_owner=Some(0);
+            v.surface="History".into();v.history_owner=Some(v.tabs[0].id);
             v.tabs[0].inspection_method.insert("History".into(),"executions.list".into());
             v.tabs[0].inspections.insert("History".into(),json!({"items":[],"cursor":"next","_page_request":{"session_id":"saved-session"}}));
             v.editor(0,"first",window,cx);
@@ -1647,7 +1645,7 @@ fn disabled_titlebar_action_stays_centered_and_runtime_actions_live_in_menu(
         window.render_frame(cx);
         window.click("run-all", cx);
         window.click("runtime-menu", cx);
-        assert!(view.read(cx).runtime_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Runtime));
         window.render_frame(cx);
         window.click("interrupt", cx);
         assert!(view.read(cx).confirmation.is_none());
@@ -1996,7 +1994,7 @@ fn provider_setup_round_trip_keeps_the_question_and_context(cx: &mut TestAppCont
         window.render_frame(cx);
         let v = view.read(cx);
         assert_eq!(v.surface, "Settings");
-        assert_eq!(v.settings_section, "assistant");
+        assert_eq!(v.settings_section, SettingsSection::Assistant);
         assert_eq!(v.tabs[0].assistant.selected_cells, ["second"]);
         assert_eq!(question.read(cx).value().to_string(), "Why is x zero?");
     })
@@ -2018,7 +2016,7 @@ fn settings_owns_its_width_and_return_restores_assistant(cx: &mut TestAppContext
                 view.update(cx, |v, cx| {
                     v.preferences.ui_scale = scale;
                     v.tabs[0].assistant.open = true;
-                    v.settings_section = "assistant";
+                    v.settings_section = SettingsSection::Assistant;
                     v.select_surface("Settings", cx);
                 });
                 window.render_frame(cx);
@@ -2253,7 +2251,11 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
                 cx: &mut gpui_kit::Context<Workspace>| {
         v.focus.focus(window, cx);
         v.return_focus = Some(v.focus.clone());
-        v.cell_menu = Some(("second".into(), 1));
+        v.menu = Some(ActiveMenu::Cell {
+            cell_id: "second".into(),
+            index: 1,
+            assistant: false,
+        });
         v.dialog_focus.focus(window, cx);
     };
     cx.update_window(handle, |_, window, cx| {
@@ -2263,16 +2265,28 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
         });
         window.render_frame(cx);
         window.press("right", cx);
-        assert!(view.read(cx).cell_menu_assistant);
+        assert!(matches!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Cell {
+                assistant: true,
+                ..
+            })
+        ));
         window.render_frame(cx);
         window.press("left", cx);
-        assert!(!view.read(cx).cell_menu_assistant);
+        assert!(matches!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Cell {
+                assistant: false,
+                ..
+            })
+        ));
         window.render_frame(cx);
         window.click("cell-menu-assistant", cx);
         window.render_frame(cx);
         window.click("ai-edit", cx);
         let v = view.read(cx);
-        assert!(v.cell_menu.is_none());
+        assert!(v.menu.is_none());
         assert_eq!(v.tabs[0].model.selected.as_deref(), Some("second"));
         assert_eq!(v.tabs[0].assistant.selected_cells, ["second"]);
     })
@@ -2284,7 +2298,7 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
         view.update(cx, |v, cx| open(v, window, cx));
         window.render_frame(cx);
         window.press("escape", cx);
-        assert!(view.read(cx).cell_menu.is_none());
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
     })
     .unwrap();
@@ -2592,7 +2606,7 @@ fn collapsed_destinations_and_export_remain_reachable(cx: &mut TestAppContext) {
         window.render_frame(cx);
         assert!(!super::shell::header_collapse(800., 1., false).run_label);
         window.click("Notebook", cx);
-        assert!(view.read(cx).app_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Application));
         window.render_frame(cx);
         window.click("destination-History", cx);
         assert_eq!(view.read(cx).surface, "History");
@@ -2605,10 +2619,10 @@ fn collapsed_destinations_and_export_remain_reachable(cx: &mut TestAppContext) {
         window.click("application-menu", cx);
         window.render_frame(cx);
         window.click("menu-export", cx);
-        assert!(view.read(cx).export_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Export));
         window.render_frame(cx);
         window.press("escape", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
     })
     .unwrap();
 }
@@ -2631,7 +2645,7 @@ fn duration_preference_is_optional_and_last_execution_identity_controls_the_badg
         }
         view.update(cx, |v, _| {
             assert!(!v.preferences.show_cell_duration);
-            v.surface = "Settings".into(); v.settings_section = "layout";
+            v.surface = "Settings".into(); v.settings_section = SettingsSection::Layout;
         });
         window.render_frame(cx);
         window.click("show-cell-duration", cx);
@@ -2698,7 +2712,7 @@ fn html_network_settings_validate_domains_and_stop_existing_outputs(cx: &mut Tes
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "layout";
+            v.settings_section = SettingsSection::Layout;
             v.tabs[0].html_notes.insert(
                 "first-0".into(),
                 "Interactive HTML is not created in automated tests.".into(),
@@ -2759,7 +2773,7 @@ fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
             })];
             v.tabs[0].list.splice(0..1, 1);
             v.surface = "Settings".into();
-            v.settings_section = "layout";
+            v.settings_section = SettingsSection::Layout;
         });
         window.render_frame(cx);
         window.click("allow-html-output", cx);
@@ -3519,7 +3533,7 @@ fn provider_choice_is_a_draft_and_one_save_uses_the_selected_endpoint(cx: &mut T
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "assistant";
+            v.settings_section = SettingsSection::Assistant;
             v.tabs[0].assistant.settings = json!({"settings":{"provider":"openai-compatible","model":"test-model","providers":{"openai-compatible":{"base_url":"http://localhost:11434/v1","structured_output":true}}}});
         });
         window.render_frame(cx);
@@ -3714,7 +3728,7 @@ fn invalid_budget_is_reported_inline_and_blocks_save(cx: &mut TestAppContext) {
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "assistant";
+            v.settings_section = SettingsSection::Assistant;
             v.tabs[0].assistant.settings =
                 json!({"settings":{"provider":"openai-compatible","model":"m"}});
         });

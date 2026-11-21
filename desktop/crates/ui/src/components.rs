@@ -85,8 +85,10 @@ impl GroupReveal {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct WorkbenchPresentation {
     pub comfortable: bool,
+    pub high_contrast: bool,
 }
 impl gpui_kit::Global for WorkbenchPresentation {}
 

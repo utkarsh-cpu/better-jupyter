@@ -102,7 +102,26 @@ const SURFACES: [(&str, Glyph, &str); 10] = [
 mod commands;
 use commands::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct TabId(pub u64);
+
+/// At most one header or contextual popover menu can be open at a time.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ActiveMenu {
+    Application,
+    Notebook,
+    Export,
+    Runtime,
+    Cell {
+        cell_id: String,
+        index: usize,
+        assistant: bool,
+    },
+    Insert(usize),
+}
+
 struct Tab {
+    id: TabId,
     assistant: assistant::AssistantView,
     model: NotebookModel,
     service: NotebookService,
@@ -135,6 +154,7 @@ struct Tab {
 pub struct Workspace {
     tabs: Vec<Tab>,
     active: usize,
+    next_tab_id: u64,
     focus: FocusHandle,
     surface: String,
     palette: bool,
@@ -145,6 +165,8 @@ pub struct Workspace {
     questions: BTreeMap<String, Entity<TextareaState>>,
     console_editors: BTreeMap<String, Entity<EditorState>>,
     tick: Task<()>,
+    wake: smol::channel::Sender<()>,
+    appearance_subscription: Option<Subscription>,
     python: PathBuf,
     dark: bool,
     high_contrast: bool,
@@ -156,14 +178,8 @@ pub struct Workspace {
     assistant_scroll_mark: (usize, bool, bool, usize, bool, usize),
     return_focus: Option<FocusHandle>,
     sidebar_visible: bool,
-    app_menu: bool,
-    notebook_menu: bool,
-    export_menu: bool,
-    history_owner: Option<usize>,
-    runtime_menu: bool,
-    cell_menu: Option<(String, usize)>,
-    cell_menu_assistant: bool,
-    insert_menu: Option<usize>,
+    menu: Option<ActiveMenu>,
+    history_owner: Option<TabId>,
     menu_anchor: String,
     menu_bounds: BTreeMap<String, Bounds<Pixels>>,
     preferences: kernelledger_client::preferences::Preferences,
@@ -182,7 +198,7 @@ pub struct Workspace {
     history_fields_key: String,
     history_filters_open: bool,
     history_enter: Option<Subscription>,
-    settings_section: &'static str,
+    settings_section: settings::SettingsSection,
     help_query: Entity<InputState>,
     record_active: usize,
     sidebar_focus: FocusHandle,
@@ -194,6 +210,8 @@ pub struct Workspace {
     recent: Vec<RecentNotebook>,
     recorded_opens: std::collections::BTreeSet<PathBuf>,
     welcome_notice: Option<String>,
+    applied_title: String,
+    applied_presentation: Option<WorkbenchPresentation>,
 }
 impl Workspace {
     pub fn new(
@@ -253,9 +271,11 @@ impl Workspace {
             input
         });
         let (html_signals, html_signal_receiver) = std::sync::mpsc::sync_channel(64);
+        let (wake, wake_rx) = smol::channel::bounded(1);
         let mut view = Self {
             tabs: vec![],
             active: 0,
+            next_tab_id: 1,
             focus: cx.focus_handle(),
             surface: "Notebook".into(),
             palette: false,
@@ -265,6 +285,8 @@ impl Workspace {
             questions: BTreeMap::new(),
             console_editors: BTreeMap::new(),
             tick: Task::ready(()),
+            wake,
+            appearance_subscription: None,
             python: std::env::var_os("KL_RUNTIME_PYTHON")
                 .map(PathBuf::from)
                 .or_else(|| {
@@ -289,14 +311,8 @@ impl Workspace {
             assistant_scroll_mark: Default::default(),
             return_focus: None,
             sidebar_visible: preferences.outline_visible,
-            app_menu: false,
-            notebook_menu: false,
-            export_menu: false,
+            menu: None,
             history_owner: None,
-            runtime_menu: false,
-            cell_menu: None,
-            cell_menu_assistant: false,
-            insert_menu: None,
             menu_anchor: String::new(),
             menu_bounds: BTreeMap::new(),
             preferences,
@@ -316,7 +332,7 @@ impl Workspace {
             history_fields_key: String::new(),
             history_filters_open: false,
             history_enter: None,
-            settings_section: settings::SECTIONS[0].0,
+            settings_section: settings::SettingsSection::Appearance,
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
@@ -328,6 +344,8 @@ impl Workspace {
             recent,
             recorded_opens: Default::default(),
             welcome_notice: None,
+            applied_title: String::new(),
+            applied_presentation: None,
         };
         let weak = cx.entity().downgrade();
         let handle = window.window_handle();
@@ -346,6 +364,10 @@ impl Workspace {
                 });
             }
         }));
+        view.appearance_subscription = Some(cx.observe_window_appearance(
+            window,
+            |view, window, cx| view.sync_system_appearance(window, cx),
+        ));
         view.history_enter = Some(cx.subscribe_in(
             &view.history_query,
             window,
@@ -360,12 +382,33 @@ impl Workspace {
         }
         view.tick = cx.spawn_in(window, async move |view, window| {
             loop {
-                window
-                    .background_executor()
-                    .timer(Duration::from_millis(50))
-                    .await;
+                let busy = view
+                    .read_with(window, |view, _| {
+                        view.tabs.iter().any(|tab| tab.assistant.busy)
+                    })
+                    .unwrap_or(false);
+                if busy {
+                    let wake_fut = async { wake_rx.recv().await.is_ok() };
+                    let timer_fut = async {
+                        window
+                            .background_executor()
+                            .timer(Duration::from_secs(1))
+                            .await;
+                        true
+                    };
+                    if !smol::future::or(wake_fut, timer_fut).await {
+                        break;
+                    }
+                } else if wake_rx.recv().await.is_err() {
+                    break;
+                }
                 if view
-                    .update_in(window, |view, window, cx| view.drain(window, cx))
+                    .update_in(window, |view, window, cx| {
+                        view.drain(window, cx);
+                        if view.tabs.iter().any(|tab| tab.assistant.busy) {
+                            cx.notify();
+                        }
+                    })
                     .is_err()
                 {
                     break;
@@ -377,14 +420,70 @@ impl Workspace {
         view.focus.focus(window, cx);
         view
     }
+
+    pub(crate) fn wake_notifier(&self) -> std::sync::Arc<dyn Fn() + Send + Sync> {
+        let wake = self.wake.clone();
+        std::sync::Arc::new(move || {
+            let _ = wake.try_send(());
+        })
+    }
+
+    pub(crate) fn has_menu(&self) -> bool {
+        self.menu.is_some()
+    }
+
+    pub(crate) fn tab_index_by_id(&self, id: TabId) -> Option<usize> {
+        self.tabs.iter().position(|tab| tab.id == id)
+    }
+
+    pub(crate) fn tab_by_id(&self, id: TabId) -> Option<&Tab> {
+        self.tabs.iter().find(|tab| tab.id == id)
+    }
+
+    pub(crate) fn tab_by_id_mut(&mut self, id: TabId) -> Option<&mut Tab> {
+        self.tabs.iter_mut().find(|tab| tab.id == id)
+    }
+
+    fn sync_system_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.follow_system {
+            let dark = matches!(
+                window.appearance(),
+                WindowAppearance::Dark | WindowAppearance::VibrantDark
+            );
+            let high_contrast = system_high_contrast();
+            if self.dark != dark || self.high_contrast != high_contrast {
+                self.dark = dark;
+                self.high_contrast = high_contrast;
+                apply_theme(self.dark, self.high_contrast, window, cx);
+            }
+        }
+    }
+
+    fn sync_confirmation_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.confirmation.is_some() && !self.dialog_open {
+            self.return_focus = window.focused(cx);
+            self.confirm_focus.focus(window, cx);
+            self.dialog_open = true;
+        } else if self.confirmation.is_none() && self.dialog_open {
+            self.dialog_open = false;
+            if let Some(focus) = self.return_focus.take() {
+                focus.focus(window, cx);
+            }
+        }
+    }
+
     fn open(&mut self, project: PathBuf, cx: &mut Context<Self>) {
         if let Some(i) = self.tabs.iter().position(|t| t.model.project == project) {
             self.active = i;
             return;
         }
+        let id = TabId(self.next_tab_id);
+        self.next_tab_id += 1;
+        let wake = self.wake_notifier();
         self.tabs.push(Tab {
+            id,
             assistant: assistant::AssistantView::default(),
-            service: NotebookService::start(project.clone(), self.python.clone()),
+            service: NotebookService::start_with_wake(project.clone(), self.python.clone(), wake),
             model: NotebookModel {
                 project,
                 ..Default::default()
@@ -483,28 +582,8 @@ impl Workspace {
         .detach();
     }
     fn drain(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.follow_system {
-            let dark = matches!(
-                window.appearance(),
-                WindowAppearance::Dark | WindowAppearance::VibrantDark
-            );
-            let high_contrast = system_high_contrast();
-            if self.dark != dark || self.high_contrast != high_contrast {
-                self.dark = dark;
-                self.high_contrast = high_contrast;
-                apply_theme(self.dark, self.high_contrast, window, cx);
-            }
-        }
-        if self.confirmation.is_some() && !self.dialog_open {
-            self.return_focus = window.focused(cx);
-            self.confirm_focus.focus(window, cx);
-            self.dialog_open = true;
-        } else if self.confirmation.is_none() && self.dialog_open {
-            self.dialog_open = false;
-            if let Some(focus) = self.return_focus.take() {
-                focus.focus(window, cx);
-            }
-        }
+        self.sync_system_appearance(window, cx);
+        self.sync_confirmation_focus(window, cx);
         let mut changed = false;
         let mut html_ready = Vec::new();
         for (event_tab, tab) in self.tabs.iter_mut().enumerate() {
@@ -1379,7 +1458,10 @@ impl Workspace {
             return;
         }
         // Preserve editors, drafts and durable operation keys; never resubmit work.
-        tab.service = NotebookService::start(tab.model.project.clone(), self.python.clone());
+        let wake = self.wake_notifier();
+        let tab = &mut self.tabs[self.active];
+        tab.service =
+            NotebookService::start_with_wake(tab.model.project.clone(), self.python.clone(), wake);
         tab.error = None;
         tab.inspections.remove("Technical error");
         tab.inspections.remove("Application Python");
@@ -1665,40 +1747,39 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.conceal_html_views(cx);
-        if self.confirmation.is_some() && !self.dialog_open {
-            self.return_focus = window.focused(cx);
-            self.confirm_focus.focus(window, cx);
-            self.dialog_open = true;
-        } else if self.confirmation.is_none() && self.dialog_open {
-            self.dialog_open = false;
-            if let Some(focus) = self.return_focus.take() {
-                focus.focus(window, cx);
-            }
-        }
-        if self.history_owner != Some(self.active) && !self.tabs.is_empty() {
-            if let Some(old) = self
-                .history_owner
-                .and_then(|index| self.tabs.get_mut(index))
-            {
-                old.history_filter = self.history_query.read(cx).value().to_string();
+        self.sync_confirmation_focus(window, cx);
+        let active_id = self.tabs.get(self.active).map(|tab| tab.id);
+        if self.history_owner != active_id && !self.tabs.is_empty() {
+            let previous_query = self.history_query.read(cx).value().to_string();
+            if let Some(old) = self.history_owner.and_then(|id| self.tab_by_id_mut(id)) {
+                old.history_filter = previous_query;
             }
             let query = self.tabs[self.active].history_filter.clone();
             self.history_query
                 .update(cx, |state, cx| state.set_value(query, window, cx));
-            self.history_owner = Some(self.active);
+            self.history_owner = active_id;
             self.history_controls.clear();
             self.history_field_subscriptions.clear();
             self.history_fields_key.clear();
         }
-        cx.set_global(WorkbenchPresentation {
+        let presentation = WorkbenchPresentation {
             comfortable: self.preferences.comfortable,
-        });
-        window.set_rem_size(px(16. * self.preferences.ui_scale));
+            high_contrast: self.high_contrast,
+        };
+        if self.applied_presentation != Some(presentation) {
+            cx.set_global(presentation);
+            self.applied_presentation = Some(presentation);
+        }
+        let rem_size = px(16. * self.preferences.ui_scale);
+        if window.rem_size() != rem_size {
+            window.set_rem_size(rem_size);
+        }
         let font_size = px(14. * self.preferences.ui_scale);
-        if cx.theme().font_size != font_size {
+        let mono_font_size = px(13. * self.preferences.ui_scale);
+        if cx.theme().font_size != font_size || cx.theme().mono_font_size != mono_font_size {
             let theme = Theme::global_mut(cx);
             theme.font_size = font_size;
-            theme.mono_font_size = font_size;
+            theme.mono_font_size = mono_font_size;
             Theme::sync_base(cx);
         }
         self.compact = window.viewport_size().width < px(1024. * self.preferences.ui_scale);
@@ -1723,7 +1804,10 @@ impl Render for Workspace {
                 )
             })
             .unwrap_or_else(|| "KernelLedger".into());
-        window.set_window_title(&title);
+        if self.applied_title != title {
+            window.set_window_title(&title);
+            self.applied_title = title;
+        }
         let filter = self.palette_query.read(cx).value().to_lowercase();
         if filter != self.palette_filter {
             self.palette_filter = filter;
@@ -1753,12 +1837,7 @@ impl Render for Workspace {
                 cx.listener(|v, action: &shortcuts::WorkbenchCommand, window, cx| {
                     if !v.palette
                         && v.confirmation.is_none()
-                        && !v.app_menu
-                        && !v.runtime_menu
-                        && !v.export_menu
-                        && !v.notebook_menu
-                        && v.cell_menu.is_none()
-                        && v.insert_menu.is_none()
+                        && !v.has_menu()
                         && (!matches!(action.method.as_str(), "undo-source" | "redo-source")
                             || v.focus.is_focused(window))
                     {
@@ -1952,13 +2031,7 @@ impl Render for Workspace {
                 )
                 .child(self.status_bar(cx));
         }
-        if self.app_menu
-            || self.export_menu
-            || self.runtime_menu
-            || self.notebook_menu
-            || self.cell_menu.is_some()
-            || self.insert_menu.is_some()
-        {
+        if self.has_menu() {
             root = root.child(self.menu_overlay(window, cx));
         }
         if self.palette {

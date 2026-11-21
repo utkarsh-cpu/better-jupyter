@@ -78,10 +78,11 @@ impl Workspace {
             s
         });
         let id = id.to_string();
+        let tab_id = self.tabs[tab_index].id;
         if kind == "code" {
             let provider = std::rc::Rc::new(interactive::NotebookCompletion {
                 view: cx.entity().downgrade(),
-                tab: tab_index,
+                tab_id,
                 editor: editor.downgrade(),
             });
             editor.update(cx, |editor, _| {
@@ -92,6 +93,9 @@ impl Workspace {
         let subscription = cx.subscribe(&editor, {
             let id = id.clone();
             move |view, editor, event: &InputEvent, cx| {
+                let Some(tab_index) = view.tab_index_by_id(tab_id) else {
+                    return;
+                };
                 let tab = &mut view.tabs[tab_index];
                 if matches!(event, InputEvent::Focus) {
                     view.active = tab_index;
@@ -331,7 +335,10 @@ impl Workspace {
                     .icon(Glyph::Ellipsis)
                     .contextual(group.clone(), selected || self.preferences.comfortable)
                     .when(
-                        self.cell_menu.as_ref().is_none_or(|(open, _)| *open != id),
+                        !matches!(
+                            &self.menu,
+                            Some(ActiveMenu::Cell { cell_id, .. }) if cell_id == &id
+                        ),
                         |b| b.hint("Cell actions"),
                     )
                     .accessibility_label(format!(
@@ -345,7 +352,11 @@ impl Workspace {
                             let opener = window.focused(cx);
                             v.close_menu(window, cx);
                             v.return_focus = opener;
-                            v.cell_menu = Some((id.clone(), index));
+                            v.menu = Some(ActiveMenu::Cell {
+                                cell_id: id.clone(),
+                                index,
+                                assistant: false,
+                            });
                             v.menu_anchor = key.clone();
                             v.dialog_focus.focus(window, cx);
                             cx.notify();
@@ -884,7 +895,7 @@ impl Workspace {
                                     move |v, _, window, cx| {
                                         v.close_menu(window, cx);
                                         v.return_focus = window.focused(cx);
-                                        v.insert_menu = Some(index + 1);
+                                        v.menu = Some(ActiveMenu::Insert(index + 1));
                                         v.menu_anchor = key.clone();
                                         v.dialog_focus.focus(window, cx);
                                         cx.notify();

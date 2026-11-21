@@ -1,6 +1,6 @@
 //! Independent assistant transport. Provider waits never block autosave or runtime polling.
 use super::*;
-use crate::service::Event;
+use crate::service::{Event, EventSink};
 use std::sync::{Arc, Mutex, mpsc};
 
 pub struct AssistantService {
@@ -10,7 +10,7 @@ pub struct AssistantService {
 }
 
 impl AssistantService {
-    pub fn new(project: PathBuf, mut python: PathBuf, events: mpsc::Sender<Event>) -> Self {
+    pub(crate) fn new(project: PathBuf, mut python: PathBuf, events: EventSink) -> Self {
         let (requests, receive) = mpsc::channel::<(String, Value)>();
         let process = Arc::new(Mutex::new(None::<Child>));
         let child = process.clone();

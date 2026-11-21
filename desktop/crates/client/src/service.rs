@@ -360,14 +360,48 @@ fn poll_outputs(watch: &mut OutputWatch, helper: &mut HelperClient) -> Result<Ve
     watch.poll(|method, fields| helper.request(method, fields))
 }
 
+#[derive(Clone)]
+pub(crate) struct EventSink {
+    sender: Sender<Event>,
+    wake: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+}
+impl EventSink {
+    pub(crate) fn send(&self, event: Event) -> std::result::Result<(), mpsc::SendError<Event>> {
+        let result = self.sender.send(event);
+        if result.is_ok()
+            && let Some(wake) = &self.wake
+        {
+            wake();
+        }
+        result
+    }
+}
+
 pub struct NotebookService {
     pub commands: Sender<Command>,
     pub events: Receiver<Event>,
 }
 impl NotebookService {
     pub fn start(project: PathBuf, python: PathBuf) -> Self {
+        Self::start_inner(project, python, None)
+    }
+
+    pub fn start_with_wake(
+        project: PathBuf,
+        python: PathBuf,
+        wake: std::sync::Arc<dyn Fn() + Send + Sync>,
+    ) -> Self {
+        Self::start_inner(project, python, Some(wake))
+    }
+
+    fn start_inner(
+        project: PathBuf,
+        python: PathBuf,
+        wake: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
+    ) -> Self {
         let (commands, receive) = mpsc::channel();
-        let (send, events) = mpsc::channel();
+        let (sender, events) = mpsc::channel();
+        let send = EventSink { sender, wake };
         std::thread::spawn(move || {
             let candidates = if python.as_os_str().is_empty() {
                 helper_candidates(&project)
@@ -466,7 +500,7 @@ struct Session {
     edits: BTreeMap<String, Edit>,
     conflicts: BTreeSet<String>,
     operations: BTreeMap<String, Value>,
-    events: Sender<Event>,
+    events: EventSink,
     last_poll: Instant,
     last_source: Instant,
     folds: BTreeMap<String, String>,
@@ -478,7 +512,7 @@ struct Session {
     disconnect_since: Option<Instant>,
 }
 impl Session {
-    fn new(project: PathBuf, python: PathBuf, events: Sender<Event>) -> Result<Self> {
+    fn new(project: PathBuf, python: PathBuf, events: EventSink) -> Result<Self> {
         let project = project.canonicalize()?;
         let profile = profile_path();
         let identity = ClientIdentity::load(&profile)?;
@@ -1615,7 +1649,7 @@ fn write_profile(path: &Path, bytes: &[u8]) -> Result<()> {
     fs::rename(temporary, path)?;
     Ok(())
 }
-fn report(events: &Sender<Event>, error: anyhow::Error) {
+fn report(events: &EventSink, error: anyhow::Error) {
     let code = error
         .downcast_ref::<ProtocolError>()
         .map(|error| error.code.clone())
