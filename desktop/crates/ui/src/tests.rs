@@ -310,7 +310,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let tab_id = TabId(view.next_tab_id);
                 view.next_tab_id += 1;
                 view.tabs.push(Tab { id: tab_id, assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), variables_state: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
                 view
             })
         }).unwrap()
@@ -3864,6 +3864,7 @@ fn close_tab_switches_active_and_returns_to_welcome_on_last_tab(cx: &mut TestApp
                 error: None,
                 attachment_pages: BTreeMap::new(),
                 variables_scroll: Default::default(),
+                variables_state: Default::default(),
                 console_history: vec![],
                 html_views: BTreeMap::new(),
                 html_states: BTreeMap::new(),
@@ -4004,4 +4005,378 @@ fn help_document_parses_shortcut_table_and_outcome_labels_capitalize() {
     );
     assert_eq!(super::components::outcome_label("stale"), "Stale");
     assert_eq!(super::components::outcome_label("stopped"), "Stopped");
+}
+
+#[test]
+fn variables_category_filtering_column_search_and_breadcrumbs() {
+    use super::interactive::{
+        breadcrumb_expression, variable_matches, variable_matches_category, variable_short_type,
+    };
+
+    let df = json!({
+        "name": "sales_df",
+        "type": "pandas.core.frame.DataFrame",
+        "short_type": "DataFrame",
+        "category": "tabular",
+        "size_label": "120 rows \u{00d7} 4 cols",
+        "preview": "DataFrame(120\u{00d7}4) [region, revenue, units, date]",
+        "columns_preview": ["region", "revenue", "units", "date"]
+    });
+    let arr = json!({
+        "name": "weights",
+        "type": "numpy.ndarray",
+        "short_type": "ndarray",
+        "category": "array",
+        "size_label": "(32, 64) float32",
+        "preview": "array((32, 64), float32)"
+    });
+    let rows = json!({
+        "name": "rows",
+        "type": "list",
+        "short_type": "list",
+        "category": "collection",
+        "size_label": "5 items",
+        "preview": "[(1, 'a'), (2, 'b')]"
+    });
+    let lr = json!({
+        "name": "lr",
+        "type": "float",
+        "short_type": "float",
+        "category": "scalar",
+        "preview": "0.001"
+    });
+    let legacy_df = json!({
+        "name": "old_df",
+        "type": "pandas.core.frame.DataFrame",
+        "preview": "10 rows x 2 cols"
+    });
+
+    assert_eq!(variable_short_type(&legacy_df), "DataFrame");
+    assert!(variable_matches(&df, "revenue"));
+    assert!(variable_matches(&df, "120 rows"));
+    assert!(variable_matches(&arr, "float32"));
+    assert!(!variable_matches(&rows, "revenue"));
+
+    assert!(variable_matches_category(&df, "all"));
+    assert!(variable_matches_category(&df, "tables_arrays"));
+    assert!(variable_matches_category(&arr, "tables_arrays"));
+    assert!(variable_matches_category(&legacy_df, "tables_arrays"));
+    assert!(!variable_matches_category(&rows, "tables_arrays"));
+    assert!(variable_matches_category(&rows, "collections"));
+    assert!(variable_matches_category(&lr, "scalars"));
+    assert!(variable_matches_category(
+        &json!({"name": "fn", "type": "function", "category": "callable"}),
+        "other"
+    ));
+
+    let nested = json!({
+        "name": "rows",
+        "breadcrumbs": [
+            {"label": "rows", "segments": []},
+            {"label": "[0]", "segments": [{"kind": "index", "value": 0}]},
+            {"label": "['score']", "segments": [{"kind": "index", "value": 0}, {"kind": "key", "value": "score"}]},
+            {"label": ".value", "segments": [{"kind": "index", "value": 0}, {"kind": "key", "value": "score"}, {"kind": "attr", "value": "value"}]}
+        ]
+    });
+    assert_eq!(breadcrumb_expression(&nested), "rows[0]['score'].value");
+
+    let from_set = json!({
+        "name": "tags",
+        "breadcrumbs": [
+            {"label": "tags", "segments": []},
+            {"label": "#2", "segments": [{"kind": "entry", "value": 2}]}
+        ]
+    });
+    assert_eq!(breadcrumb_expression(&from_set), "list(tags)[2]");
+}
+
+#[gpui_kit::test]
+fn variables_auto_refresh_on_idle_and_drilldown_fallback(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+
+    let (handle, view, commands) = mount(cx);
+    let (send, receive) = mpsc::channel();
+
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0].runtime = json!({
+                "worker_state": "running",
+                "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+            });
+            v.tabs[0].inspections.insert(
+                "Variables".into(),
+                json!({
+                    "worker_generation": "g1",
+                    "namespace_epoch": 1,
+                    "items": [{"name": "rows", "type": "list", "handle": "h1"}]
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("rows".into());
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "rows",
+                    "type": "dict",
+                    "segments": [{"kind": "index", "value": 0}],
+                    "_context": {"handle": "h1", "segments": [{"kind": "index", "value": 0}]}
+                }),
+            );
+            v.select_surface("Variables", cx);
+        });
+        while commands.try_recv().is_ok() {}
+
+        // Worker finishes execution and transitions running -> idle with new epoch 2.
+        send.send(Event::Runtime(json!({
+            "worker_state": "idle",
+            "interactive": {"worker_generation": "g1", "namespace_epoch": 2}
+        })))
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let sent: Vec<Command> = commands.try_iter().collect();
+        assert!(sent.iter().any(
+            |c| matches!(c, Command::Interactive { method, .. } if method == "namespace.list")
+        ));
+
+        // New namespace.list arrives -> selected variable preview auto-refreshes with same segments.
+        send.send(Event::Inspection {
+            method: "namespace.list".into(),
+            value: json!({
+                "worker_generation": "g1",
+                "namespace_epoch": 2,
+                "items": [{"name": "rows", "type": "list", "handle": "h2"}]
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let sent_preview: Vec<Command> = commands.try_iter().collect();
+        assert!(sent_preview.iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview"
+                    && fields["handle"] == "h2"
+                    && fields["segments"] == json!([{"kind": "index", "value": 0}])
+        )));
+
+        // If that drilled segment no longer exists, UI automatically falls back to root (segments: []).
+        send.send(Event::Inspection {
+            method: "namespace.preview".into(),
+            value: json!({
+                "error": {"code": "name_not_found", "message": "not found"},
+                "_context": {"handle": "h2", "segments": [{"kind": "index", "value": 0}]}
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let fallback: Vec<Command> = commands.try_iter().collect();
+        assert!(fallback.iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview"
+                    && fields["handle"] == "h2"
+                    && fields["segments"] == json!([])
+        )));
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn variables_explorer_renders_dataframe_matrix_tensor_and_nested_drilldown(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_kit::init);
+    let (send, commands) = mpsc::channel();
+    let (_, events) = mpsc::channel();
+    let (handle, view) = cx.update(|cx| {
+        gpui_kit::open_window(
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(Bounds {
+                    origin: Point::default(),
+                    size: size(px(1280.), px(800.)),
+                })),
+                ..Default::default()
+            },
+            cx,
+            |window, cx| {
+                cx.new(|cx| {
+                    let mut view = Workspace::new(None, "system", vec![], window, cx);
+                    let mut model = NotebookModel {
+                        project: PathBuf::from("vars-demo"),
+                        ..Default::default()
+                    };
+                    model.apply_snapshot(
+                        serde_json::from_value(json!({
+                            "state": "ok",
+                            "manifest_revision": "test",
+                            "cells": [{"id": "c1", "type": "code", "source": "x = 1", "revision": "r1"}]
+                        }))
+                        .unwrap(),
+                    );
+                    let tab_id = TabId(view.next_tab_id);
+                    view.next_tab_id += 1;
+                    view.tabs.push(Tab {
+                        id: tab_id,
+                        assistant: Default::default(),
+                        model,
+                        service: NotebookService { commands: send, events },
+                        list: ListState::new(1, ListAlignment::Top, px(200.)),
+                        editors: BTreeMap::new(),
+                        subscriptions: vec![],
+                        runtime: json!({
+                            "worker_state": "idle",
+                            "session_id": "sess-1234",
+                            "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+                        }),
+                        operations: BTreeMap::new(),
+                        inspections: BTreeMap::new(),
+                        inspection_method: BTreeMap::new(),
+                        scrolls: BTreeMap::new(),
+                        parents: vec![],
+                        raw_details: BTreeMap::new(),
+                        reveal: None,
+                        debug_decorations: BTreeMap::new(),
+                        uninitialized: false,
+                        selections: BTreeMap::new(),
+                        drafts: vec![],
+                        history_filter: String::new(),
+                        history_applied: String::new(),
+                        checkpoint_notice: None,
+                        error: None,
+                        attachment_pages: BTreeMap::new(),
+                        variables_scroll: Default::default(),
+                        variables_state: Default::default(),
+                        console_history: vec![],
+                        html_views: BTreeMap::new(),
+                        html_states: BTreeMap::new(),
+                        html_notes: BTreeMap::new(),
+                    });
+                    view.tick = gpui_kit::Task::ready(());
+                    view
+                })
+            },
+        )
+        .unwrap()
+    });
+
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].inspections.insert(
+                "Variables".into(),
+                json!({
+                    "worker_generation": "g1",
+                    "namespace_epoch": 1,
+                    "items": [
+                        {
+                            "name": "df",
+                            "handle": "h-df",
+                            "type": "pandas.core.frame.DataFrame",
+                            "short_type": "DataFrame",
+                            "category": "tabular",
+                            "size_label": "3 rows \u{00d7} 2 cols",
+                            "preview": "DataFrame(3\u{00d7}2) [city, score]",
+                            "columns_preview": ["city", "score"],
+                            "expandable": true
+                        },
+                        {
+                            "name": "rows",
+                            "handle": "h-rows",
+                            "type": "list",
+                            "short_type": "list",
+                            "category": "collection",
+                            "size_label": "2 items",
+                            "preview": "[('a', {'k': 1}), ('b', {'k': 2})]",
+                            "expandable": true
+                        }
+                    ]
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("df".into());
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "df",
+                    "type": "pandas.core.frame.DataFrame",
+                    "short_type": "DataFrame",
+                    "category": "tabular",
+                    "size_label": "3 rows \u{00d7} 2 cols",
+                    "preview": "DataFrame(3\u{00d7}2) [city, score]",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "df", "segments": []}],
+                    "_context": {"handle": "h-df", "segments": []},
+                    "page": {
+                        "mode": "table",
+                        "table": {
+                            "columns": [
+                                {"name": "city", "dtype": "object", "numeric": false},
+                                {"name": "score", "dtype": "float64", "numeric": true}
+                            ],
+                            "index": ["0", "1", "2"],
+                            "rows": [
+                                [{"text": "NYC", "null": false, "numeric": false}, {"text": "98.5", "null": false, "numeric": true}],
+                                [{"text": "SF", "null": false, "numeric": false}, {"text": "null", "null": true, "numeric": true}]
+                            ],
+                            "row_offset": 0,
+                            "col_offset": 0,
+                            "total_rows": 3,
+                            "total_cols": 2,
+                            "next_row_offset": 2
+                        },
+                        "schema": [
+                            {"name": "city", "dtype": "object"},
+                            {"name": "score", "dtype": "float64"}
+                        ],
+                        "stats_included": false
+                    }
+                }),
+            );
+            v.select_surface("Variables", cx);
+        });
+        while commands.try_recv().is_ok() {}
+        window.render_frame(cx);
+
+        // Switch to Schema tab and click "Compute stats"
+        window.click("var-tab-schema", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].variables_state.detail_tab, "schema");
+        window.click("var-schema-compute-stats", cx);
+        assert!(commands.try_iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview" && fields["include_stats"] == json!(true)
+        )));
+
+        // Switch preview to a CUDA tensor and verify opt-in copy action
+        view.update(cx, |v, cx| {
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "gpu_t",
+                    "type": "torch.Tensor",
+                    "short_type": "Tensor",
+                    "category": "array",
+                    "size_label": "(4, 4) float32 cuda:0",
+                    "preview": "Tensor((4, 4), float32, device=cuda:0)",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "gpu_t", "segments": []}],
+                    "_context": {"handle": "h-gpu", "segments": []},
+                    "page": {
+                        "mode": "device_tensor",
+                        "device": "cuda:0",
+                        "shape": [4, 4],
+                        "dtype": "float32"
+                    }
+                }),
+            );
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("var-tensor-copy-cpu", cx);
+        assert!(commands.try_iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview" && fields["allow_device_copy"] == json!(true)
+        )));
+    })
+    .unwrap();
 }

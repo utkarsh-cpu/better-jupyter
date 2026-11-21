@@ -133,9 +133,11 @@ def validate(request: Any, helper: bool = False) -> None:
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
-    for key in ("offset", "length", "after_seq", "after_change_seq", "page_size"):
+    for key in ("offset", "length", "after_seq", "after_change_seq", "page_size", "col_offset", "col_limit"):
         if key in request and (type(request[key]) is not int or request[key] < 0):
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
+    if "col_limit" in request and not 1 <= request["col_limit"] <= 40:
+        raise SourceError("invalid_request", "col_limit must be between 1 and 40")
     if "line" in request and (
         type(request["line"]) is not int or not 1 <= request["line"] <= 100000
     ):
@@ -154,6 +156,28 @@ def validate(request: Any, helper: bool = False) -> None:
         raise SourceError("invalid_request", "cursor must be a Unicode code-point offset in source")
     if method == "namespace.list" and not 1 <= request.get("page_size", 100) <= 100:
         raise SourceError("invalid_request", "namespace pages are limited to 100 bindings")
+    if method == "namespace.preview":
+        if "segments" in request:
+            segs = request["segments"]
+            if type(segs) is not list or len(segs) > 16:
+                raise SourceError("invalid_request", "segments must be a list of at most 16 steps")
+            for seg in segs:
+                if (
+                    type(seg) is not dict
+                    or seg.get("kind") not in ("index", "key", "entry", "attr")
+                    or "value" not in seg
+                ):
+                    raise SourceError("invalid_request", "invalid segment entry")
+        if "slice_prefix" in request:
+            prefix = request["slice_prefix"]
+            if (
+                type(prefix) is not list
+                or len(prefix) > 8
+                or any(type(p) is not int or p < 0 for p in prefix)
+            ):
+                raise SourceError(
+                    "invalid_request", "slice_prefix must be a list of at most 8 nonnegative integers"
+                )
     if method == "debug.breakpoints" and (
         type(request["breakpoints"]) is not list or len(request["breakpoints"]) > 100
     ):
@@ -166,6 +190,8 @@ def validate(request: Any, helper: bool = False) -> None:
         "dry_run",
         "latest_per_cell",
         "debug",
+        "include_stats",
+        "allow_device_copy",
     ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")

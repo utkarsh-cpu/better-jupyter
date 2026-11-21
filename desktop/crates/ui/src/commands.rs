@@ -863,6 +863,23 @@ impl Workspace {
         {
             self.inspect(&method, fields);
         }
+        if surface == "Variables" {
+            if let Some(t) = self.tabs.get(self.active)
+                && t.runtime["worker_state"] == "idle"
+            {
+                let stale = t.inspections.get("Variables").is_none_or(|cached| {
+                    cached["worker_generation"] != t.runtime["interactive"]["worker_generation"]
+                        || (cached["namespace_epoch"].is_number()
+                            && cached["namespace_epoch"]
+                                != t.runtime["interactive"]["namespace_epoch"])
+                });
+                if stale {
+                    self.interactive_request("namespace.list", json!({}));
+                }
+            }
+            cx.notify();
+            return;
+        }
         if self
             .tabs
             .get(self.active)
@@ -876,14 +893,6 @@ impl Workspace {
             "Checkpoints" => self.inspect("checkpoints.list", json!({})),
             "Diagnostics" => self.inspect("doctor", json!({})),
             "Runtimes" => self.inspect("runtimes.list", json!({})),
-            "Variables"
-                if self
-                    .tabs
-                    .get(self.active)
-                    .is_some_and(|t| t.runtime["worker_state"] == "idle") =>
-            {
-                self.interactive_request("namespace.list", json!({}));
-            }
             _ => {}
         }
         cx.notify();

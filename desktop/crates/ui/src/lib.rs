@@ -120,6 +120,23 @@ pub(crate) enum ActiveMenu {
     Insert(usize),
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct VariablesState {
+    pub category: String,
+    pub detail_tab: String,
+    pub selected: Option<String>,
+}
+
+impl Default for VariablesState {
+    fn default() -> Self {
+        Self {
+            category: "all".into(),
+            detail_tab: "data".into(),
+            selected: None,
+        }
+    }
+}
+
 struct Tab {
     id: TabId,
     assistant: assistant::AssistantView,
@@ -147,6 +164,7 @@ struct Tab {
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
     variables_scroll: UniformListScrollHandle,
+    variables_state: VariablesState,
     console_history: Vec<Value>,
     html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
     html_notes: BTreeMap<String, String>,
@@ -337,8 +355,9 @@ impl Workspace {
             history_enter: None,
             settings_section: settings::SettingsSection::Appearance,
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
-            variables_query: cx
-                .new(|cx| InputState::new(window, cx).placeholder("Filter variables")),
+            variables_query: cx.new(|cx| {
+                InputState::new(window, cx).placeholder("Filter name, type, value, or column")
+            }),
             query_subscriptions: Vec::new(),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
@@ -531,6 +550,7 @@ impl Workspace {
             error: None,
             attachment_pages: BTreeMap::new(),
             variables_scroll: UniformListScrollHandle::default(),
+            variables_state: VariablesState::default(),
             console_history: vec![],
             html_views: BTreeMap::new(),
             html_states: BTreeMap::new(),
@@ -1018,9 +1038,10 @@ impl Workspace {
                         }
                     }
                     Event::Runtime(value) => {
-                        if value["interactive"]["worker_generation"]
-                            != tab.runtime["interactive"]["worker_generation"]
-                        {
+                        let prev_state = tab.runtime["worker_state"].as_str().map(str::to_owned);
+                        let prev_epoch = tab.runtime["interactive"]["namespace_epoch"].clone();
+                        let prev_gen = tab.runtime["interactive"]["worker_generation"].clone();
+                        if value["interactive"]["worker_generation"] != prev_gen {
                             tab.inspections.remove("Widget state");
                         }
                         if tab
@@ -1032,6 +1053,23 @@ impl Workspace {
                             tab.inspections.remove("Technical error");
                         }
                         tab.runtime = value;
+                        let became_idle = prev_state.as_deref() != Some("idle");
+                        let epoch_changed = tab.runtime["interactive"]["namespace_epoch"]
+                            != prev_epoch
+                            || tab.runtime["interactive"]["worker_generation"] != prev_gen;
+                        if event_tab == self.active
+                            && self.surface == "Variables"
+                            && tab.runtime["worker_state"] == "idle"
+                            && (became_idle || epoch_changed)
+                            && tab.runtime["interactive"]["worker_generation"].is_string()
+                        {
+                            let _ = tab.service.commands.send(Command::Interactive {
+                                method: "namespace.list".into(),
+                                fields: json!({
+                                    "worker_generation": tab.runtime["interactive"]["worker_generation"]
+                                }),
+                            });
+                        }
                     }
                     Event::Operation(value) => {
                         if value["state"] == "completed"
@@ -1165,7 +1203,76 @@ impl Workspace {
                                 || value["worker_generation"]
                                     == tab.runtime["interactive"]["worker_generation"]
                             {
-                                tab.inspections.insert(key.into(), value);
+                                if method == "namespace.preview"
+                                    && value["error"]["code"].as_str() == Some("name_not_found")
+                                    && value["_context"]["segments"]
+                                        .as_array()
+                                        .is_some_and(|s| !s.is_empty())
+                                    && let Some(handle) = value["_context"]["handle"].as_str()
+                                {
+                                    let _ = tab.service.commands.send(Command::Interactive {
+                                        method: "namespace.preview".into(),
+                                        fields: json!({
+                                            "worker_generation": tab.runtime["interactive"]["worker_generation"],
+                                            "handle": handle,
+                                            "segments": [],
+                                        }),
+                                    });
+                                    continue;
+                                }
+                                tab.inspections.insert(key.into(), value.clone());
+                                if method == "namespace.list"
+                                    && tab.runtime["worker_state"] == "idle"
+                                    && let Some(selected_name) =
+                                        tab.variables_state.selected.clone()
+                                {
+                                    if let Some(found) = value["items"].as_array().and_then(|arr| {
+                                        arr.iter().find(|it| {
+                                            it["name"].as_str() == Some(selected_name.as_str())
+                                        })
+                                    }) {
+                                        let needs_refresh = tab
+                                            .inspections
+                                            .get("Variable preview")
+                                            .is_none_or(|prev| {
+                                                prev["name"].as_str()
+                                                    != Some(selected_name.as_str())
+                                                    || prev["namespace_epoch"]
+                                                        != value["namespace_epoch"]
+                                                    || prev["worker_generation"]
+                                                        != value["worker_generation"]
+                                            });
+                                        if needs_refresh
+                                            && let Some(handle) = found["handle"].as_str()
+                                        {
+                                            let segments = tab
+                                                .inspections
+                                                .get("Variable preview")
+                                                .filter(|prev| {
+                                                    prev["name"].as_str()
+                                                        == Some(selected_name.as_str())
+                                                })
+                                                .and_then(|prev| prev["segments"].as_array())
+                                                .cloned()
+                                                .unwrap_or_default();
+                                            let mut fields = json!({
+                                                "worker_generation": tab.runtime["interactive"]["worker_generation"],
+                                                "handle": handle,
+                                            });
+                                            if !segments.is_empty() {
+                                                fields["segments"] = Value::Array(segments);
+                                            }
+                                            let _ =
+                                                tab.service.commands.send(Command::Interactive {
+                                                    method: "namespace.preview".into(),
+                                                    fields,
+                                                });
+                                        }
+                                    } else {
+                                        tab.variables_state.selected = None;
+                                        tab.inspections.remove("Variable preview");
+                                    }
+                                }
                             }
                             continue;
                         }

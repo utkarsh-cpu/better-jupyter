@@ -222,6 +222,55 @@ fn validate(request: &Value) -> Result<&str> {
         {
             return Err(invalid("namespace pages are limited to 100 bindings"));
         }
+        if method == "namespace.preview" {
+            if request
+                .get("col_offset")
+                .is_some_and(|value| value.as_u64().is_none())
+            {
+                return Err(invalid("col_offset must be a nonnegative integer"));
+            }
+            if request.get("col_limit").is_some_and(|value| {
+                !value
+                    .as_u64()
+                    .is_some_and(|limit| (1..=40).contains(&limit))
+            }) {
+                return Err(invalid("col_limit must be between 1 and 40"));
+            }
+            for flag in ["include_stats", "allow_device_copy"] {
+                if request.get(flag).is_some_and(|value| !value.is_boolean()) {
+                    return Err(invalid(format!("{flag} must be a boolean")));
+                }
+            }
+            if let Some(segments) = request.get("segments") {
+                let Some(items) = segments.as_array() else {
+                    return Err(invalid("segments must be a list of at most 16 steps"));
+                };
+                if items.len() > 16 {
+                    return Err(invalid("segments must be a list of at most 16 steps"));
+                }
+                for item in items {
+                    let valid = item.as_object().is_some_and(|obj| {
+                        obj.get("kind")
+                            .and_then(Value::as_str)
+                            .is_some_and(|kind| matches!(kind, "index" | "key" | "entry" | "attr"))
+                            && obj.contains_key("value")
+                    });
+                    if !valid {
+                        return Err(invalid("invalid segment entry"));
+                    }
+                }
+            }
+            if let Some(prefix) = request.get("slice_prefix") {
+                let valid = prefix.as_array().is_some_and(|items| {
+                    items.len() <= 8 && items.iter().all(|v| v.as_u64().is_some())
+                });
+                if !valid {
+                    return Err(invalid(
+                        "slice_prefix must be a list of at most 8 nonnegative integers",
+                    ));
+                }
+            }
+        }
     }
     if EFFECTS.contains(&method)
         && !request["client_request_id"]

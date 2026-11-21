@@ -279,16 +279,26 @@ impl WorkbenchButton {
             );
         self
     }
-    /// A full-width 3-column variable inspector row (`Name` | `Type` | `Value`).
+    /// A full-width 3- or 4-column variable inspector row (`Name` | `Type` | `Size` | `Value`).
+    #[allow(clippy::too_many_arguments)]
     pub fn variable_row(
         mut self,
         name: String,
-        kind: String,
+        short_type: String,
+        size_label: String,
         preview: String,
+        show_size: bool,
+        expandable: bool,
+        selected: bool,
         mono: SharedString,
         muted: Hsla,
+        accent: Hsla,
     ) -> Self {
-        let accessible = format!("{name} ({kind}): {preview}");
+        let accessible = if size_label.is_empty() {
+            format!("{name} ({short_type}): {preview}")
+        } else {
+            format!("{name} ({short_type}, {size_label}): {preview}")
+        };
         self.name = Some(accessible.clone().into());
         self.full_row = true;
         self.inner = self
@@ -298,6 +308,7 @@ impl WorkbenchButton {
             .justify_start()
             .compact()
             .px_2()
+            .when(selected, |b| b.bg(accent))
             .accessibility_label(accessible)
             .child(
                 h_flex()
@@ -305,10 +316,10 @@ impl WorkbenchButton {
                     .w_full()
                     .min_w_0()
                     .items_center()
-                    .gap_3()
+                    .gap_2p5()
                     .child(
                         div()
-                            .w(rems(12.))
+                            .w(rems(10.5))
                             .flex_none()
                             .truncate()
                             .text_left()
@@ -318,15 +329,28 @@ impl WorkbenchButton {
                     )
                     .child(
                         div()
-                            .w(rems(8.5))
+                            .w(rems(7.2))
                             .flex_none()
                             .truncate()
                             .text_left()
                             .text_xs()
                             .font_family(mono.clone())
                             .text_color(muted)
-                            .child(kind),
+                            .child(short_type),
                     )
+                    .when(show_size, |row| {
+                        row.child(
+                            div()
+                                .w(rems(9.5))
+                                .flex_none()
+                                .truncate()
+                                .text_left()
+                                .text_xs()
+                                .font_family(mono.clone())
+                                .text_color(muted)
+                                .child(size_label),
+                        )
+                    })
                     .child(
                         div()
                             .flex_1()
@@ -336,6 +360,89 @@ impl WorkbenchButton {
                             .font_family(mono)
                             .font_weight(FontWeight::NORMAL)
                             .child(preview),
+                    )
+                    .when(expandable, |row| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .text_color(muted)
+                                .opacity(0.65)
+                                .child(Icon::new(Glyph::ChevronRight).xsmall()),
+                        )
+                    }),
+            );
+        self
+    }
+    /// A full-width drill-down child row inside the variable detail inspector (`Key/Index | Type | Value ›`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn variable_child_row(
+        mut self,
+        key_label: String,
+        val_type: String,
+        val_text: String,
+        key_emphasized: bool,
+        mono: SharedString,
+        fg: Hsla,
+        muted: Hsla,
+    ) -> Self {
+        let accessible = format!("Inspect {key_label} ({val_type}): {val_text}");
+        self.name = Some(accessible.clone().into());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .compact()
+            .px_2p5()
+            .accessibility_label(accessible)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap_2p5()
+                    .child(
+                        div()
+                            .w(rems(7.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(if key_emphasized { fg } else { muted })
+                            .child(key_label),
+                    )
+                    .child(
+                        div()
+                            .w(rems(5.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .text_color(muted)
+                            .child(val_type),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono)
+                            .font_weight(FontWeight::NORMAL)
+                            .child(val_text),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_color(muted)
+                            .opacity(0.75)
+                            .child(Icon::new(Glyph::ChevronRight).xsmall()),
                     ),
             );
         self
@@ -393,6 +500,10 @@ impl WorkbenchButton {
     }
     pub fn small(mut self) -> Self {
         self.inner = self.inner.small();
+        self
+    }
+    pub fn xsmall(mut self) -> Self {
+        self.inner = self.inner.xsmall();
         self
     }
     pub fn ghost(mut self) -> Self {
