@@ -7,6 +7,8 @@ use wry::{NewWindowResponse, WebViewBuilder};
 
 pub(super) const HOST_HEIGHT: f32 = 400.;
 pub(super) const MAX_LIVE_VIEWS: usize = 4;
+pub(super) const MIN_HEIGHT: f32 = 160.;
+pub(super) const MAX_HEIGHT: f32 = 800.;
 
 pub(super) struct HtmlState {
     pub token: String,
@@ -38,23 +40,79 @@ pub(super) struct HtmlSignal {
     pub value: Value,
 }
 
+/// Prefer chart/media roots over a viewport-filling body so Plotly/Altair/Bokeh
+/// hosts shrink to the plot instead of reporting the webview's own height.
 const PAGE_OBSERVER: &str = r#"
 (() => {
   const send = value => { if (window.ipc) window.ipc.postMessage(JSON.stringify(value)); };
   let lastHeight = 0;
+  const CHART = '.js-plotly-plot,.plotly-graph-div,.plotly,.vega-embed,.vega-view,.bk-root,.bk-figure';
+  const media = 'img,svg,canvas,table,pre,video';
+  const prepare = () => {
+    const root = document.documentElement;
+    const body = document.body;
+    if (!root || !body) return;
+    root.style.height = 'auto';
+    root.style.minHeight = '0';
+    body.style.height = 'auto';
+    body.style.minHeight = '0';
+  };
+  const bottomOf = (el, bodyTop) => {
+    const rect = el.getBoundingClientRect();
+    if (!(rect.height > 0) && !(rect.width > 0)) return 0;
+    const style = getComputedStyle(el);
+    return rect.bottom - bodyTop + parseFloat(style.marginBottom || 0);
+  };
   const measure = () => {
+    prepare();
     if (!document.body) return;
+    const bodyTop = document.body.getBoundingClientRect().top;
+    let content = 0;
+    for (const el of document.querySelectorAll(CHART + ',' + media)) {
+      content = Math.max(content, bottomOf(el, bodyTop));
+    }
+    if (content < 1) {
+      for (const el of document.body.children) {
+        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'LINK' || el.tagName === 'META') continue;
+        content = Math.max(content, bottomOf(el, bodyTop));
+      }
+    }
+    if (content < 1) {
+      content = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    }
     const style = getComputedStyle(document.body);
-    const height = Math.max(160, Math.min(800, Math.ceil(document.body.getBoundingClientRect().height + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0))));
+    const height = Math.max(160, Math.min(800, Math.ceil(
+      content + parseFloat(style.paddingBottom || 0) + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
+    )));
     if (Math.abs(height - lastHeight) > 2) { lastHeight = height; send({kind:'height', height}); }
   };
   window.addEventListener('error', () => send({kind:'error'}), true);
   window.addEventListener('unhandledrejection', () => send({kind:'error'}));
   window.addEventListener('securitypolicyviolation', () => send({kind:'blocked'}));
-  window.addEventListener('DOMContentLoaded', () => {
-    new ResizeObserver(measure).observe(document.body);
-    measure(); send({kind:'ready'});
-  });
+  const watch = () => {
+    prepare();
+    const ro = new ResizeObserver(measure);
+    const seen = new Set();
+    const observeCharts = () => {
+      for (const el of document.querySelectorAll(CHART)) {
+        if (seen.has(el)) continue;
+        seen.add(el);
+        ro.observe(el);
+      }
+    };
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; measure(); });
+    };
+    ro.observe(document.body);
+    observeCharts();
+    new MutationObserver(() => { observeCharts(); schedule(); }).observe(document.documentElement, { childList: true, subtree: true });
+    measure();
+    send({kind:'ready'});
+  };
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', watch);
+  else watch();
 })();
 "#;
 
@@ -168,7 +226,15 @@ fn build_error_message(error: &impl std::fmt::Display) -> String {
     }
 }
 
-pub(super) fn host(view: Entity<WebView>, blocked: bool, height: f32) -> AnyElement {
+/// Host a live HTML output. Clipping during notebook scroll is left to
+/// `gpui_webview::WebView`'s `set_geometry` path; this only restores the logical
+/// visibility preference so a previously scrolled-away view can paint again.
+pub(super) fn host(
+    view: Entity<WebView>,
+    blocked: bool,
+    height: f32,
+    on_hosted: impl Fn(&mut App) + 'static,
+) -> AnyElement {
     let geometry = view.clone();
     div()
         .h(px(height))
@@ -178,14 +244,14 @@ pub(super) fn host(view: Entity<WebView>, blocked: bool, height: f32) -> AnyElem
         .relative()
         .child(
             canvas(
-                move |bounds, window, cx| {
-                    let clip = window.content_mask().bounds;
+                move |_, _, cx| {
+                    on_hosted(cx);
                     geometry.update(cx, |wv, _| {
-                        if blocked || bounds.intersect(&clip).is_empty() {
+                        if blocked {
                             let _ = wv.set_visible(false);
-                            return;
+                        } else if !wv.visible() {
+                            let _ = wv.set_visible(true);
                         }
-                        let _ = wv.set_visible(true);
                     });
                 },
                 |_, _, _, _| {},
@@ -193,9 +259,31 @@ pub(super) fn host(view: Entity<WebView>, blocked: bool, height: f32) -> AnyElem
             .absolute()
             .inset_0(),
         )
-        // Let the library update native composition, display scale and hitboxes.
+        // Library prepaint applies document bounds and the inherited clip.
         .child(view)
         .into_any_element()
+}
+
+pub(super) fn cell_index_for_key(tab: &Tab, key: &str) -> Option<usize> {
+    let (cell_id, _) = split_output_key(key)?;
+    tab.model.order.iter().position(|id| id == &cell_id)
+}
+
+fn split_output_key(key: &str) -> Option<(String, usize)> {
+    let (cell_id, index) = key.rsplit_once('-')?;
+    if cell_id.is_empty() {
+        return None;
+    }
+    Some((cell_id.to_owned(), index.parse().ok()?))
+}
+
+pub(super) fn refresh_cell_for_key(tab: &mut Tab, key: &str) {
+    if let Some(index) = cell_index_for_key(tab, key) {
+        tab.list.splice(index..index + 1, 1);
+    } else {
+        tab.list
+            .splice(0..tab.model.order.len(), tab.model.order.len());
+    }
 }
 
 pub(super) fn prune_tab(tab: &mut Tab) {
@@ -248,6 +336,7 @@ fn notebook_key_current(key: &str, tab: &Tab) -> Option<bool> {
 impl Workspace {
     pub(super) fn reset_html_outputs(&mut self, cx: &mut App) {
         self.conceal_html_views(cx);
+        self.html_hosted.borrow_mut().clear();
         for tab in &mut self.tabs {
             tab.html_views.clear();
             tab.html_notes.clear();
@@ -274,6 +363,27 @@ impl Workspace {
                 view.update(cx, |wv, _| {
                     let _ = wv.set_visible(false);
                 });
+            }
+        }
+    }
+
+    /// Hide native surfaces that are not painting this frame without thrashing
+    /// views that remain on screen. Calling `set_visible(false)` on every
+    /// render (including during scroll) was the HTML-output stutter source.
+    pub(super) fn sync_html_view_visibility(&mut self, cx: &mut App) {
+        if self.html_views_blocked() || self.surface != "Notebook" {
+            self.conceal_html_views(cx);
+            self.html_hosted.borrow_mut().clear();
+            return;
+        }
+        let hosted = std::mem::take(&mut *self.html_hosted.borrow_mut());
+        for (index, tab) in self.tabs.iter().enumerate() {
+            for (key, view) in &tab.html_views {
+                if index != self.active || !hosted.contains(key) {
+                    view.update(cx, |wv, _| {
+                        let _ = wv.set_visible(false);
+                    });
+                }
             }
         }
     }
@@ -370,9 +480,8 @@ impl Workspace {
         if let Some(tab) = self.tabs.get_mut(self.active)
             && let Some(state) = tab.html_states.get_mut(key)
         {
-            state.manual_height = delta.map(|delta| (height + delta).clamp(160., 800.));
-            tab.list
-                .splice(0..tab.model.order.len(), tab.model.order.len());
+            state.manual_height = delta.map(|delta| (height + delta).clamp(MIN_HEIGHT, MAX_HEIGHT));
+            refresh_cell_for_key(tab, key);
             cx.notify();
         }
     }
@@ -486,6 +595,7 @@ impl Workspace {
     }
 
     pub(super) fn stop_html_output(&mut self, key: &str, cx: &mut Context<Self>) {
+        self.html_hosted.borrow_mut().remove(key);
         if let Some(tab) = self.tabs.get_mut(self.active) {
             tab.html_states.remove(key);
             if let Some(view) = tab.html_views.remove(key) {
@@ -500,8 +610,21 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::{content_security_policy, document_html, html_response, navigation_allowed};
+    use super::{
+        content_security_policy, document_html, html_response, navigation_allowed, split_output_key,
+    };
     use kernelledger_client::preferences::{HtmlNetworkPolicy, Preferences};
+
+    #[test]
+    fn output_keys_split_on_the_trailing_index() {
+        assert_eq!(
+            split_output_key("cell-with-dashes-3"),
+            Some(("cell-with-dashes".into(), 3))
+        );
+        assert_eq!(split_output_key("plain-0"), Some(("plain".into(), 0)));
+        assert!(split_output_key("noindex").is_none());
+        assert!(split_output_key("-1").is_none());
+    }
 
     #[test]
     fn navigation_cannot_escape_the_policy_document() {

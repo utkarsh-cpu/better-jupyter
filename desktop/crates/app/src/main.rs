@@ -80,7 +80,7 @@ fn main() {
         std::env::set_var("GPUI_DISABLE_DIRECT_COMPOSITION", "true");
     }
     #[cfg(target_os = "linux")]
-    let app = gpui_kit::platform::linux(gpui_kit::platform::WindowingModes::X11);
+    let app = gpui_kit::platform::linux(WindowingModes::X11);
     #[cfg(not(target_os = "linux"))]
     let app = gpui_kit::application();
     app.with_assets(AppAssets).run(move |cx| {
