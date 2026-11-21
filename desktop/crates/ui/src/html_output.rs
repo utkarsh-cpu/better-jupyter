@@ -130,17 +130,15 @@ fn sandboxed_builder(
         .with_ipc_handler(move |request| {
             if request.body().len() <= 1024
                 && let Ok(value) = serde_json::from_str::<Value>(request.body())
-            {
-                if signals
+                && signals
                     .try_send(HtmlSignal {
                         key: key.clone(),
                         token: token.clone(),
                         value,
                     })
                     .is_ok()
-                {
-                    wake();
-                }
+            {
+                wake();
             }
         })
         // CSP connect-src does not cover WebRTC's direct peer/STUN traffic.

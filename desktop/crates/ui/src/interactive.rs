@@ -292,38 +292,56 @@ impl Workspace {
             .tabs
             .get(self.active)
             .is_some_and(|tab| tab.runtime["worker_state"] == "idle");
-        let mut actions = h_flex().gap_2().flex_wrap().items_center();
-        for (command, label, tip) in [
-            (
-                "on",
-                "Enable shortcuts",
-                "Cache up to 100 recent results (max 8 MiB) in the active session",
-            ),
-            (
-                "clear",
-                "Clear result cache",
-                "Evict cached result bindings from the active session",
-            ),
-            (
-                "off",
-                "Disable shortcuts",
-                "Stop caching result bindings for subsequent executions",
-            ),
-        ] {
-            actions = actions.child(
-                action_button(SharedString::from(format!("history-cache-{command}")))
+        let mode_actions = h_flex()
+            .gap_2()
+            .flex_wrap()
+            .items_center()
+            .child(
+                action_button("history-cache-on")
                     .outline()
                     .small()
-                    .label(label)
-                    .hint(tip)
+                    .label("Enable shortcuts")
+                    .hint("Cache up to 100 recent results (max 8 MiB) in the active session")
                     .unavailable(!attached)
-                    .on_click(cx.listener(move |view, _, _, _| {
+                    .on_click(cx.listener(|view, _, _, _| {
                         view.send(Command::Console {
-                            source: format!("%history {command}"),
+                            source: "%history on".into(),
+                        })
+                    })),
+            )
+            .child(
+                action_button("history-cache-off")
+                    .outline()
+                    .small()
+                    .label("Disable shortcuts")
+                    .hint("Stop caching result bindings for subsequent executions")
+                    .unavailable(!attached)
+                    .on_click(cx.listener(|view, _, _, _| {
+                        view.send(Command::Console {
+                            source: "%history off".into(),
                         })
                     })),
             );
-        }
+        let actions = h_flex()
+            .gap_3()
+            .flex_wrap()
+            .items_center()
+            .child(mode_actions)
+            .child(status_rule(cx))
+            .child(
+                action_button("history-cache-clear")
+                    .ghost()
+                    .small()
+                    .icon(Glyph::Trash)
+                    .label("Clear result cache")
+                    .hint("Evict cached result bindings from the active session")
+                    .unavailable(!attached)
+                    .on_click(cx.listener(|view, _, _, _| {
+                        view.send(Command::Console {
+                            source: "%history clear".into(),
+                        })
+                    })),
+            );
         settings_group_with(
             "Result shortcuts",
             "Optional session cache: up to 100 results (8 MiB) of supported built-in values. Existing user names are preserved and cache actions are recorded executions.",
@@ -794,65 +812,137 @@ impl Workspace {
                             )),
                     ),
             );
-            if let Some(record) = self.tabs[self.active].inspections.get("Console output") {
-                let status = record["status"].as_str().unwrap_or("unknown");
-                let mut out_card = card(cx)
-                    .p_4()
-                    .gap_3()
-                    .child(
-                        h_flex()
-                            .justify_between()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Latest execution"),
-                            )
-                            .when(notable_status(status), |d| {
-                                d.child(badge(outcome_label(status).to_string(), tone(status, cx)))
-                            }),
-                    )
-                    .child(
-                        TextView::markdown(
-                            "console-recorded-source",
-                            format!(
-                                "```python\n{}\n```",
-                                bounded(record["source"].as_str().unwrap_or(""), 65536)
-                                    .replace("```", "~~~")
-                            ),
-                        )
-                        .selectable(true),
-                    );
-                for (index, event) in record["outputs"]
-                    .as_array()
+            let records: Vec<Value> = if !self.tabs[self.active].console_history.is_empty() {
+                self.tabs[self.active]
+                    .console_history
+                    .iter()
+                    .rev()
+                    .cloned()
+                    .collect()
+            } else {
+                self.tabs[self.active]
+                    .inspections
+                    .get("Console output")
+                    .cloned()
                     .into_iter()
-                    .flatten()
-                    .take(100)
-                    .enumerate()
-                {
-                    out_card = out_card.child(outputs::OutputBlock {
-                        id: format!(
-                            "console-{}-{index}",
-                            record["exec_id"].as_str().unwrap_or("")
+                    .collect()
+            };
+            if !records.is_empty() {
+                let total = records.len();
+                body = body.child(
+                    h_flex()
+                        .justify_between()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .text_xs()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(muted)
+                                .child(if total == 1 {
+                                    "Session transcript (1 execution)".to_string()
+                                } else {
+                                    format!("Session transcript ({total} executions)")
+                                }),
                         )
-                        .into(),
-                        event: event.clone(),
-                        context: format!("Console output {}", index + 1).into(),
-                        tools_state: None,
-                        commands: Some(self.tabs[self.active].service.commands.clone()),
-                        cell_id: "".into(),
-                        exec_id: record["exec_id"].as_str().unwrap_or("").into(),
-                        index,
-                        worker_generation: None,
-                        project: Some(self.tabs[self.active].model.project.clone()),
-                        workspace: Some(cx.entity()),
-                    });
+                        .child(
+                            action_button("console-clear")
+                                .ghost()
+                                .small()
+                                .label("Clear transcript")
+                                .hint("Clear the visible console transcript (recorded History is preserved)")
+                                .on_click(cx.listener(|view, _, _, cx| {
+                                    let tab = &mut view.tabs[view.active];
+                                    tab.console_history.clear();
+                                    tab.inspections.remove("Console output");
+                                    cx.notify();
+                                })),
+                        ),
+                );
+                let commands = self.tabs[self.active].service.commands.clone();
+                let project = self.tabs[self.active].model.project.clone();
+                for (entry_idx, record) in records.iter().enumerate() {
+                    let status = record["status"].as_str().unwrap_or("unknown");
+                    let exec_id = record["exec_id"].as_str().unwrap_or("");
+                    let heading = if entry_idx == 0 {
+                        "Latest execution".to_string()
+                    } else {
+                        format!("Execution #{}", total - entry_idx)
+                    };
+                    let mut out_card = card(cx)
+                        .p_4()
+                        .gap_3()
+                        .child(
+                            h_flex()
+                                .justify_between()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    h_flex()
+                                        .gap_2()
+                                        .items_center()
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .child(heading),
+                                        )
+                                        .when_some(record_time(record), |d, ts| {
+                                            d.child(
+                                                div()
+                                                    .text_xs()
+                                                    .text_color(muted)
+                                                    .child(relative_time(ts)),
+                                            )
+                                        }),
+                                )
+                                .when(notable_status(status), |d| {
+                                    d.child(badge(
+                                        outcome_label(status).to_string(),
+                                        tone(status, cx),
+                                    ))
+                                }),
+                        )
+                        .child(
+                            TextView::markdown(
+                                SharedString::from(format!(
+                                    "console-recorded-source-{entry_idx}-{exec_id}"
+                                )),
+                                format!(
+                                    "```python\n{}\n```",
+                                    bounded(record["source"].as_str().unwrap_or(""), 65536)
+                                        .replace("```", "~~~")
+                                ),
+                            )
+                            .selectable(true),
+                        );
+                    for (index, event) in record["outputs"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .take(100)
+                        .enumerate()
+                    {
+                        out_card = out_card.child(outputs::OutputBlock {
+                            id: format!("console-{entry_idx}-{exec_id}-{index}").into(),
+                            event: event.clone(),
+                            context: format!("Console output {}", index + 1).into(),
+                            tools_state: None,
+                            commands: Some(commands.clone()),
+                            cell_id: "".into(),
+                            exec_id: exec_id.into(),
+                            index,
+                            worker_generation: None,
+                            project: Some(project.clone()),
+                            workspace: Some(cx.entity()),
+                        });
+                    }
+                    body = body.child(out_card);
                 }
-                body = body.child(out_card);
             }
         } else {
+            let query_raw = self.variables_query.read(cx).value().to_string();
+            let query = query_raw.trim().to_lowercase();
             let mut header_bar = h_flex()
                 .gap_2()
                 .items_center()
@@ -868,6 +958,12 @@ impl Workspace {
                         .on_click(cx.listener(|view, _, _, _| {
                             view.interactive_request("namespace.list", json!({}))
                         })),
+                )
+                .child(
+                    div()
+                        .w(rems(16.))
+                        .min_w(rems(10.))
+                        .child(Input::new(&self.variables_query).cleanable(true)),
                 )
                 .child(info_tip(
                     "variables-panel-tip",
@@ -899,59 +995,116 @@ impl Workspace {
                 );
             }
             let items = value["items"].as_array().cloned().unwrap_or_default();
+            let filtered: Vec<Value> = if query.is_empty() {
+                items.clone()
+            } else {
+                items
+                    .iter()
+                    .filter(|item| variable_matches(item, &query))
+                    .cloned()
+                    .collect()
+            };
             if !items.is_empty() {
-                let mut list_card = card(cx).p_2().gap_1();
-                let count = items.len();
-                let scroll = self.tabs[self.active].variables_scroll.clone();
-                let view = cx.entity();
-                list_card = list_card.child(
-                    uniform_list("variables-list", count, move |range, _, _cx| {
-                        range
-                            .map(|index| {
-                                let item = &items[index];
-                                let handle = item["handle"].clone();
-                                let label = format!(
-                                    "{} \u{00b7} {} \u{00b7} {}",
-                                    item["name"].as_str().unwrap_or(""),
-                                    item["type"].as_str().unwrap_or(""),
-                                    item["preview"].as_str().unwrap_or("")
-                                );
-                                let view = view.clone();
-                                div().h(rems(2.0)).flex().items_center().child(
-                                    action_button(("variable", index))
-                                        .self_start()
+                if filtered.is_empty() {
+                    body = body.child(
+                        card(cx).p_4().child(
+                            h_flex()
+                                .justify_between()
+                                .items_center()
+                                .gap_3()
+                                .flex_wrap()
+                                .child(div().text_sm().text_color(muted).child(format!(
+                                    "No variables match \u{201c}{}\u{201d}.",
+                                    query_raw.trim()
+                                )))
+                                .child(
+                                    action_button("variables-clear-filter")
                                         .ghost()
                                         .small()
-                                        .label(label)
-                                        .on_click(move |_, _, cx| {
-                                            view.update(cx, |view, _| {
-                                                view.interactive_request(
-                                                    "namespace.preview",
-                                                    json!({"handle":handle}),
-                                                );
+                                        .label("Clear filter")
+                                        .on_click(cx.listener(|view, _, window, cx| {
+                                            view.variables_query.update(cx, |input, cx| {
+                                                input.set_value("", window, cx);
                                             });
-                                        }),
-                                )
-                            })
-                            .collect()
-                    })
-                    .track_scroll(&scroll)
-                    .h(rems((count as f32 * 2.0).min(18.0))),
-                );
-                if let Some(cursor) = value["cursor"].as_str() {
-                    let cursor = cursor.to_owned();
-                    list_card = list_card.child(
-                        action_button("variables-next")
-                            .self_start()
-                            .outline()
-                            .small()
-                            .label("Next variables")
-                            .on_click(cx.listener(move |view, _, _, _| {
-                                view.interactive_request("namespace.list", json!({"cursor":cursor}))
-                            })),
+                                            cx.notify();
+                                        })),
+                                ),
+                        ),
                     );
+                } else {
+                    let count = filtered.len();
+                    let header_row = h_flex()
+                        .w_full()
+                        .px_2()
+                        .py_1p5()
+                        .gap_3()
+                        .items_center()
+                        .border_b_1()
+                        .border_color(divider(cx))
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(muted)
+                        .child(div().w(rems(12.)).flex_none().child("Name"))
+                        .child(div().w(rems(8.5)).flex_none().child("Type"))
+                        .child(div().flex_1().min_w_0().child("Value"));
+                    let mut list_card = card(cx).p_2().gap_1().child(header_row);
+                    let scroll = self.tabs[self.active].variables_scroll.clone();
+                    let view = cx.entity();
+                    let row_mono = mono.clone();
+                    list_card = list_card.child(
+                        uniform_list("variables-list", count, move |range, _, _cx| {
+                            range
+                                .map(|index| {
+                                    let item = &filtered[index];
+                                    let handle = item["handle"].clone();
+                                    let name = item["name"].as_str().unwrap_or("").to_owned();
+                                    let kind = item["type"].as_str().unwrap_or("").to_owned();
+                                    let preview = item["preview"].as_str().unwrap_or("").to_owned();
+                                    let view = view.clone();
+                                    div().h(rems(2.0)).w_full().flex().items_center().child(
+                                        action_button(("variable", index))
+                                            .ghost()
+                                            .small()
+                                            .variable_row(
+                                                name,
+                                                kind,
+                                                preview,
+                                                row_mono.clone(),
+                                                muted,
+                                            )
+                                            .on_click(move |_, _, cx| {
+                                                view.update(cx, |view, _| {
+                                                    view.interactive_request(
+                                                        "namespace.preview",
+                                                        json!({"handle":handle}),
+                                                    );
+                                                });
+                                            }),
+                                    )
+                                })
+                                .collect()
+                        })
+                        .track_scroll(&scroll)
+                        .h(rems((count as f32 * 2.0).min(18.0))),
+                    );
+                    if let Some(cursor) = value["cursor"].as_str() {
+                        let cursor = cursor.to_owned();
+                        list_card = list_card.child(
+                            action_button("variables-next")
+                                .self_start()
+                                .outline()
+                                .small()
+                                .label("Next variables")
+                                .on_click(cx.listener(move |view, _, _, _| {
+                                    view.interactive_request(
+                                        "namespace.list",
+                                        json!({"cursor":cursor}),
+                                    )
+                                })),
+                        );
+                    }
+                    body = body.child(list_card);
                 }
-                body = body.child(list_card);
             } else if value.is_null() {
                 body = body.child(
                     card(cx).p_4().child(
@@ -959,6 +1112,15 @@ impl Workspace {
                             .text_sm()
                             .text_color(muted)
                             .child("Click Refresh when the runtime is idle to inspect variables."),
+                    ),
+                );
+            } else {
+                body = body.child(
+                    card(cx).p_4().child(
+                        div()
+                            .text_sm()
+                            .text_color(muted)
+                            .child("No variables are currently defined in this session."),
                     ),
                 );
             }
@@ -1024,6 +1186,17 @@ impl Workspace {
             .child(body)
             .into_any_element()
     }
+}
+
+pub(super) fn variable_matches(item: &Value, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    ["name", "type", "preview"].iter().any(|field| {
+        item[*field]
+            .as_str()
+            .is_some_and(|text| text.to_lowercase().contains(query))
+    })
 }
 
 #[cfg(test)]

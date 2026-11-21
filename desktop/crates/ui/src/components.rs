@@ -279,6 +279,67 @@ impl WorkbenchButton {
             );
         self
     }
+    /// A full-width 3-column variable inspector row (`Name` | `Type` | `Value`).
+    pub fn variable_row(
+        mut self,
+        name: String,
+        kind: String,
+        preview: String,
+        mono: SharedString,
+        muted: Hsla,
+    ) -> Self {
+        let accessible = format!("{name} ({kind}): {preview}");
+        self.name = Some(accessible.clone().into());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .compact()
+            .px_2()
+            .accessibility_label(accessible)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap_3()
+                    .child(
+                        div()
+                            .w(rems(12.))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .font_family(mono.clone())
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(name),
+                    )
+                    .child(
+                        div()
+                            .w(rems(8.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .text_color(muted)
+                            .child(kind),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_left()
+                            .font_family(mono)
+                            .font_weight(FontWeight::NORMAL)
+                            .child(preview),
+                    ),
+            );
+        self
+    }
     /// A full-width two-line row: a title with a quieter line of detail below.
     pub fn suggestion(
         mut self,
@@ -623,6 +684,8 @@ pub(super) fn outcome_label(value: &str) -> &str {
         "idle" => "Ready",
         "running" => "Running",
         "verified" => "Active",
+        "stale" => "Stale",
+        "stopped" => "Stopped",
         _ => value,
     }
 }

@@ -658,7 +658,7 @@ impl Workspace {
         }
 
         let mut pills = h_flex().gap_1().flex_wrap().items_center();
-        let chip = |title: &str| short_title(title.trim_start_matches('#').trim_start(), 24);
+        let chip = |title: &str| short_title(title.trim_start_matches('#').trim_start(), 32);
 
         for id in &selected_cells {
             let cell_id = id.clone();
@@ -947,10 +947,23 @@ impl Workspace {
             theme.warning,
         );
         let popover = theme.popover;
+        let setup = assistant_setup(&state.settings, &state.connection);
+        let unconfigured = matches!(setup, Setup::Unconfigured | Setup::Off);
         let model_label = if model_name.is_empty() {
-            "Choose a model".to_owned()
+            if unconfigured {
+                "Configure in Settings".to_owned()
+            } else {
+                "Choose a model".to_owned()
+            }
         } else {
             short_title(&model_name, 26)
+        };
+        let submit_hint = match setup {
+            Setup::Off => "Notebook AI policy is Off \u{2014} change it in Settings before asking.",
+            Setup::Unconfigured => {
+                "Choose a provider and model in Settings before asking the Assistant."
+            }
+            _ => "Review what will be shared (Enter). Nothing is sent until you approve it.",
         };
         let action = if busy {
             action_button("assistant-cancel")
@@ -981,8 +994,8 @@ impl Workspace {
                 .rounded_full()
                 .icon(Glyph::ArrowUp)
                 .accessibility_label("Review context")
-                .hint("Review what will be shared (Enter). Nothing is sent until you approve it.")
-                .unavailable(empty)
+                .hint(submit_hint)
+                .unavailable(empty || unconfigured)
                 .on_a11y_click(move |window, cx| {
                     let input = for_a11y.clone();
                     view.update(cx, |v, cx| v.submit_question(input, window, cx));

@@ -800,9 +800,7 @@ impl Workspace {
                                 .w_full()
                                 .submenu_item(label)
                                 .accessibility_label("Assistant actions")
-                                .hint(
-                                    "Ask, suggest an edit, refactor, document, or generate tests",
-                                )
+                                .hint("Ask, suggest an edit, refactor, document, or generate tests")
                                 .on_click(cx.listener(|v, _, window, cx| {
                                     if let Some(ActiveMenu::Cell { assistant, .. }) = &mut v.menu {
                                         *assistant = true;
@@ -885,34 +883,56 @@ impl Workspace {
                         basename.to_string()
                     };
                     menu = menu.child(
-                        action_button(("switch-notebook", index))
-                            .ghost()
+                        h_flex()
                             .w_full()
-                            .menu_item(label, None)
-                            .accessibility_label(format!(
-                                "Notebook: {}{}",
-                                tab.model.project.display(),
-                                if index == self.active {
-                                    ", current notebook"
-                                } else {
-                                    ""
-                                }
-                            ))
-                            .hint(tab.model.project.display().to_string())
-                            .quiet_toggle(index == self.active)
-                            .selected(index == self.active)
-                            .on_click(cx.listener(move |v, _, window, cx| {
-                                if let Some(tab) = v.tabs.get_mut(v.active) {
-                                    tab.selections.insert(v.surface.clone(), v.record_active);
-                                }
-                                v.active = index;
-                                v.record_active = v.tabs[index]
-                                    .selections
-                                    .get(&v.surface)
-                                    .copied()
-                                    .unwrap_or(0);
-                                v.close_menu(window, cx);
-                            })),
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                action_button(("switch-notebook", index))
+                                    .ghost()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .menu_item(label.clone(), None)
+                                    .accessibility_label(format!(
+                                        "Notebook: {}{}",
+                                        tab.model.project.display(),
+                                        if index == self.active {
+                                            ", current notebook"
+                                        } else {
+                                            ""
+                                        }
+                                    ))
+                                    .hint(tab.model.project.display().to_string())
+                                    .quiet_toggle(index == self.active)
+                                    .selected(index == self.active)
+                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                        if let Some(tab) = v.tabs.get_mut(v.active) {
+                                            tab.selections
+                                                .insert(v.surface.clone(), v.record_active);
+                                        }
+                                        v.active = index;
+                                        v.record_active = v.tabs[index]
+                                            .selections
+                                            .get(&v.surface)
+                                            .copied()
+                                            .unwrap_or(0);
+                                        v.close_menu(window, cx);
+                                    })),
+                            )
+                            .child(
+                                action_button(("close-notebook", index))
+                                    .ghost()
+                                    .small()
+                                    .icon(Glyph::X)
+                                    .accessibility_label(format!("Close {label}"))
+                                    .hint(format!(
+                                        "Close notebook ({})",
+                                        shortcuts::shortcut_text("Ctrl+W")
+                                    ))
+                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                        v.close_tab(index, window, cx);
+                                    })),
+                            ),
                     );
                 }
                 menu = menu.child(menu_sep(cx)).child(
@@ -1127,6 +1147,30 @@ impl Workspace {
                             })),
                     );
                 }
+                menu = menu.child(menu_sep(cx));
+                for (surface, hint) in [
+                    ("Variables", "Inspect live namespace values while idle"),
+                    ("Console", "Run Python in the attached notebook session"),
+                    ("Debugger", "Inspect paused stack frames and locals"),
+                ] {
+                    menu = menu.child(
+                        action_button(SharedString::from(format!("destination-{surface}")))
+                            .debug_selector(surface)
+                            .ghost()
+                            .w_full()
+                            .menu_item(surface, None)
+                            .quiet_toggle(self.surface == surface)
+                            .selected(self.surface == surface)
+                            .unavailable(self.tabs.is_empty())
+                            .hint(hint)
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.select_surface(surface, cx);
+                                v.focus.focus(window, cx);
+                            })),
+                    );
+                }
+                menu = menu.child(menu_sep(cx));
                 for surface in ["Settings", "Help", "Diagnostics", "Runtimes"] {
                     menu = menu.child(
                         action_button(surface)

@@ -147,6 +147,7 @@ struct Tab {
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
     variables_scroll: UniformListScrollHandle,
+    console_history: Vec<Value>,
     html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
     html_notes: BTreeMap<String, String>,
     html_states: BTreeMap<String, html_output::HtmlState>,
@@ -200,6 +201,8 @@ pub struct Workspace {
     history_enter: Option<Subscription>,
     settings_section: settings::SettingsSection,
     help_query: Entity<InputState>,
+    variables_query: Entity<InputState>,
+    query_subscriptions: Vec<Subscription>,
     record_active: usize,
     sidebar_focus: FocusHandle,
     assistant_focus: FocusHandle,
@@ -334,6 +337,9 @@ impl Workspace {
             history_enter: None,
             settings_section: settings::SettingsSection::Appearance,
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
+            variables_query: cx
+                .new(|cx| InputState::new(window, cx).placeholder("Filter variables")),
+            query_subscriptions: Vec::new(),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
             assistant_focus: cx.focus_handle(),
@@ -364,10 +370,10 @@ impl Workspace {
                 });
             }
         }));
-        view.appearance_subscription = Some(cx.observe_window_appearance(
-            window,
-            |view, window, cx| view.sync_system_appearance(window, cx),
-        ));
+        view.appearance_subscription =
+            Some(cx.observe_window_appearance(window, |view, window, cx| {
+                view.sync_system_appearance(window, cx)
+            }));
         view.history_enter = Some(cx.subscribe_in(
             &view.history_query,
             window,
@@ -377,6 +383,22 @@ impl Workspace {
                 _ => {}
             },
         ));
+        for input in [
+            view.query.clone(),
+            view.palette_query.clone(),
+            view.help_query.clone(),
+            view.variables_query.clone(),
+        ] {
+            view.query_subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                |_, _, event: &InputEvent, _, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        cx.notify();
+                    }
+                },
+            ));
+        }
         if let Some(project) = project {
             view.open(project, cx);
         }
@@ -509,11 +531,54 @@ impl Workspace {
             error: None,
             attachment_pages: BTreeMap::new(),
             variables_scroll: UniformListScrollHandle::default(),
+            console_history: vec![],
             html_views: BTreeMap::new(),
             html_states: BTreeMap::new(),
             html_notes: BTreeMap::new(),
         });
         self.active = self.tabs.len() - 1;
+        cx.notify();
+    }
+
+    pub(crate) fn close_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if index >= self.tabs.len() {
+            return;
+        }
+        for view in self.tabs[index].html_views.values() {
+            view.update(cx, |wv, _| {
+                let _ = wv.set_visible(false);
+            });
+        }
+        let closed = self.tabs.remove(index);
+        let key = closed.model.project.display().to_string();
+        self.console_editors.remove(&key);
+        self.questions.remove(&key);
+        if self.history_owner == Some(closed.id) {
+            self.history_owner = None;
+            self.history_controls.clear();
+            self.history_field_subscriptions.clear();
+            self.history_fields_key.clear();
+        }
+        self.confirmation = None;
+        if self.tabs.is_empty() {
+            self.active = 0;
+            self.record_active = 0;
+            if self.surface != "Help" {
+                self.surface = "Notebook".into();
+            }
+        } else {
+            if index < self.active {
+                self.active -= 1;
+            } else {
+                self.active = self.active.min(self.tabs.len() - 1);
+            }
+            self.record_active = self.tabs[self.active]
+                .selections
+                .get(&self.surface)
+                .copied()
+                .unwrap_or(0);
+        }
+        self.close_menu(window, cx);
         cx.notify();
     }
     fn send(&self, command: Command) {
@@ -1056,6 +1121,11 @@ impl Workspace {
                             continue;
                         }
                         if method == "console.execution" {
+                            tab.console_history.push(value.clone());
+                            if tab.console_history.len() > 50 {
+                                let excess = tab.console_history.len() - 50;
+                                tab.console_history.drain(..excess);
+                            }
                             tab.inspections.insert("Console output".into(), value);
                             continue;
                         }
@@ -1194,6 +1264,16 @@ impl Workspace {
                                 );
                             }
                         }
+                        for record in &mut tab.console_history {
+                            if record["exec_id"] == exec_id
+                                && let Some(event) = record["outputs"].get_mut(index)
+                                && kernelledger_client::output::matches_blob(event, &slot, &digest)
+                            {
+                                kernelledger_client::output::write_page(
+                                    event, &slot, &text, offset, end, total,
+                                );
+                            }
+                        }
                     }
                     Event::ImageCached {
                         cell_id,
@@ -1223,6 +1303,13 @@ impl Workspace {
                             if let Some(history) = tab.inspections.get_mut(surface)
                                 && history["exec_id"] == exec_id
                                 && let Some(event) = history["outputs"].get_mut(index)
+                            {
+                                assign(event);
+                            }
+                        }
+                        for record in &mut tab.console_history {
+                            if record["exec_id"] == exec_id
+                                && let Some(event) = record["outputs"].get_mut(index)
                             {
                                 assign(event);
                             }

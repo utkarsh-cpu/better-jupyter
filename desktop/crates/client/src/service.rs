@@ -366,8 +366,8 @@ pub(crate) struct EventSink {
     wake: Option<std::sync::Arc<dyn Fn() + Send + Sync>>,
 }
 impl EventSink {
-    pub(crate) fn send(&self, event: Event) -> std::result::Result<(), mpsc::SendError<Event>> {
-        let result = self.sender.send(event);
+    pub(crate) fn send(&self, event: Event) -> std::result::Result<(), ()> {
+        let result = self.sender.send(event).map_err(|_| ());
         if result.is_ok()
             && let Some(wake) = &self.wake
         {

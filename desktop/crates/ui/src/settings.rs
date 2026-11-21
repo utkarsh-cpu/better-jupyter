@@ -593,15 +593,14 @@ impl Workspace {
             .when(
                 matches!(
                     section,
-                    SettingsSection::Appearance
-                        | SettingsSection::Editor
-                        | SettingsSection::Layout
+                    SettingsSection::Appearance | SettingsSection::Editor | SettingsSection::Layout
                 ),
                 |d| d.child(self.settings_preview(cx)),
             )
-            .when(section == SettingsSection::Runtime && !value.is_null(), |d| {
-                d.child(self.record_details_in(value, Some(details_reveal), cx))
-            });
+            .when(
+                section == SettingsSection::Runtime && !value.is_null(),
+                |d| d.child(self.record_details_in(value, Some(details_reveal), cx)),
+            );
         let heading = h_flex()
             .gap_3()
             .flex_wrap()

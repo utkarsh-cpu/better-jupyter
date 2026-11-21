@@ -12,7 +12,7 @@ const PALETTE_FIRST: [&str; 8] = [
     "assistant",
 ];
 
-pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 56] = [
+pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 57] = [
     (
         "undo-source",
         "Undo cell structure change",
@@ -162,6 +162,12 @@ pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 56] = [
         "Open notebook\u{2026}",
         "Choose a notebook directory",
         Glyph::FolderOpen,
+    ),
+    (
+        "close-notebook",
+        "Close notebook",
+        "Close the current notebook tab without stopping its runtime",
+        Glyph::X,
     ),
     (
         "run-all",
@@ -870,6 +876,14 @@ impl Workspace {
             "Checkpoints" => self.inspect("checkpoints.list", json!({})),
             "Diagnostics" => self.inspect("doctor", json!({})),
             "Runtimes" => self.inspect("runtimes.list", json!({})),
+            "Variables"
+                if self
+                    .tabs
+                    .get(self.active)
+                    .is_some_and(|t| t.runtime["worker_state"] == "idle") =>
+            {
+                self.interactive_request("namespace.list", json!({}));
+            }
             _ => {}
         }
         cx.notify();
@@ -1062,6 +1076,13 @@ impl Workspace {
                 self.save_preferences(cx);
             }
             "open" => self.open_dialog(&OpenNotebook, window, cx),
+            "close-notebook" => {
+                let active = self.active;
+                self.palette = false;
+                self.return_focus = None;
+                self.close_tab(active, window, cx);
+                return;
+            }
             "gc" => self.runtime(method, json!({"dry_run":true})),
             "training-list" => {
                 self.surface = "Checkpoints".into();

@@ -310,7 +310,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let tab_id = TabId(view.next_tab_id);
                 view.next_tab_id += 1;
                 view.tabs.push(Tab { id: tab_id, assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
                 view
             })
         }).unwrap()
@@ -3819,4 +3819,189 @@ fn mono_font_size_scales_at_13px_and_high_contrast_updates_presentation_global(
         assert!(pres.high_contrast);
     })
     .unwrap();
+}
+
+#[gpui_kit::test]
+fn close_tab_switches_active_and_returns_to_welcome_on_last_tab(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            let (send, _) = mpsc::channel();
+            let (_, events) = mpsc::channel();
+            let second_id = TabId(v.next_tab_id);
+            v.next_tab_id += 1;
+            let model = NotebookModel {
+                project: PathBuf::from("second-notebook"),
+                ..Default::default()
+            };
+            v.tabs.push(Tab {
+                id: second_id,
+                assistant: Default::default(),
+                model,
+                service: NotebookService {
+                    commands: send,
+                    events,
+                },
+                list: ListState::new(0, ListAlignment::Top, px(200.)),
+                editors: BTreeMap::new(),
+                debug_decorations: BTreeMap::new(),
+                subscriptions: vec![],
+                runtime: json!({"worker_state":"idle"}),
+                operations: BTreeMap::new(),
+                inspections: BTreeMap::new(),
+                inspection_method: BTreeMap::new(),
+                scrolls: BTreeMap::new(),
+                parents: vec![],
+                raw_details: BTreeMap::new(),
+                reveal: None,
+                uninitialized: false,
+                selections: BTreeMap::new(),
+                drafts: vec![],
+                history_filter: String::new(),
+                history_applied: String::new(),
+                checkpoint_notice: None,
+                error: None,
+                attachment_pages: BTreeMap::new(),
+                variables_scroll: Default::default(),
+                console_history: vec![],
+                html_views: BTreeMap::new(),
+                html_states: BTreeMap::new(),
+                html_notes: BTreeMap::new(),
+            });
+            v.active = 1;
+            let _ = v.console_editor(window, cx);
+        });
+        // Close the first tab while second is active: active shifts down to 0.
+        view.update(cx, |v, cx| v.close_tab(0, window, cx));
+        assert_eq!(view.read(cx).tabs.len(), 1);
+        assert_eq!(view.read(cx).active, 0);
+        assert_eq!(
+            view.read(cx).tabs[0].model.project,
+            PathBuf::from("second-notebook")
+        );
+        // Close the last remaining tab via command dispatch: returns to Welcome.
+        view.update(cx, |v, cx| v.run_command("close-notebook", window, cx));
+        assert!(view.read(cx).tabs.is_empty());
+        assert_eq!(view.read(cx).surface, "Notebook");
+        assert!(view.read(cx).console_editors.is_empty());
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn variables_filter_and_idle_passive_refresh(cx: &mut TestAppContext) {
+    use super::interactive::variable_matches;
+    let item = json!({"name": "learning_rate", "type": "float", "preview": "0.001"});
+    assert!(variable_matches(&item, ""));
+    assert!(variable_matches(&item, "learning"));
+    assert!(variable_matches(&item, "float"));
+    assert!(variable_matches(&item, "0.001"));
+    assert!(!variable_matches(&item, "dataframe"));
+
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, _, cx| {
+        // Offline runtime: switching to Variables must NOT send namespace.list.
+        view.update(cx, |v, cx| {
+            v.tabs[0].runtime = json!({"worker_state": "offline"});
+            v.select_surface("Variables", cx);
+        });
+    })
+    .unwrap();
+    assert!(!commands.try_iter().any(
+        |c| matches!(c, Command::Interactive { ref method, .. } if method == "namespace.list")
+    ));
+
+    cx.update_window(handle, |_, _, cx| {
+        // Idle runtime with no cached Variables snapshot: passively requests namespace.list.
+        view.update(cx, |v, cx| {
+            v.tabs[0].runtime =
+                json!({"worker_state": "idle", "interactive": {"worker_generation": "g1"}});
+            v.select_surface("Notebook", cx);
+            v.select_surface("Variables", cx);
+        });
+    })
+    .unwrap();
+    assert!(commands.try_iter().any(
+        |c| matches!(c, Command::Interactive { ref method, .. } if method == "namespace.list")
+    ));
+}
+
+#[gpui_kit::test]
+fn console_transcript_accumulates_and_clears(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, _) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.select_surface("Console", cx);
+        });
+        send.send(Event::Inspection {
+            method: "console.execution".into(),
+            value: json!({
+                "exec_id": "exec-1",
+                "status": "ok",
+                "source": "a = 1",
+                "outputs": []
+            }),
+        })
+        .unwrap();
+        send.send(Event::Inspection {
+            method: "console.execution".into(),
+            value: json!({
+                "exec_id": "exec-2",
+                "status": "ok",
+                "source": "a + 2",
+                "outputs": [{"kind": "stream", "name": "stdout", "text": "3\n"}]
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert_eq!(view.read(cx).tabs[0].console_history.len(), 2);
+        assert_eq!(
+            view.read(cx).tabs[0].inspections["Console output"]["exec_id"],
+            "exec-2"
+        );
+        window.render_frame(cx);
+        window.click("console-clear", cx);
+        assert!(view.read(cx).tabs[0].console_history.is_empty());
+        assert!(
+            !view.read(cx).tabs[0]
+                .inspections
+                .contains_key("Console output")
+        );
+    })
+    .unwrap();
+}
+
+#[test]
+fn help_document_parses_shortcut_table_and_outcome_labels_capitalize() {
+    let raw = include_str!("../../../../docs/desktop/help.md")
+        .trim_start()
+        .strip_prefix("# Help and shortcuts")
+        .unwrap()
+        .trim_start();
+    let parsed = super::help::parse_help_document(raw);
+    assert!(
+        parsed
+            .shortcuts
+            .iter()
+            .any(|(action, keys)| action == "Close notebook" && keys == "Ctrl+W")
+    );
+    assert!(
+        parsed
+            .shortcuts
+            .iter()
+            .any(|(action, keys)| action == "Run cell, select next" && keys == "Shift+Enter")
+    );
+    assert!(
+        parsed
+            .sections
+            .iter()
+            .any(|section| section.starts_with("## Export a document"))
+    );
+    assert_eq!(super::components::outcome_label("stale"), "Stale");
+    assert_eq!(super::components::outcome_label("stopped"), "Stopped");
 }

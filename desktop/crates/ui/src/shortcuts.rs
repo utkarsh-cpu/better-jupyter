@@ -36,6 +36,7 @@ pub(super) fn platform_binding(keys: &'static str) -> &'static str {
         "ctrl-b" => "cmd-b",
         "ctrl-s" => "cmd-s",
         "ctrl-o" => "cmd-o",
+        "ctrl-w" => "cmd-w",
         "ctrl-shift-f" => "cmd-shift-f",
         "ctrl-shift-p" => "cmd-shift-p",
         "ctrl-shift-n" => "cmd-shift-n",
@@ -73,6 +74,7 @@ pub(super) fn shortcut_text(text: &str) -> String {
 pub(super) const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("undo-source", "Undo cell structure", "ctrl-z"),
     ("redo-source", "Redo cell structure", "ctrl-shift-z"),
+    ("close-notebook", "Close notebook", "ctrl-w"),
     ("notebook", "Notebook", "ctrl-1"),
     ("history", "History", "ctrl-2"),
     ("checkpoints", "Checkpoints", "ctrl-3"),

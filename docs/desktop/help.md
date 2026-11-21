@@ -10,6 +10,7 @@ Run bindings work in both edit and command mode and leave source unchanged. Plai
 | Run all | Ctrl+Shift+Enter |
 | Save | Ctrl+S |
 | Open notebook | Ctrl+O |
+| Close notebook | Ctrl+W |
 | Command palette | Ctrl+Shift+P |
 | Command mode / cancel | Escape |
 | Back from recorded details | Alt+Left |

@@ -86,7 +86,11 @@ impl Workspace {
         }
         let mut body = v_flex()
             .w_full()
-            .max_w(rems(if self.surface == "Help" { 52. } else { 76. }))
+            .max_w(rems(match self.surface.as_str() {
+                "Help" => 52.,
+                "Diagnostics" | "Runtimes" => 60.,
+                _ => 76.,
+            }))
             .min_w_0()
             .gap_4()
             .child(header_row);
@@ -532,25 +536,19 @@ impl Workspace {
             }
             body = body.child(section("Active operations", cx).child(rows));
         }
-        let mut tools = h_flex().gap_2().flex_wrap();
-        for (method, label, glyph) in [
-            ("doctor", "Run doctor", Glyph::Stethoscope),
-            (
-                "interpreter.candidates",
-                "Interpreter candidates",
-                Glyph::Cpu,
-            ),
-        ] {
-            tools = tools.child(
-                action_button(method)
+        let tools = h_flex()
+            .gap_2()
+            .flex_wrap()
+            .child(
+                action_button("interpreter.candidates")
                     .small()
                     .outline()
-                    .icon(glyph)
-                    .label(label)
-                    .on_click(cx.listener(move |v, _, _, _| v.inspect(method, json!({})))),
-            );
-        }
-        tools = tools
+                    .icon(Glyph::Cpu)
+                    .label("Interpreter candidates")
+                    .on_click(
+                        cx.listener(|v, _, _, _| v.inspect("interpreter.candidates", json!({}))),
+                    ),
+            )
             .child(
                 action_button("refresh")
                     .small()
@@ -833,6 +831,11 @@ impl Workspace {
                                 .label("Open")
                                 .accessibility_label("Open notebook")
                                 .unavailable(path_for_open.is_none())
+                                .hint(if path_for_open.is_some() {
+                                    "Open this notebook"
+                                } else {
+                                    "Notebook directory path is unavailable"
+                                })
                                 .on_click(cx.listener(move |v, _, _, cx| {
                                     if let Some(path) = path_for_open.clone() {
                                         v.open(path, cx);
@@ -847,6 +850,11 @@ impl Workspace {
                                 .label("Stop")
                                 .accessibility_label("Stop runtime")
                                 .unavailable(status != "verified")
+                                .hint(if status == "verified" {
+                                    "Stop this notebook's active runtime"
+                                } else {
+                                    "Runtime is not active"
+                                })
                                 .on_click(cx.listener(move |v, _, _, cx| {
                                     if let Some(path) = path_for_stop.clone() {
                                         v.open(path, cx);
