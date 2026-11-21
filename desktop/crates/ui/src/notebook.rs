@@ -607,6 +607,7 @@ impl Workspace {
                                     .gap_2()
                                     .pr_2()
                                     .rounded(px(6.))
+                                    .overflow_hidden()
                                     .bg(muted)
                                     .border_1()
                                     .border_color(cell_border_color(

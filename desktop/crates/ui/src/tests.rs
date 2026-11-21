@@ -3753,3 +3753,70 @@ fn invalid_budget_is_reported_inline_and_blocks_save(cx: &mut TestAppContext) {
         "an invalid budget must not be saved"
     );
 }
+
+#[test]
+fn popover_left_aligns_trailing_triggers_to_their_right_edge_and_clamps_to_viewport() {
+    use super::shell::popover_left;
+    let trigger = Bounds {
+        origin: Point::new(px(960.), px(10.)),
+        size: size(px(88.), px(28.)),
+    };
+    // Right edge of trigger is 1048; width 280 -> left 768.
+    assert_eq!(popover_left(trigger, px(280.), px(1440.), true), px(768.));
+    // Left-aligned stays at trigger origin.
+    assert_eq!(popover_left(trigger, px(280.), px(1440.), false), px(960.));
+    // Far-right trigger clamps to viewport - width - 12.
+    let far_right = Bounds {
+        origin: Point::new(px(1400.), px(10.)),
+        size: size(px(28.), px(28.)),
+    };
+    assert_eq!(
+        popover_left(far_right, px(280.), px(1440.), true),
+        px(1148.)
+    );
+    assert_eq!(
+        popover_left(far_right, px(280.), px(1440.), false),
+        px(1148.)
+    );
+    // Unmeasured right-aligned fallback docks inside right margin.
+    assert_eq!(
+        popover_left(Bounds::default(), px(280.), px(1440.), true),
+        px(1148.)
+    );
+    // Trigger near left edge clamps to 12px margin.
+    let far_left = Bounds {
+        origin: Point::new(px(20.), px(10.)),
+        size: size(px(40.), px(28.)),
+    };
+    assert_eq!(popover_left(far_left, px(280.), px(1440.), true), px(12.));
+}
+
+#[gpui_kit::test]
+fn mono_font_size_scales_at_13px_and_high_contrast_updates_presentation_global(
+    cx: &mut TestAppContext,
+) {
+    use super::ActiveTheme;
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.ui_scale = 1.5;
+            v.high_contrast = true;
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind": "error",
+                "ename": "ZeroDivisionError",
+                "evalue": "division by zero",
+                "traceback": ["ZeroDivisionError: division by zero"]
+            })];
+            v.tabs[0].list.splice(0..1, 1);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        assert_eq!(cx.theme().font_size, px(14. * 1.5));
+        assert_eq!(cx.theme().mono_font_size, px(13. * 1.5));
+        let pres = cx
+            .try_global::<super::components::WorkbenchPresentation>()
+            .expect("presentation global");
+        assert!(pres.high_contrast);
+    })
+    .unwrap();
+}

@@ -455,11 +455,22 @@ impl RenderOnce for OutputBlock {
                 format!("Recorded output: {}", self.context)
             })
             .when(error, |d| {
+                let high_contrast = cx
+                    .try_global::<WorkbenchPresentation>()
+                    .is_some_and(|p| p.high_contrast);
                 d.p_3()
                     .rounded(px(6.))
-                    .border_l_2()
-                    .border_color(cx.theme().danger)
-                    .bg(cx.theme().danger.opacity(0.08))
+                    .when(high_contrast, |d| {
+                        d.border_1()
+                            .border_l_2()
+                            .border_color(cx.theme().danger)
+                            .bg(cx.theme().background)
+                    })
+                    .when(!high_contrast, |d| {
+                        d.border_l_2()
+                            .border_color(cx.theme().danger)
+                            .bg(cx.theme().danger.opacity(0.08))
+                    })
             })
             .when(self.tools_state.is_none(), |d| {
                 d.child(

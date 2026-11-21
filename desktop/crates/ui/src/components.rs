@@ -643,20 +643,43 @@ pub(super) fn notable_status(value: &str) -> bool {
     )
 }
 
-pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Div {
-    h_flex()
-        .flex_none()
-        .min_h(px(18.))
-        .px(px(6.))
-        .py(px(1.))
-        .rounded(px(4.))
-        .bg(color.opacity(0.12))
-        .items_center()
-        .text_color(color)
-        .text_size(rems(0.6875))
-        .line_height(rems(1.))
-        .font_weight(FontWeight::MEDIUM)
-        .child(label.into())
+#[derive(IntoElement)]
+pub(super) struct Badge {
+    label: SharedString,
+    color: Hsla,
+}
+
+impl RenderOnce for Badge {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let high_contrast = cx
+            .try_global::<WorkbenchPresentation>()
+            .is_some_and(|p| p.high_contrast);
+        h_flex()
+            .flex_none()
+            .min_h(px(18.))
+            .px(px(6.))
+            .py(px(1.))
+            .rounded(px(4.))
+            .when(high_contrast, |d| {
+                d.bg(cx.theme().background)
+                    .border_1()
+                    .border_color(self.color)
+            })
+            .when(!high_contrast, |d| d.bg(self.color.opacity(0.12)))
+            .items_center()
+            .text_color(self.color)
+            .text_size(rems(0.6875))
+            .line_height(rems(1.))
+            .font_weight(FontWeight::MEDIUM)
+            .child(self.label)
+    }
+}
+
+pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Badge {
+    Badge {
+        label: label.into(),
+        color,
+    }
 }
 pub(super) fn dot(color: Hsla) -> Div {
     div().flex_none().size(px(7.)).rounded_full().bg(color)

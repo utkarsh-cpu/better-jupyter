@@ -404,13 +404,20 @@ impl Workspace {
                 {
                     continue;
                 }
+                let collapsed_secondary = collapse.navigation && self.surface != surface;
+                let button_label: SharedString = if collapsed_secondary {
+                    self.surface.clone().into()
+                } else {
+                    surface.into()
+                };
                 let mut button = action_button(surface)
                     .debug_selector(surface)
                     .small()
-                    .segment(self.surface == surface)
+                    .when(collapsed_secondary, |b| b.outline())
+                    .when(!collapsed_secondary, |b| b.segment(self.surface == surface))
                     .accessibility_label(format!(
-                        "{surface}{}",
-                        if self.surface == surface {
+                        "{button_label}{}",
+                        if self.surface == surface || collapsed_secondary {
                             ", current destination"
                         } else {
                             ""
@@ -442,7 +449,7 @@ impl Workspace {
                             v.focus.focus(window, cx);
                         }
                     }));
-                button = button.label(surface).w(px(if collapse.navigation {
+                button = button.label(button_label).w(px(if collapse.navigation {
                     116.
                 } else {
                     destination_width(surface)
@@ -1160,11 +1167,11 @@ impl Workspace {
                     .unwrap_or_default();
                 let width = px(280. * self.preferences.ui_scale)
                     .min(window.viewport_size().width - px(24.));
-                let left = bounds
-                    .origin
-                    .x
-                    .min(window.viewport_size().width - width - px(12.))
-                    .max(px(12.));
+                let right_aligned = matches!(
+                    self.menu_anchor.as_str(),
+                    "runtime" | "export" | "application"
+                ) || self.menu_anchor.starts_with("cell-menu-");
+                let left = popover_left(bounds, width, window.viewport_size().width, right_aligned);
                 let top = (bounds.origin.y + bounds.size.height + px(4.))
                     .min(window.viewport_size().height - px(180.))
                     .max(px(4.));
@@ -1201,4 +1208,24 @@ impl Workspace {
         }
         cx.notify();
     }
+}
+
+pub(super) fn popover_left(
+    trigger: Bounds<Pixels>,
+    width: Pixels,
+    viewport_width: Pixels,
+    right_aligned: bool,
+) -> Pixels {
+    let margin = px(12.);
+    let max_left = (viewport_width - width - margin).max(margin);
+    let preferred = if right_aligned {
+        if trigger.size.width > px(0.) {
+            trigger.origin.x + trigger.size.width - width
+        } else {
+            max_left
+        }
+    } else {
+        trigger.origin.x
+    };
+    preferred.min(max_left).max(margin)
 }
