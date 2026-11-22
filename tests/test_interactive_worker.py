@@ -455,7 +455,11 @@ def test_passive_containers_stdlib_dataclasses_and_generators():
     target, crumbs = _resolve_segments(
         nested,
         "nested",
-        [{"kind": "index", "value": 1}, {"kind": "index", "value": 1}, {"kind": "key", "value": "k"}],
+        [
+            {"kind": "index", "value": 1},
+            {"kind": "index", "value": 1},
+            {"kind": "key", "value": "k"},
+        ],
     )
     assert target == [10, 20]
     assert [c["label"] for c in crumbs] == ["nested", "[1]", "[1]", "['k']"]
@@ -660,4 +664,3 @@ def test_live_namespace_preview_drilldown_and_contracts(notebook):
         ]
     finally:
         client.close()
-

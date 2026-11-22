@@ -6,7 +6,7 @@ import ast
 import builtins
 import re
 from collections import defaultdict, deque
-from typing import Any
+from typing import Any, cast
 
 _BUILTINS = frozenset(dir(builtins)) | {
     "__name__",
@@ -61,7 +61,9 @@ _SQL_KEYWORDS = frozenset(
     }
 )
 
-_SQL_CTE_RE = re.compile(r"\b(?:with|recursive|,)\s+([A-Za-z_][A-Za-z0-9_]*)\s+as\s*\(", re.IGNORECASE)
+_SQL_CTE_RE = re.compile(
+    r"\b(?:with|recursive|,)\s+([A-Za-z_][A-Za-z0-9_]*)\s+as\s*\(", re.IGNORECASE
+)
 _SQL_TABLE_RE = re.compile(
     r"\b(?:from|join)\s+(?:(?:\"([^\"]+)\")|([A-Za-z_][A-Za-z0-9_]*))",
     re.IGNORECASE,
@@ -302,11 +304,10 @@ class _ScopeAnalyzer(ast.NodeVisitor):
 
     def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
         self.visit(node.value)
-        if isinstance(node.target, ast.Name):
-            if self._scopes:
-                self._scopes[-1].add(node.target.id)
-            else:
-                self._record_def(node.target.id)
+        if self._scopes:
+            self._scopes[-1].add(node.target.id)
+        else:
+            self._record_def(node.target.id)
 
     def _visit_target(self, target: ast.AST) -> None:
         if isinstance(target, ast.Name):
@@ -586,7 +587,8 @@ def analyze_cells(cells: list[dict[str, Any]]) -> dict[str, Any]:
         cid = str(cell.get("id") or "")
         ctype = str(cell.get("type") or "code")
         source = str(cell.get("source") or "")
-        meta = cell.get("metadata") if isinstance(cell.get("metadata"), dict) else {}
+        raw_meta = cell.get("metadata")
+        meta: dict[str, Any] = cast(dict[str, Any], raw_meta) if isinstance(raw_meta, dict) else {}
         disabled = bool(meta.get("disabled", False))
         order_index[cid] = idx
         if ctype == "code":
@@ -628,7 +630,8 @@ def analyze_cells(cells: list[dict[str, Any]]) -> dict[str, Any]:
 
     edges: list[dict[str, Any]] = []
     for (src_id, dst_id), vars_list in sorted(
-        edge_vars.items(), key=lambda item: (order_index.get(item[0][0], 0), order_index.get(item[0][1], 0))
+        edge_vars.items(),
+        key=lambda item: (order_index.get(item[0][0], 0), order_index.get(item[0][1], 0)),
     ):
         edges.append({"from": src_id, "to": dst_id, "vars": vars_list})
         adj[src_id].append(dst_id)
@@ -782,4 +785,3 @@ def notebook_stale_plan(notebook: Any, ledger: Any = None) -> dict[str, Any]:
             if cid is not None:
                 executed_revisions[str(cid)] = row["source_sha256"]
     return stale_plan(cells, executed_revisions)
-

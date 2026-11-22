@@ -141,7 +141,15 @@ def validate(request: Any, helper: bool = False) -> None:
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
-    for key in ("offset", "length", "after_seq", "after_change_seq", "page_size", "col_offset", "col_limit"):
+    for key in (
+        "offset",
+        "length",
+        "after_seq",
+        "after_change_seq",
+        "page_size",
+        "col_offset",
+        "col_limit",
+    ):
         if key in request and (type(request[key]) is not int or request[key] < 0):
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
     if "col_limit" in request and not 1 <= request["col_limit"] <= 40:
@@ -167,24 +175,32 @@ def validate(request: Any, helper: bool = False) -> None:
     if method == "namespace.preview":
         if "segments" in request:
             segs = request["segments"]
-            if type(segs) is not list or len(segs) > 16:
+            if type(segs) is not list:
                 raise SourceError("invalid_request", "segments must be a list of at most 16 steps")
-            for seg in segs:
+            segs_list = cast(list[Any], segs)
+            if len(segs_list) > 16:
+                raise SourceError("invalid_request", "segments must be a list of at most 16 steps")
+            for seg in segs_list:
+                if type(seg) is not dict:
+                    raise SourceError("invalid_request", "invalid segment entry")
+                seg_dict = cast(dict[str, Any], seg)
                 if (
-                    type(seg) is not dict
-                    or seg.get("kind") not in ("index", "key", "entry", "attr")
-                    or "value" not in seg
+                    seg_dict.get("kind") not in ("index", "key", "entry", "attr")
+                    or "value" not in seg_dict
                 ):
                     raise SourceError("invalid_request", "invalid segment entry")
         if "slice_prefix" in request:
             prefix = request["slice_prefix"]
-            if (
-                type(prefix) is not list
-                or len(prefix) > 8
-                or any(type(p) is not int or p < 0 for p in prefix)
-            ):
+            if type(prefix) is not list:
                 raise SourceError(
-                    "invalid_request", "slice_prefix must be a list of at most 8 nonnegative integers"
+                    "invalid_request",
+                    "slice_prefix must be a list of at most 8 nonnegative integers",
+                )
+            prefix_list = cast(list[Any], prefix)
+            if len(prefix_list) > 8 or any(type(p) is not int or p < 0 for p in prefix_list):
+                raise SourceError(
+                    "invalid_request",
+                    "slice_prefix must be a list of at most 8 nonnegative integers",
                 )
     if method == "debug.breakpoints" and (
         type(request["breakpoints"]) is not list or len(request["breakpoints"]) > 100

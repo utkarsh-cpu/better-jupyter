@@ -560,7 +560,10 @@ class SourceService:
                     c["id"]
                     for c in current["cells"]
                     if c["type"] in ("code", "sql")
-                    and not (isinstance(c.get("metadata"), dict) and c["metadata"].get("disabled") is True)
+                    and not (
+                        isinstance(c.get("metadata"), dict)
+                        and c["metadata"].get("disabled") is True
+                    )
                 ]
             result: list[Any] = []
             for cid in ids:

@@ -58,11 +58,15 @@ def _run_worker(
         req["output_var"] = output_var
     worker.execute(req)
     emitted = channel.events[start:]
-    idle = next((e for e in reversed(emitted) if e.get("kind") == "status" and e.get("state") == "idle"), {})
+    idle = next(
+        (e for e in reversed(emitted) if e.get("kind") == "status" and e.get("state") == "idle"), {}
+    )
     return idle, emitted
 
 
-def _interactive(worker: Worker, channel: FakeChannel, method: str, **fields: Any) -> dict[str, Any]:
+def _interactive(
+    worker: Worker, channel: FakeChannel, method: str, **fields: Any
+) -> dict[str, Any]:
     start = len(channel.events)
     worker.transient(
         {

@@ -13,7 +13,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -28,19 +28,20 @@ def _canonical_key(value: Any, _depth: int = 0) -> Any:
     if isinstance(value, Path):
         return ["path", str(value)]
     if isinstance(value, (list, tuple)):
-        return [type(value).__name__, [_canonical_key(v, _depth + 1) for v in value]]
+        seq = cast(list[Any] | tuple[Any, ...], value)
+        return [type(seq).__name__, [_canonical_key(v, _depth + 1) for v in seq]]
     if isinstance(value, (set, frozenset)):
-        encoded = sorted(
-            json.dumps(_canonical_key(v, _depth + 1), sort_keys=True) for v in value
-        )
-        return [type(value).__name__, encoded]
+        bag = cast(set[Any] | frozenset[Any], value)
+        encoded = sorted(json.dumps(_canonical_key(v, _depth + 1), sort_keys=True) for v in bag)
+        return [type(bag).__name__, encoded]
     if isinstance(value, dict):
+        mapping = cast(dict[Any, Any], value)
         items = sorted(
             (
                 json.dumps(_canonical_key(k, _depth + 1), sort_keys=True),
                 _canonical_key(v, _depth + 1),
             )
-            for k, v in value.items()
+            for k, v in mapping.items()
         )
         return ["dict", items]
     if is_dataclass(value) and not isinstance(value, type):
@@ -49,15 +50,21 @@ def _canonical_key(value: Any, _depth: int = 0) -> Any:
             _canonical_key(asdict(value), _depth + 1),
         ]
     # NumPy arrays / pandas DataFrames if present
-    mod = type(value).__module__.split(".", 1)[0]
-    if mod == "numpy" and hasattr(value, "dtype") and hasattr(value, "shape") and hasattr(value, "tobytes"):
+    arr: Any = value
+    mod = type(arr).__module__.split(".", 1)[0]
+    if (
+        mod == "numpy"
+        and hasattr(arr, "dtype")
+        and hasattr(arr, "shape")
+        and hasattr(arr, "tobytes")
+    ):
         return [
             "ndarray",
-            str(value.dtype),
-            list(value.shape),
-            hashlib.sha256(value.tobytes()).hexdigest(),
+            str(arr.dtype),
+            list(arr.shape),
+            hashlib.sha256(arr.tobytes()).hexdigest(),
         ]
-    raise TypeError(f"Unsupported cache key type: {type(value).__name__}")
+    raise TypeError(f"Unsupported cache key type: {type(arr).__name__}")
 
 
 def _digest_call(func_sig: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
@@ -82,7 +89,7 @@ def _func_signature(fn: Callable[..., Any]) -> str:
     return f"{fn.__module__}.{fn.__qualname__}:{src_hash}"
 
 
-def cache(fn: F | None = None, *, maxsize: int = 128) -> Any:
+def cache(fn: Callable[..., Any] | None = None, *, maxsize: int = 128) -> Any:
     """In-memory LRU memoization decorator supporting lists, dicts, paths, dataclasses, and arrays."""
 
     def decorator(func: F) -> F:
@@ -128,7 +135,7 @@ def cache(fn: F | None = None, *, maxsize: int = 128) -> Any:
 
 
 def persistent_cache(
-    fn: F | None = None,
+    fn: Callable[..., Any] | None = None,
     *,
     cache_dir: str | Path | None = None,
     name: str | None = None,

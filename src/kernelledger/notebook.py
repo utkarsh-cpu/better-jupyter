@@ -418,16 +418,15 @@ class Notebook:
                     continue
                 for dec in node.decorator_list:
                     dec_attr = dec.func if isinstance(dec, ast.Call) else dec
-                    if (
-                        isinstance(dec_attr, ast.Attribute)
-                        and dec_attr.attr == "cell"
-                    ):
+                    if isinstance(dec_attr, ast.Attribute) and dec_attr.attr == "cell":
                         meta: dict[str, Any] = {}
                         if isinstance(dec, ast.Call):
                             for kw in dec.keywords:
-                                if kw.arg in ("hide_code", "disabled") and isinstance(
-                                    kw.value, ast.Constant
-                                ) and isinstance(kw.value.value, bool):
+                                if (
+                                    kw.arg in ("hide_code", "disabled")
+                                    and isinstance(kw.value, ast.Constant)
+                                    and isinstance(kw.value.value, bool)
+                                ):
                                     meta[kw.arg] = kw.value.value
                         marimo_funcs.append((node, meta))
                         break
@@ -491,7 +490,11 @@ class Notebook:
                     if text:
                         if cur_type == "markdown":
                             uncommented = "\n".join(
-                                ln[2:] if ln.startswith("# ") else ln[1:] if ln.startswith("#") else ln
+                                ln[2:]
+                                if ln.startswith("# ")
+                                else ln[1:]
+                                if ln.startswith("#")
+                                else ln
                                 for ln in text.splitlines()
                             )
                             parsed_cells.append(("markdown", uncommented, dict(cur_meta)))

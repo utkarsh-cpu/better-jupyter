@@ -95,6 +95,46 @@ CELL_MAGICS = {
 
 def _process_rss_bytes() -> int | None:
     """Read current worker resident set size (bytes) using stdlib only."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            class _ProcessMemoryCounters(ctypes.Structure):
+                _fields_ = [
+                    ("cb", ctypes.c_uint32),
+                    ("PageFaultCount", ctypes.c_uint32),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            windll: Any = getattr(ctypes, "windll", None)
+            if windll is not None:
+                counters = _ProcessMemoryCounters()
+                counters.cb = ctypes.sizeof(counters)
+                get_current_process = windll.kernel32.GetCurrentProcess
+                get_current_process.restype = ctypes.c_void_p
+                get_mem_info = (
+                    getattr(windll.kernel32, "K32GetProcessMemoryInfo", None)
+                    or windll.psapi.GetProcessMemoryInfo
+                )
+                get_mem_info.argtypes = [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_uint32,
+                ]
+                get_mem_info.restype = ctypes.c_int
+                handle = get_current_process()
+                if get_mem_info(handle, ctypes.byref(counters), counters.cb):
+                    return int(counters.WorkingSetSize)
+        except Exception:
+            return None
+        return None
     try:
         if os.path.isfile("/proc/self/statm"):
             with open("/proc/self/statm", encoding="utf-8") as fh:
@@ -1858,7 +1898,8 @@ def _passive_instance_fields(value: Any, limit: int = 200) -> dict[str, Any]:
             except Exception:
                 inst_dict = None
             if type(inst_dict) is dict:
-                for k, v in itertools.islice(inst_dict.items(), limit):
+                inst_map = cast(dict[Any, Any], inst_dict)
+                for k, v in itertools.islice(inst_map.items(), limit):
                     if type(k) is str and len(fields) < limit:
                         fields.setdefault(k, v)
             break
@@ -1884,8 +1925,10 @@ def _namedtuple_fields(value: Any) -> tuple[str, ...] | None:
     if cls is tuple or not issubclass(cls, tuple):
         return None
     fields = type.__dict__["__dict__"].__get__(cls).get("_fields")
-    if type(fields) is tuple and all(type(f) is str for f in fields) and len(fields) == len(value):
-        return fields
+    if type(fields) is tuple:
+        fields_tuple = cast(tuple[Any, ...], fields)
+        if all(type(f) is str for f in fields_tuple) and len(fields_tuple) == len(value):
+            return cast(tuple[str, ...], fields_tuple)
     return None
 
 
@@ -1894,7 +1937,7 @@ def _is_exact_stdlib(value: Any, module_name: str, class_names: tuple[str, ...])
     if type(module) is not types.ModuleType:
         return False
     ns = types.ModuleType.__getattribute__(module, "__dict__")
-    cls = type(value)
+    cls = cast(Any, type(value))
     return any(ns.get(name) is cls for name in class_names)
 
 
@@ -1994,7 +2037,7 @@ def _format_cell_value(val: Any, max_len: int = 96) -> dict[str, Any]:
     if _is_null_scalar(val):
         text = "NaN" if type(val) is float else "null"
         return {"text": text, "null": True, "numeric": False}
-    cls = type(val)
+    cls = cast(Any, type(val))
     if cls is bool:
         return {"text": "True" if val else "False", "null": False, "numeric": False}
     if cls is int:
@@ -2022,7 +2065,7 @@ def _format_cell_value(val: Any, max_len: int = 96) -> dict[str, Any]:
 
 def passive_dataframe(value: Any) -> dict[str, Any] | None:
     """Inspect exact pandas/polars/pyarrow tabular objects without importing or collecting lazy plans."""
-    cls = type(value)
+    cls = cast(Any, type(value))
     # 1. Exact pandas.DataFrame
     pd = sys.modules.get("pandas")
     if type(pd) is types.ModuleType:
@@ -2030,7 +2073,7 @@ def passive_dataframe(value: Any) -> dict[str, Any] | None:
         if cls is pd_ns.get("DataFrame"):
             try:
                 nrows, ncols = int(value.shape[0]), int(value.shape[1])
-                raw_cols = list(itertools.islice(value.columns, 500))
+                raw_cols: list[Any] = list(itertools.islice(value.columns, 500))
                 col_names = [str(c)[:128] for c in raw_cols]
                 raw_dtypes = value.dtypes
                 col_dtypes = [str(raw_dtypes.iloc[i])[:64] for i in range(len(raw_cols))]
@@ -2060,7 +2103,7 @@ def passive_dataframe(value: Any) -> dict[str, Any] | None:
             try:
                 nrows, ncols = int(value.height), int(value.width)
                 schema = value.schema
-                items = list(itertools.islice(schema.items(), 500))
+                items: list[tuple[Any, Any]] = list(itertools.islice(schema.items(), 500))
                 col_names = [str(k)[:128] for k, _ in items]
                 col_dtypes = [str(v)[:64] for _, v in items]
                 try:
@@ -2081,9 +2124,7 @@ def passive_dataframe(value: Any) -> dict[str, Any] | None:
         if cls is pl_ns.get("LazyFrame"):
             try:
                 schema = (
-                    value.collect_schema()
-                    if hasattr(value, "collect_schema")
-                    else value.schema
+                    value.collect_schema() if hasattr(value, "collect_schema") else value.schema
                 )
                 items = list(itertools.islice(schema.items(), 500))
                 col_names = [str(k)[:128] for k, _ in items]
@@ -2107,7 +2148,7 @@ def passive_dataframe(value: Any) -> dict[str, Any] | None:
         if cls in (pa_ns.get("Table"), pa_ns.get("RecordBatch")):
             try:
                 nrows, ncols = int(value.num_rows), int(value.num_columns)
-                fields = list(itertools.islice(value.schema, 500))
+                fields: list[Any] = list(itertools.islice(value.schema, 500))
                 col_names = [str(f.name)[:128] for f in fields]
                 col_dtypes = [str(f.type)[:64] for f in fields]
                 try:
@@ -2129,7 +2170,7 @@ def passive_dataframe(value: Any) -> dict[str, Any] | None:
 
 
 def passive_series(value: Any) -> dict[str, Any] | None:
-    cls = type(value)
+    cls = cast(Any, type(value))
     pd = sys.modules.get("pandas")
     if type(pd) is types.ModuleType:
         pd_ns = types.ModuleType.__getattribute__(pd, "__dict__")
@@ -2308,9 +2349,7 @@ def _passive_dataframe_slice(
                 if lib == "pandas":
                     col_series = value.iloc[:, ci]
                     sample_raw = [col_series.iloc[r] for r in range(min(3, unfiltered_nrows))]
-                    entry["samples"] = [
-                        _format_cell_value(v, 36)["text"] for v in sample_raw
-                    ]
+                    entry["samples"] = [_format_cell_value(v, 36)["text"] for v in sample_raw]
                     if include_stats or unfiltered_nrows <= 10_000:
                         entry["null_count"] = int(col_series.isna().sum())
                     if include_stats and unfiltered_nrows <= 1_000_000:
@@ -2343,9 +2382,7 @@ def _passive_dataframe_slice(
                 elif lib == "polars":
                     col_series = value.get_column(cname)
                     sample_raw = list(col_series.head(3).to_list())
-                    entry["samples"] = [
-                        _format_cell_value(v, 36)["text"] for v in sample_raw
-                    ]
+                    entry["samples"] = [_format_cell_value(v, 36)["text"] for v in sample_raw]
                     if include_stats or unfiltered_nrows <= 10_000:
                         entry["null_count"] = int(col_series.null_count())
                     if include_stats and unfiltered_nrows <= 1_000_000:
@@ -2382,11 +2419,12 @@ def _passive_dataframe_slice(
                 elif lib == "pyarrow":
                     col_arr = value.column(ci)
                     sample_raw = col_arr.slice(0, min(3, unfiltered_nrows)).to_pylist()
-                    entry["samples"] = [
-                        _format_cell_value(v, 36)["text"] for v in sample_raw
-                    ]
+                    entry["samples"] = [_format_cell_value(v, 36)["text"] for v in sample_raw]
                     entry["null_count"] = int(col_arr.null_count)
-                    if (include_stats or unfiltered_nrows <= 5_000) and ckind in ("integer", "number"):
+                    if (include_stats or unfiltered_nrows <= 5_000) and ckind in (
+                        "integer",
+                        "number",
+                    ):
                         try:
                             vals = col_arr.slice(0, min(50_000, unfiltered_nrows)).to_pylist()
                             entry["histogram"] = _numeric_histogram(vals)
@@ -2446,14 +2484,19 @@ def _passive_dataframe_slice(
                             mask = ser != cmp_val
                         view = scan_df[mask.fillna(False)]
                     elif fcol is not None and fop == ":":
-                        mask = scan_df[fcol].astype(str).str.contains(
-                            frhs, case=False, na=False, regex=False
+                        mask = (
+                            scan_df[fcol]
+                            .astype(str)
+                            .str.contains(frhs, case=False, na=False, regex=False)
                         )
                         view = scan_df[mask]
                     else:
                         needle = frhs.lower()
                         keep = [
-                            any(needle in str(scan_df.iloc[r, c]).lower() for c in range(min(ncols, 32)))
+                            any(
+                                needle in str(scan_df.iloc[r, c]).lower()
+                                for c in range(min(ncols, 32))
+                            )
                             for r in range(len(scan_df))
                         ]
                         view = scan_df.iloc[[i for i, ok in enumerate(keep) if ok]]
@@ -2469,24 +2512,36 @@ def _passive_dataframe_slice(
                                 if v is None:
                                     continue
                                 try:
-                                    lv = float(v)
-                                    rv = float(frhs)
+                                    lnum, rnum = float(v), float(frhs)
                                 except (TypeError, ValueError):
-                                    lv = str(v)
-                                    rv = frhs
-                                ok = (
-                                    (lv >= rv)
-                                    if fop == ">="
-                                    else (lv <= rv)
-                                    if fop == "<="
-                                    else (lv > rv)
-                                    if fop == ">"
-                                    else (lv < rv)
-                                    if fop == "<"
-                                    else (lv == rv)
-                                    if fop == "=="
-                                    else (lv != rv)
-                                )
+                                    lstr, rstr = str(v), str(frhs)
+                                    ok = (
+                                        (lstr >= rstr)
+                                        if fop == ">="
+                                        else (lstr <= rstr)
+                                        if fop == "<="
+                                        else (lstr > rstr)
+                                        if fop == ">"
+                                        else (lstr < rstr)
+                                        if fop == "<"
+                                        else (lstr == rstr)
+                                        if fop == "=="
+                                        else (lstr != rstr)
+                                    )
+                                else:
+                                    ok = (
+                                        (lnum >= rnum)
+                                        if fop == ">="
+                                        else (lnum <= rnum)
+                                        if fop == "<="
+                                        else (lnum > rnum)
+                                        if fop == ">"
+                                        else (lnum < rnum)
+                                        if fop == "<"
+                                        else (lnum == rnum)
+                                        if fop == "=="
+                                        else (lnum != rnum)
+                                    )
                                 if ok:
                                     keep_idx.append(r_i)
                         else:
@@ -2535,13 +2590,7 @@ def _passive_dataframe_slice(
         except Exception:
             active_sort_col = None
 
-    nrows = (
-        len(view)
-        if lib == "pandas"
-        else view.height
-        if lib == "polars"
-        else view.num_rows
-    )
+    nrows = len(view) if lib == "pandas" else view.height if lib == "polars" else view.num_rows
     if offset > nrows:
         offset = 0
     row_end = min(nrows, offset + size)
@@ -2572,9 +2621,7 @@ def _passive_dataframe_slice(
             for row_tuple in sub.iter_rows():
                 rows_out.append([_format_cell_value(cell, 80) for cell in row_tuple])
         elif lib == "pyarrow":
-            sub = view.slice(offset, row_end - offset).select(
-                list(range(col_offset, col_end))
-            )
+            sub = view.slice(offset, row_end - offset).select(list(range(col_offset, col_end)))
             index_out = [str(offset + r) for r in range(sub.num_rows)]
             col_lists = [sub.column(c).to_pylist() for c in range(sub.num_columns)]
             for r in range(sub.num_rows):
@@ -2662,10 +2709,11 @@ def _passive_inline(
             child_items = max(2, max_items // 2)
             child_str = max(18, max_str // 2)
             if nt_fields is not None:
-                parts = []
+                parts: list[str] = []
+                tuple_getitem: Any = getattr(tuple, "__getitem__")
                 for idx, fname in enumerate(nt_fields[:max_items]):
                     fv = _passive_inline(
-                        tuple.__getitem__(value, idx),
+                        tuple_getitem(value, idx),
                         max_items=child_items,
                         max_str=child_str,
                         max_chars=max(40, max_chars // 2),
@@ -2677,7 +2725,7 @@ def _passive_inline(
                     parts.append("…")
                 return clip(f"{cls.__name__}({', '.join(parts)})")
             if cls in (list, tuple):
-                getter = list.__getitem__ if cls is list else tuple.__getitem__
+                getter: Any = getattr(list if cls is list else tuple, "__getitem__")
                 if length <= max_items:
                     parts = [
                         _passive_inline(
@@ -2754,7 +2802,8 @@ def _passive_inline(
             child_items = max(2, max_items // 2)
             child_str = max(18, max_str // 2)
             parts = []
-            for k, v in itertools.islice(dict.items(value), max_items):
+            dict_items: Any = getattr(dict, "items")
+            for k, v in itertools.islice(dict_items(value), max_items):
                 ks = _passive_inline(
                     k,
                     max_items=2,
@@ -2867,7 +2916,12 @@ def _passive_inline(
         en_dict = _passive_instance_fields(value, limit=8)
         if "_name_" in en_dict and "_value_" in en_dict:
             vtxt = _passive_inline(
-                en_dict["_value_"], max_items=2, max_str=24, max_chars=40, _depth=_depth + 1, _seen=_seen
+                en_dict["_value_"],
+                max_items=2,
+                max_str=24,
+                max_chars=40,
+                _depth=_depth + 1,
+                _seen=_seen,
             )
             return clip(f"{cls.__name__}.{en_dict['_name_']} ({vtxt})")
 
@@ -2900,7 +2954,12 @@ def _passive_inline(
 
     array = passive_array(value)
     if array is not None:
-        shape_str = "(" + ", ".join(str(d) for d in array["shape"]) + ("," if len(array["shape"]) == 1 else "") + ")"
+        shape_str = (
+            "("
+            + ", ".join(str(d) for d in array["shape"])
+            + ("," if len(array["shape"]) == 1 else "")
+            + ")"
+        )
         sample_str = ""
         if (
             array["length"] > 0
@@ -2939,7 +2998,12 @@ def _passive_inline(
 
     tensor = passive_torch_tensor(value)
     if tensor is not None:
-        shape_str = "(" + ", ".join(str(d) for d in tensor["shape"]) + ("," if len(tensor["shape"]) == 1 else "") + ")"
+        shape_str = (
+            "("
+            + ", ".join(str(d) for d in tensor["shape"])
+            + ("," if len(tensor["shape"]) == 1 else "")
+            + ")"
+        )
         prefix = f"{tensor['device']} · {tensor['dtype']} {shape_str}"
         if not tensor["on_device"] and tensor["length"] > 0:
             try:
@@ -2948,9 +3012,10 @@ def _passive_inline(
                 if total <= 5:
                     vals = [_format_cell_value(flat[i].item(), 20)["text"] for i in range(total)]
                 else:
-                    vals = [
-                        _format_cell_value(flat[i].item(), 20)["text"] for i in range(3)
-                    ] + ["…", _format_cell_value(flat[total - 1].item(), 20)["text"]]
+                    vals = [_format_cell_value(flat[i].item(), 20)["text"] for i in range(3)] + [
+                        "…",
+                        _format_cell_value(flat[total - 1].item(), 20)["text"],
+                    ]
                 return clip(f"{prefix} · [{', '.join(vals)}]")
             except Exception:
                 pass
@@ -3116,7 +3181,12 @@ def passive_preview(value: Any, limit: int = 4096) -> dict[str, Any]:
             result["category"] = "array"
             result.update({key: array[key] for key in ("shape", "length", "nbytes", "dtype")})
             result["dtype_str"] = array["dtype_str"]
-            shape_str = "(" + ", ".join(str(d) for d in array["shape"]) + ("," if len(array["shape"]) == 1 else "") + ")"
+            shape_str = (
+                "("
+                + ", ".join(str(d) for d in array["shape"])
+                + ("," if len(array["shape"]) == 1 else "")
+                + ")"
+            )
             result["size_label"] = f"{shape_str} · {_format_bytes(array['nbytes'])}"
             result["expandable"] = not array["hasobject"]
             result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
@@ -3128,11 +3198,26 @@ def passive_preview(value: Any, limit: int = 4096) -> dict[str, Any]:
             result.update(
                 {
                     key: tensor[key]
-                    for key in ("shape", "length", "nbytes", "dtype", "device", "on_device", "requires_grad")
+                    for key in (
+                        "shape",
+                        "length",
+                        "nbytes",
+                        "dtype",
+                        "device",
+                        "on_device",
+                        "requires_grad",
+                    )
                 }
             )
-            shape_str = "(" + ", ".join(str(d) for d in tensor["shape"]) + ("," if len(tensor["shape"]) == 1 else "") + ")"
-            result["size_label"] = f"{tensor['device']} · {shape_str} · {_format_bytes(tensor['nbytes'])}"
+            shape_str = (
+                "("
+                + ", ".join(str(d) for d in tensor["shape"])
+                + ("," if len(tensor["shape"]) == 1 else "")
+                + ")"
+            )
+            result["size_label"] = (
+                f"{tensor['device']} · {shape_str} · {_format_bytes(tensor['nbytes'])}"
+            )
             result["expandable"] = True
             result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
             return result
@@ -3160,7 +3245,10 @@ def _resolve_segments(
     """Resolve structured nested drill-down segments strictly passively."""
     if len(segments) > 16:
         raise ValueError("invalid_segments")
-    current = root_value
+    current: Any = root_value
+    islice_any: Any = itertools.islice
+    dict_items: Any = getattr(dict, "items")
+    dict_getitem: Any = getattr(dict, "__getitem__")
     breadcrumbs: list[dict[str, Any]] = [{"label": root_name, "segments": []}]
     applied: list[dict[str, Any]] = []
     for step in segments:
@@ -3168,19 +3256,19 @@ def _resolve_segments(
             raise ValueError("invalid_segments")
         kind = step.get("kind")
         val = step.get("value")
-        cls = type(current)
+        cls = cast(Any, type(current))
         if kind == "index":
             if type(val) is not int or val < 0:
                 raise ValueError("invalid_segments")
             if cls in (list, tuple) or _namedtuple_fields(current) is not None:
-                getter = list.__getitem__ if cls is list else tuple.__getitem__
+                getter: Any = getattr(list if cls is list else tuple, "__getitem__")
                 if val >= len(current):
                     raise ValueError("name_not_found")
                 current = getter(current, val)
             elif _is_exact_stdlib(current, "collections", ("deque",)):
                 if val >= len(current):
                     raise ValueError("name_not_found")
-                current = next(itertools.islice(current, val, val + 1))
+                current = next(islice_any(current, val, val + 1))
             else:
                 raise ValueError("unsupported_expression")
             label = f"[{val}]"
@@ -3190,12 +3278,12 @@ def _resolve_segments(
             if cls is dict or _is_exact_stdlib(current, "collections", ("OrderedDict", "Counter")):
                 if val >= len(current):
                     raise ValueError("name_not_found")
-                entry_key, current = next(itertools.islice(dict.items(current), val, val + 1))
+                entry_key, current = next(islice_any(dict_items(current), val, val + 1))
                 label = f"[{_passive_inline(entry_key, max_items=1, max_str=20, max_chars=24)}]"
             elif cls in (set, frozenset):
                 if val >= len(current):
                     raise ValueError("name_not_found")
-                current = next(itertools.islice(current, val, val + 1))
+                current = next(islice_any(current, val, val + 1))
                 label = f"#{val}"
             else:
                 raise ValueError("unsupported_expression")
@@ -3203,7 +3291,7 @@ def _resolve_segments(
             if cls is dict or _is_exact_stdlib(current, "collections", ("OrderedDict", "Counter")):
                 if val not in current:
                     raise ValueError("name_not_found")
-                current = dict.__getitem__(current, val)
+                current = dict_getitem(current, val)
                 label = f"[{val!r}]"
             else:
                 raise ValueError("unsupported_expression")
@@ -3277,13 +3365,17 @@ def passive_page(
         if offset > total:
             raise ValueError("invalid_page")
         end = min(total, offset + size)
-        items = []
+        items: list[dict[str, Any]] = []
         if ser_info["library"] == "pandas":
             sub = value.iloc[offset:end]
             for idx_val, elem in zip(sub.index, sub):
                 items.append(
                     {
-                        "key": {"type": "index", "short_type": "index", "preview": str(idx_val)[:48]},
+                        "key": {
+                            "type": "index",
+                            "short_type": "index",
+                            "preview": str(idx_val)[:48],
+                        },
                         "value": {
                             "type": ser_info["dtype"],
                             "short_type": ser_info["dtype"],
@@ -3313,12 +3405,14 @@ def passive_page(
         }
 
     # 3. Exact list / tuple / NamedTuple / deque
+    islice_any: Any = itertools.islice
+    dict_items: Any = getattr(dict, "items")
     nt_fields = _namedtuple_fields(value)
     if cls in (list, tuple) or nt_fields is not None:
         total = len(value)
         if offset > total:
             raise ValueError("invalid_page")
-        getter = list.__getitem__ if cls is list else tuple.__getitem__
+        getter: Any = getattr(list if cls is list else tuple, "__getitem__")
         end = min(total, offset + size)
         items = []
         for idx in range(offset, end):
@@ -3348,7 +3442,7 @@ def passive_page(
             raise ValueError("invalid_page")
         end = min(total, offset + size)
         items = []
-        for pos, elem in enumerate(itertools.islice(value, offset, end), start=offset):
+        for pos, elem in enumerate(islice_any(value, offset, end), start=offset):
             child = passive_preview(elem, 256)
             child["step"] = {"kind": "index", "value": pos}
             items.append(child)
@@ -3373,7 +3467,7 @@ def passive_page(
                 "step": {"kind": "entry", "value": pos},
             }
             for pos, (key, item) in enumerate(
-                itertools.islice(dict.items(value), offset, end), start=offset
+                islice_any(dict_items(value), offset, end), start=offset
             )
         ]
         return {
@@ -3391,7 +3485,7 @@ def passive_page(
             raise ValueError("invalid_page")
         end = min(total, offset + size)
         items = []
-        for pos, elem in enumerate(itertools.islice(value, offset, end), start=offset):
+        for pos, elem in enumerate(islice_any(value, offset, end), start=offset):
             child = passive_preview(elem, 256)
             child["step"] = {"kind": "entry", "value": pos}
             items.append(child)
@@ -3426,7 +3520,7 @@ def passive_page(
         chunk_len = 256
         end = min(total, offset + chunk_len)
         chunk = bytes(value[offset:end])
-        hex_lines = []
+        hex_lines: list[str] = []
         for row_off in range(0, len(chunk), 16):
             row = chunk[row_off : row_off + 16]
             hex_part = " ".join(f"{b:02x}" for b in row)
@@ -3471,17 +3565,23 @@ def passive_page(
                 base_linear += p * mul
                 mul *= dim
             is_narrow_float = array["dtype"] in ("f2", "f4")
-            rows_out = []
+            rows_out: list[list[dict[str, Any]]] = []
             for r in range(offset, row_end):
                 row_base = base_linear + r * ncols
-                row_cells = []
+                row_cells: list[dict[str, Any]] = []
                 for c in range(col_offset, col_end):
                     raw = item_desc(flat[row_base + c])
                     if is_narrow_float and type(raw) is float:
                         if math.isnan(raw):
                             row_cells.append({"text": "NaN", "null": True, "numeric": True})
                         elif math.isinf(raw):
-                            row_cells.append({"text": "inf" if raw > 0 else "-inf", "null": False, "numeric": True})
+                            row_cells.append(
+                                {
+                                    "text": "inf" if raw > 0 else "-inf",
+                                    "null": False,
+                                    "numeric": True,
+                                }
+                            )
                         else:
                             row_cells.append({"text": f"{raw:.6g}", "null": False, "numeric": True})
                     else:
@@ -3499,7 +3599,11 @@ def passive_page(
                 "next_offset": row_end if row_end < nrows else None,
                 "table": {
                     "columns": [
-                        {"name": f"[{c}]", "dtype": array["dtype_str"], "kind": _normalized_dtype_kind(array["dtype_str"])}
+                        {
+                            "name": f"[{c}]",
+                            "dtype": array["dtype_str"],
+                            "kind": _normalized_dtype_kind(array["dtype_str"]),
+                        }
                         for c in range(col_offset, col_end)
                     ],
                     "rows": rows_out,
@@ -3573,7 +3677,11 @@ def passive_page(
                 "next_offset": row_end if row_end < nrows else None,
                 "table": {
                     "columns": [
-                        {"name": f"[{c}]", "dtype": tensor["dtype"], "kind": _normalized_dtype_kind(tensor["dtype"])}
+                        {
+                            "name": f"[{c}]",
+                            "dtype": tensor["dtype"],
+                            "kind": _normalized_dtype_kind(tensor["dtype"]),
+                        }
                         for c in range(col_offset, col_end)
                     ],
                     "rows": rows_out,
@@ -3660,9 +3768,9 @@ class NativeWidget:
         *,
         label: str = "",
         options: Any = (),
-        lower: int | float = 0,
-        upper: int | float = 100,
-        step: float | None = None,
+        lower: Any = 0,
+        upper: Any = 100,
+        step: Any = None,
         placeholder: str = "",
         caption: str = "",
         delta: str = "",
@@ -3675,9 +3783,7 @@ class NativeWidget:
         if len(worker.widgets) >= 128:
             raise ValueError("Close an existing widget before creating more than 128 models")
         if kind not in self.SUPPORTED_KINDS:
-            raise ValueError(
-                "Supported widgets: " + ", ".join(self.SUPPORTED_KINDS)
-            )
+            raise ValueError("Supported widgets: " + ", ".join(self.SUPPORTED_KINDS))
         if type(label) is not str or len(label.encode()) > 1024:
             raise ValueError("Widget label exceeds 1024 bytes")
         if (
@@ -3700,7 +3806,12 @@ class NativeWidget:
             lower = float(lower)
             upper = float(upper)
             if step is not None:
-                if not isinstance(step, (int, float)) or isinstance(step, bool) or not math.isfinite(float(step)) or float(step) <= 0:
+                if (
+                    not isinstance(step, (int, float))
+                    or isinstance(step, bool)
+                    or not math.isfinite(float(step))
+                    or float(step) <= 0
+                ):
                     raise ValueError("Float slider step must be a positive finite number")
                 step = float(step)
             else:
@@ -3731,7 +3842,9 @@ class NativeWidget:
         self.placeholder = str(placeholder)[:256]
         self.caption = str(caption)[:512]
         self.delta = str(delta)[:128]
-        self.direction = direction if direction in ("increase", "decrease", "neutral") else "neutral"
+        self.direction = (
+            direction if direction in ("increase", "decrease", "neutral") else "neutral"
+        )
         self.variant = variant if variant in ("info", "success", "warning", "danger") else "info"
         self.submit_label = str(submit_label)[:64] or "Submit"
         self.fields = list(fields)[:32] if type(fields) in (list, tuple) else []
@@ -3753,10 +3866,10 @@ class NativeWidget:
             if type(value) is not str or value not in self.options:
                 raise ValueError("Dropdown value is not a declared option")
         elif self.kind == "multiselect":
-            if (
-                type(value) is not list
-                or any(type(v) is not str or v not in self.options for v in value)
-            ):
+            if type(value) is not list:
+                raise ValueError("Multiselect value must be a list of declared options")
+            val_list = cast(list[Any], value)
+            if any(type(v) is not str or v not in self.options for v in val_list):
                 raise ValueError("Multiselect value must be a list of declared options")
         elif self.kind == "text":
             if type(value) is not str or len(value.encode()) > 16384:
@@ -3774,13 +3887,16 @@ class NativeWidget:
             if type(value) is not str or len(value.encode()) > 16384:
                 raise ValueError("Display widget value must be a bounded string")
         elif self.kind == "form":
-            if type(value) is not dict or len(value) > 32:
+            if type(value) is not dict:
+                raise ValueError("Form value must be a bounded dict of field values")
+            val_dict = cast(dict[Any, Any], value)
+            if len(val_dict) > 32:
                 raise ValueError("Form value must be a bounded dict of field values")
         elif type(value) is not int or not self.lower <= value <= self.upper:
             raise ValueError(
                 "Native numeric widgets accept bounded integers only; floats are unqualified"
             )
-        return value
+        return cast(Any, value)
 
     def state(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -3983,18 +4099,14 @@ class Worker:
 
         pd_mod: Any = None
         try:
-            import pandas as _pd
-
-            pd_mod = _pd
+            pd_mod = importlib.import_module("pandas")
         except Exception:
             pass
 
         # 1. Prefer DuckDB when installed (zero-copy access to pandas, Polars, PyArrow).
         duckdb_mod: Any = None
         try:
-            import duckdb as _duckdb
-
-            duckdb_mod = _duckdb
+            duckdb_mod = importlib.import_module("duckdb")
         except Exception:
             pass
 
@@ -4030,7 +4142,11 @@ class Worker:
             conn = sqlite3.connect(":memory:")
             try:
                 for bname, bval in list(self.namespace.items()):
-                    if not isinstance(bname, str) or bname.startswith("_") or not bname.isidentifier():
+                    if (
+                        not isinstance(bname, str)
+                        or bname.startswith("_")
+                        or not bname.isidentifier()
+                    ):
                         continue
                     df_info = passive_dataframe(bval)
                     if df_info is not None and not df_info["lazy"]:
@@ -4048,31 +4164,34 @@ class Worker:
                                 )
                         except Exception:
                             pass
-                    elif (
-                        type(bval) is list
-                        and bval
-                        and all(type(item) is dict for item in bval[:50])
-                    ):
-                        try:
-                            keys = list(bval[0].keys())
-                            if keys and all(isinstance(k, str) and k for k in keys):
-                                col_defs = ", ".join(f'"{k}"' for k in keys)
-                                conn.execute(f'CREATE TABLE "{bname}" ({col_defs})')
-                                placeholders = ", ".join("?" for _ in keys)
-                                conn.executemany(
-                                    f'INSERT INTO "{bname}" VALUES ({placeholders})',
-                                    [
+                    elif type(bval) is list:
+                        rows_list = cast(list[Any], bval)
+                        if rows_list and all(type(item) is dict for item in rows_list[:50]):
+                            try:
+                                dict_rows = cast(list[dict[Any, Any]], rows_list)
+                                keys: list[Any] = list(dict_rows[0].keys())
+                                if keys and all(isinstance(k, str) and k for k in keys):
+                                    str_keys = cast(list[str], keys)
+                                    col_defs = ", ".join(f'"{k}"' for k in str_keys)
+                                    conn.execute(f'CREATE TABLE "{bname}" ({col_defs})')
+                                    placeholders = ", ".join("?" for _ in str_keys)
+                                    params: list[tuple[Any, ...]] = [
                                         tuple(
                                             row.get(k)
-                                            if isinstance(row.get(k), (int, float, str, bytes, type(None)))
+                                            if isinstance(
+                                                row.get(k), (int, float, str, bytes, type(None))
+                                            )
                                             else str(row.get(k))
-                                            for k in keys
+                                            for k in str_keys
                                         )
-                                        for row in bval
-                                    ],
-                                )
-                        except Exception:
-                            pass
+                                        for row in dict_rows
+                                    ]
+                                    conn.executemany(
+                                        f'INSERT INTO "{bname}" VALUES ({placeholders})',
+                                        params,
+                                    )
+                            except Exception:
+                                pass
                 cur = conn.execute(query)
                 if cur.description:
                     columns = [str(col[0]) for col in cur.description]
@@ -4343,7 +4462,7 @@ class Worker:
                             raise ValueError("name_not_found")
                         value = attrs[part]
                     if method == "namespace.preview":
-                        raw_segments = request.get("segments") or []
+                        raw_segments: list[dict[str, Any]] = request.get("segments") or []
                         target, breadcrumbs = _resolve_segments(value, name, raw_segments)
                         response.update(
                             name=name,
@@ -4351,9 +4470,7 @@ class Worker:
                             breadcrumbs=breadcrumbs,
                             **passive_preview(target, 1024),
                         )
-                        expr_label = "".join(
-                            str(b.get("label", "")) for b in breadcrumbs
-                        ) or name
+                        expr_label = "".join(str(b.get("label", "")) for b in breadcrumbs) or name
                         page = passive_page(
                             target,
                             request.get("offset", 0),
@@ -4372,16 +4489,22 @@ class Worker:
                         # Keep interactive_reply safely within the 64 KiB Channel frame budget.
                         if len(json_bytes(response)) > 56000:
                             response["truncated"] = True
-                            if type(page.get("table")) is dict and type(page["table"].get("rows")) is list:
+                            if (
+                                type(page.get("table")) is dict
+                                and type(page["table"].get("rows")) is list
+                            ):
                                 rows = page["table"]["rows"]
                                 idx = page["table"].get("index")
+                                idx_list: list[Any] | None = (
+                                    cast(list[Any], idx) if type(idx) is list else None
+                                )
                                 while len(rows) > 1 and len(json_bytes(response)) > 56000:
                                     rows.pop()
-                                    if type(idx) is list and len(idx) > len(rows):
-                                        idx.pop()
-                                page["table"]["next_row_offset"] = (
-                                    page["table"].get("row_offset", 0) + len(rows)
-                                )
+                                    if idx_list is not None and len(idx_list) > len(rows):
+                                        idx_list.pop()
+                                page["table"]["next_row_offset"] = page["table"].get(
+                                    "row_offset", 0
+                                ) + len(rows)
                                 page["next_offset"] = page["table"]["next_row_offset"]
                             elif type(page.get("items")) is list:
                                 items_list = page["items"]
@@ -4899,7 +5022,10 @@ class Worker:
                     for breakpoint in self.debugger.configured:
                         prefix = f"cells/{breakpoint['cell_id']}.py@"
                         for indexed, revision in self.index.revisions.items():
-                            if indexed.startswith(prefix) and revision == breakpoint["source_revision"]:
+                            if (
+                                indexed.startswith(prefix)
+                                and revision == breakpoint["source_revision"]
+                            ):
                                 linecache.cache[self.debugger.canonic(indexed)] = linecache.cache[
                                     indexed
                                 ]

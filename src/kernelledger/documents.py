@@ -399,7 +399,9 @@ def html_bytes(blocks: list[Block]) -> bytes:
             parts.append(f'<pre class="kl-output">{escape(clean(block.text))}</pre>')
         elif block.kind == "image":
             b64 = base64.b64encode(block.data).decode("ascii")
-            parts.append(f'<figure class="kl-figure"><img src="data:image/png;base64,{b64}" alt="Figure"/></figure>')
+            parts.append(
+                f'<figure class="kl-figure"><img src="data:image/png;base64,{b64}" alt="Figure"/></figure>'
+            )
         elif block.kind == "table":
             rows = block.rows or []
             if rows:
@@ -472,14 +474,16 @@ def script_bytes(notebook: Notebook) -> bytes:
     manifest = notebook.read()
     lines: list[str] = []
     deps = manifest.get("metadata", {}).get("dependencies")
-    if isinstance(deps, list) and deps and all(isinstance(d, str) for d in deps):
-        lines.append("# /// script")
-        lines.append("# dependencies = [")
-        for dep in deps:
-            lines.append(f"#   {dep!r},")
-        lines.append("# ]")
-        lines.append("# ///")
-        lines.append("")
+    if isinstance(deps, list):
+        deps_list = cast(list[Any], deps)
+        if deps_list and all(isinstance(d, str) for d in deps_list):
+            lines.append("# /// script")
+            lines.append("# dependencies = [")
+            for dep in deps_list:
+                lines.append(f"#   {dep!r},")
+            lines.append("# ]")
+            lines.append("# ///")
+            lines.append("")
     title = manifest.get("metadata", {}).get("title") or notebook.root.name
     lines.append(f"# Exported from KernelLedger notebook: {title}")
     lines.append("")
@@ -487,7 +491,8 @@ def script_bytes(notebook: Notebook) -> bytes:
         ctype = cell["type"]
         cid = cell["id"]
         src = clean(notebook.source(cell)).rstrip("\n")
-        meta = cell.get("metadata") if isinstance(cell.get("metadata"), dict) else {}
+        raw_meta = cell.get("metadata")
+        meta: dict[str, Any] = cast(dict[str, Any], raw_meta) if isinstance(raw_meta, dict) else {}
         disabled = bool(meta.get("disabled", False))
         if ctype == "markdown":
             lines.append(f"# %% [markdown] id={cid}")

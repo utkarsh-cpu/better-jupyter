@@ -10,7 +10,7 @@ import struct
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..blobs import BUFFER_SIZE, BlobStore, VerifiedBlob, blob_io, check_hash, references
 from ..ledger import Ledger, now, uid
@@ -981,8 +981,10 @@ class Supervisor:
                 source, cid = cell[0]["source"], cell[0]["id"]
                 cell_type = cell[0].get("type", "code")
                 meta = cell[0].get("metadata")
-                if isinstance(meta, dict) and isinstance(meta.get("output_var"), str):
-                    output_var = meta["output_var"]
+                if isinstance(meta, dict):
+                    raw_output_var = cast(dict[str, Any], meta).get("output_var")
+                    if isinstance(raw_output_var, str):
+                        output_var = raw_output_var
             if self.process and self.session:
                 digest = self.blobs.put(source.encode())
                 self.record_blob(digest)

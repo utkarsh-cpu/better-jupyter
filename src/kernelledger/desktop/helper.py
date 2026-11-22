@@ -248,7 +248,9 @@ def list_workspace_files(root: Path, subdir: str | None = None, limit: int = 200
         try:
             candidate.relative_to(root)
         except ValueError:
-            raise SourceError("invalid_request", "path must stay inside notebook workspace") from None
+            raise SourceError(
+                "invalid_request", "path must stay inside notebook workspace"
+            ) from None
         if not candidate.is_dir():
             raise SourceError("not_found", "directory not found")
         base = candidate

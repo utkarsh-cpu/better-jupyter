@@ -339,11 +339,11 @@ class DesktopServer:
                                 "busy", "accepted worker session is no longer available"
                             )
                         meta = execution.get("metadata")
-                        output_var = (
-                            meta.get("output_var")
-                            if isinstance(meta, dict) and isinstance(meta.get("output_var"), str)
-                            else None
-                        )
+                        output_var: str | None = None
+                        if isinstance(meta, dict):
+                            raw_output_var = cast(dict[str, Any], meta).get("output_var")
+                            if isinstance(raw_output_var, str):
+                                output_var = raw_output_var
                         result = await s.execute(
                             execution["source"],
                             execution["id"],

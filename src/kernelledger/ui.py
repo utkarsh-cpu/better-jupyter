@@ -5,12 +5,12 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-_ACTIVE_WORKER: Any = None
+_active_worker: Any = None
 
 
-def _set_active_worker(worker: Any) -> None:
-    global _ACTIVE_WORKER
-    _ACTIVE_WORKER = worker
+def set_active_worker(worker: Any) -> None:
+    global _active_worker
+    _active_worker = worker
     if worker is None and hasattr(sys, "_kernelledger_active_worker"):
         delattr(sys, "_kernelledger_active_worker")
 
@@ -36,8 +36,8 @@ class _StaticWidget:
 
 def _make_widget(kind: str, value: Any = None, **options: Any) -> Any:
     worker = (
-        _ACTIVE_WORKER
-        if _ACTIVE_WORKER is not None
+        _active_worker
+        if _active_worker is not None
         else getattr(sys, "_kernelledger_active_worker", None)
     )
     if worker is not None:
@@ -73,7 +73,9 @@ def slider(
             label=label,
             lower=float(start),
             upper=float(stop),
-            step=float(step) if step is not None else max((float(stop) - float(start)) / 100.0, 1e-6),
+            step=float(step)
+            if step is not None
+            else max((float(stop) - float(start)) / 100.0, 1e-6),
             callback=callback,
         )
     return _make_widget(
@@ -189,7 +191,8 @@ def form(
     """Bundle multiple widget controls into one explicit submit boundary (`mo.ui.form`)."""
     specs: list[dict[str, Any]] = []
     initial: dict[str, Any] = {}
-    for key, ctrl in fields.items():
+    raw_fields: dict[Any, Any] = fields
+    for key, ctrl in raw_fields.items():
         if not isinstance(key, str) or not key:
             raise ValueError("Form field keys must be non-empty strings")
         st = ctrl.state() if hasattr(ctrl, "state") else dict(ctrl)
