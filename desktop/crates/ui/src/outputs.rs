@@ -1391,7 +1391,12 @@ impl RenderOnce for OutputBlock {
             || event["bundle"]["text/html"]["rows"].is_array()
             || html_interactive
             || event["bundle"]["text/markdown"]["value"].is_string()
-            || !event["bundle"]["application/json"]["value"].is_null();
+            || !event["bundle"]["application/json"]["value"].is_null()
+            || matches!(
+                event["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["kind"]
+                    .as_str(),
+                Some("stat" | "callout" | "form")
+            );
         if let Some(text) = text.filter(|_| !prefer_rich || search) {
             if !error || details || search {
                 let shown = if paging.is_some() {

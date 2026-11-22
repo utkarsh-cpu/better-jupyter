@@ -265,6 +265,24 @@ fn strip_python_strings_and_comments(src: &str) -> String {
             continue;
         }
         if b == b'\'' || b == b'"' {
+            // Strip standalone string prefix (f, r, b, u, fr, rf, br, rb, etc.)
+            let trimmed_len = out.len();
+            let prefix_start = out
+                .char_indices()
+                .rev()
+                .take_while(|&(_, c)| is_ident_continue(c))
+                .last()
+                .map(|(idx, _)| idx)
+                .unwrap_or(trimmed_len);
+            let candidate = &out[prefix_start..trimmed_len];
+            if !candidate.is_empty()
+                && candidate.len() <= 2
+                && candidate
+                    .bytes()
+                    .all(|c| matches!(c.to_ascii_lowercase(), b'f' | b'r' | b'b' | b'u'))
+            {
+                out.truncate(prefix_start);
+            }
             let quote = b;
             let triple = i + 2 < n && bytes[i + 1] == quote && bytes[i + 2] == quote;
             i += if triple { 3 } else { 1 };
@@ -331,7 +349,9 @@ fn extract_identifiers(segment: &str) -> Vec<String> {
                     break;
                 }
             }
-            if !prev_dot {
+            let rest = segment[end..].trim_start();
+            let is_kwarg = rest.starts_with('=') && !rest.starts_with("==");
+            if !prev_dot && !is_kwarg {
                 out.push(segment[idx..end].to_string());
             }
             prev_dot = false;
