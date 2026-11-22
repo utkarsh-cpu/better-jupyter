@@ -176,6 +176,17 @@ impl WorkbenchButton {
         }
         self
     }
+    pub fn subtle_contextual(mut self, group: impl Into<SharedString>, rest_opacity: f32) -> Self {
+        if rest_opacity < 1. {
+            self.inner = self
+                .inner
+                .opacity(rest_opacity)
+                .group_hover(group, |style| style.opacity(1.))
+                .focus(|style| style.opacity(1.));
+            self.occlude = false;
+        }
+        self
+    }
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
         let text = label.into();
         if self.name.is_none() {

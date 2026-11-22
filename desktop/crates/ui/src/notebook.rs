@@ -37,8 +37,8 @@ const READING_WIDTH: f32 = 62.;
 /// Height of the gap above a cell that its floating tools occupy.
 const TOOLS_RESERVE: f32 = 30.;
 
-pub(crate) fn boundary_button_label(last: bool) -> &'static str {
-    if last { "Add cell" } else { "Insert" }
+pub(crate) fn boundary_button_label(last: bool) -> Option<&'static str> {
+    last.then_some("Add cell")
 }
 
 impl Workspace {
@@ -221,14 +221,14 @@ impl Workspace {
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (muted_fg, primary, transparent, popover, muted, hairline) = (
+        let (muted_fg, primary, transparent, muted, hairline) = (
             theme.muted_foreground,
             theme.primary,
             theme.transparent,
-            theme.popover,
             theme.muted,
             theme.border,
         );
+        let high_contrast = theme.background.l == 0.;
         let mono = theme.mono_font_family.clone();
         let (warning, danger, info) = (theme.warning, theme.danger, theme.info);
         let save = match cell.save {
@@ -968,20 +968,17 @@ impl Workspace {
                     }))
             });
         }
-        let boundary_group: SharedString = format!("boundary-{id}").into();
-        let boundary_visible = last || self.preferences.comfortable || selected;
-        let rule_color = divider(cx);
-        let card_edge = surface_edge(cx);
-        let line_rule = |group: SharedString| {
-            div()
-                .flex_1()
-                .max_w(rems(8.))
-                .h(px(1.))
-                .bg(rule_color)
-                .when(!boundary_visible, |d| {
-                    d.opacity(0.).group_hover(group, |s| s.opacity(1.))
-                })
-        };
+        let boundary = self.cell_boundary(
+            index,
+            &id,
+            last,
+            selected,
+            margin,
+            &spacing,
+            muted_fg,
+            high_contrast,
+            cx,
+        );
         div()
             .debug_selector({
                 let id = id.clone();
@@ -997,61 +994,116 @@ impl Workspace {
             .pt(px(if index == 0 { TOOLS_RESERVE + 2. } else { 0. }))
             .pb(px(if last { 24. } else { 0. }))
             .child(entry.child(card))
-            .child(
-                h_flex()
-                    .debug_selector({
-                        let id = id.clone();
-                        move || format!("cell-boundary-{id}")
-                    })
-                    .group(boundary_group.clone())
-                    .w_full()
-                    .h(px(if last {
-                        spacing.boundary_last
-                    } else {
-                        spacing.boundary
-                    }))
-                    .py_1p5()
-                    .gap_3()
-                    .items_center()
-                    .justify_center()
-                    .child(line_rule(boundary_group.clone()))
-                    .child(
-                        self.anchored(
-                            format!("insert-{id}"),
-                            action_button(("insert-cell", index))
-                                .ghost()
-                                .small()
-                                .rounded_full()
-                                .px_2p5()
-                                .border_1()
-                                .border_color(card_edge)
-                                .bg(popover)
-                                .icon(Glyph::Plus)
-                                .label(boundary_button_label(last))
-                                .text_color(muted_fg)
-                                .contextual(boundary_group.clone(), boundary_visible)
-                                .accessibility_label(if last {
-                                    "Add cell at end of notebook".to_string()
-                                } else {
-                                    format!("Insert cell after cell {}", index + 1)
-                                })
-                                .on_click(cx.listener({
-                                    let key = format!("insert-{id}");
-                                    move |v, _, window, cx| {
-                                        v.close_menu(window, cx);
-                                        v.return_focus = window.focused(cx);
-                                        v.menu = Some(ActiveMenu::Insert(index + 1));
-                                        v.menu_anchor = key.clone();
-                                        v.dialog_focus.focus(window, cx);
-                                        cx.notify();
-                                    }
-                                })),
-                            cx,
-                        ),
-                    )
-                    .child(line_rule(boundary_group)),
-            )
+            .child(boundary)
             .into_any_element()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn cell_boundary(
+        &mut self,
+        index: usize,
+        id: &str,
+        last: bool,
+        selected: bool,
+        margin: f32,
+        spacing: &CellSpacing,
+        muted_fg: Hsla,
+        high_contrast: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let boundary_group: SharedString = format!("boundary-{id}").into();
+        let menu_open = matches!(self.menu, Some(ActiveMenu::Insert(i)) if i == index + 1);
+        let rule_color = divider(cx);
+        let rest_opacity = if menu_open || self.preferences.comfortable || high_contrast {
+            1.
+        } else if last {
+            0.58
+        } else if selected {
+            0.28
+        } else {
+            0.
+        };
+        let mut insert_btn = action_button(("insert-cell", index))
+            .ghost()
+            .xsmall()
+            .rounded(px(6.))
+            .icon(Glyph::Plus)
+            .text_color(muted_fg)
+            .subtle_contextual(boundary_group.clone(), rest_opacity)
+            .accessibility_label(if last {
+                "Add cell at end of notebook".to_string()
+            } else {
+                format!("Insert cell after cell {}", index + 1)
+            })
+            .on_click(cx.listener({
+                let key = format!("insert-{id}");
+                move |v, _, window, cx| {
+                    v.close_menu(window, cx);
+                    v.return_focus = window.focused(cx);
+                    v.menu = Some(ActiveMenu::Insert(index + 1));
+                    v.menu_anchor = key.clone();
+                    v.dialog_focus.focus(window, cx);
+                    cx.notify();
+                }
+            }));
+        if !menu_open {
+            insert_btn = insert_btn.hint(if last { "Add cell" } else { "Insert cell" });
+        }
+        if let Some(label) = boundary_button_label(last) {
+            insert_btn = insert_btn.px_2().label(label);
+        }
+        let mut boundary = h_flex()
+            .debug_selector({
+                let id = id.to_owned();
+                move || format!("cell-boundary-{id}")
+            })
+            .group(boundary_group.clone())
+            .w_full()
+            .max_w(rems(READING_WIDTH))
+            .mx_auto()
+            .pl(rems(margin))
+            .pr_3()
+            .h(px(if last {
+                spacing.boundary_last
+            } else {
+                spacing.boundary
+            }))
+            .gap_1p5()
+            .items_center()
+            .child(self.anchored(format!("insert-{id}"), insert_btn, cx));
+        if last {
+            for (btn_id, kind, label) in [
+                ("quick-add-code", "code", "Code"),
+                ("quick-add-sql", "sql", "SQL"),
+                ("quick-add-markdown", "markdown", "Markdown"),
+            ] {
+                let insert_at = index + 1;
+                boundary = boundary.child(
+                    action_button((btn_id, index))
+                        .ghost()
+                        .xsmall()
+                        .px_2()
+                        .rounded(px(6.))
+                        .label(label)
+                        .text_color(muted_fg)
+                        .contextual(boundary_group.clone(), false)
+                        .accessibility_label(format!("Add {label} cell at end of notebook"))
+                        .on_click(cx.listener(move |v, _, _, _| {
+                            v.mutate(json!({"action":"add","type":kind,"index":insert_at}));
+                        })),
+                );
+            }
+        } else {
+            boundary = boundary.child(div().flex_1().h(px(1.)).bg(rule_color.opacity(0.45)).when(
+                !menu_open,
+                |d| {
+                    d.opacity(0.)
+                        .group_hover(boundary_group.clone(), |s| s.opacity(1.))
+                },
+            ));
+        }
+        boundary.into_any_element()
     }
 
     #[inline(never)]

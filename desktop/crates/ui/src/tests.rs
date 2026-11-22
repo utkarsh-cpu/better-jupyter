@@ -3422,8 +3422,11 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
             super::surface_edge(cx),
             "unselected cells at rest must use the surface_edge hairline"
         );
-        assert_eq!(super::notebook::boundary_button_label(false), "Insert");
-        assert_eq!(super::notebook::boundary_button_label(true), "Add cell");
+        assert_eq!(super::notebook::boundary_button_label(false), None);
+        assert_eq!(
+            super::notebook::boundary_button_label(true),
+            Some("Add cell")
+        );
         window.render_frame(cx);
         window.render_frame(cx);
     })
@@ -3452,13 +3455,22 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         })
         .unwrap();
     assert!(
-        insert_first.size.width >= px(64.),
-        "visible middle boundary must render the '+ Insert' pill rather than an icon-only circle, got {:?}",
+        insert_first.size.width <= px(40.),
+        "middle boundary must stay a compact lowkey icon-only '+' trigger, got {:?}",
         insert_first.size
+    );
+    assert!(
+        insert_last.size.width > insert_first.size.width,
+        "trailing '+ Add cell' ghost trigger {:?} must include its label",
+        insert_last.size
+    );
+    assert_eq!(
+        insert_first.origin.x, insert_last.origin.x,
+        "middle '+' and trailing '+ Add cell' triggers must align to the same left column"
     );
     assert_eq!(
         insert_first.size.height, insert_last.size.height,
-        "middle '+ Insert' and trailing '+ Add cell' pills must share the same height"
+        "middle '+' and trailing '+ Add cell' triggers must share the same height"
     );
 
     // Verify generous Marimo-style breathing room between the cell card and the + button.
