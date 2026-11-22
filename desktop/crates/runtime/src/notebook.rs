@@ -16,6 +16,7 @@ pub(crate) fn extension(kind: &str) -> Option<&'static str> {
         "code" => Some(".py"),
         "markdown" => Some(".md"),
         "raw" => Some(".raw"),
+        "sql" => Some(".sql"),
         _ => None,
     }
 }

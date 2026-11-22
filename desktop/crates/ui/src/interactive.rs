@@ -397,6 +397,18 @@ impl Workspace {
         let next_col = table["next_col_offset"].as_u64();
         let slice_prefix = preview["page"]["slice_prefix"].clone();
         let allow_device_copy = preview["_context"]["allow_device_copy"].as_bool() == Some(true);
+        let active_sort_col = table["sort_col"]
+            .as_str()
+            .map(str::to_owned)
+            .or_else(|| self.tabs[self.active].variables_state.sort_col.clone());
+        let active_sort_desc = table["sort_desc"]
+            .as_bool()
+            .unwrap_or(self.tabs[self.active].variables_state.sort_desc);
+        let active_filter = table["filter_query"]
+            .as_str()
+            .map(str::to_owned)
+            .unwrap_or_else(|| self.tabs[self.active].variables_state.filter_query.clone());
+        let hover_bg = theme.secondary;
 
         let mut container = v_flex().w_full().min_w_0().gap_2();
 
@@ -529,42 +541,101 @@ impl Workspace {
                     .child("#"),
             );
 
-        for col in &columns {
+        for (c_idx, col) in columns.iter().enumerate() {
             let cname = col["name"].as_str().unwrap_or("").to_owned();
             let cdtype = col["dtype"].as_str().unwrap_or("").to_owned();
             let numeric = matches!(col["kind"].as_str(), Some("integer" | "number"));
-            header_row = header_row.child(
-                v_flex()
-                    .w(col_width)
-                    .flex_none()
-                    .px_2()
-                    .py_1()
-                    .border_r_1()
-                    .border_color(border_col)
-                    .child(
+            let is_sorted = !is_matrix && active_sort_col.as_deref() == Some(cname.as_str());
+            let title = if is_sorted {
+                if active_sort_desc {
+                    format!("{cname} \u{2193}")
+                } else {
+                    format!("{cname} \u{2191}")
+                }
+            } else {
+                cname.clone()
+            };
+            let cell_header = v_flex()
+                .w(col_width)
+                .flex_none()
+                .px_2()
+                .py_1()
+                .border_r_1()
+                .border_color(border_col)
+                .child(
+                    div()
+                        .w_full()
+                        .truncate()
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_family(mono.clone())
+                        .when(numeric, |d| d.text_right())
+                        .child(title),
+                )
+                .when(!is_matrix && !cdtype.is_empty(), |d| {
+                    d.child(
                         div()
                             .w_full()
                             .truncate()
                             .text_xs()
-                            .font_weight(FontWeight::SEMIBOLD)
                             .font_family(mono.clone())
+                            .text_color(muted)
+                            .opacity(0.8)
                             .when(numeric, |d| d.text_right())
-                            .child(cname),
+                            .child(cdtype),
                     )
-                    .when(!is_matrix && !cdtype.is_empty(), |d| {
-                        d.child(
-                            div()
-                                .w_full()
-                                .truncate()
-                                .text_xs()
-                                .font_family(mono.clone())
-                                .text_color(muted)
-                                .opacity(0.8)
-                                .when(numeric, |d| d.text_right())
-                                .child(cdtype),
-                        )
-                    }),
-            );
+                });
+            if is_matrix {
+                header_row = header_row.child(cell_header);
+            } else {
+                let h_sort = handle.clone();
+                let s_sort = segments.clone();
+                let sort_target = cname.clone();
+                let cur_sorted = is_sorted;
+                let cur_desc = active_sort_desc;
+                let filt = active_filter.clone();
+                header_row = header_row.child(
+                    div()
+                        .id(("df-sort-col", c_idx))
+                        .cursor_pointer()
+                        .hover(move |s| s.bg(hover_bg))
+                        .tooltip(move |_, cx| {
+                            cx.new(|_| {
+                                WorkbenchHint("Click to sort column (asc / desc / clear)".into())
+                            })
+                            .into()
+                        })
+                        .on_click(cx.listener(move |view, _, _, cx| {
+                            let (next_col, next_desc) = if !cur_sorted {
+                                (Some(sort_target.clone()), false)
+                            } else if !cur_desc {
+                                (Some(sort_target.clone()), true)
+                            } else {
+                                (None, false)
+                            };
+                            let st = &mut view.tabs[view.active].variables_state;
+                            st.sort_col = next_col.clone();
+                            st.sort_desc = next_desc;
+                            let mut req = json!({
+                                "handle": h_sort,
+                                "segments": s_sort,
+                                "offset": 0,
+                                "col_offset": col_offset,
+                                "col_limit": col_limit,
+                            });
+                            if let Some(sc) = next_col {
+                                req["sort_col"] = json!(sc);
+                                req["sort_desc"] = json!(next_desc);
+                            }
+                            if !filt.trim().is_empty() {
+                                req["filter_query"] = json!(filt);
+                            }
+                            view.interactive_request("namespace.preview", req);
+                            cx.notify();
+                        }))
+                        .child(cell_header),
+                );
+            }
         }
 
         let mut grid_rows = v_flex().min_w_full().child(header_row);
@@ -671,6 +742,8 @@ impl Workspace {
             let h1 = handle.clone();
             let s1 = segments.clone();
             let sp1 = slice_prefix.clone();
+            let sc1 = active_sort_col.clone();
+            let f1 = active_filter.clone();
             let prev_off = row_offset.saturating_sub(row_page_size);
             nav = nav.child(
                 action_button("var-grid-prev-rows")
@@ -692,12 +765,21 @@ impl Workspace {
                         if allow_device_copy {
                             req["allow_device_copy"] = json!(true);
                         }
+                        if let Some(sc) = &sc1 {
+                            req["sort_col"] = json!(sc);
+                            req["sort_desc"] = json!(active_sort_desc);
+                        }
+                        if !f1.trim().is_empty() {
+                            req["filter_query"] = json!(f1);
+                        }
                         view.interactive_request("namespace.preview", req);
                     })),
             );
             let h2 = handle.clone();
             let s2 = segments.clone();
             let sp2 = slice_prefix.clone();
+            let sc2 = active_sort_col.clone();
+            let f2 = active_filter.clone();
             let next_off = next_row.unwrap_or(row_offset);
             nav = nav.child(
                 action_button("var-grid-next-rows")
@@ -719,6 +801,13 @@ impl Workspace {
                         if allow_device_copy {
                             req["allow_device_copy"] = json!(true);
                         }
+                        if let Some(sc) = &sc2 {
+                            req["sort_col"] = json!(sc);
+                            req["sort_desc"] = json!(active_sort_desc);
+                        }
+                        if !f2.trim().is_empty() {
+                            req["filter_query"] = json!(f2);
+                        }
                         view.interactive_request("namespace.preview", req);
                     })),
             );
@@ -727,6 +816,8 @@ impl Workspace {
             let h3 = handle.clone();
             let s3 = segments.clone();
             let sp3 = slice_prefix.clone();
+            let sc3 = active_sort_col.clone();
+            let f3 = active_filter.clone();
             let prev_c = col_offset.saturating_sub(col_limit);
             nav = nav.child(
                 action_button("var-grid-prev-cols")
@@ -748,12 +839,21 @@ impl Workspace {
                         if allow_device_copy {
                             req["allow_device_copy"] = json!(true);
                         }
+                        if let Some(sc) = &sc3 {
+                            req["sort_col"] = json!(sc);
+                            req["sort_desc"] = json!(active_sort_desc);
+                        }
+                        if !f3.trim().is_empty() {
+                            req["filter_query"] = json!(f3);
+                        }
                         view.interactive_request("namespace.preview", req);
                     })),
             );
             let h4 = handle;
             let s4 = segments;
             let sp4 = slice_prefix;
+            let sc4 = active_sort_col;
+            let f4 = active_filter;
             let next_c = next_col.unwrap_or(col_offset);
             nav = nav.child(
                 action_button("var-grid-next-cols")
@@ -774,6 +874,13 @@ impl Workspace {
                         }
                         if allow_device_copy {
                             req["allow_device_copy"] = json!(true);
+                        }
+                        if let Some(sc) = &sc4 {
+                            req["sort_col"] = json!(sc);
+                            req["sort_desc"] = json!(active_sort_desc);
+                        }
+                        if !f4.trim().is_empty() {
+                            req["filter_query"] = json!(f4);
                         }
                         view.interactive_request("namespace.preview", req);
                     })),
@@ -853,6 +960,12 @@ impl Workspace {
             );
         }
 
+        let has_dist = schema.iter().any(|c| {
+            c["histogram"].as_array().is_some_and(|a| !a.is_empty())
+                || c["top_values"].as_array().is_some_and(|a| !a.is_empty())
+        });
+        let bar_color = theme.primary;
+
         let mut list = v_flex()
             .w_full()
             .rounded(px(6.))
@@ -877,6 +990,9 @@ impl Workspace {
                     })
                     .when(has_stats, |r| {
                         r.child(div().w(rems(11.)).flex_none().child("Stats"))
+                    })
+                    .when(has_dist, |r| {
+                        r.child(div().w(rems(9.)).flex_none().child("Distribution"))
                     })
                     .child(div().flex_1().min_w_0().child("Samples")),
             );
@@ -911,6 +1027,64 @@ impl Workspace {
                 "\u{2014}".to_owned()
             } else {
                 stats_parts.join(" \u{00b7} ")
+            };
+
+            let dist_cell: Option<Div> = if has_dist {
+                if let Some(bins) = col["histogram"].as_array().filter(|a| !a.is_empty()) {
+                    let counts: Vec<u64> = bins.iter().map(|v| v.as_u64().unwrap_or(0)).collect();
+                    let max_c = counts.iter().copied().max().unwrap_or(1).max(1) as f32;
+                    let mut spark = h_flex()
+                        .w(rems(9.))
+                        .h(px(20.))
+                        .flex_none()
+                        .items_end()
+                        .gap(px(2.));
+                    for c in counts {
+                        let bar_h = ((c as f32 / max_c) * 18.0).max(if c > 0 { 2.0 } else { 1.0 });
+                        spark = spark.child(div().flex_1().h(px(bar_h)).rounded_t(px(2.)).bg(
+                            if c > 0 {
+                                bar_color.opacity(0.8)
+                            } else {
+                                border_col
+                            },
+                        ));
+                    }
+                    Some(spark)
+                } else if let Some(tops) = col["top_values"].as_array().filter(|a| !a.is_empty()) {
+                    let summary = tops
+                        .iter()
+                        .take(3)
+                        .map(|t| {
+                            format!(
+                                "{} ({})",
+                                bounded(t["value"].as_str().unwrap_or(""), 12),
+                                t["count"].as_u64().unwrap_or(0)
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    Some(
+                        div()
+                            .w(rems(9.))
+                            .flex_none()
+                            .truncate()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .text_color(muted)
+                            .child(summary),
+                    )
+                } else {
+                    Some(
+                        div()
+                            .w(rems(9.))
+                            .flex_none()
+                            .text_xs()
+                            .text_color(muted)
+                            .child("\u{2014}"),
+                    )
+                }
+            } else {
+                None
             };
 
             list = list.child(
@@ -966,6 +1140,7 @@ impl Workspace {
                                 .child(stats_text),
                         )
                     })
+                    .when_some(dist_cell, |r, d| r.child(d))
                     .child(
                         div()
                             .flex_1()
@@ -983,6 +1158,319 @@ impl Workspace {
         }
 
         wrap.child(list)
+    }
+
+    /// Render a native GPUI Quick Chart (Bar or Line/Point) from the active DataFrame page,
+    /// with one-click reproducible matplotlib cell insertion.
+    fn render_variable_chart(&self, preview: &Value, expr: &str, cx: &mut Context<Self>) -> Div {
+        let theme = cx.theme();
+        let muted = theme.muted_foreground;
+        let mono = theme.mono_font_family.clone();
+        let border_col = divider(cx);
+        let primary = theme.primary;
+        let table = &preview["page"]["table"];
+        let columns = table["columns"].as_array().cloned().unwrap_or_default();
+        let rows = table["rows"].as_array().cloned().unwrap_or_default();
+
+        let mut wrap = v_flex().w_full().min_w_0().gap_3();
+        if columns.is_empty() || rows.is_empty() {
+            return wrap.child(
+                div()
+                    .text_sm()
+                    .text_color(muted)
+                    .child("No rows available to plot."),
+            );
+        }
+
+        let col_names: Vec<String> = columns
+            .iter()
+            .map(|c| c["name"].as_str().unwrap_or("").to_owned())
+            .collect();
+        let numeric_cols: Vec<String> = columns
+            .iter()
+            .filter(|c| matches!(c["kind"].as_str(), Some("integer" | "number")))
+            .map(|c| c["name"].as_str().unwrap_or("").to_owned())
+            .collect();
+
+        let st = &self.tabs[self.active].variables_state;
+        let x_col = st
+            .chart_x
+            .as_ref()
+            .filter(|c| col_names.contains(c))
+            .cloned()
+            .or_else(|| col_names.first().cloned())
+            .unwrap_or_default();
+        let y_col = st
+            .chart_y
+            .as_ref()
+            .filter(|c| col_names.contains(c))
+            .cloned()
+            .or_else(|| {
+                numeric_cols
+                    .iter()
+                    .find(|c| *c != &x_col)
+                    .or_else(|| numeric_cols.first())
+                    .cloned()
+            })
+            .or_else(|| col_names.get(1).or_else(|| col_names.first()).cloned())
+            .unwrap_or_default();
+        let chart_kind = if st.chart_kind == "line" {
+            "line"
+        } else {
+            "bar"
+        };
+
+        let x_idx = col_names.iter().position(|c| c == &x_col).unwrap_or(0);
+        let y_idx = col_names.iter().position(|c| c == &y_col).unwrap_or(0);
+
+        // Controls row: Chart type + X selector + Y selector + Insert matplotlib cell
+        let mut x_bar = h_flex().gap_1().items_center().flex_wrap().child(
+            div()
+                .text_xs()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(muted)
+                .child("X:"),
+        );
+        for (idx, col) in col_names.iter().take(10).enumerate() {
+            let active = *col == x_col;
+            let c_owned = col.clone();
+            x_bar = x_bar.child(
+                action_button(("chart-x", idx))
+                    .xsmall()
+                    .segment(active)
+                    .label(col.clone())
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.tabs[view.active].variables_state.chart_x = Some(c_owned.clone());
+                        cx.notify();
+                    })),
+            );
+        }
+
+        let y_choices = if numeric_cols.is_empty() {
+            &col_names
+        } else {
+            &numeric_cols
+        };
+        let mut y_bar = h_flex().gap_1().items_center().flex_wrap().child(
+            div()
+                .text_xs()
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(muted)
+                .child("Y:"),
+        );
+        for (idx, col) in y_choices.iter().take(10).enumerate() {
+            let active = *col == y_col;
+            let c_owned = col.clone();
+            y_bar = y_bar.child(
+                action_button(("chart-y", idx))
+                    .xsmall()
+                    .segment(active)
+                    .label(col.clone())
+                    .on_click(cx.listener(move |view, _, _, cx| {
+                        view.tabs[view.active].variables_state.chart_y = Some(c_owned.clone());
+                        cx.notify();
+                    })),
+            );
+        }
+
+        let plot_fn = if chart_kind == "line" { "plot" } else { "bar" };
+        let mpl_snippet = format!(
+            "import matplotlib.pyplot as plt\n\nfig, ax = plt.subplots(figsize=(7, 3.5))\nax.{plot_fn}({expr}[{x_col:?}], {expr}[{y_col:?}])\nax.set_xlabel({x_col:?})\nax.set_ylabel({y_col:?})\nax.set_title(f\"{y_col} by {x_col}\")\nplt.tight_layout()\nplt.show()"
+        );
+        let snippet_for_insert = mpl_snippet.clone();
+
+        wrap = wrap
+            .child(
+                h_flex()
+                    .w_full()
+                    .justify_between()
+                    .items_center()
+                    .gap_2()
+                    .flex_wrap()
+                    .child(
+                        h_flex()
+                            .gap_1()
+                            .items_center()
+                            .child(
+                                action_button("chart-kind-bar")
+                                    .xsmall()
+                                    .segment(chart_kind == "bar")
+                                    .label("Bar")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.tabs[view.active].variables_state.chart_kind =
+                                            "bar".into();
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                action_button("chart-kind-line")
+                                    .xsmall()
+                                    .segment(chart_kind == "line")
+                                    .label("Line")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.tabs[view.active].variables_state.chart_kind =
+                                            "line".into();
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
+                    .child(
+                        action_button("chart-insert-mpl")
+                            .outline()
+                            .xsmall()
+                            .icon(Glyph::Plus)
+                            .label("Insert matplotlib cell")
+                            .hint("Insert a reproducible matplotlib code cell into the notebook")
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                view.insert_cell_with_source(
+                                    "code",
+                                    snippet_for_insert.clone(),
+                                    cx,
+                                );
+                            })),
+                    ),
+            )
+            .child(x_bar)
+            .child(y_bar);
+
+        // Extract up to 40 (label, y_val) points from visible rows
+        let mut points: Vec<(String, f64)> = Vec::new();
+        for (r_idx, row_val) in rows.iter().take(40).enumerate() {
+            if let Some(cells) = row_val.as_array() {
+                let x_lbl = cells
+                    .get(x_idx)
+                    .and_then(|c| c["text"].as_str())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| r_idx.to_string());
+                if let Some(y_txt) = cells.get(y_idx).and_then(|c| c["text"].as_str())
+                    && let Ok(y_num) = y_txt.replace(',', "").trim().parse::<f64>()
+                    && y_num.is_finite()
+                {
+                    points.push((x_lbl, y_num));
+                }
+            }
+        }
+
+        if points.is_empty() {
+            return wrap.child(
+                div()
+                    .p_3()
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(border_col)
+                    .text_xs()
+                    .text_color(muted)
+                    .child(format!(
+                        "Column \u{201c}{y_col}\u{201d} has no finite numeric values on this page. Select a numeric Y column."
+                    )),
+            );
+        }
+
+        let min_y = points
+            .iter()
+            .map(|(_, y)| *y)
+            .fold(f64::INFINITY, f64::min)
+            .min(0.0);
+        let max_y = points
+            .iter()
+            .map(|(_, y)| *y)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let span = (max_y - min_y).abs().max(1e-9);
+        let chart_h = 150.0_f32;
+
+        let mut plot_area = h_flex()
+            .w_full()
+            .h(px(chart_h))
+            .items_end()
+            .gap(px(3.))
+            .px_2()
+            .pt_2()
+            .pb_1()
+            .border_b_1()
+            .border_l_1()
+            .border_color(border_col);
+
+        for (i, (x_lbl, y_val)) in points.iter().enumerate() {
+            let norm = ((*y_val - min_y) / span).clamp(0.0, 1.0) as f32;
+            let px_h = (norm * (chart_h - 16.0)).max(3.0);
+            let tip = format!("{x_col}: {x_lbl} \u{00b7} {y_col}: {y_val:.4}");
+            let col_el = if chart_kind == "line" {
+                v_flex()
+                    .flex_1()
+                    .h_full()
+                    .justify_end()
+                    .items_center()
+                    .child(
+                        div()
+                            .w(px(7.))
+                            .h(px(7.))
+                            .rounded_full()
+                            .bg(primary)
+                            .mb(px((px_h - 4.0).max(0.0))),
+                    )
+            } else {
+                v_flex()
+                    .flex_1()
+                    .h_full()
+                    .justify_end()
+                    .items_center()
+                    .child(
+                        div()
+                            .w_full()
+                            .max_w(px(28.))
+                            .h(px(px_h))
+                            .rounded_t(px(3.))
+                            .bg(primary.opacity(0.85)),
+                    )
+            };
+            plot_area = plot_area.child(
+                div()
+                    .id(("df-chart-pt", i))
+                    .flex_1()
+                    .h_full()
+                    .tooltip(move |_, cx| {
+                        let t = tip.clone();
+                        cx.new(|_| WorkbenchHint(t.into())).into()
+                    })
+                    .child(col_el),
+            );
+        }
+
+        let first_x = points.first().map(|(x, _)| x.as_str()).unwrap_or("");
+        let last_x = points.last().map(|(x, _)| x.as_str()).unwrap_or("");
+
+        wrap.child(
+            v_flex()
+                .w_full()
+                .p_3()
+                .gap_1()
+                .rounded(px(6.))
+                .border_1()
+                .border_color(border_col)
+                .child(
+                    h_flex()
+                        .justify_between()
+                        .text_xs()
+                        .font_family(mono.clone())
+                        .text_color(muted)
+                        .child(format!("max {max_y:.4}"))
+                        .child(format!(
+                            "{} plotted rows ({y_col} vs {x_col})",
+                            points.len()
+                        )),
+                )
+                .child(plot_area)
+                .child(
+                    h_flex()
+                        .justify_between()
+                        .text_xs()
+                        .font_family(mono)
+                        .text_color(muted)
+                        .child(bounded(first_x, 20))
+                        .child(format!("min {min_y:.4}"))
+                        .child(bounded(last_x, 20)),
+                ),
+        )
     }
 
     /// Render a paged collection/mapping/set/attributes/series/1D-array value with nested drill-down.
@@ -1449,7 +1937,29 @@ impl Workspace {
 
         let copy_expr = expr.clone();
         let copy_val = raw_preview.clone();
-        let console_expr = expr;
+        let console_expr = expr.clone();
+        let chart_expr = expr;
+
+        let dag_graph = dag::analyze_notebook(&self.tabs[self.active].model);
+        let defined_in = dag_graph.defined_by.get(&name).cloned().unwrap_or_default();
+        let used_in = dag_graph.used_by.get(&name).cloned().unwrap_or_default();
+        let cell_index = |cid: &str| -> String {
+            self.tabs[self.active]
+                .model
+                .order
+                .iter()
+                .position(|id| id == cid)
+                .map(|i| format!("Cell {}", i + 1))
+                .unwrap_or_else(|| cid.to_owned())
+        };
+        let def_chips: Vec<(String, String)> = defined_in
+            .iter()
+            .map(|cid| (cid.clone(), cell_index(cid)))
+            .collect();
+        let use_chips: Vec<(String, String)> = used_in
+            .iter()
+            .map(|cid| (cid.clone(), cell_index(cid)))
+            .collect();
 
         let mut panel = card(cx).p_4().gap_3().min_w_0().w_full();
 
@@ -1545,6 +2055,42 @@ impl Workspace {
                     ),
             );
         panel = panel.child(header);
+
+        // Provenance chips: Defined in / Used in (static DAG links)
+        if !def_chips.is_empty() || !use_chips.is_empty() {
+            let mut prov = h_flex().gap_1p5().items_center().flex_wrap();
+            if !def_chips.is_empty() {
+                prov = prov.child(div().text_xs().text_color(muted).child("Defined in:"));
+                for (i, (cid, lbl)) in def_chips.into_iter().enumerate() {
+                    prov = prov.child(
+                        action_button(("var-def-cell", i))
+                            .outline()
+                            .xsmall()
+                            .label(lbl)
+                            .hint("Jump to defining cell in Notebook")
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                view.jump_to_cell(cid.clone(), cx);
+                            })),
+                    );
+                }
+            }
+            if !use_chips.is_empty() {
+                prov = prov.child(div().text_xs().text_color(muted).child("Used in:"));
+                for (i, (cid, lbl)) in use_chips.into_iter().enumerate() {
+                    prov = prov.child(
+                        action_button(("var-use-cell", i))
+                            .ghost()
+                            .xsmall()
+                            .label(lbl)
+                            .hint("Jump to referencing cell in Notebook")
+                            .on_click(cx.listener(move |view, _, _, cx| {
+                                view.jump_to_cell(cid.clone(), cx);
+                            })),
+                    );
+                }
+            }
+            panel = panel.child(prov);
+        }
 
         // Breadcrumbs trail for nested drill-down
         if breadcrumbs.len() > 1 {
@@ -1664,35 +2210,219 @@ impl Workspace {
                     .child(self.render_variable_schema(preview, handle, segments, cx));
             } else {
                 let show_schema = detail_tab == "schema";
-                panel = panel.child(
-                    h_flex()
-                        .gap_1()
-                        .items_center()
-                        .child(
-                            action_button("var-tab-data")
-                                .xsmall()
-                                .segment(!show_schema)
-                                .label("Data")
-                                .on_click(cx.listener(|view, _, _, cx| {
-                                    view.tabs[view.active].variables_state.detail_tab =
-                                        "data".into();
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            action_button("var-tab-schema")
-                                .xsmall()
-                                .segment(show_schema)
-                                .label("Schema")
-                                .on_click(cx.listener(|view, _, _, cx| {
-                                    view.tabs[view.active].variables_state.detail_tab =
-                                        "schema".into();
-                                    cx.notify();
-                                })),
-                        ),
-                );
+                let show_chart = detail_tab == "chart";
+                let table = &page["table"];
+                let active_filter = table["filter_query"]
+                    .as_str()
+                    .unwrap_or("")
+                    .trim()
+                    .to_owned();
+                let unfiltered_rows = table["unfiltered_rows"].as_u64();
+                let filtered_rows = table["total_rows"].as_u64();
+                let h_apply = handle.clone();
+                let s_apply = segments.clone();
+                let h_clear = handle.clone();
+                let s_clear = segments.clone();
+                let col_limit = table["col_limit"].as_u64().unwrap_or(16).max(1);
+                let sort_col_now = table["sort_col"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .or_else(|| self.tabs[self.active].variables_state.sort_col.clone());
+                let sort_desc_now = table["sort_desc"]
+                    .as_bool()
+                    .unwrap_or(self.tabs[self.active].variables_state.sort_desc);
+                let sc_apply = sort_col_now.clone();
+                let sc_clear = sort_col_now;
+
+                // Tabs + Filter bar
+                let mut tab_filter_row = h_flex()
+                    .w_full()
+                    .justify_between()
+                    .items_center()
+                    .gap_2()
+                    .flex_wrap()
+                    .child(
+                        h_flex()
+                            .gap_1()
+                            .items_center()
+                            .child(
+                                action_button("var-tab-data")
+                                    .xsmall()
+                                    .segment(!show_schema && !show_chart)
+                                    .label("Data")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.tabs[view.active].variables_state.detail_tab =
+                                            "data".into();
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                action_button("var-tab-schema")
+                                    .xsmall()
+                                    .segment(show_schema)
+                                    .label("Schema")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.tabs[view.active].variables_state.detail_tab =
+                                            "schema".into();
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                action_button("var-tab-chart")
+                                    .xsmall()
+                                    .segment(show_chart)
+                                    .label("Chart")
+                                    .on_click(cx.listener(|view, _, _, cx| {
+                                        view.tabs[view.active].variables_state.detail_tab =
+                                            "chart".into();
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
+                    .child(
+                        h_flex()
+                            .gap_1p5()
+                            .items_center()
+                            .flex_wrap()
+                            .child(
+                                div()
+                                    .w(rems(14.))
+                                    .child(Input::new(&self.df_filter_query).cleanable(true)),
+                            )
+                            .child(
+                                action_button("df-filter-apply")
+                                    .outline()
+                                    .xsmall()
+                                    .label("Filter")
+                                    .hint("Filter rows passively (e.g. col>10, col==foo, or text search)")
+                                    .on_click(cx.listener(move |view, _, _, cx| {
+                                        let q = view
+                                            .df_filter_query
+                                            .read(cx)
+                                            .value()
+                                            .trim()
+                                            .to_owned();
+                                        view.tabs[view.active].variables_state.filter_query =
+                                            q.clone();
+                                        let mut req = json!({
+                                            "handle": h_apply,
+                                            "segments": s_apply,
+                                            "offset": 0,
+                                            "col_offset": 0,
+                                            "col_limit": col_limit,
+                                        });
+                                        if let Some(sc) = &sc_apply {
+                                            req["sort_col"] = json!(sc);
+                                            req["sort_desc"] = json!(sort_desc_now);
+                                        }
+                                        if !q.is_empty() {
+                                            req["filter_query"] = json!(q);
+                                        }
+                                        view.interactive_request("namespace.preview", req);
+                                        cx.notify();
+                                    })),
+                            )
+                            .when(!active_filter.is_empty(), |row| {
+                                row.child(
+                                    action_button("df-filter-clear")
+                                        .ghost()
+                                        .xsmall()
+                                        .label("Clear")
+                                        .on_click(cx.listener(move |view, _, window, cx| {
+                                            view.df_filter_query.update(cx, |inp, cx| {
+                                                inp.set_value("", window, cx);
+                                            });
+                                            view.tabs[view.active]
+                                                .variables_state
+                                                .filter_query
+                                                .clear();
+                                            let mut req = json!({
+                                                "handle": h_clear,
+                                                "segments": s_clear,
+                                                "offset": 0,
+                                                "col_offset": 0,
+                                                "col_limit": col_limit,
+                                            });
+                                            if let Some(sc) = &sc_clear {
+                                                req["sort_col"] = json!(sc);
+                                                req["sort_desc"] = json!(sort_desc_now);
+                                            }
+                                            view.interactive_request("namespace.preview", req);
+                                            cx.notify();
+                                        })),
+                                )
+                            }),
+                    );
+                if let (Some(f_rows), Some(u_rows)) = (filtered_rows, unfiltered_rows)
+                    && f_rows != u_rows
+                {
+                    tab_filter_row = tab_filter_row
+                        .child(badge(format!("{f_rows} / {u_rows} rows"), theme.info));
+                }
+                panel = panel.child(tab_filter_row);
+
+                // Reproducible snippet bar when sort or filter is active
+                if let Some(snippet) = page["snippet"].as_str().filter(|s| !s.trim().is_empty()) {
+                    let snip_copy = snippet.to_owned();
+                    let snip_insert = snippet.to_owned();
+                    panel = panel.child(
+                        h_flex()
+                            .w_full()
+                            .justify_between()
+                            .items_center()
+                            .gap_2()
+                            .px_2p5()
+                            .py_1p5()
+                            .rounded(px(6.))
+                            .bg(theme.secondary.opacity(0.45))
+                            .border_1()
+                            .border_color(divider(cx))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_xs()
+                                    .font_family(mono.clone())
+                                    .child(snippet.to_owned()),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_1()
+                                    .flex_none()
+                                    .child(
+                                        action_button("df-snippet-copy")
+                                            .ghost()
+                                            .xsmall()
+                                            .icon(Glyph::Copy)
+                                            .label("Copy")
+                                            .on_click(move |_, _, cx| {
+                                                copy_acknowledged(snip_copy.clone(), cx);
+                                            }),
+                                    )
+                                    .child(
+                                        action_button("df-snippet-insert")
+                                            .outline()
+                                            .xsmall()
+                                            .icon(Glyph::Plus)
+                                            .label("Insert cell")
+                                            .hint("Insert this filter/sort transform as a reproducible code cell")
+                                            .on_click(cx.listener(move |view, _, _, cx| {
+                                                view.insert_cell_with_source(
+                                                    "code",
+                                                    snip_insert.clone(),
+                                                    cx,
+                                                );
+                                            })),
+                                    ),
+                            ),
+                    );
+                }
+
                 if show_schema {
                     panel = panel.child(self.render_variable_schema(preview, handle, segments, cx));
+                } else if show_chart {
+                    panel = panel.child(self.render_variable_chart(preview, &chart_expr, cx));
                 } else {
                     panel = panel.child(self.render_variable_grid(
                         preview,
@@ -2086,7 +2816,11 @@ impl Workspace {
             }
         } else if self.surface == "Console" {
             let input = self.console_editor(window, cx);
-            let text = input.clone();
+            let text_run = input.clone();
+            let text_insert = input.clone();
+            let text_docs = input.clone();
+            let worker_idle = runtime["worker_state"] == "idle";
+            let live_docs = self.tabs[self.active].inspections.get("Live docs").cloned();
             body = body.child(
                 card(cx)
                     .p_4()
@@ -2116,9 +2850,55 @@ impl Workspace {
                                             .unavailable(runtime["session_id"].is_null())
                                             .hint("Run in the attached notebook worker (recorded in History)")
                                             .on_click(cx.listener(move |view, _, _, cx| {
-                                                let source = text.read(cx).value().to_string();
+                                                let source = text_run.read(cx).value().to_string();
                                                 if !source.trim().is_empty() {
                                                     view.send(Command::Console { source });
+                                                }
+                                            })),
+                                    )
+                                    .child(
+                                        action_button("console-insert-cell")
+                                            .outline()
+                                            .small()
+                                            .icon(Glyph::Plus)
+                                            .label("Insert as cell")
+                                            .hint("Insert console code as a new Python cell in the notebook")
+                                            .on_click(cx.listener(move |view, _, _, cx| {
+                                                let source =
+                                                    text_insert.read(cx).value().to_string();
+                                                if !source.trim().is_empty() {
+                                                    view.insert_cell_with_source(
+                                                        "code", source, cx,
+                                                    );
+                                                }
+                                            })),
+                                    )
+                                    .child(
+                                        action_button("console-live-docs")
+                                            .outline()
+                                            .small()
+                                            .icon(Glyph::BookOpen)
+                                            .label("Inspect docs")
+                                            .unavailable(!worker_idle)
+                                            .hint("Passively inspect signature & docstring of the symbol in the console input")
+                                            .on_click(cx.listener(move |view, _, _, cx| {
+                                                let raw = text_docs.read(cx).value().to_string();
+                                                let sym = raw
+                                                    .trim()
+                                                    .trim_end_matches("()")
+                                                    .split(|c: char| {
+                                                        !(c.is_ascii_alphanumeric()
+                                                            || c == '_'
+                                                            || c == '.')
+                                                    })
+                                                    .rfind(|s| !s.is_empty())
+                                                    .unwrap_or("")
+                                                    .to_owned();
+                                                if !sym.is_empty() {
+                                                    view.interactive_request(
+                                                        "code.inspect",
+                                                        json!({"name": sym}),
+                                                    );
                                                 }
                                             })),
                                     )
@@ -2137,11 +2917,76 @@ impl Workspace {
                             )
                             .child(info_tip(
                                 "console-help-tip",
-                                "Console executions are recorded in History. Enter inserts a newline; click Run to execute. Closing this view preserves live variables.",
+                                "Console executions are recorded in History. Enter inserts a newline; click Run to execute, or Insert as cell to promote to the notebook.",
                                 cx,
                             )),
                     ),
             );
+            if let Some(docs) = live_docs {
+                let doc_name = docs["name"].as_str().unwrap_or("Symbol").to_owned();
+                let doc_type = docs["type"].as_str().unwrap_or("").to_owned();
+                let doc_sig = docs["signature"].as_str().map(str::to_owned);
+                let doc_text = docs["documentation"]
+                    .as_str()
+                    .filter(|s| !s.trim().is_empty())
+                    .map(str::to_owned);
+                let doc_err = docs["error"]["message"].as_str().map(str::to_owned);
+                let mut doc_card = card(cx).p_3().gap_2().child(
+                    h_flex()
+                        .justify_between()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            h_flex()
+                                .gap_2()
+                                .items_center()
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .font_family(mono.clone())
+                                        .child(format!("Live docs: {doc_name}")),
+                                )
+                                .when(!doc_type.is_empty(), |r| {
+                                    r.child(badge(doc_type, cx.theme().primary))
+                                }),
+                        )
+                        .child(
+                            action_button("console-docs-close")
+                                .ghost()
+                                .xsmall()
+                                .icon(Glyph::X)
+                                .accessibility_label("Close live docs")
+                                .on_click(cx.listener(|view, _, _, cx| {
+                                    view.tabs[view.active].inspections.remove("Live docs");
+                                    cx.notify();
+                                })),
+                        ),
+                );
+                if let Some(err) = doc_err {
+                    doc_card =
+                        doc_card.child(div().text_xs().text_color(cx.theme().danger).child(err));
+                }
+                if let Some(sig) = doc_sig {
+                    doc_card = doc_card.child(
+                        TextView::markdown(
+                            "console-live-docs-sig",
+                            format!("```python\n{}\n```", sig.replace("```", "~~~")),
+                        )
+                        .selectable(true),
+                    );
+                }
+                if let Some(doc) = doc_text {
+                    doc_card = doc_card.child(
+                        div()
+                            .text_xs()
+                            .whitespace_normal()
+                            .text_color(muted)
+                            .child(bounded(&doc, 4096)),
+                    );
+                }
+                body = body.child(doc_card);
+            }
             let records: Vec<Value> = if !self.tabs[self.active].console_history.is_empty() {
                 self.tabs[self.active]
                     .console_history
@@ -2194,6 +3039,8 @@ impl Workspace {
                 for (entry_idx, record) in records.iter().enumerate() {
                     let status = record["status"].as_str().unwrap_or("unknown");
                     let exec_id = record["exec_id"].as_str().unwrap_or("");
+                    let rec_source = record["source"].as_str().unwrap_or("").to_owned();
+                    let rec_source_insert = rec_source.clone();
                     let heading = if entry_idx == 0 {
                         "Latest execution".to_string()
                     } else {
@@ -2226,12 +3073,35 @@ impl Workspace {
                                             )
                                         }),
                                 )
-                                .when(notable_status(status), |d| {
-                                    d.child(badge(
-                                        outcome_label(status).to_string(),
-                                        tone(status, cx),
-                                    ))
-                                }),
+                                .child(
+                                    h_flex()
+                                        .gap_1p5()
+                                        .items_center()
+                                        .when(!rec_source_insert.trim().is_empty(), |r| {
+                                            r.child(
+                                                action_button(("console-rec-insert", entry_idx))
+                                                    .ghost()
+                                                    .xsmall()
+                                                    .icon(Glyph::Plus)
+                                                    .label("Insert as cell")
+                                                    .on_click(cx.listener(
+                                                        move |view, _, _, cx| {
+                                                            view.insert_cell_with_source(
+                                                                "code",
+                                                                rec_source_insert.clone(),
+                                                                cx,
+                                                            );
+                                                        },
+                                                    )),
+                                            )
+                                        })
+                                        .when(notable_status(status), |d| {
+                                            d.child(badge(
+                                                outcome_label(status).to_string(),
+                                                tone(status, cx),
+                                            ))
+                                        }),
+                                ),
                         )
                         .child(
                             TextView::markdown(
@@ -2240,8 +3110,7 @@ impl Workspace {
                                 )),
                                 format!(
                                     "```python\n{}\n```",
-                                    bounded(record["source"].as_str().unwrap_or(""), 65536)
-                                        .replace("```", "~~~")
+                                    bounded(&rec_source, 65536).replace("```", "~~~")
                                 ),
                             )
                             .selectable(true),

@@ -57,6 +57,11 @@ pub const DELEGATED: &[&str] = &[
     "doctor",
     "interpreter.candidates",
     "interpreter.validate",
+    "packages.list",
+    "packages.install",
+    "code.format",
+    "files.list",
+    "dag.analyze",
 ];
 /// Capability name -> every method it requires.
 const CAPABILITIES: &[(&str, &[&str])] = &[
@@ -84,6 +89,8 @@ fn required(method: &str) -> Option<&'static [&'static str]> {
         | "interpreter.validate" => &["path"],
         "export_document" => &["path", "format"],
         "blob.read" => &["sha256"],
+        "packages.install" => &["package"],
+        "code.format" => &["source"],
         m if NATIVE.contains(&m) || DELEGATED.contains(&m) => &[],
         _ => return None,
     })
@@ -127,6 +134,7 @@ pub fn validate(request: &Value) -> Result<&str> {
         "format",
         "markdown",
         "source_revision",
+        "package",
     ] {
         if map.get(key).is_some_and(|v| !v.is_string()) {
             return Err(invalid(format!("{key} must be a string")));

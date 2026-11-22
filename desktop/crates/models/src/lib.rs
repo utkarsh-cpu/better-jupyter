@@ -115,8 +115,31 @@ impl CellModel {
             .as_ref()
             .is_some_and(|revision| *revision != hash(self.text.as_bytes()))
     }
+    pub fn is_executable(&self) -> bool {
+        matches!(self.disk.kind.as_str(), "code" | "sql")
+    }
+    fn cell_meta(&self, key: &str) -> Option<&Value> {
+        self.disk
+            .metadata
+            .get("metadata")
+            .and_then(|m| m.get(key))
+            .or_else(|| self.disk.metadata.get(key))
+    }
+    pub fn is_disabled(&self) -> bool {
+        self.cell_meta("disabled").and_then(Value::as_bool) == Some(true)
+    }
+    pub fn is_code_hidden(&self) -> bool {
+        self.cell_meta("hide_code").and_then(Value::as_bool) == Some(true)
+    }
+    pub fn sql_output_var(&self) -> String {
+        self.cell_meta("output_var")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("_sql_df")
+            .to_owned()
+    }
     pub fn run_hash(&self) -> Option<&str> {
-        (self.save == SaveState::Saved && self.disk.kind == "code")
+        (self.save == SaveState::Saved && self.is_executable())
             .then_some(self.disk.revision.as_str())
     }
     pub fn acknowledge(&mut self, source: SourceCell, submitted: &str) {
@@ -176,6 +199,8 @@ impl NotebookModel {
                         cell.save = SaveState::Conflict;
                     }
                     cell.disk = source;
+                } else if cell.disk.metadata != source.metadata {
+                    cell.disk.metadata = source.metadata;
                 }
             } else {
                 self.cells

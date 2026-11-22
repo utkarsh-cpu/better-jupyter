@@ -310,7 +310,7 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let tab_id = TabId(view.next_tab_id);
                 view.next_tab_id += 1;
                 view.tabs.push(Tab { id: tab_id, assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), variables_state: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), variables_state: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new(), sidebar_tab: "outline".into(), app_mode: false, files_cache: None, packages_cache: None, package_install_status: None, formatting_cell: None });
                 view
             })
         }).unwrap()
@@ -3869,6 +3869,12 @@ fn close_tab_switches_active_and_returns_to_welcome_on_last_tab(cx: &mut TestApp
                 html_views: BTreeMap::new(),
                 html_states: BTreeMap::new(),
                 html_notes: BTreeMap::new(),
+                sidebar_tab: "outline".into(),
+                app_mode: false,
+                files_cache: None,
+                packages_cache: None,
+                package_install_status: None,
+                formatting_cell: None,
             });
             v.active = 1;
             let _ = v.console_editor(window, cx);
@@ -4250,6 +4256,12 @@ fn variables_explorer_renders_dataframe_matrix_tensor_and_nested_drilldown(
                         html_views: BTreeMap::new(),
                         html_states: BTreeMap::new(),
                         html_notes: BTreeMap::new(),
+                        sidebar_tab: "outline".into(),
+                        app_mode: false,
+                        files_cache: None,
+                        packages_cache: None,
+                        package_install_status: None,
+                        formatting_cell: None,
                     });
                     view.tick = gpui_kit::Task::ready(());
                     view
@@ -4379,4 +4391,249 @@ fn variables_explorer_renders_dataframe_matrix_tensor_and_nested_drilldown(
         )));
     })
     .unwrap();
+}
+
+#[test]
+fn missing_module_parser_and_rss_formatter_cover_edge_cases() {
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named 'polars'"
+        }))
+        .as_deref(),
+        Some("polars")
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named 'sklearn.metrics'"
+        }))
+        .as_deref(),
+        Some("sklearn")
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ValueError",
+            "evalue": "No module named 'polars'"
+        })),
+        None
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named '_internal'"
+        })),
+        None
+    );
+
+    assert_eq!(super::runtime::format_rss_bytes(512), "512 B");
+    assert_eq!(super::runtime::format_rss_bytes(1024 * 64), "64 KB");
+    assert_eq!(super::runtime::format_rss_bytes(1024 * 1024 * 42), "42 MB");
+    assert_eq!(
+        super::runtime::format_rss_bytes(1024 * 1024 * 1536),
+        "1.50 GB"
+    );
+}
+
+#[gpui_kit::test]
+fn marimo_commands_app_mode_sql_controls_and_sidebar_tabs_work(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(860.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            // Toggle App Mode on and off
+            assert!(!v.tabs[0].app_mode);
+            v.run_command("toggle-app-mode", window, cx);
+            assert!(v.tabs[0].app_mode);
+        });
+        window.render_frame(cx);
+        view.update(cx, |v, cx| {
+            v.run_command("toggle-app-mode", window, cx);
+            assert!(!v.tabs[0].app_mode);
+            // Switch sidebar to Deps and Files
+            v.run_command("sidebar-deps", window, cx);
+            assert_eq!(v.tabs[0].sidebar_tab, "dependencies");
+        });
+        window.render_frame(cx);
+        view.update(cx, |v, cx| {
+            v.run_command("sidebar-files", window, cx);
+            assert_eq!(v.tabs[0].sidebar_tab, "files");
+            // Cell controls: SQL, hide code, disabled, format, run stale
+            v.run_command("add-sql", window, cx);
+            v.run_command("toggle-hide-code", window, cx);
+            v.run_command("toggle-disabled", window, cx);
+            v.run_command("format-cell", window, cx);
+            v.run_command("run-stale", window, cx);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+
+    let sent: Vec<Command> = commands.try_iter().collect();
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Inspect { method, .. } if method == "files.list"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "add" && v["type"] == "sql"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "metadata" && v["metadata"]["hide_code"] == true
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "metadata" && v["metadata"]["disabled"] == true
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Inspect { method, .. } if method == "code.format"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Run { cell_ids, .. } if !cell_ids.is_empty()
+    )));
+}
+
+#[gpui_kit::test]
+fn dataframe_chart_snippet_and_expanded_widgets_render_cleanly(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(860.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            // Attach stat, callout, float_slider, text, multiselect, form, and ModuleNotFoundError outputs
+            let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+            cell.text = "df = make_df()\n".into();
+            cell.output = vec![
+                json!({
+                    "kind": "error",
+                    "ename": "ModuleNotFoundError",
+                    "evalue": "No module named 'duckdb'",
+                    "traceback": ["ModuleNotFoundError: No module named 'duckdb'"]
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "kind": "stat",
+                                "label": "Revenue",
+                                "value": "$42,000",
+                                "delta": "+12%",
+                                "direction": "increase",
+                                "caption": "Quarter over quarter"
+                            }
+                        }
+                    }
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "kind": "callout",
+                                "label": "Note",
+                                "value": "Passive preview active",
+                                "variant": "info"
+                            }
+                        }
+                    }
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "handle": "w-form",
+                                "worker_generation": "g1",
+                                "kind": "form",
+                                "label": "Params",
+                                "submit_label": "Apply",
+                                "value": {"lr": 0.05, "name": "exp1"},
+                                "fields": [
+                                    {"name": "lr", "kind": "float_slider", "label": "LR", "value": 0.05, "lower": 0.01, "upper": 1.0, "step": 0.01},
+                                    {"name": "name", "kind": "text", "label": "Run", "value": "exp1"}
+                                ]
+                            }
+                        }
+                    }
+                }),
+            ];
+            v.tabs[0].runtime = json!({
+                "worker_state": "idle",
+                "session_id": "s1",
+                "worker_rss_bytes": 134_217_728u64,
+                "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+            });
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "df",
+                    "type": "pandas.core.frame.DataFrame",
+                    "short_type": "DataFrame",
+                    "category": "dataframe",
+                    "size_label": "2 x 2",
+                    "preview": "DataFrame(2x2)",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "df", "segments": []}],
+                    "_context": {"handle": "h-df", "segments": []},
+                    "page": {
+                        "mode": "table",
+                        "snippet": "df_filtered = df.sort_values('score', ascending=False)",
+                        "table": {
+                            "columns": [
+                                {"name": "city", "dtype": "object", "kind": "string"},
+                                {"name": "score", "dtype": "float64", "kind": "number"}
+                            ],
+                            "index": ["0", "1"],
+                            "rows": [
+                                [{"text": "NYC", "null": false, "numeric": false}, {"text": "98.5", "null": false, "numeric": true}],
+                                [{"text": "SF", "null": false, "numeric": false}, {"text": "91.0", "null": false, "numeric": true}]
+                            ],
+                            "row_offset": 0,
+                            "col_offset": 0,
+                            "total_rows": 2,
+                            "unfiltered_rows": 5,
+                            "total_cols": 2,
+                            "sort_col": "score",
+                            "sort_desc": true
+                        },
+                        "schema": [
+                            {"name": "city", "dtype": "object", "top_values": [{"value": "NYC", "count": 3}]},
+                            {"name": "score", "dtype": "float64", "histogram": [1, 2, 4, 3, 1, 0, 2, 1]}
+                        ],
+                        "stats_included": true
+                    }
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("df".into());
+            cx.notify();
+        });
+        window.render_frame(cx);
+
+        // Switch to Variables -> Schema -> Chart and click Insert matplotlib cell
+        view.update(cx, |v, cx| v.select_surface("Variables", cx));
+        window.render_frame(cx);
+        window.click("var-tab-schema", cx);
+        window.render_frame(cx);
+        window.click("var-tab-chart", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].variables_state.detail_tab, "chart");
+        window.click("chart-insert-mpl", cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+
+    assert!(commands.try_iter().any(|c| matches!(
+        c,
+        Command::Mutate(v)
+            if v["action"] == "add"
+                && v["type"] == "code"
+                && v["source"].as_str().is_some_and(|s| s.contains("matplotlib"))
+    )));
 }

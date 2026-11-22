@@ -197,6 +197,8 @@ class Supervisor:
         self.debug_snapshot: Any = None
         self.namespace_epoch = 0
         self.background_tasks = False
+        self.worker_rss_bytes: int | None = None
+        self.last_memory_delta_bytes: int | None = None
 
     async def interactive_read(self, request: Any, client: str) -> Any:
         from ..source import SourceError
@@ -334,6 +336,10 @@ class Supervisor:
                 if kind == "status" and eid:
                     self.namespace_epoch = message.get("namespace_epoch", self.namespace_epoch)
                     self.background_tasks = message.get("background_tasks", self.background_tasks)
+                    if "rss_bytes" in message:
+                        self.worker_rss_bytes = message.get("rss_bytes")
+                    if "memory_delta_bytes" in message:
+                        self.last_memory_delta_bytes = message.get("memory_delta_bytes")
                     if message["state"] == "running":
                         if self.active == eid:
                             self.interrupt_ready = eid
@@ -580,6 +586,8 @@ class Supervisor:
         accepted: Any = None,
         debug: bool = False,
         origin: str | None = None,
+        cell_type: str = "code",
+        output_var: str | None = None,
     ) -> Any:
         empty = not self.process
         if empty:
@@ -613,6 +621,8 @@ class Supervisor:
             source=source,
             debug=debug,
             origin=origin or ("notebook" if cid else "unattributed"),
+            cell_type=cell_type,
+            **({"output_var": output_var} if output_var else {}),
         )
         result = await self.waiter
         return {**result, "new_empty_session": empty, "session_id": self.session}
@@ -955,6 +965,8 @@ class Supervisor:
         accepted: Any = None
         source: Any = None
         cid: Any = None
+        cell_type = "code"
+        output_var: str | None = None
         if command == "run":
             from ..notebook import canonical
 
@@ -967,6 +979,10 @@ class Supervisor:
                     SourceService(self.root).execution_sources, [request["cell_id"]]
                 )
                 source, cid = cell[0]["source"], cell[0]["id"]
+                cell_type = cell[0].get("type", "code")
+                meta = cell[0].get("metadata")
+                if isinstance(meta, dict) and isinstance(meta.get("output_var"), str):
+                    output_var = meta["output_var"]
             if self.process and self.session:
                 digest = self.blobs.put(source.encode())
                 self.record_blob(digest)
@@ -982,6 +998,8 @@ class Supervisor:
                     (reader, writer) if request.get("interactive") else None,
                     notify=writer,
                     accepted=accepted,
+                    cell_type=cell_type,
+                    output_var=output_var,
                 )
             if command == "restart":
                 await self.end_worker()

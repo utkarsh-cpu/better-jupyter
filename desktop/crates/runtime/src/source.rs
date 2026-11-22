@@ -74,7 +74,10 @@ impl SourceService {
         let selected = if ids == "all" {
             cells
                 .iter()
-                .filter(|cell| cell["type"] == "code")
+                .filter(|cell| {
+                    matches!(cell["type"].as_str(), Some("code" | "sql"))
+                        && cell["metadata"]["disabled"].as_bool() != Some(true)
+                })
                 .map(|cell| cell["id"].clone())
                 .collect::<Vec<_>>()
         } else {
@@ -84,11 +87,13 @@ impl SourceService {
         for id in selected {
             let cell = cells
                 .iter()
-                .find(|cell| cell["id"] == id && cell["type"] == "code")
+                .find(|cell| {
+                    cell["id"] == id && matches!(cell["type"].as_str(), Some("code" | "sql"))
+                })
                 .ok_or_else(|| {
                     fail(
                         "source_invalid",
-                        "missing or non-code cell",
+                        "missing or non-executable cell",
                         json!({"cell_id":id}),
                     )
                 })?;

@@ -85,6 +85,8 @@ class DesktopServer:
                 "engine": getattr(s, "environment", {}).get("engine"),
                 "worker_generation": getattr(s, "environment", {}).get("worker_generation"),
                 "features": getattr(s, "environment", {}).get("interactive_features", []),
+                "rss_bytes": getattr(s, "worker_rss_bytes", None),
+                "memory_delta_bytes": getattr(s, "last_memory_delta_bytes", None),
             },
             "active_execution": s.active,
             "attached_client_count": len({c["client_id"] for c in self.clients.values()}),
@@ -336,6 +338,12 @@ class DesktopServer:
                             raise SourceError(
                                 "busy", "accepted worker session is no longer available"
                             )
+                        meta = execution.get("metadata")
+                        output_var = (
+                            meta.get("output_var")
+                            if isinstance(meta, dict) and isinstance(meta.get("output_var"), str)
+                            else None
+                        )
                         result = await s.execute(
                             execution["source"],
                             execution["id"],
@@ -343,6 +351,8 @@ class DesktopServer:
                             accepted=execution,
                             debug=request.get("debug", False),
                             origin=request.get("origin"),
+                            cell_type=execution.get("type", "code"),
+                            output_var=output_var,
                         )
                         results.append(result)
                         if result["status"] == "aborted" or (

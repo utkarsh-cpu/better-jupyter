@@ -199,6 +199,8 @@ fn validate(request: &Value) -> Result<&str> {
             "handle",
             "name",
             "source",
+            "sort_col",
+            "filter_query",
         ] {
             if request.get(key).is_some_and(|value| !value.is_string()) {
                 return Err(invalid(format!("{key} must be a string")));
@@ -236,7 +238,7 @@ fn validate(request: &Value) -> Result<&str> {
             }) {
                 return Err(invalid("col_limit must be between 1 and 40"));
             }
-            for flag in ["include_stats", "allow_device_copy"] {
+            for flag in ["include_stats", "allow_device_copy", "sort_desc"] {
                 if request.get(flag).is_some_and(|value| !value.is_boolean()) {
                     return Err(invalid(format!("{flag} must be a boolean")));
                 }

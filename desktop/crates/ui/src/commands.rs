@@ -12,7 +12,67 @@ const PALETTE_FIRST: [&str; 8] = [
     "assistant",
 ];
 
-pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 57] = [
+pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 67] = [
+    (
+        "run-stale",
+        "Run stale cells",
+        "Execute edited and upstream-stale cells in dependency order",
+        Glyph::Play,
+    ),
+    (
+        "toggle-app-mode",
+        "Toggle App / Report mode",
+        "Hide cell code and chrome to present outputs and widgets",
+        Glyph::Eye,
+    ),
+    (
+        "add-sql",
+        "Add SQL cell",
+        "Insert a first-class SQL query cell after the selection",
+        Glyph::Database,
+    ),
+    (
+        "format-cell",
+        "Format selected cell",
+        "Format Python cell source with ruff",
+        Glyph::Code,
+    ),
+    (
+        "toggle-hide-code",
+        "Hide / show cell code",
+        "Toggle whether the selected cell's source editor is collapsed",
+        Glyph::EyeOff,
+    ),
+    (
+        "toggle-disabled",
+        "Disable / enable cell",
+        "Toggle whether the selected cell is skipped during Run All",
+        Glyph::Power,
+    ),
+    (
+        "export-html",
+        "Export HTML report\u{2026}",
+        "Save standalone HTML report with source and recorded outputs",
+        Glyph::FileText,
+    ),
+    (
+        "export-py",
+        "Export Python script\u{2026}",
+        "Save notebook as a percent-format Python script (.py)",
+        Glyph::FileText,
+    ),
+    (
+        "sidebar-deps",
+        "Show cell dependencies",
+        "Open the live DAG dependency graph in the notebook sidebar",
+        Glyph::BookOpen,
+    ),
+    (
+        "sidebar-files",
+        "Show workspace files",
+        "Browse workspace files and insert one-click loader cells",
+        Glyph::FolderOpen,
+    ),
     (
         "undo-source",
         "Undo cell structure change",
@@ -682,7 +742,8 @@ impl Workspace {
             .get(self.active)
             .and_then(|t| t.model.selected.clone())
         {
-            if self.tabs[self.active].model.cells[&id].disk.kind != "code" {
+            let cell = &self.tabs[self.active].model.cells[&id];
+            if !cell.is_executable() || cell.is_disabled() {
                 return;
             }
             self.send(Command::Run {
@@ -713,7 +774,9 @@ impl Workspace {
                 .iter()
                 .enumerate()
                 .filter(|(i, id)| {
-                    tab.model.cells[*id].disk.kind == "code"
+                    let cell = &tab.model.cells[*id];
+                    cell.is_executable()
+                        && !cell.is_disabled()
                         && match scope {
                             "above" => *i < selected,
                             "below" => *i > selected,
@@ -968,7 +1031,9 @@ impl Workspace {
             }
             "assistant" => self.open_assistant(cx),
             "run-selected" => self.run(&RunCell, window, cx),
-            "add-code" | "add-markdown" | "add-raw" => {
+            "run-stale" => self.run_stale_cells(cx),
+            "toggle-app-mode" => self.toggle_app_mode(&ToggleAppMode, window, cx),
+            "add-code" | "add-markdown" | "add-raw" | "add-sql" => {
                 let tab = &self.tabs[self.active];
                 let index = tab
                     .model
@@ -977,6 +1042,54 @@ impl Workspace {
                     .and_then(|id| tab.model.order.iter().position(|c| c == id))
                     .map_or(tab.model.order.len(), |i| i + 1);
                 self.mutate(json!({"action":"add","type":method.strip_prefix("add-").unwrap(),"index":index}));
+            }
+            "format-cell" => {
+                if let Some(id) = self.tabs[self.active].model.selected.clone() {
+                    self.format_cell(&id, cx);
+                }
+            }
+            "toggle-hide-code" => {
+                if let Some(id) = self.tabs[self.active].model.selected.clone() {
+                    let hidden = self.tabs[self.active]
+                        .model
+                        .cells
+                        .get(&id)
+                        .is_some_and(|c| c.is_code_hidden());
+                    self.mutate_cell_metadata(&id, "hide_code", json!(!hidden), cx);
+                }
+            }
+            "toggle-disabled" => {
+                if let Some(id) = self.tabs[self.active].model.selected.clone() {
+                    let disabled = self.tabs[self.active]
+                        .model
+                        .cells
+                        .get(&id)
+                        .is_some_and(|c| c.is_disabled());
+                    self.mutate_cell_metadata(&id, "disabled", json!(!disabled), cx);
+                }
+            }
+            "sidebar-deps" => {
+                self.select_surface("Notebook", cx);
+                if self.compact {
+                    self.outline_drawer = true;
+                } else {
+                    self.sidebar_visible = true;
+                }
+                if let Some(tab) = self.tabs.get_mut(self.active) {
+                    tab.sidebar_tab = "dependencies".into();
+                }
+            }
+            "sidebar-files" => {
+                self.select_surface("Notebook", cx);
+                if self.compact {
+                    self.outline_drawer = true;
+                } else {
+                    self.sidebar_visible = true;
+                }
+                if let Some(tab) = self.tabs.get_mut(self.active) {
+                    tab.sidebar_tab = "files".into();
+                }
+                self.inspect("files.list", json!({}));
             }
             "duplicate-cell" | "delete-cell" | "move-up" | "move-down" => {
                 let tab = &self.tabs[self.active];
@@ -1021,6 +1134,8 @@ impl Workspace {
             }
             "export-pdf" => self.export_dialog("pdf", window, cx),
             "export-docx" => self.export_dialog("docx", window, cx),
+            "export-html" => self.export_dialog("html", window, cx),
+            "export-py" => self.export_dialog("py", window, cx),
             "export-ipynb" => self.export_dialog("ipynb", window, cx),
             "export-bundle" => self.export_dialog("zip", window, cx),
             "inspect-bundle" => {
@@ -1187,7 +1302,13 @@ impl Workspace {
         }
         if matches!(
             method,
-            "export-menu" | "export-pdf" | "export-docx" | "export-ipynb" | "export-bundle"
+            "export-menu"
+                | "export-pdf"
+                | "export-docx"
+                | "export-html"
+                | "export-py"
+                | "export-ipynb"
+                | "export-bundle"
         ) && tab
             .model
             .cells
@@ -1196,18 +1317,39 @@ impl Workspace {
         {
             return Some("Resolve source conflicts before exporting");
         }
-        if method == "outline" && self.surface != "Notebook" {
-            return Some("Outline is available in Notebook");
+        if matches!(method, "outline" | "sidebar-deps" | "sidebar-files")
+            && self.surface != "Notebook"
+        {
+            return Some("Sidebar panels are available in Notebook");
         }
-        if method == "run-all" {
-            if !tab.model.cells.values().any(|c| c.disk.kind == "code") {
-                return Some("Add a code cell first");
+        if method == "run-stale" {
+            let graph = dag::analyze_notebook(&tab.model);
+            if graph.run_stale_ids.is_empty() {
+                return Some("No stale cells to run");
             }
             if tab.runtime["connection_lost"] == true {
                 return Some("Reconnect before running code");
             }
             if tab.model.cells.values().any(|c| {
-                c.disk.kind == "code" && matches!(c.save, SaveState::Conflict | SaveState::Failed)
+                c.is_executable() && matches!(c.save, SaveState::Conflict | SaveState::Failed)
+            }) {
+                return Some("Resolve source conflicts before running");
+            }
+        }
+        if method == "run-all" {
+            if !tab
+                .model
+                .cells
+                .values()
+                .any(|c| c.is_executable() && !c.is_disabled())
+            {
+                return Some("Add an enabled code or SQL cell first");
+            }
+            if tab.runtime["connection_lost"] == true {
+                return Some("Reconnect before running code");
+            }
+            if tab.model.cells.values().any(|c| {
+                c.is_executable() && matches!(c.save, SaveState::Conflict | SaveState::Failed)
             }) {
                 return Some("Resolve source conflicts before running");
             }
@@ -1224,8 +1366,11 @@ impl Workspace {
             else {
                 return Some("Select a code cell first");
             };
-            if cell.disk.kind != "code" {
-                return Some("Only code cells can run");
+            if !cell.is_executable() {
+                return Some("Only code and SQL cells can run");
+            }
+            if cell.is_disabled() {
+                return Some("Cell is disabled; enable it before running");
             }
             if matches!(cell.save, SaveState::Conflict | SaveState::Failed) {
                 return Some("Resolve the source conflict before running");
@@ -1233,9 +1378,29 @@ impl Workspace {
         }
         if matches!(
             method,
+            "format-cell" | "toggle-hide-code" | "toggle-disabled"
+        ) {
+            if self.surface != "Notebook" {
+                return Some("Select a cell in Notebook");
+            }
+            let Some(cell) = tab
+                .model
+                .selected
+                .as_ref()
+                .and_then(|id| tab.model.cells.get(id))
+            else {
+                return Some("Select a cell first");
+            };
+            if method == "format-cell" && cell.disk.kind != "code" {
+                return Some("Formatting is available for Python code cells");
+            }
+        }
+        if matches!(
+            method,
             "add-code"
                 | "add-markdown"
                 | "add-raw"
+                | "add-sql"
                 | "duplicate-cell"
                 | "delete-cell"
                 | "move-up"

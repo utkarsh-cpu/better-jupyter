@@ -104,11 +104,16 @@ def notebook_blocks(notebook: Notebook, ledger: Any = None, blobs: Any = None) -
         if cell["type"] == "markdown":
             blocks.extend(markdown_blocks(source))
             continue
-        blocks.append(
-            Block("label", f"Cell {index} · {'Python' if cell['type'] == 'code' else 'Raw text'}")
+        kind_label = (
+            "Python"
+            if cell["type"] == "code"
+            else f"SQL → {cell.get('metadata', {}).get('output_var') or '_sql_df'}"
+            if cell["type"] == "sql"
+            else "Raw text"
         )
+        blocks.append(Block("label", f"Cell {index} · {kind_label}"))
         blocks.append(Block("code", clean(source)))
-        if cell["type"] != "code" or cell["id"] not in records:
+        if cell["type"] not in ("code", "sql") or cell["id"] not in records:
             continue
         record = records[cell["id"]]
         blocks.append(
@@ -374,6 +379,146 @@ def word_bytes(blocks: list[Block]) -> bytes:
     return buffer.getvalue()
 
 
+def html_bytes(blocks: list[Block]) -> bytes:
+    """Render a self-contained, offline static HTML report with zero external network assets."""
+    title = escape(clean(blocks[0].text)) if blocks else "KernelLedger Notebook"
+    parts: list[str] = []
+    for block in blocks:
+        if block.kind == "title":
+            parts.append(f"<h1>{escape(clean(block.text))}</h1>")
+        elif block.kind == "heading":
+            lvl = max(2, min(block.level + 1, 6))
+            parts.append(f"<h{lvl}>{escape(clean(block.text))}</h{lvl}>")
+        elif block.kind == "label":
+            parts.append(f'<div class="kl-label">{escape(clean(block.text))}</div>')
+        elif block.kind == "warning":
+            parts.append(f'<div class="kl-warning">{escape(clean(block.text))}</div>')
+        elif block.kind == "code":
+            parts.append(f'<pre class="kl-code"><code>{escape(clean(block.text))}</code></pre>')
+        elif block.kind == "output":
+            parts.append(f'<pre class="kl-output">{escape(clean(block.text))}</pre>')
+        elif block.kind == "image":
+            b64 = base64.b64encode(block.data).decode("ascii")
+            parts.append(f'<figure class="kl-figure"><img src="data:image/png;base64,{b64}" alt="Figure"/></figure>')
+        elif block.kind == "table":
+            rows = block.rows or []
+            if rows:
+                header_cells = "".join(f"<th>{escape(clean(c))}</th>" for c in rows[0])
+                body_rows = "".join(
+                    "<tr>" + "".join(f"<td>{escape(clean(c))}</td>" for c in row) + "</tr>"
+                    for row in rows[1:]
+                )
+                parts.append(
+                    f'<div class="kl-table-wrap"><table><thead><tr>{header_cells}</tr></thead>'
+                    f"<tbody>{body_rows}</tbody></table></div>"
+                )
+        else:
+            body = escape(clean(block.text)).replace("\n", "<br/>")
+            parts.append(f"<p>{body}</p>")
+
+    html_doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>{title}</title>
+<style>
+:root {{
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #181c20; --muted: #5a6570; --surface: #f5f7f9;
+  --border: #dce2e8; --warn-bg: #fff3f3; --warn-fg: #a1262f; --accent: #2563eb;
+}}
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --bg: #11151a; --fg: #e6edf3; --muted: #8b96a3; --surface: #181e26;
+    --border: #2a3340; --warn-bg: #2c1619; --warn-fg: #f87171; --accent: #60a5fa;
+  }}
+}}
+body {{
+  margin: 0; padding: 2.5rem 1.5rem 4rem; background: var(--bg); color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
+}}
+main {{ max-width: 56rem; margin: 0 auto; }}
+h1 {{ font-size: 1.9rem; margin: 0 0 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: .5rem; }}
+h2, h3, h4 {{ margin-top: 1.6rem; }}
+.kl-label {{ font-size: .78rem; font-weight: 600; color: var(--muted); margin: 1.1rem 0 .25rem; text-transform: uppercase; letter-spacing: .04em; }}
+.kl-warning {{ font-size: .85rem; color: var(--warn-fg); background: var(--warn-bg); border: 1px solid var(--warn-fg); border-radius: 6px; padding: .5rem .75rem; margin: .4rem 0; }}
+pre {{ margin: .25rem 0 .9rem; padding: .85rem 1rem; border-radius: 8px; overflow-x: auto; font-size: .86rem; line-height: 1.45; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }}
+.kl-code {{ background: var(--surface); border: 1px solid var(--border); }}
+.kl-output {{ background: transparent; border-left: 3px solid var(--border); border-radius: 0; padding-left: .9rem; }}
+.kl-figure {{ margin: .75rem 0 1.25rem; }}
+.kl-figure img {{ max-width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); }}
+.kl-table-wrap {{ overflow-x: auto; margin: .5rem 0 1rem; border: 1px solid var(--border); border-radius: 8px; }}
+table {{ width: 100%; border-collapse: collapse; font-size: .84rem; }}
+th, td {{ padding: .45rem .65rem; border-bottom: 1px solid var(--border); text-align: left; }}
+th {{ background: var(--surface); font-weight: 600; }}
+footer {{ margin-top: 3rem; font-size: .78rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: .75rem; }}
+</style>
+</head>
+<body>
+<main>
+{"".join(parts)}
+<footer>Exported offline by KernelLedger</footer>
+</main>
+</body>
+</html>
+"""
+    return html_doc.encode("utf-8")
+
+
+def script_bytes(notebook: Notebook) -> bytes:
+    """Export notebook cells as a clean runnable Python script with # %% cell markers."""
+    manifest = notebook.read()
+    lines: list[str] = []
+    deps = manifest.get("metadata", {}).get("dependencies")
+    if isinstance(deps, list) and deps and all(isinstance(d, str) for d in deps):
+        lines.append("# /// script")
+        lines.append("# dependencies = [")
+        for dep in deps:
+            lines.append(f"#   {dep!r},")
+        lines.append("# ]")
+        lines.append("# ///")
+        lines.append("")
+    title = manifest.get("metadata", {}).get("title") or notebook.root.name
+    lines.append(f"# Exported from KernelLedger notebook: {title}")
+    lines.append("")
+    for cell in manifest["cells"]:
+        ctype = cell["type"]
+        cid = cell["id"]
+        src = clean(notebook.source(cell)).rstrip("\n")
+        meta = cell.get("metadata") if isinstance(cell.get("metadata"), dict) else {}
+        disabled = bool(meta.get("disabled", False))
+        if ctype == "markdown":
+            lines.append(f"# %% [markdown] id={cid}")
+            for ln in src.splitlines() or [""]:
+                lines.append(f"# {ln}" if ln else "#")
+        elif ctype == "sql":
+            out_var = str(meta.get("output_var") or "_sql_df")
+            lines.append(f"# %% [sql] {out_var}")
+            if disabled:
+                lines.append("# [disabled]")
+                for ln in src.splitlines():
+                    lines.append(f"# {ln}")
+            else:
+                lines.append(f"# SQL query bound to `{out_var}`")
+                lines.append(f"_kl_sql = {src!r}")
+        elif ctype == "raw":
+            lines.append(f"# %% [raw] id={cid}")
+            for ln in src.splitlines():
+                lines.append(f"# {ln}")
+        else:
+            lines.append(f"# %% id={cid}")
+            if disabled:
+                lines.append("# [disabled]")
+                for ln in src.splitlines():
+                    lines.append(f"# {ln}")
+            else:
+                lines.append(src)
+        lines.append("")
+    return ("\n".join(lines).rstrip("\n") + "\n").encode("utf-8")
+
+
 def export_document(
     notebook: Notebook,
     path: str,
@@ -382,15 +527,26 @@ def export_document(
     blobs: Any = None,
     markdown: str | None = None,
 ) -> dict[str, str]:
-    if format not in ("pdf", "docx"):
-        raise SourceError("invalid_request", "Document format must be pdf or docx")
+    if format not in ("pdf", "docx", "html", "py"):
+        raise SourceError("invalid_request", "Document format must be pdf, docx, html, or py")
     destination = Path(path)
     if destination.suffix.lower() != f".{format}":
         raise SourceError("invalid_request", f"Choose a file ending in .{format}")
+    if format == "py":
+        if markdown is not None:
+            raise SourceError("invalid_request", "Python script export requires a notebook")
+        atomic(destination, script_bytes(notebook))
+        return {"path": str(destination), "format": format}
     blocks = (
         notebook_blocks(notebook, ledger, blobs)
         if markdown is None
         else [Block("title", "Assistant report"), *markdown_blocks(markdown)]
     )
-    atomic(destination, pdf_bytes(blocks) if format == "pdf" else word_bytes(blocks))
+    if format == "pdf":
+        data = pdf_bytes(blocks)
+    elif format == "docx":
+        data = word_bytes(blocks)
+    else:
+        data = html_bytes(blocks)
+    atomic(destination, data)
     return {"path": str(destination), "format": format}

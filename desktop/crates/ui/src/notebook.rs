@@ -66,6 +66,8 @@ impl Workspace {
                 .scroll_beyond_last_line(Some(0))
                 .language(if kind == "code" {
                     "python"
+                } else if kind == "sql" {
+                    "sql"
                 } else if kind == "markdown" {
                     "markdown"
                 } else {
@@ -139,12 +141,83 @@ impl Workspace {
         let Some(id) = self.tabs[self.active].model.order.get(index).cloned() else {
             return div().into_any_element();
         };
+        if self.tabs[self.active].app_mode {
+            let tab = &self.tabs[self.active];
+            let cell = tab.model.cells[&id].clone();
+            let last = index + 1 == tab.model.order.len();
+            if cell.disk.kind == "markdown" {
+                return div()
+                    .w_full()
+                    .max_w(rems(READING_WIDTH))
+                    .mx_auto()
+                    .px_6()
+                    .py_2()
+                    .when(last, |d| d.pb_8())
+                    .child(
+                        TextView::markdown(("app-md", index), safe_markdown(&cell.text))
+                            .on_link_click(safe_link),
+                    )
+                    .into_any_element();
+            }
+            if cell.output.is_empty() || cell.collapsed {
+                return div().into_any_element();
+            }
+            let wide_output = cell.output.iter().any(outputs::is_wide_output);
+            return v_flex()
+                .w_full()
+                .max_w(rems(if wide_output { 80. } else { READING_WIDTH }))
+                .mx_auto()
+                .px_6()
+                .py_2()
+                .gap_2()
+                .when(last, |d| d.pb_8())
+                .children(cell.output.iter().enumerate().map(|(i, e)| {
+                    let mut e = e.clone();
+                    if let Some(handle) =
+                        e["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["handle"]
+                            .as_str()
+                            .map(str::to_owned)
+                        && let Some(model) = self.tabs[self.active]
+                            .inspections
+                            .get("Widget state")
+                            .and_then(|states| states.get(&handle))
+                    {
+                        e["bundle"]["application/vnd.kernelledger.widget+json"]["value"] =
+                            model.clone();
+                    }
+                    outputs::OutputBlock {
+                        tools_state: None,
+                        id: format!("app-{id}-{i}").into(),
+                        event: e,
+                        context: format!("Output {} for cell {}", i + 1, index + 1,).into(),
+                        commands: Some(self.tabs[self.active].service.commands.clone()),
+                        cell_id: id.clone().into(),
+                        project: Some(self.tabs[self.active].model.project.clone()),
+                        exec_id: cell.exec_id.clone().unwrap_or_default().into(),
+                        index: i,
+                        worker_generation:
+                            self.tabs[self.active].runtime["interactive"]["worker_generation"]
+                                .as_str()
+                                .map(str::to_owned),
+                        workspace: Some(cx.entity()),
+                    }
+                    .into_any_element()
+                }))
+                .into_any_element();
+        }
         let editor = self.editor(self.active, &id, window, cx);
         self.debug_editor_markers(&id, &editor, cx);
         let gutter = self.debug_gutter(&id, &editor, cx);
         let editor_focused = editor.read(cx).focus_handle(cx).is_focused(window);
         let tab = &self.tabs[self.active];
+        let graph = dag::analyze_notebook(&tab.model);
+        let upstream_stale = graph.is_upstream_stale(&id);
+        let multi_defs = graph.has_multiple_def(&id);
         let cell = tab.model.cells[&id].clone();
+        let is_exec = cell.is_executable();
+        let is_sql = cell.disk.kind == "sql";
+        let is_disabled = cell.is_disabled();
+        let is_code_hidden = cell.is_code_hidden();
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
@@ -203,18 +276,22 @@ impl Workspace {
         // A narrow split needs a full-width editor. Keep its run button,
         // execution count, and output tools in the toolbar above the source.
         let narrow_split = self.compact && tab.assistant.open;
-        let inline_code = compact_source && !narrow_split && cell.disk.kind == "code";
+        let inline_code = compact_source && !narrow_split && is_exec;
         let inline_markdown = compact_source && cell.disk.kind == "markdown";
-        let mut run_action = if cell.disk.kind == "code" {
+        let mut run_action = if is_exec {
             Some(
                 action_button(("run", index))
                     .ghost()
                     .small()
                     .text_color(if selected { primary } else { muted_fg })
                     .icon(Glyph::Play)
-                    .hint("Run cell (Ctrl+Enter)")
+                    .hint(if is_disabled {
+                        "Cell is disabled (re-enable to run)"
+                    } else {
+                        "Run cell (Ctrl+Enter)"
+                    })
                     .accessibility_label(format!("Run {}", cell_title(&cell.text, &cell.disk.kind)))
-                    .unavailable(cell.save == SaveState::Conflict)
+                    .unavailable(cell.save == SaveState::Conflict || is_disabled)
                     .on_click(cx.listener({
                         let id = id.clone();
                         move |v, _, _, _| {
@@ -366,15 +443,27 @@ impl Workspace {
             ),
         );
         let show_header = if inline_code || inline_markdown {
-            save.is_some() || has_error || cell.stale() || notable_status(&cell.outcome)
+            save.is_some()
+                || has_error
+                || cell.stale()
+                || upstream_stale
+                || is_sql
+                || is_disabled
+                || is_code_hidden
+                || !multi_defs.is_empty()
+                || notable_status(&cell.outcome)
         } else {
             self.high_contrast
-                || cell.disk.kind == "code"
+                || is_exec
                 || selected
                 || self.preferences.comfortable
                 || save.is_some()
                 || has_error
                 || cell.stale()
+                || upstream_stale
+                || is_disabled
+                || is_code_hidden
+                || !multi_defs.is_empty()
         };
         let mut inline_run = if inline_code { run_action.take() } else { None };
         let mut header_actions = Some(actions);
@@ -400,21 +489,17 @@ impl Workspace {
             .flex_wrap()
             .py(px(spacing.header_py))
             .when_some(run_action, |d, button| d.child(button))
-            .when_some(
-                cell.ordinal
-                    .filter(|_| cell.disk.kind == "code" && !inline_code),
-                |d, n| {
-                    d.child(
-                        div()
-                            .flex_none()
-                            .min_w(px(28.))
-                            .font_family(mono.clone())
-                            .text_xs()
-                            .text_color(muted_fg)
-                            .child(format!("[{n}]")),
-                    )
-                },
-            )
+            .when_some(cell.ordinal.filter(|_| is_exec && !inline_code), |d, n| {
+                d.child(
+                    div()
+                        .flex_none()
+                        .min_w(px(28.))
+                        .font_family(mono.clone())
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(format!("[{n}]")),
+                )
+            })
             .when_some(
                 cell.execution_seconds
                     .filter(|_| self.preferences.show_cell_duration && !inline_code),
@@ -432,6 +517,13 @@ impl Workspace {
                     )
                 },
             )
+            .when(is_sql, |d| {
+                d.child(badge(
+                    format!("SQL \u{2192} {}", cell.sql_output_var()),
+                    info,
+                ))
+            })
+            .when(is_disabled, |d| d.child(badge("Disabled", muted_fg)))
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
             .when(has_error && !notable_outcome, |d| {
                 d.child(badge("Failed", danger))
@@ -459,6 +551,22 @@ impl Workspace {
             })
             .when(cell.stale(), |d| {
                 d.child(badge("Edited since run", warning))
+            })
+            .when(upstream_stale && !cell.stale(), |d| {
+                d.child(badge("Upstream stale", warning)).child(
+                    action_button(("run-stale-cell", index))
+                        .ghost()
+                        .small()
+                        .icon(Glyph::Play)
+                        .label("Run stale")
+                        .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                )
+            })
+            .when(!multi_defs.is_empty(), |d| {
+                d.child(badge(
+                    format!("Redefines {}", multi_defs.join(", ")),
+                    danger,
+                ))
             })
             .when(cell.stale() && cell.exec_id.is_some(), |d| {
                 let exec_id = cell.exec_id.clone().unwrap_or_default();
@@ -498,7 +606,7 @@ impl Workspace {
                     primary
                 } else if has_error {
                     danger
-                } else if cell.stale() {
+                } else if cell.stale() || upstream_stale {
                     warning
                 } else {
                     transparent
@@ -535,6 +643,9 @@ impl Workspace {
                     let row_h = px((self.preferences.editor_size * 1.5
                         + 18. * self.preferences.ui_scale)
                         .max(30. * self.preferences.ui_scale));
+                    let hide_editor = is_code_hidden
+                        && cell.disk.kind != "markdown"
+                        && !(selected && tab.model.mode == Mode::Edit);
                     d.child(
                         h_flex()
                             .w_full()
@@ -595,7 +706,39 @@ impl Workspace {
                                             )
                                     }),
                             )
-                            .child(
+                            .child(if hide_editor {
+                                let cid_show = id.clone();
+                                h_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .px_3()
+                                    .py_1p5()
+                                    .gap_2()
+                                    .items_center()
+                                    .rounded(px(6.))
+                                    .bg(muted.opacity(0.6))
+                                    .border_1()
+                                    .border_color(surface_edge(cx))
+                                    .text_xs()
+                                    .text_color(muted_fg)
+                                    .child(Icon::new(Glyph::EyeOff).xsmall())
+                                    .child(format!("{} source hidden", kind_label(&cell.disk.kind)))
+                                    .child(div().flex_1())
+                                    .child(
+                                        action_button(("show-hidden-code", index))
+                                            .ghost()
+                                            .small()
+                                            .label("Show code")
+                                            .on_click(cx.listener(move |v, _, _, cx| {
+                                                v.mutate_cell_metadata(
+                                                    &cid_show,
+                                                    "hide_code",
+                                                    json!(false),
+                                                    cx,
+                                                );
+                                            })),
+                                    )
+                            } else {
                                 h_flex()
                                     .debug_selector({
                                         let id = id.clone();
@@ -609,6 +752,7 @@ impl Workspace {
                                     .rounded(px(6.))
                                     .overflow_hidden()
                                     .bg(muted)
+                                    .when(is_disabled, |d| d.opacity(0.58))
                                     .border_1()
                                     .border_color(cell_border_color(
                                         selected,
@@ -644,8 +788,8 @@ impl Workspace {
                                                     ))
                                                     .bordered(false),
                                             ),
-                                    ),
-                            ),
+                                    )
+                            }),
                     )
                 },
             );

@@ -265,6 +265,110 @@ impl Workspace {
         if let Some(items) = value["items"].as_array() {
             body = body.child(self.supporting_items(&value, items, cx));
         }
+        if self.surface == "Runtimes" {
+            let tab = &self.tabs[self.active];
+            let pkgs = tab
+                .packages_cache
+                .as_ref()
+                .and_then(|v| v["items"].as_array())
+                .cloned()
+                .unwrap_or_default();
+            let status_banner = tab.package_install_status.clone();
+            let mut pkg_card = card(cx).p_4().gap_3().child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(180.))
+                            .child(Input::new(&self.pkg_install_input).small()),
+                    )
+                    .child(
+                        action_button("pkg-install-btn")
+                            .primary()
+                            .small()
+                            .icon(Glyph::Plus)
+                            .label("Install")
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                let name = v.pkg_install_input.read(cx).value().trim().to_string();
+                                if !name.is_empty() {
+                                    v.install_package(name, cx);
+                                    v.pkg_install_input
+                                        .update(cx, |s, cx| s.set_value("", window, cx));
+                                }
+                            })),
+                    )
+                    .child(
+                        action_button("pkg-refresh-btn")
+                            .outline()
+                            .small()
+                            .icon(Glyph::RefreshCw)
+                            .label(if tab.packages_cache.is_some() {
+                                "Refresh"
+                            } else {
+                                "Load packages"
+                            })
+                            .on_click(cx.listener(|v, _, _, _| {
+                                v.inspect("packages.list", json!({}));
+                            })),
+                    ),
+            );
+            if let Some(msg) = status_banner {
+                let is_err = msg.starts_with("Failed");
+                let col = if is_err {
+                    cx.theme().danger
+                } else if msg.ends_with('\u{2026}') {
+                    cx.theme().info
+                } else {
+                    cx.theme().success
+                };
+                pkg_card = pkg_card.child(
+                    div()
+                        .px_3()
+                        .py_2()
+                        .rounded(px(6.))
+                        .border_1()
+                        .border_color(col.opacity(0.35))
+                        .bg(col.opacity(0.08))
+                        .text_xs()
+                        .text_color(col)
+                        .whitespace_normal()
+                        .child(msg),
+                );
+            }
+            if !pkgs.is_empty() {
+                let mut rows = v_flex()
+                    .gap_1()
+                    .max_h(px(280.))
+                    .id("pkg-list")
+                    .overflow_y_scroll();
+                for pkg in pkgs.iter().take(100) {
+                    let name = pkg["name"].as_str().unwrap_or("").to_string();
+                    let ver = pkg["version"].as_str().unwrap_or("").to_string();
+                    rows = rows.child(
+                        h_flex()
+                            .justify_between()
+                            .px_2()
+                            .py_1()
+                            .border_b_1()
+                            .border_color(divider(cx))
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .child(name)
+                            .child(div().text_color(muted_fg).child(ver)),
+                    );
+                }
+                pkg_card = pkg_card
+                    .child(div().text_xs().text_color(muted_fg).child(format!(
+                        "Showing {} of {} installed packages",
+                        pkgs.len().min(100),
+                        pkgs.len()
+                    )))
+                    .child(rows);
+            }
+            body = body.child(section("Packages (active environment)", cx).child(pkg_card));
+        }
         if self.surface == "Checkpoints" && value.get("checkpoint_id").is_some() {
             body = body.child(self.checkpoint_report(&value, cx));
         }

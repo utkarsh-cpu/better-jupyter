@@ -89,7 +89,28 @@ CELL_MAGICS = {
     "sh": "POSIX shell cell (unavailable on Windows). External effects are recorded, not undone.",
     "bash": "Explicit Bash cell on POSIX when Bash is installed.",
     "cmd": "Windows command cell using the selected platform shell.",
+    "sql": "Execute SQL against in-memory DataFrames (DuckDB or SQLite fallback) and bind result.",
 }
+
+
+def _process_rss_bytes() -> int | None:
+    """Read current worker resident set size (bytes) using stdlib only."""
+    try:
+        if os.path.isfile("/proc/self/statm"):
+            with open("/proc/self/statm", encoding="utf-8") as fh:
+                parts = fh.read().split()
+            if len(parts) >= 2:
+                return int(parts[1]) * os.sysconf("SC_PAGE_SIZE")
+    except Exception:
+        pass
+    try:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # macOS reports ru_maxrss in bytes; Linux reports kilobytes.
+        return int(usage if sys.platform == "darwin" else usage * 1024)
+    except Exception:
+        return None
 
 
 def cell_magic(source: str) -> tuple[str, str, str] | None:
@@ -231,7 +252,7 @@ def notebook_tree(source: str, filename: str) -> ast.Module:
     """
     magic = cell_magic(source)
     if magic:
-        if magic[0] in ("writefile", "sh", "bash", "cmd"):
+        if magic[0] in ("writefile", "sh", "bash", "cmd", "sql"):
             return ast.parse("pass", filename)
         source = magic[2]
     lines = source.splitlines(keepends=True)
@@ -1561,6 +1582,15 @@ class CustomEngine:
                 stream.write(content.encode("utf-8"))
             print(f"{'Appended' if append else 'Wrote'} {path}")
             return None
+        if name == "sql":
+            target = argument.strip() or "_sql_df"
+            if not target.isidentifier() or keyword.iskeyword(target):
+                raise ValueError("%%sql accepts an optional Python identifier as output variable")
+            original = self.worker.index.entries[filename][0]
+            lines = original.splitlines(keepends=True)
+            header = next(row for row, line in enumerate(lines) if line.startswith("%%"))
+            sql_body = "".join(lines[header + 1 :])
+            return self.worker.execute_sql(sql_body, output_var=target)
         return self.run_magic(name, argument, tree, filename)
 
     def run_magic(self, name: str, argument: str, tree: ast.Module, filename: str) -> Any:
@@ -2129,6 +2159,116 @@ def passive_series(value: Any) -> dict[str, Any] | None:
     return None
 
 
+def _numeric_histogram(raw_values: Any, bins: int = 8) -> list[int]:
+    """Compute a compact fixed-bin histogram from finite numeric values without mutating input."""
+    nums: list[float] = []
+    for item in raw_values:
+        if item is None:
+            continue
+        try:
+            f = float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(f):
+            nums.append(f)
+    if not nums:
+        return []
+    lo = min(nums)
+    hi = max(nums)
+    if lo == hi:
+        out = [0] * bins
+        out[bins // 2] = len(nums)
+        return out
+    span = hi - lo
+    counts = [0] * bins
+    for val in nums:
+        idx = int((val - lo) / span * bins)
+        if idx >= bins:
+            idx = bins - 1
+        elif idx < 0:
+            idx = 0
+        counts[idx] += 1
+    return counts
+
+
+def _top_value_counts(raw_values: Any, limit: int = 5) -> list[dict[str, Any]]:
+    """Compute top-K value counts for categorical/string/boolean columns."""
+    counts: dict[str, int] = {}
+    for item in raw_values:
+        if _is_null_scalar(item):
+            continue
+        text = _format_cell_value(item, 40)["text"]
+        counts[text] = counts.get(text, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+    return [{"value": k, "count": v} for k, v in ranked]
+
+
+def _parse_column_filter(
+    query: str, col_names: list[str]
+) -> tuple[str | None, str | None, str] | None:
+    """Parse optional `col>val`, `col>=val`, `col<val`, `col<=val`, `col==val`, `col!=val`, `col:val`."""
+    q = query.strip()
+    if not q:
+        return None
+    for op in (">=", "<=", "==", "!=", ">", "<", ":"):
+        pos = q.find(op)
+        if pos > 0:
+            lhs = q[:pos].strip()
+            rhs = q[pos + len(op) :].strip()
+            if lhs in col_names and rhs:
+                return (lhs, op, rhs)
+    return (None, None, q)
+
+
+def _df_snippet(
+    var_name: str,
+    lib: str,
+    filter_query: str,
+    sort_col: str | None,
+    sort_desc: bool,
+    col_names: list[str],
+) -> str:
+    expr = var_name or "df"
+    parsed = _parse_column_filter(filter_query, col_names)
+    if parsed is not None:
+        col, op, rhs = parsed
+        if lib == "pandas":
+            if col is not None and op in (">=", "<=", "==", "!=", ">", "<"):
+                try:
+                    num = float(rhs)
+                    rhs_code = str(int(num)) if num.is_integer() and "." not in rhs else repr(num)
+                except ValueError:
+                    rhs_code = repr(rhs)
+                expr = f"{expr}[{expr}[{col!r}] {op} {rhs_code}]"
+            elif col is not None and op == ":":
+                expr = f"{expr}[{expr}[{col!r}].astype(str).str.contains({rhs!r}, case=False, na=False)]"
+            else:
+                expr = (
+                    f"{expr}[{expr}.astype(str).apply("
+                    f"lambda r: r.str.contains({rhs!r}, case=False, na=False).any(), axis=1)]"
+                )
+        elif lib == "polars":
+            if col is not None and op in (">=", "<=", "==", "!=", ">", "<"):
+                try:
+                    num = float(rhs)
+                    rhs_code = str(int(num)) if num.is_integer() and "." not in rhs else repr(num)
+                except ValueError:
+                    rhs_code = repr(rhs)
+                expr = f"{expr}.filter(pl.col({col!r}) {op} {rhs_code})"
+            elif col is not None and op == ":":
+                expr = f"{expr}.filter(pl.col({col!r}).cast(pl.Utf8).str.to_lowercase().str.contains({rhs.lower()!r}, literal=True))"
+            else:
+                expr = f"{expr}.filter(pl.any_horizontal(pl.all().cast(pl.Utf8).str.to_lowercase().str.contains({rhs.lower()!r}, literal=True)))"
+    if sort_col and sort_col in col_names:
+        if lib == "pandas":
+            asc = "False" if sort_desc else "True"
+            expr = f"{expr}.sort_values({sort_col!r}, ascending={asc})"
+        elif lib == "polars":
+            desc = "True" if sort_desc else "False"
+            expr = f"{expr}.sort({sort_col!r}, descending={desc})"
+    return expr
+
+
 def _passive_dataframe_slice(
     value: Any,
     info: dict[str, Any],
@@ -2137,10 +2277,15 @@ def _passive_dataframe_slice(
     col_offset: int,
     col_limit: int,
     include_stats: bool,
+    *,
+    sort_col: str | None = None,
+    sort_desc: bool = False,
+    filter_query: str = "",
+    var_name: str = "df",
 ) -> dict[str, Any]:
     lib = info["library"]
     lazy = info["lazy"]
-    nrows = info["nrows"]
+    unfiltered_nrows = info["nrows"]
     ncols = info["ncols"]
     col_names = info["col_names"]
     col_dtypes = info["col_dtypes"]
@@ -2158,17 +2303,17 @@ def _passive_dataframe_slice(
             "kind": ckind,
             "samples": [],
         }
-        if not lazy and nrows and nrows > 0:
+        if not lazy and unfiltered_nrows and unfiltered_nrows > 0:
             try:
                 if lib == "pandas":
                     col_series = value.iloc[:, ci]
-                    sample_raw = [col_series.iloc[r] for r in range(min(3, nrows))]
+                    sample_raw = [col_series.iloc[r] for r in range(min(3, unfiltered_nrows))]
                     entry["samples"] = [
                         _format_cell_value(v, 36)["text"] for v in sample_raw
                     ]
-                    if include_stats or nrows <= 10_000:
+                    if include_stats or unfiltered_nrows <= 10_000:
                         entry["null_count"] = int(col_series.isna().sum())
-                    if include_stats and nrows <= 1_000_000:
+                    if include_stats and unfiltered_nrows <= 1_000_000:
                         try:
                             entry["unique_count"] = int(col_series.nunique(dropna=True))
                         except Exception:
@@ -2180,17 +2325,30 @@ def _passive_dataframe_slice(
                                     entry["min"] = _format_cell_value(non_null.min(), 32)["text"]
                                     entry["max"] = _format_cell_value(non_null.max(), 32)["text"]
                                     entry["mean"] = f"{float(non_null.mean()):.4g}"
+                                    hist_src = non_null.iloc[:50_000].tolist()
+                                    entry["histogram"] = _numeric_histogram(hist_src)
                             except Exception:
                                 pass
+                        else:
+                            try:
+                                top_src = col_series.iloc[:20_000].tolist()
+                                entry["top_values"] = _top_value_counts(top_src)
+                            except Exception:
+                                pass
+                    elif unfiltered_nrows <= 5_000 and ckind in ("integer", "number"):
+                        try:
+                            entry["histogram"] = _numeric_histogram(col_series.dropna().tolist())
+                        except Exception:
+                            pass
                 elif lib == "polars":
                     col_series = value.get_column(cname)
                     sample_raw = list(col_series.head(3).to_list())
                     entry["samples"] = [
                         _format_cell_value(v, 36)["text"] for v in sample_raw
                     ]
-                    if include_stats or nrows <= 10_000:
+                    if include_stats or unfiltered_nrows <= 10_000:
                         entry["null_count"] = int(col_series.null_count())
-                    if include_stats and nrows <= 1_000_000:
+                    if include_stats and unfiltered_nrows <= 1_000_000:
                         try:
                             entry["unique_count"] = int(col_series.n_unique())
                         except Exception:
@@ -2202,15 +2360,38 @@ def _passive_dataframe_slice(
                                 m = col_series.mean()
                                 if m is not None:
                                     entry["mean"] = f"{float(m):.4g}"
+                                entry["histogram"] = _numeric_histogram(
+                                    col_series.drop_nulls().head(50_000).to_list()
+                                )
                             except Exception:
                                 pass
+                        else:
+                            try:
+                                entry["top_values"] = _top_value_counts(
+                                    col_series.head(20_000).to_list()
+                                )
+                            except Exception:
+                                pass
+                    elif unfiltered_nrows <= 5_000 and ckind in ("integer", "number"):
+                        try:
+                            entry["histogram"] = _numeric_histogram(
+                                col_series.drop_nulls().to_list()
+                            )
+                        except Exception:
+                            pass
                 elif lib == "pyarrow":
                     col_arr = value.column(ci)
-                    sample_raw = col_arr.slice(0, min(3, nrows)).to_pylist()
+                    sample_raw = col_arr.slice(0, min(3, unfiltered_nrows)).to_pylist()
                     entry["samples"] = [
                         _format_cell_value(v, 36)["text"] for v in sample_raw
                     ]
                     entry["null_count"] = int(col_arr.null_count)
+                    if (include_stats or unfiltered_nrows <= 5_000) and ckind in ("integer", "number"):
+                        try:
+                            vals = col_arr.slice(0, min(50_000, unfiltered_nrows)).to_pylist()
+                            entry["histogram"] = _numeric_histogram(vals)
+                        except Exception:
+                            pass
             except Exception:
                 pass
         schema_cols.append(entry)
@@ -2229,9 +2410,140 @@ def _passive_dataframe_slice(
             "stats_included": False,
         }
 
-    assert nrows is not None
+    assert unfiltered_nrows is not None
+    # Apply passive non-mutating filter & sort on a bounded view.
+    view = value
+    filter_text = (filter_query or "").strip()
+    active_sort_col = sort_col if (sort_col and sort_col in col_names) else None
+    filter_capped = False
+    max_scan = 50_000
+    if filter_text:
+        parsed_filter = _parse_column_filter(filter_text, col_names)
+        if parsed_filter is not None:
+            fcol, fop, frhs = parsed_filter
+            try:
+                if lib == "pandas":
+                    scan_df = view.iloc[:max_scan] if unfiltered_nrows > max_scan else view
+                    filter_capped = unfiltered_nrows > max_scan
+                    if fcol is not None and fop in (">=", "<=", "==", "!=", ">", "<"):
+                        ser = scan_df[fcol]
+                        try:
+                            rhs_num = float(frhs)
+                            cmp_val: Any = rhs_num
+                        except ValueError:
+                            cmp_val = frhs
+                        if fop == ">=":
+                            mask = ser >= cmp_val
+                        elif fop == "<=":
+                            mask = ser <= cmp_val
+                        elif fop == ">":
+                            mask = ser > cmp_val
+                        elif fop == "<":
+                            mask = ser < cmp_val
+                        elif fop == "==":
+                            mask = ser == cmp_val
+                        else:
+                            mask = ser != cmp_val
+                        view = scan_df[mask.fillna(False)]
+                    elif fcol is not None and fop == ":":
+                        mask = scan_df[fcol].astype(str).str.contains(
+                            frhs, case=False, na=False, regex=False
+                        )
+                        view = scan_df[mask]
+                    else:
+                        needle = frhs.lower()
+                        keep = [
+                            any(needle in str(scan_df.iloc[r, c]).lower() for c in range(min(ncols, 32)))
+                            for r in range(len(scan_df))
+                        ]
+                        view = scan_df.iloc[[i for i, ok in enumerate(keep) if ok]]
+                elif lib == "polars":
+                    scan_df = view.head(max_scan) if unfiltered_nrows > max_scan else view
+                    filter_capped = unfiltered_nrows > max_scan
+                    needle = frhs.lower()
+                    if fcol is not None:
+                        col_vals = scan_df.get_column(fcol).to_list()
+                        if fop in (">=", "<=", "==", "!=", ">", "<"):
+                            keep_idx: list[int] = []
+                            for r_i, v in enumerate(col_vals):
+                                if v is None:
+                                    continue
+                                try:
+                                    lv = float(v)
+                                    rv = float(frhs)
+                                except (TypeError, ValueError):
+                                    lv = str(v)
+                                    rv = frhs
+                                ok = (
+                                    (lv >= rv)
+                                    if fop == ">="
+                                    else (lv <= rv)
+                                    if fop == "<="
+                                    else (lv > rv)
+                                    if fop == ">"
+                                    else (lv < rv)
+                                    if fop == "<"
+                                    else (lv == rv)
+                                    if fop == "=="
+                                    else (lv != rv)
+                                )
+                                if ok:
+                                    keep_idx.append(r_i)
+                        else:
+                            keep_idx = [
+                                r_i for r_i, v in enumerate(col_vals) if needle in str(v).lower()
+                            ]
+                    else:
+                        keep_idx = [
+                            r_i
+                            for r_i, row in enumerate(scan_df.iter_rows())
+                            if any(needle in str(cell).lower() for cell in row[:32])
+                        ]
+                    view = scan_df[keep_idx]
+                elif lib == "pyarrow":
+                    scan_df = view.slice(0, min(max_scan, unfiltered_nrows))
+                    filter_capped = unfiltered_nrows > max_scan
+                    needle = frhs.lower()
+                    cols_py = [scan_df.column(c).to_pylist() for c in range(min(ncols, 32))]
+                    keep_idx = [
+                        r_i
+                        for r_i in range(scan_df.num_rows)
+                        if any(needle in str(cols_py[c][r_i]).lower() for c in range(len(cols_py)))
+                    ]
+                    view = scan_df.take(keep_idx)
+            except Exception:
+                pass
+
+    if active_sort_col is not None:
+        try:
+            if lib == "pandas":
+                if len(view) <= 200_000:
+                    view = view.sort_values(
+                        by=active_sort_col,
+                        ascending=not sort_desc,
+                        na_position="last",
+                        kind="mergesort",
+                    )
+            elif lib == "polars":
+                if view.height <= 200_000:
+                    view = view.sort(active_sort_col, descending=sort_desc, nulls_last=True)
+            elif lib == "pyarrow":
+                if view.num_rows <= 200_000:
+                    view = view.sort_by(
+                        [(active_sort_col, "descending" if sort_desc else "ascending")]
+                    )
+        except Exception:
+            active_sort_col = None
+
+    nrows = (
+        len(view)
+        if lib == "pandas"
+        else view.height
+        if lib == "polars"
+        else view.num_rows
+    )
     if offset > nrows:
-        raise ValueError("invalid_page")
+        offset = 0
     row_end = min(nrows, offset + size)
     col_end = min(len(col_names), col_offset + col_limit)
     visible_cols = [
@@ -2246,21 +2558,21 @@ def _passive_dataframe_slice(
     index_out: list[str] = []
     if row_end > offset and col_end > col_offset:
         if lib == "pandas":
-            sub = value.iloc[offset:row_end, col_offset:col_end]
+            sub = view.iloc[offset:row_end, col_offset:col_end]
             index_out = [str(idx)[:48] for idx in sub.index]
             for r in range(len(sub)):
                 rows_out.append(
                     [_format_cell_value(sub.iloc[r, c], 80) for c in range(len(visible_cols))]
                 )
         elif lib == "polars":
-            sub = value.slice(offset, row_end - offset).select(
+            sub = view.slice(offset, row_end - offset).select(
                 [col_names[ci] for ci in range(col_offset, col_end)]
             )
             index_out = [str(offset + r) for r in range(sub.height)]
             for row_tuple in sub.iter_rows():
                 rows_out.append([_format_cell_value(cell, 80) for cell in row_tuple])
         elif lib == "pyarrow":
-            sub = value.slice(offset, row_end - offset).select(
+            sub = view.slice(offset, row_end - offset).select(
                 list(range(col_offset, col_end))
             )
             index_out = [str(offset + r) for r in range(sub.num_rows)]
@@ -2269,6 +2581,7 @@ def _passive_dataframe_slice(
                 rows_out.append(
                     [_format_cell_value(col_lists[c][r], 80) for c in range(sub.num_columns)]
                 )
+    snippet = _df_snippet(var_name, lib, filter_text, active_sort_col, sort_desc, col_names)
     return {
         "mode": "table",
         "lazy": False,
@@ -2279,17 +2592,23 @@ def _passive_dataframe_slice(
         "next_offset": row_end if row_end < nrows else None,
         "schema": schema_cols,
         "stats_included": include_stats,
+        "snippet": snippet,
         "table": {
             "columns": visible_cols,
             "rows": rows_out,
             "index": index_out,
             "total_rows": nrows,
+            "unfiltered_rows": unfiltered_nrows,
             "total_cols": ncols,
             "row_offset": offset,
             "col_offset": col_offset,
             "col_limit": col_limit,
             "next_row_offset": row_end if row_end < nrows else None,
             "next_col_offset": col_end if col_end < ncols else None,
+            "sort_col": active_sort_col,
+            "sort_desc": bool(sort_desc) if active_sort_col else False,
+            "filter_query": filter_text,
+            "filter_capped": filter_capped,
         },
     }
 
@@ -2826,7 +3145,7 @@ def passive_preview(value: Any, limit: int = 4096) -> dict[str, Any]:
         inst = _passive_instance_fields(value, limit=101)
         if inst:
             result["category"] = "object"
-            count_label = f"100+ attrs" if len(inst) > 100 else f"{len(inst)} attrs"
+            count_label = "100+ attrs" if len(inst) > 100 else f"{len(inst)} attrs"
             result["size_label"] = count_label
             result["expandable"] = True
             result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
@@ -2917,6 +3236,10 @@ def passive_page(
     include_stats: bool = False,
     slice_prefix: list[int] | None = None,
     allow_device_copy: bool = False,
+    sort_col: str | None = None,
+    sort_desc: bool = False,
+    filter_query: str = "",
+    var_name: str = "df",
 ) -> dict[str, Any]:
     if type(offset) is not int or offset < 0 or type(size) is not int or not 1 <= size <= 100:
         raise ValueError("invalid_page")
@@ -2941,6 +3264,10 @@ def passive_page(
             col_offset,
             col_limit,
             include_stats,
+            sort_col=sort_col,
+            sort_desc=sort_desc,
+            filter_query=filter_query,
+            var_name=var_name,
         )
 
     # 2. Exact Series (pandas / polars)
@@ -3311,6 +3638,20 @@ def passive_page(
 class NativeWidget:
     """Declared native subset, unrelated to the ipywidgets comm/model protocol."""
 
+    SUPPORTED_KINDS = (
+        "button",
+        "checkbox",
+        "dropdown",
+        "integer_slider",
+        "progress",
+        "float_slider",
+        "text",
+        "multiselect",
+        "stat",
+        "callout",
+        "form",
+    )
+
     def __init__(
         self,
         worker: Any,
@@ -3319,15 +3660,23 @@ class NativeWidget:
         *,
         label: str = "",
         options: Any = (),
-        lower: int = 0,
-        upper: int = 100,
+        lower: int | float = 0,
+        upper: int | float = 100,
+        step: float | None = None,
+        placeholder: str = "",
+        caption: str = "",
+        delta: str = "",
+        direction: str = "neutral",
+        variant: str = "info",
+        submit_label: str = "Submit",
+        fields: Any = (),
         callback: Any = None,
     ) -> None:
         if len(worker.widgets) >= 128:
             raise ValueError("Close an existing widget before creating more than 128 models")
-        if kind not in ("button", "checkbox", "dropdown", "integer_slider", "progress"):
+        if kind not in self.SUPPORTED_KINDS:
             raise ValueError(
-                "Supported widgets: button, checkbox, dropdown, integer_slider, progress"
+                "Supported widgets: " + ", ".join(self.SUPPORTED_KINDS)
             )
         if type(label) is not str or len(label.encode()) > 1024:
             raise ValueError("Widget label exceeds 1024 bytes")
@@ -3337,12 +3686,39 @@ class NativeWidget:
             or any(type(option) is not str or len(option.encode()) > 1024 for option in options)
         ):
             raise ValueError("Dropdown options must be at most 100 bounded strings")
-        if (
-            type(lower) is not int
-            or type(upper) is not int
-            or not -(2**31) <= lower <= upper < 2**31
-        ):
-            raise ValueError("Widget bounds must be ordered signed 32-bit integers")
+        if kind == "float_slider":
+            if (
+                not isinstance(lower, (int, float))
+                or isinstance(lower, bool)
+                or not isinstance(upper, (int, float))
+                or isinstance(upper, bool)
+                or not math.isfinite(float(lower))
+                or not math.isfinite(float(upper))
+                or float(lower) > float(upper)
+            ):
+                raise ValueError("Float slider bounds must be finite ordered numbers")
+            lower = float(lower)
+            upper = float(upper)
+            if step is not None:
+                if not isinstance(step, (int, float)) or isinstance(step, bool) or not math.isfinite(float(step)) or float(step) <= 0:
+                    raise ValueError("Float slider step must be a positive finite number")
+                step = float(step)
+            else:
+                step = max((upper - lower) / 100.0, 1e-6)
+        elif kind in ("integer_slider", "progress"):
+            if (
+                type(lower) is not int
+                or type(upper) is not int
+                or not -(2**31) <= lower <= upper < 2**31
+            ):
+                raise ValueError("Widget bounds must be ordered signed 32-bit integers")
+        else:
+            if (
+                type(lower) is not int
+                or type(upper) is not int
+                or not -(2**31) <= lower <= upper < 2**31
+            ):
+                raise ValueError("Widget bounds must be ordered signed 32-bit integers")
         if callback is not None and not callable(callback):
             raise TypeError("Widget callback must be callable")
         if callback is not None and inspect.iscoroutinefunction(callback):
@@ -3351,6 +3727,14 @@ class NativeWidget:
             )
         self.worker, self.kind, self.label = worker, kind, label
         self.options, self.lower, self.upper, self.callback = list(options), lower, upper, callback
+        self.step = step
+        self.placeholder = str(placeholder)[:256]
+        self.caption = str(caption)[:512]
+        self.delta = str(delta)[:128]
+        self.direction = direction if direction in ("increase", "decrease", "neutral") else "neutral"
+        self.variant = variant if variant in ("info", "success", "warning", "danger") else "info"
+        self.submit_label = str(submit_label)[:64] or "Submit"
+        self.fields = list(fields)[:32] if type(fields) in (list, tuple) else []
         self.handle = str(uuid.uuid4())
         self.value = self.validate(value)
         if len(json_bytes(self.state())) > 65536:
@@ -3368,6 +3752,30 @@ class NativeWidget:
         elif self.kind == "dropdown":
             if type(value) is not str or value not in self.options:
                 raise ValueError("Dropdown value is not a declared option")
+        elif self.kind == "multiselect":
+            if (
+                type(value) is not list
+                or any(type(v) is not str or v not in self.options for v in value)
+            ):
+                raise ValueError("Multiselect value must be a list of declared options")
+        elif self.kind == "text":
+            if type(value) is not str or len(value.encode()) > 16384:
+                raise ValueError("Text widget value must be a bounded UTF-8 string")
+        elif self.kind == "float_slider":
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(float(value))
+                or not float(self.lower) <= float(value) <= float(self.upper)
+            ):
+                raise ValueError("Float slider value must be a finite number within bounds")
+            return float(value)
+        elif self.kind in ("stat", "callout"):
+            if type(value) is not str or len(value.encode()) > 16384:
+                raise ValueError("Display widget value must be a bounded string")
+        elif self.kind == "form":
+            if type(value) is not dict or len(value) > 32:
+                raise ValueError("Form value must be a bounded dict of field values")
         elif type(value) is not int or not self.lower <= value <= self.upper:
             raise ValueError(
                 "Native numeric widgets accept bounded integers only; floats are unqualified"
@@ -3375,7 +3783,7 @@ class NativeWidget:
         return value
 
     def state(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "schema": "kernelledger.widget/1",
             "handle": self.handle,
             "worker_generation": self.worker.generation,
@@ -3386,6 +3794,20 @@ class NativeWidget:
             "lower": self.lower,
             "upper": self.upper,
         }
+        if self.kind == "float_slider":
+            payload["step"] = self.step
+        elif self.kind == "text":
+            payload["placeholder"] = self.placeholder
+        elif self.kind == "stat":
+            payload["caption"] = self.caption
+            payload["delta"] = self.delta
+            payload["direction"] = self.direction
+        elif self.kind == "callout":
+            payload["variant"] = self.variant
+        elif self.kind == "form":
+            payload["submit_label"] = self.submit_label
+            payload["fields"] = self.fields
+        return payload
 
     def _repr_mimebundle_(self) -> dict[str, Any]:
         return {"application/vnd.kernelledger.widget+json": self.state()}
@@ -3542,13 +3964,134 @@ class Worker:
         self.executed_hash = ""
         self.widgets: dict[str, NativeWidget] = {}
         self.widget_snapshots: dict[str, Any] = {}
+        setattr(sys, "_kernelledger_active_worker", self)
 
     def widget(self, kind: str, value: Any = None, **options: Any) -> NativeWidget:
-        if not self.advanced:
+        if not self.advanced and kind not in ("stat", "callout"):
             raise ValueError(
                 "Native widgets are experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
             )
         return NativeWidget(self, kind, value, **options)
+
+    def execute_sql(self, sql_source: str, output_var: str = "_sql_df") -> Any:
+        """Execute SQL against in-memory DataFrames/records via DuckDB or stdlib SQLite fallback."""
+        query = sql_source.strip()
+        if not query:
+            return None
+        if not output_var or not output_var.isidentifier() or keyword.iskeyword(output_var):
+            raise ValueError("SQL output variable must be a valid Python identifier")
+
+        pd_mod: Any = None
+        try:
+            import pandas as _pd
+
+            pd_mod = _pd
+        except Exception:
+            pass
+
+        # 1. Prefer DuckDB when installed (zero-copy access to pandas, Polars, PyArrow).
+        duckdb_mod: Any = None
+        try:
+            import duckdb as _duckdb
+
+            duckdb_mod = _duckdb
+        except Exception:
+            pass
+
+        columns: list[str] = []
+        raw_rows: list[tuple[Any, ...]] = []
+        result_obj: Any = None
+
+        if duckdb_mod is not None:
+            conn = duckdb_mod.connect(":memory:")
+            try:
+                for bname, bval in list(self.namespace.items()):
+                    if not isinstance(bname, str) or bname.startswith("_"):
+                        continue
+                    if passive_dataframe(bval) is not None:
+                        try:
+                            conn.register(bname, bval)
+                        except Exception:
+                            pass
+                rel = conn.execute(query)
+                if rel.description:
+                    columns = [str(col[0]) for col in rel.description]
+                    raw_rows = rel.fetchall()
+                    if pd_mod is not None:
+                        result_obj = pd_mod.DataFrame(raw_rows, columns=columns)
+                    else:
+                        result_obj = [dict(zip(columns, r)) for r in raw_rows]
+            finally:
+                conn.close()
+        else:
+            # 2. Pure stdlib SQLite fallback: register pandas DataFrames and list[dict] tables.
+            import sqlite3
+
+            conn = sqlite3.connect(":memory:")
+            try:
+                for bname, bval in list(self.namespace.items()):
+                    if not isinstance(bname, str) or bname.startswith("_") or not bname.isidentifier():
+                        continue
+                    df_info = passive_dataframe(bval)
+                    if df_info is not None and not df_info["lazy"]:
+                        try:
+                            if df_info["library"] == "pandas":
+                                bval.to_sql(bname, conn, index=False, if_exists="replace")
+                            elif df_info["library"] == "polars":
+                                cols = df_info["col_names"]
+                                col_defs = ", ".join(f'"{c}"' for c in cols)
+                                conn.execute(f'CREATE TABLE "{bname}" ({col_defs})')
+                                placeholders = ", ".join("?" for _ in cols)
+                                conn.executemany(
+                                    f'INSERT INTO "{bname}" VALUES ({placeholders})',
+                                    list(bval.iter_rows()),
+                                )
+                        except Exception:
+                            pass
+                    elif (
+                        type(bval) is list
+                        and bval
+                        and all(type(item) is dict for item in bval[:50])
+                    ):
+                        try:
+                            keys = list(bval[0].keys())
+                            if keys and all(isinstance(k, str) and k for k in keys):
+                                col_defs = ", ".join(f'"{k}"' for k in keys)
+                                conn.execute(f'CREATE TABLE "{bname}" ({col_defs})')
+                                placeholders = ", ".join("?" for _ in keys)
+                                conn.executemany(
+                                    f'INSERT INTO "{bname}" VALUES ({placeholders})',
+                                    [
+                                        tuple(
+                                            row.get(k)
+                                            if isinstance(row.get(k), (int, float, str, bytes, type(None)))
+                                            else str(row.get(k))
+                                            for k in keys
+                                        )
+                                        for row in bval
+                                    ],
+                                )
+                        except Exception:
+                            pass
+                cur = conn.execute(query)
+                if cur.description:
+                    columns = [str(col[0]) for col in cur.description]
+                    raw_rows = cur.fetchall()
+                    if pd_mod is not None:
+                        result_obj = pd_mod.DataFrame(raw_rows, columns=columns)
+                    else:
+                        result_obj = [dict(zip(columns, r)) for r in raw_rows]
+            finally:
+                conn.close()
+
+        if result_obj is not None:
+            self.namespace[output_var] = result_obj
+            if columns:
+                self.display_table(
+                    [list(r[:20]) for r in raw_rows[:100]],
+                    columns[:20],
+                )
+        return result_obj
 
     def display_table(self, rows: Any, columns: Any = ()) -> None:
         if type(rows) not in (list, tuple) or type(columns) not in (list, tuple):
@@ -3602,8 +4145,8 @@ class Worker:
         if generation != self.generation or handle not in self.widgets:
             raise ValueError("Stale widget; recreate it in the current session")
         widget = self.widgets[handle]
-        if widget.kind == "progress":
-            raise ValueError("Progress is read-only")
+        if widget.kind in ("progress", "stat", "callout"):
+            raise ValueError(f"{widget.kind} is read-only")
         widget.value = widget.validate(value)
         try:
             if widget.callback is not None:
@@ -3808,6 +4351,9 @@ class Worker:
                             breadcrumbs=breadcrumbs,
                             **passive_preview(target, 1024),
                         )
+                        expr_label = "".join(
+                            str(b.get("label", "")) for b in breadcrumbs
+                        ) or name
                         page = passive_page(
                             target,
                             request.get("offset", 0),
@@ -3817,6 +4363,10 @@ class Worker:
                             include_stats=bool(request.get("include_stats", False)),
                             slice_prefix=request.get("slice_prefix"),
                             allow_device_copy=bool(request.get("allow_device_copy", False)),
+                            sort_col=request.get("sort_col"),
+                            sort_desc=bool(request.get("sort_desc", False)),
+                            filter_query=str(request.get("filter_query") or ""),
+                            var_name=expr_label,
                         )
                         response["page"] = page
                         # Keep interactive_reply safely within the 64 KiB Channel frame budget.
@@ -4307,13 +4857,16 @@ class Worker:
         self.exec_id = message["exec_id"]
         self.interruptible = True
         self.ordinal += 1
+        cell_type = message.get("cell_type") or "code"
+        ext = ".sql" if cell_type == "sql" else ".py"
         filename = (
-            f"cells/{message['cell_id']}.py@{self.exec_id}"
+            f"cells/{message['cell_id']}{ext}@{self.exec_id}"
             if message.get("cell_id")
             else f"<unattributed>@{self.exec_id}"
         )
         state = "ok"
         ran_foreground = False
+        rss_before = _process_rss_bytes()
         try:
             self.emit(
                 "status",
@@ -4328,38 +4881,44 @@ class Worker:
                 raise RuntimeError(
                     "Previous tasks refused cancellation; restart or terminate this worker before another execution"
                 )
-            tree = self.index.add(filename, message["source"], self.ordinal)
             self.executed_hash = message["source_sha256"]
-            if message.get("debug", False):
-                if not self.advanced:
-                    raise ValueError(
-                        "Debugger is experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
+            if cell_type == "sql":
+                ran_foreground = True
+                output_var = str(message.get("output_var") or "_sql_df")
+                result = self.execute_sql(message["source"], output_var=output_var)
+                self.engine.history.record(self.ordinal, message["source"], result, False)
+            else:
+                tree = self.index.add(filename, message["source"], self.ordinal)
+                if message.get("debug", False):
+                    if not self.advanced:
+                        raise ValueError(
+                            "Debugger is experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
+                        )
+                    self.debugger.reset()
+                    self.debugger.owner = None
+                    for breakpoint in self.debugger.configured:
+                        prefix = f"cells/{breakpoint['cell_id']}.py@"
+                        for indexed, revision in self.index.revisions.items():
+                            if indexed.startswith(prefix) and revision == breakpoint["source_revision"]:
+                                linecache.cache[self.debugger.canonic(indexed)] = linecache.cache[
+                                    indexed
+                                ]
+                                error = self.debugger.set_break(indexed, breakpoint["line"])
+                                if error:
+                                    raise ValueError(error)
+                    sys.settrace(self.debugger.trace_dispatch)
+                ran_foreground = True
+                result = self.engine.execute(tree, message["source"], filename)
+                suppressed = suppress_result(message["source"])
+                self.engine.history.record(self.ordinal, message["source"], result, suppressed)
+                if result is not None and not suppressed:
+                    bundle, metadata = self.mimebundle(result)
+                    self.emit(
+                        "result",
+                        bundle=bundle,
+                        metadata=metadata,
+                        **({"display_id": result.handle} if type(result) is NativeWidget else {}),
                     )
-                self.debugger.reset()
-                self.debugger.owner = None
-                for breakpoint in self.debugger.configured:
-                    prefix = f"cells/{breakpoint['cell_id']}.py@"
-                    for indexed, revision in self.index.revisions.items():
-                        if indexed.startswith(prefix) and revision == breakpoint["source_revision"]:
-                            linecache.cache[self.debugger.canonic(indexed)] = linecache.cache[
-                                indexed
-                            ]
-                            error = self.debugger.set_break(indexed, breakpoint["line"])
-                            if error:
-                                raise ValueError(error)
-                sys.settrace(self.debugger.trace_dispatch)
-            ran_foreground = True
-            result = self.engine.execute(tree, message["source"], filename)
-            suppressed = suppress_result(message["source"])
-            self.engine.history.record(self.ordinal, message["source"], result, suppressed)
-            if result is not None and not suppressed:
-                bundle, metadata = self.mimebundle(result)
-                self.emit(
-                    "result",
-                    bundle=bundle,
-                    metadata=metadata,
-                    **({"display_id": result.handle} if type(result) is NativeWidget else {}),
-                )
             plt: Any = sys.modules.get("matplotlib.pyplot")
             if plt is not None:
                 plt.show = self.show_figures
@@ -4423,6 +4982,12 @@ class Worker:
                 self.figures()
             except Exception as error:
                 self.emit("stderr", text=f"figure capture failed: {error}\n")
+            rss_after = _process_rss_bytes()
+            telemetry: dict[str, Any] = {}
+            if rss_after is not None:
+                telemetry["rss_bytes"] = rss_after
+                if rss_before is not None:
+                    telemetry["memory_delta_bytes"] = rss_after - rss_before
             self.emit(
                 "status",
                 state="idle",
@@ -4430,6 +4995,7 @@ class Worker:
                 namespace_epoch=self.engine.epoch,
                 history_cache=self.engine.history.enabled,
                 background_tasks=bool(asyncio.all_tasks(self.engine.loop)),
+                **telemetry,
             )
             self.exec_id = None
 

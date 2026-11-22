@@ -2,6 +2,7 @@ mod accessibility;
 mod assistant;
 mod checkpoints;
 mod components;
+mod dag;
 mod debug_source;
 mod diagnostics;
 mod help;
@@ -49,7 +50,15 @@ use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
 actions!(
     kernelledger,
-    [Save, RunCell, RunAll, Palette, OpenNotebook, CommandMode]
+    [
+        Save,
+        RunCell,
+        RunAll,
+        Palette,
+        OpenNotebook,
+        CommandMode,
+        ToggleAppMode
+    ]
 );
 const SURFACES: [(&str, Glyph, &str); 10] = [
     (
@@ -125,6 +134,12 @@ pub(crate) struct VariablesState {
     pub category: String,
     pub detail_tab: String,
     pub selected: Option<String>,
+    pub sort_col: Option<String>,
+    pub sort_desc: bool,
+    pub filter_query: String,
+    pub chart_x: Option<String>,
+    pub chart_y: Option<String>,
+    pub chart_kind: String,
 }
 
 impl Default for VariablesState {
@@ -133,6 +148,12 @@ impl Default for VariablesState {
             category: "all".into(),
             detail_tab: "data".into(),
             selected: None,
+            sort_col: None,
+            sort_desc: false,
+            filter_query: String::new(),
+            chart_x: None,
+            chart_y: None,
+            chart_kind: "bar".into(),
         }
     }
 }
@@ -169,6 +190,12 @@ struct Tab {
     html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
     html_notes: BTreeMap<String, String>,
     html_states: BTreeMap<String, html_output::HtmlState>,
+    sidebar_tab: String,
+    app_mode: bool,
+    files_cache: Option<Value>,
+    packages_cache: Option<Value>,
+    package_install_status: Option<String>,
+    formatting_cell: Option<String>,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
@@ -220,6 +247,8 @@ pub struct Workspace {
     settings_section: settings::SettingsSection,
     help_query: Entity<InputState>,
     variables_query: Entity<InputState>,
+    df_filter_query: Entity<InputState>,
+    pkg_install_input: Entity<InputState>,
     query_subscriptions: Vec<Subscription>,
     record_active: usize,
     sidebar_focus: FocusHandle,
@@ -250,6 +279,7 @@ impl Workspace {
             KeyBinding::new("ctrl-shift-enter", RunAll, Some("KernelLedger")),
             KeyBinding::new("ctrl-shift-p", Palette, Some("KernelLedger")),
             KeyBinding::new("ctrl-o", OpenNotebook, Some("KernelLedger")),
+            KeyBinding::new("ctrl-.", ToggleAppMode, Some("KernelLedger")),
             KeyBinding::new("escape", CommandMode, Some("KernelLedger")),
         ]);
         #[cfg(target_os = "macos")]
@@ -257,6 +287,7 @@ impl Workspace {
             KeyBinding::new("cmd-s", Save, Some("KernelLedger")),
             KeyBinding::new("cmd-shift-p", Palette, Some("KernelLedger")),
             KeyBinding::new("cmd-o", OpenNotebook, Some("KernelLedger")),
+            KeyBinding::new("cmd-.", ToggleAppMode, Some("KernelLedger")),
         ]);
         let follow_system = appearance == "system";
         let dark = if follow_system {
@@ -358,6 +389,11 @@ impl Workspace {
             variables_query: cx.new(|cx| {
                 InputState::new(window, cx).placeholder("Filter name, type, value, or column")
             }),
+            df_filter_query: cx.new(|cx| {
+                InputState::new(window, cx).placeholder("Filter: col>10, col==val, or text\u{2026}")
+            }),
+            pkg_install_input: cx
+                .new(|cx| InputState::new(window, cx).placeholder("Install package (e.g. duckdb)")),
             query_subscriptions: Vec::new(),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
@@ -555,6 +591,12 @@ impl Workspace {
             html_views: BTreeMap::new(),
             html_states: BTreeMap::new(),
             html_notes: BTreeMap::new(),
+            sidebar_tab: "outline".into(),
+            app_mode: false,
+            files_cache: None,
+            packages_cache: None,
+            package_install_status: None,
+            formatting_cell: None,
         });
         self.active = self.tabs.len() - 1;
         cx.notify();
@@ -627,6 +669,141 @@ impl Workspace {
             method: method.into(),
             fields,
         });
+    }
+
+    pub(crate) fn toggle_app_mode(
+        &mut self,
+        _: &ToggleAppMode,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.app_mode = !tab.app_mode;
+            self.surface = "Notebook".into();
+            let count = tab.model.order.len();
+            tab.list.splice(0..count, count);
+            cx.notify();
+        }
+    }
+
+    pub(crate) fn mutate_cell_metadata(
+        &mut self,
+        cell_id: &str,
+        key: &str,
+        value: Value,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let Some(cell) = tab.model.cells.get(cell_id) else {
+            return;
+        };
+        let mut meta = cell.disk.metadata.clone();
+        if value.is_null() {
+            meta.remove(key);
+        } else {
+            meta.insert(key.to_string(), value);
+        }
+        self.mutate(json!({
+            "action": "metadata",
+            "cell_id": cell_id,
+            "metadata": meta,
+        }));
+        cx.notify();
+    }
+
+    pub(crate) fn insert_cell_with_source(
+        &mut self,
+        kind: &str,
+        source: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let index = tab
+            .model
+            .selected
+            .as_ref()
+            .and_then(|id| tab.model.order.iter().position(|c| c == id))
+            .map_or(tab.model.order.len(), |i| i + 1);
+        self.mutate(json!({
+            "action": "add",
+            "type": kind,
+            "index": index,
+            "source": source,
+        }));
+        self.surface = "Notebook".into();
+        cx.notify();
+    }
+
+    pub(crate) fn format_cell(&mut self, cell_id: &str, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get_mut(self.active) else {
+            return;
+        };
+        let Some(cell) = tab.model.cells.get(cell_id) else {
+            return;
+        };
+        if cell.disk.kind != "code" {
+            return;
+        }
+        let source = cell.text.clone();
+        tab.formatting_cell = Some(cell_id.to_string());
+        self.inspect("code.format", json!({"source": source}));
+        cx.notify();
+    }
+
+    pub(crate) fn install_package(&mut self, package: String, cx: &mut Context<Self>) {
+        let spec = package.trim().to_string();
+        if spec.is_empty() {
+            return;
+        }
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.package_install_status = Some(format!("Installing {spec}\u{2026}"));
+        }
+        self.inspect("packages.install", json!({"package": spec}));
+        cx.notify();
+    }
+
+    pub(crate) fn run_stale_cells(&mut self, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let graph = dag::analyze_notebook(&tab.model);
+        if graph.run_stale_ids.is_empty() {
+            return;
+        }
+        self.send(Command::Run {
+            cell_ids: graph.run_stale_ids,
+            on_error: "stop".into(),
+        });
+        cx.notify();
+    }
+
+    pub(crate) fn run_cell_and_downstream(&mut self, cell_id: &str, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let graph = dag::analyze_notebook(&tab.model);
+        let mut ids = vec![cell_id.to_string()];
+        ids.extend(graph.downstream_ids(cell_id));
+        self.send(Command::Run {
+            cell_ids: ids,
+            on_error: "stop".into(),
+        });
+        cx.notify();
+    }
+
+    pub(crate) fn jump_to_cell(&mut self, cell_id: String, cx: &mut Context<Self>) {
+        if let Some(tab) = self.tabs.get_mut(self.active)
+            && tab.model.cells.contains_key(&cell_id)
+        {
+            tab.model.selected = Some(cell_id.clone());
+            tab.reveal = Some(cell_id);
+            self.surface = "Notebook".into();
+            cx.notify();
+        }
     }
     fn open_dialog(&mut self, _: &OpenNotebook, window: &mut Window, cx: &mut Context<Self>) {
         let focus = window.focused(cx).unwrap_or_else(|| self.focus.clone());
@@ -1193,6 +1370,67 @@ impl Workspace {
                             tab.inspections.insert("Breakpoints".into(), value);
                             continue;
                         }
+                        if method == "files.list" {
+                            tab.files_cache = Some(value);
+                            continue;
+                        }
+                        if method == "packages.list" {
+                            tab.packages_cache = Some(value);
+                            continue;
+                        }
+                        if method == "packages.install" {
+                            let ok = value["ok"].as_bool().unwrap_or(false);
+                            let pkg = value["package"].as_str().unwrap_or("package");
+                            if ok {
+                                tab.package_install_status =
+                                    Some(format!("Installed {pkg} successfully."));
+                                let _ = tab.service.commands.send(Command::Inspect {
+                                    method: "packages.list".into(),
+                                    fields: json!({}),
+                                });
+                            } else {
+                                let err = value["error"]
+                                    .as_str()
+                                    .or_else(|| value["stderr"].as_str())
+                                    .unwrap_or("Package installation failed");
+                                tab.package_install_status =
+                                    Some(format!("Failed to install {pkg}: {err}"));
+                            }
+                            continue;
+                        }
+                        if method == "code.format" {
+                            if let Some(cid) = tab.formatting_cell.take()
+                                && let Some(formatted) = value["source"].as_str()
+                                && let Some(cell) = tab.model.cells.get_mut(&cid)
+                                && cell.text != formatted
+                            {
+                                let resized = editor_lines(&cell.text) != editor_lines(formatted);
+                                cell.edit(formatted.to_owned());
+                                if let Some(editor) = tab.editors.get(&cid) {
+                                    editor.update(cx, |s, cx| {
+                                        s.set_value(formatted.to_owned(), window, cx)
+                                    });
+                                }
+                                if resized
+                                    && let Some(i) = tab.model.order.iter().position(|c| *c == cid)
+                                {
+                                    tab.list.splice(i..i + 1, 1);
+                                }
+                                if let Some(request) = tab.model.save_request(&cid) {
+                                    let _ = tab.service.commands.send(Command::Edit {
+                                        cell_id: cid,
+                                        request,
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+                        if method == "code.inspect" {
+                            tab.inspections.insert("Live docs".into(), value.clone());
+                            if self.surface == "Console" {
+                                continue;
+                            }
+                        }
                         if method.starts_with("namespace.") || method == "code.inspect" {
                             let key = if method == "namespace.list" {
                                 "Variables"
@@ -1720,6 +1958,7 @@ impl Workspace {
             warning,
             danger,
             info,
+            success,
             transparent,
         ) = (
             theme.sidebar,
@@ -1731,10 +1970,338 @@ impl Workspace {
             theme.warning,
             theme.danger,
             theme.info,
+            theme.success,
             theme.transparent,
         );
         let mono = theme.mono_font_family.clone();
         let tab = &self.tabs[self.active];
+        let active_tab = tab.sidebar_tab.as_str();
+        let graph = dag::analyze_notebook(&tab.model);
+
+        let tab_bar = h_flex()
+            .flex_none()
+            .px_2()
+            .pt_2()
+            .pb_1()
+            .gap_1()
+            .items_center()
+            .border_b_1()
+            .border_color(divider(cx))
+            .child(
+                action_button("sidebar-tab-outline")
+                    .small()
+                    .segment(active_tab == "outline")
+                    .label("Outline")
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "outline".into();
+                        cx.notify();
+                    })),
+            )
+            .child(
+                action_button("sidebar-tab-deps")
+                    .small()
+                    .segment(active_tab == "dependencies")
+                    .label(if graph.run_stale_ids.is_empty() {
+                        "Deps".into()
+                    } else {
+                        format!("Deps ({})", graph.run_stale_ids.len())
+                    })
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "dependencies".into();
+                        cx.notify();
+                    })),
+            )
+            .child(
+                action_button("sidebar-tab-files")
+                    .small()
+                    .segment(active_tab == "files")
+                    .label("Files")
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "files".into();
+                        if v.tabs[v.active].files_cache.is_none() {
+                            v.inspect("files.list", json!({}));
+                        }
+                        cx.notify();
+                    })),
+            );
+
+        if active_tab == "dependencies" {
+            let mut dep_list = v_flex()
+                .id("deps-list")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .px_2()
+                .py_2()
+                .gap_2();
+            dep_list = dep_list.child(
+                h_flex()
+                    .gap_1p5()
+                    .flex_wrap()
+                    .items_center()
+                    .child(badge(format!("{} edges", graph.edges.len()), muted_fg))
+                    .when(!graph.run_stale_ids.is_empty(), |d| {
+                        d.child(badge(
+                            format!("{} stale", graph.run_stale_ids.len()),
+                            warning,
+                        ))
+                    })
+                    .when(!graph.cycles.is_empty(), |d| {
+                        d.child(badge(format!("{} cycle", graph.cycles.len()), danger))
+                    })
+                    .when(!graph.multiple_definitions.is_empty(), |d| {
+                        d.child(badge(
+                            format!("{} redef", graph.multiple_definitions.len()),
+                            danger,
+                        ))
+                    }),
+            );
+            if !graph.run_stale_ids.is_empty() {
+                dep_list = dep_list.child(
+                    action_button("sidebar-run-stale")
+                        .primary()
+                        .small()
+                        .w_full()
+                        .icon(Glyph::Play)
+                        .label(format!("Run stale ({})", graph.run_stale_ids.len()))
+                        .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                );
+            }
+            if !graph.cycles.is_empty() {
+                let summary = graph
+                    .cycles
+                    .iter()
+                    .map(|c| c.join(" \u{2192} "))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                dep_list = dep_list.child(
+                    div()
+                        .p_2()
+                        .rounded(radius)
+                        .border_1()
+                        .border_color(danger.opacity(0.35))
+                        .bg(danger.opacity(0.08))
+                        .text_xs()
+                        .text_color(danger)
+                        .whitespace_normal()
+                        .child(format!("Dependency cycle: {summary}")),
+                );
+            }
+            for (i, id) in tab.model.order.iter().enumerate() {
+                let Some(cell) = tab.model.cells.get(id) else {
+                    continue;
+                };
+                if !cell.is_executable() {
+                    continue;
+                }
+                let defs = graph.defs.get(id).map(Vec::as_slice).unwrap_or(&[]);
+                let refs = graph.refs.get(id).map(Vec::as_slice).unwrap_or(&[]);
+                let upstream_stale = graph.is_upstream_stale(id);
+                let direct_stale = cell.stale();
+                let selected = tab.model.selected.as_deref() == Some(id.as_str());
+                let jump_id = id.clone();
+                dep_list = dep_list.child(
+                    v_flex()
+                        .id(("dep-cell", i))
+                        .p_2()
+                        .gap_1()
+                        .rounded(radius)
+                        .border_1()
+                        .border_color(if selected { primary } else { surface_edge(cx) })
+                        .when(selected, |d| d.bg(active_bg))
+                        .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |v, _, _, cx| {
+                            v.jump_to_cell(jump_id.clone(), cx);
+                        }))
+                        .child(
+                            h_flex()
+                                .gap_1p5()
+                                .items_center()
+                                .child(Icon::new(kind_icon(&cell.disk.kind)).xsmall())
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .font_family(mono.clone())
+                                        .text_xs()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(format!("Cell {} ({id})", i + 1)),
+                                )
+                                .when(direct_stale || upstream_stale, |d| d.child(dot(warning))),
+                        )
+                        .when(!defs.is_empty(), |d| {
+                            d.child(
+                                h_flex()
+                                    .gap_1()
+                                    .flex_wrap()
+                                    .items_center()
+                                    .child(
+                                        div()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child("defs:"),
+                                    )
+                                    .children(defs.iter().take(6).map(|name| {
+                                        div()
+                                            .px_1()
+                                            .rounded(px(4.))
+                                            .bg(success.opacity(0.14))
+                                            .font_family(mono.clone())
+                                            .text_size(rems(0.6875))
+                                            .text_color(success)
+                                            .child(name.clone())
+                                    })),
+                            )
+                        })
+                        .when(!refs.is_empty(), |d| {
+                            d.child(
+                                h_flex()
+                                    .gap_1()
+                                    .flex_wrap()
+                                    .items_center()
+                                    .child(
+                                        div()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child("refs:"),
+                                    )
+                                    .children(refs.iter().take(6).map(|name| {
+                                        div()
+                                            .px_1()
+                                            .rounded(px(4.))
+                                            .bg(info.opacity(0.12))
+                                            .font_family(mono.clone())
+                                            .text_size(rems(0.6875))
+                                            .text_color(info)
+                                            .child(name.clone())
+                                    })),
+                            )
+                        }),
+                );
+            }
+            return v_flex()
+                .id("sidebar")
+                .debug_selector(|| "notebook-outline".into())
+                .track_focus(&self.sidebar_focus)
+                .size_full()
+                .bg(bar)
+                .child(tab_bar)
+                .child(dep_list)
+                .into_any_element();
+        }
+
+        if active_tab == "files" {
+            let files = tab
+                .files_cache
+                .as_ref()
+                .and_then(|v| v["items"].as_array())
+                .cloned()
+                .unwrap_or_default();
+            let mut file_list = v_flex()
+                .id("files-list")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .px_2()
+                .py_2()
+                .gap_1();
+            file_list = file_list.child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .pb_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .child(format!("{} file(s)", files.len())),
+                    )
+                    .child(
+                        action_button("refresh-workspace-files")
+                            .ghost()
+                            .small()
+                            .icon(Glyph::RefreshCw)
+                            .hint("Refresh workspace files")
+                            .on_click(cx.listener(|v, _, _, _| {
+                                v.inspect("files.list", json!({}));
+                            })),
+                    ),
+            );
+            if files.is_empty() {
+                file_list = file_list.child(
+                    div()
+                        .py_4()
+                        .text_center()
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child("No workspace files found."),
+                );
+            } else {
+                for (i, item) in files.iter().enumerate() {
+                    let rel = item["path"].as_str().unwrap_or_default().to_string();
+                    let name = item["name"].as_str().unwrap_or(&rel).to_string();
+                    let size = item["size"].as_u64().unwrap_or(0);
+                    let snippet = item["loader_snippet"].as_str().map(str::to_owned);
+                    file_list = file_list.child(
+                        h_flex()
+                            .id(("ws-file", i))
+                            .px_2()
+                            .py_1()
+                            .gap_1p5()
+                            .items_center()
+                            .rounded(radius)
+                            .hover(move |s| s.bg(hover_bg))
+                            .child(Icon::new(Glyph::FileText).xsmall().text_color(muted_fg))
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(
+                                        div()
+                                            .truncate()
+                                            .text_xs()
+                                            .font_family(mono.clone())
+                                            .child(name),
+                                    )
+                                    .child(
+                                        div()
+                                            .truncate()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child(format!(
+                                                "{rel} \u{00b7} {}",
+                                                runtime::format_rss_bytes(size)
+                                            )),
+                                    ),
+                            )
+                            .when_some(snippet, |d, code| {
+                                d.child(
+                                    action_button(("load-file", i))
+                                        .ghost()
+                                        .small()
+                                        .label("Load")
+                                        .hint("Insert loader cell for this file")
+                                        .on_click(cx.listener(move |v, _, _, cx| {
+                                            v.insert_cell_with_source("code", code.clone(), cx);
+                                        })),
+                                )
+                            }),
+                    );
+                }
+            }
+            return v_flex()
+                .id("sidebar")
+                .debug_selector(|| "notebook-outline".into())
+                .track_focus(&self.sidebar_focus)
+                .size_full()
+                .bg(bar)
+                .child(tab_bar)
+                .child(file_list)
+                .into_any_element();
+        }
+
         let query = self.query.read(cx).value().to_lowercase();
         let mut list = v_flex()
             .id("cell-list")
@@ -1770,12 +2337,13 @@ impl Workspace {
                 };
                 text.chars().take(80).collect::<String>()
             });
-            let is_code = cell.disk.kind == "code";
+            let is_exec = cell.is_executable();
+            let upstream_stale = graph.is_upstream_stale(id);
             let marker = if matches!(cell.save, SaveState::Conflict | SaveState::Failed)
                 || matches!(cell.outcome.as_str(), "error" | "failed")
             {
                 Some(danger)
-            } else if cell.stale() {
+            } else if cell.stale() || upstream_stale {
                 Some(warning)
             } else if cell.save == SaveState::Dirty {
                 Some(info)
@@ -1792,8 +2360,10 @@ impl Workspace {
                             || matches!(cell.outcome.as_str(), "error" | "failed")
                         {
                             ", failed"
-                        } else if cell.stale() {
+                        } else if cell.stale() || upstream_stale {
                             ", stale"
+                        } else if cell.is_disabled() {
+                            ", disabled"
                         } else {
                             ""
                         };
@@ -1822,6 +2392,7 @@ impl Workspace {
                     .cursor_pointer()
                     .when(selected, |d| d.bg(active_bg))
                     .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
+                    .when(cell.is_disabled(), |d| d.opacity(0.55))
                     .child(
                         div()
                             .flex_none()
@@ -1833,12 +2404,12 @@ impl Workspace {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .when(is_code, |d| {
+                            .when(is_exec, |d| {
                                 d.font_family(mono.clone())
                                     .text_size(rems(0.75))
                                     .text_color(muted_fg)
                             })
-                            .when(!is_code, |d| d.text_size(rems(0.8125)))
+                            .when(!is_exec, |d| d.text_size(rems(0.8125)))
                             .when(heading.is_some(), |d| d.font_weight(FontWeight::SEMIBOLD))
                             .when(selected, |d| {
                                 d.font_weight(FontWeight::MEDIUM)
@@ -1855,7 +2426,7 @@ impl Workspace {
                                 .text_size(rems(0.6875))
                                 .font_family(mono.clone())
                                 .text_color(muted_fg)
-                                .child(if cell.disk.kind == "code" {
+                                .child(if is_exec {
                                     cell.ordinal
                                         .map(|n| format!("[{n}]"))
                                         .unwrap_or_else(|| "\u{2014}".into())
@@ -1901,6 +2472,7 @@ impl Workspace {
             .track_focus(&self.sidebar_focus)
             .size_full()
             .bg(bar)
+            .child(tab_bar)
             .child(
                 h_flex()
                     .flex_none()
@@ -2027,6 +2599,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::palette))
             .on_action(cx.listener(Self::open_dialog))
             .on_action(cx.listener(Self::command_mode))
+            .on_action(cx.listener(Self::toggle_app_mode))
             .on_action(
                 cx.listener(|v, action: &shortcuts::WorkbenchCommand, window, cx| {
                     if !v.palette
@@ -2071,18 +2644,100 @@ impl Render for Workspace {
                 root = root.child(self.welcome(cx));
             }
         } else {
+            let app_mode = self.tabs[self.active].app_mode;
             let center = if self.surface != "Notebook" {
                 self.panel(window, cx)
             } else if self.tabs[self.active].model.order.is_empty() {
                 self.empty_notebook(cx)
             } else {
                 let state = self.tabs[self.active].list.clone();
+                let has_executed = self.tabs[self.active]
+                    .model
+                    .cells
+                    .values()
+                    .any(|c| c.executed_revision.is_some());
+                let stale_count = dag::analyze_notebook(&self.tabs[self.active].model)
+                    .run_stale_ids
+                    .len();
                 let view = cx.entity();
-                list(state, move |i, window, cx| {
+                let cell_list = list(state, move |i, window, cx| {
                     view.update(cx, |view, cx| view.cell(i, window, cx))
                 })
-                .size_full()
-                .into_any_element()
+                .size_full();
+                if app_mode || (has_executed && stale_count > 0) {
+                    let strip = if app_mode {
+                        h_flex()
+                            .flex_none()
+                            .w_full()
+                            .px_4()
+                            .py_1p5()
+                            .gap_2()
+                            .items_center()
+                            .bg(cx.theme().info.opacity(0.08))
+                            .border_b_1()
+                            .border_color(cx.theme().info.opacity(0.25))
+                            .child(Icon::new(Glyph::Eye).small().text_color(cx.theme().info))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .text_xs()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(
+                                        "App / Report mode \u{2014} code and cell controls hidden",
+                                    ),
+                            )
+                            .child(
+                                action_button("exit-app-mode-bar")
+                                    .outline()
+                                    .small()
+                                    .label("Exit App mode")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.toggle_app_mode(&ToggleAppMode, window, cx)
+                                    })),
+                            )
+                    } else {
+                        h_flex()
+                            .flex_none()
+                            .w_full()
+                            .px_4()
+                            .py_1()
+                            .gap_2()
+                            .items_center()
+                            .bg(cx.theme().warning.opacity(0.08))
+                            .border_b_1()
+                            .border_color(cx.theme().warning.opacity(0.25))
+                            .child(dot(cx.theme().warning))
+                            .child(div().flex_1().text_xs().child(format!(
+                                "{stale_count} stale cell{} need re-running to stay in sync",
+                                if stale_count == 1 { "" } else { "s" }
+                            )))
+                            .child(
+                                action_button("notebook-open-deps")
+                                    .ghost()
+                                    .small()
+                                    .label("Dependencies")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.run_command("sidebar-deps", window, cx)
+                                    })),
+                            )
+                            .child(
+                                action_button("notebook-run-stale")
+                                    .primary()
+                                    .small()
+                                    .icon(Glyph::Play)
+                                    .label(format!("Run stale ({stale_count})"))
+                                    .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                            )
+                    };
+                    v_flex()
+                        .size_full()
+                        .min_h_0()
+                        .child(strip)
+                        .child(div().flex_1().min_h_0().child(cell_list))
+                        .into_any_element()
+                } else {
+                    cell_list.into_any_element()
+                }
             };
             let viewport_width = window.viewport_size().width / px(1.);
             let scale = self.preferences.ui_scale;
@@ -2111,6 +2766,8 @@ impl Render for Workspace {
             } else {
                 center
             };
+            let show_sidebar =
+                self.surface == "Notebook" && !self.compact && self.sidebar_visible && !app_mode;
             root = root
                 .child(self.banners(window, cx))
                 .child(
@@ -2123,21 +2780,18 @@ impl Render for Workspace {
                                 "notebook-layout-v5-{}-{}-{}-{}-{}",
                                 self.preferences.outline_width,
                                 self.surface,
-                                self.sidebar_visible && !self.compact,
+                                show_sidebar,
                                 show_assistant && !self.compact,
                                 compact_assistant_sibling
                             )))
-                            .when(
-                                self.surface == "Notebook" && !self.compact && self.sidebar_visible,
-                                |d| {
-                                    d.child(
-                                        resizable_panel()
-                                            .size(px(self.preferences.outline_width))
-                                            .size_range(px(180.)..px(300.))
-                                            .child(self.sidebar(cx)),
-                                    )
-                                },
-                            )
+                            .when(show_sidebar, |d| {
+                                d.child(
+                                    resizable_panel()
+                                        .size(px(self.preferences.outline_width))
+                                        .size_range(px(180.)..px(300.))
+                                        .child(self.sidebar(cx)),
+                                )
+                            })
                             .child(
                                 resizable_panel()
                                     .size_range(if compact_assistant_sibling {
@@ -2266,6 +2920,7 @@ impl Render for Workspace {
 fn kind_label(kind: &str) -> &'static str {
     match kind {
         "code" => "Python",
+        "sql" => "SQL",
         "markdown" => "Markdown",
         _ => "Raw",
     }
@@ -2273,6 +2928,7 @@ fn kind_label(kind: &str) -> &'static str {
 fn kind_icon(kind: &str) -> Glyph {
     match kind {
         "code" => Glyph::Code,
+        "sql" => Glyph::Database,
         "markdown" => Glyph::Type,
         _ => Glyph::FileText,
     }

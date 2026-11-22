@@ -556,13 +556,18 @@ class SourceService:
                 raise SourceError("source_invalid", "invalid manifest", current)
             cells = {c["id"]: c for c in current["cells"]}
             if ids == "all":
-                ids = [c["id"] for c in current["cells"] if c["type"] == "code"]
+                ids = [
+                    c["id"]
+                    for c in current["cells"]
+                    if c["type"] in ("code", "sql")
+                    and not (isinstance(c.get("metadata"), dict) and c["metadata"].get("disabled") is True)
+                ]
             result: list[Any] = []
             for cid in ids:
                 cell = cells.get(cid)
-                if cell is None or cell["type"] != "code":
+                if cell is None or cell["type"] not in ("code", "sql"):
                     raise SourceError(
-                        "source_invalid", "missing or non-code cell", {"cell_id": cid}
+                        "source_invalid", "missing or non-executable cell", {"cell_id": cid}
                     )
                 if self._markers(cell["source"]):
                     raise SourceError(

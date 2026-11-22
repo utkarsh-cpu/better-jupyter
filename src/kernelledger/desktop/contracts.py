@@ -74,6 +74,11 @@ HELPER = {
     "doctor": [],
     "interpreter.candidates": [],
     "interpreter.validate": ["path"],
+    "packages.list": [],
+    "packages.install": ["package"],
+    "code.format": ["source"],
+    "files.list": [],
+    "dag.analyze": [],
     "blob.read": ["sha256"],
     "ping": [],
 }
@@ -130,6 +135,9 @@ def validate(request: Any, helper: bool = False) -> None:
         "handle",
         "controller_id",
         "command",
+        "sort_col",
+        "filter_query",
+        "package",
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
@@ -192,6 +200,7 @@ def validate(request: Any, helper: bool = False) -> None:
         "debug",
         "include_stats",
         "allow_device_copy",
+        "sort_desc",
     ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")

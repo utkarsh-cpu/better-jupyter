@@ -4,6 +4,7 @@ import difflib
 import statistics
 from typing import Any
 
+from ..dag import stale_plan
 from .tools import ReadTools
 
 
@@ -11,26 +12,45 @@ def stale_cells(tools: ReadTools) -> Any:
     snapshot = tools.read("source.read")
     latest = tools.read("executions.list", latest_per_cell=True, page_size=500)["items"]
     by_id = {r["cell_id"]: r for r in latest}
+    cells = snapshot.get("cells", [])
+    executed_revisions = {
+        cid: row.get("source_sha256") for cid, row in by_id.items() if isinstance(cid, str)
+    }
+    plan = stale_plan(cells, executed_revisions)
+    state_by_id = {item["cell_id"]: item for item in plan["cells"]}
     result: list[Any] = []
-    for cell in snapshot.get("cells", []):
-        if cell["type"] != "code":
+    for cell in cells:
+        if cell.get("type") not in ("code", "sql"):
             continue
-        row = by_id.get(cell["id"])
+        cid = cell["id"]
+        row = by_id.get(cid)
+        planned = state_by_id.get(cid, {})
         result.append(
             {
-                "cell_id": cell["id"],
-                "state": "never_run"
-                if not row
-                else "stale"
-                if row["source_sha256"] != cell["revision"]
-                else "current",
+                "cell_id": cid,
+                "state": planned.get(
+                    "state",
+                    "never_run"
+                    if not row
+                    else "stale"
+                    if row["source_sha256"] != cell["revision"]
+                    else "current",
+                ),
+                "upstream_stale_from": planned.get("upstream_stale_from", []),
+                "defs": planned.get("defs", []),
+                "refs": planned.get("refs", []),
                 "exec_id": row["exec_id"] if row else None,
                 "source_sha256": cell["revision"],
             }
         )
+    graph = plan["graph"]
     return {
         "cells": result,
-        "dependency_order": "unknown; execution order is not a dependency graph",
+        "dependency_order": graph["topological_order"],
+        "edges": graph["edges"],
+        "multiple_definitions": graph["multiple_definitions"],
+        "cycles": graph["cycles"],
+        "run_stale_ids": plan["run_stale_ids"],
     }
 
 

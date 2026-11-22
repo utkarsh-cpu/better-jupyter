@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
-EXTENSIONS: dict[str, str] = {"code": ".py", "markdown": ".md", "raw": ".raw"}
+EXTENSIONS: dict[str, str] = {"code": ".py", "markdown": ".md", "raw": ".raw", "sql": ".sql"}
 DEVICES = {"CON", "PRN", "AUX", "NUL"} | {
     f"{prefix}{i}" for prefix in ("COM", "LPT") for i in range(1, 10)
 }
@@ -341,11 +341,15 @@ class Notebook:
         data, cells = self.read(), []
         for cell in data["cells"]:
             source = self.source(cell)
+            export_type = "code" if cell["type"] == "sql" else cell["type"]
+            if cell["type"] == "sql":
+                out_var = str(cell.get("metadata", {}).get("output_var") or "_sql_df")
+                source = f"%%sql {out_var}\n{source}"
             item: dict[Any, Any]
             item = {
                 **cell.get("metadata", {}).get("kernelledger", {}).get("ipynb_fields", {}),
                 "id": cell["id"],
-                "cell_type": cell["type"],
+                "cell_type": export_type,
                 "metadata": dict(cell.get("metadata", {})),
                 "source": source,
             }
@@ -366,7 +370,7 @@ class Notebook:
                         item["attachments"][name][mime] = base64.b64encode(
                             (self.root / "attachments" / cell["id"] / stored_name).read_bytes()
                         ).decode()
-            if cell["type"] == "code":
+            if export_type == "code":
                 record = outputs.get(cell["id"], {})
                 item.update(
                     outputs=record.get("outputs", []), execution_count=record.get("ordinal")
@@ -389,3 +393,149 @@ class Notebook:
                 "cells": cells,
             },
         )
+
+    def import_script(self, path: Any) -> list[dict[str, Any]]:
+        """Import a marimo (@app.cell) notebook or Jupytext/VS Code (# %%) Python script."""
+        import ast
+        import textwrap
+
+        data = self.read()
+        if data["cells"]:
+            raise ValueError("import target notebook must be empty")
+        raw = canonical(Path(path).read_text(encoding="utf-8"))
+        parsed_cells: list[tuple[str, str, dict[str, Any]]] = []
+
+        # 1. Try marimo @app.cell AST extraction first.
+        try:
+            tree = ast.parse(raw)
+        except SyntaxError:
+            tree = None
+
+        if tree is not None:
+            marimo_funcs: list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, dict[str, Any]]] = []
+            for node in tree.body:
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for dec in node.decorator_list:
+                    dec_attr = dec.func if isinstance(dec, ast.Call) else dec
+                    if (
+                        isinstance(dec_attr, ast.Attribute)
+                        and dec_attr.attr == "cell"
+                    ):
+                        meta: dict[str, Any] = {}
+                        if isinstance(dec, ast.Call):
+                            for kw in dec.keywords:
+                                if kw.arg in ("hide_code", "disabled") and isinstance(
+                                    kw.value, ast.Constant
+                                ) and isinstance(kw.value.value, bool):
+                                    meta[kw.arg] = kw.value.value
+                        marimo_funcs.append((node, meta))
+                        break
+            if marimo_funcs:
+                lines = raw.splitlines()
+                for func, meta in marimo_funcs:
+                    body_stmts = list(func.body)
+                    if body_stmts and isinstance(body_stmts[-1], ast.Return):
+                        body_stmts = body_stmts[:-1]
+                    if not body_stmts:
+                        continue
+                    # Detect pure `mo.md("...")` markdown cell
+                    if (
+                        len(body_stmts) == 1
+                        and isinstance(body_stmts[0], ast.Expr)
+                        and isinstance(body_stmts[0].value, ast.Call)
+                        and isinstance(body_stmts[0].value.func, ast.Attribute)
+                        and body_stmts[0].value.func.attr == "md"
+                        and len(body_stmts[0].value.args) == 1
+                        and isinstance(body_stmts[0].value.args[0], ast.Constant)
+                        and isinstance(body_stmts[0].value.args[0].value, str)
+                    ):
+                        md_text = textwrap.dedent(body_stmts[0].value.args[0].value).strip("\n")
+                        parsed_cells.append(("markdown", md_text, meta))
+                        continue
+                    # Detect `out = mo.sql("...")` SQL cell
+                    if (
+                        len(body_stmts) == 1
+                        and isinstance(body_stmts[0], ast.Assign)
+                        and len(body_stmts[0].targets) == 1
+                        and isinstance(body_stmts[0].targets[0], ast.Name)
+                        and isinstance(body_stmts[0].value, ast.Call)
+                        and isinstance(body_stmts[0].value.func, ast.Attribute)
+                        and body_stmts[0].value.func.attr == "sql"
+                        and len(body_stmts[0].value.args) >= 1
+                        and isinstance(body_stmts[0].value.args[0], ast.Constant)
+                        and isinstance(body_stmts[0].value.args[0].value, str)
+                    ):
+                        sql_text = textwrap.dedent(body_stmts[0].value.args[0].value).strip("\n")
+                        sql_meta = {**meta, "output_var": body_stmts[0].targets[0].id}
+                        parsed_cells.append(("sql", sql_text, sql_meta))
+                        continue
+                    start_line = body_stmts[0].lineno - 1
+                    end_line = body_stmts[-1].end_lineno or body_stmts[-1].lineno
+                    snippet = textwrap.dedent("\n".join(lines[start_line:end_line])).strip("\n")
+                    if snippet:
+                        parsed_cells.append(("code", snippet, meta))
+
+        # 2. Fallback: Jupytext / VS Code percent format (`# %%`).
+        if not parsed_cells:
+            marker = re.compile(r"^#\s*%%(?:\s*\[([^\]]+)\])?(.*)$")
+            lines = raw.splitlines()
+            if any(marker.match(ln) for ln in lines):
+                cur_type = "code"
+                cur_meta: dict[str, Any] = {}
+                buf: list[str] = []
+
+                def flush() -> None:
+                    nonlocal buf
+                    text = "\n".join(buf).strip("\n")
+                    if text:
+                        if cur_type == "markdown":
+                            uncommented = "\n".join(
+                                ln[2:] if ln.startswith("# ") else ln[1:] if ln.startswith("#") else ln
+                                for ln in text.splitlines()
+                            )
+                            parsed_cells.append(("markdown", uncommented, dict(cur_meta)))
+                        else:
+                            parsed_cells.append((cur_type, text, dict(cur_meta)))
+                    buf = []
+
+                seen_marker = False
+                for ln in lines:
+                    m = marker.match(ln)
+                    if m:
+                        if seen_marker or any(
+                            b.strip() and not b.lstrip().startswith("#") for b in buf
+                        ):
+                            flush()
+                        else:
+                            buf = []
+                        seen_marker = True
+                        tag = (m.group(1) or "").strip().lower()
+                        cur_meta = {}
+                        if tag in ("markdown", "md"):
+                            cur_type = "markdown"
+                        elif tag == "sql":
+                            cur_type = "sql"
+                            rest = (m.group(2) or "").strip()
+                            if rest.isidentifier():
+                                cur_meta["output_var"] = rest
+                        elif tag == "raw":
+                            cur_type = "raw"
+                        else:
+                            cur_type = "code"
+                    else:
+                        buf.append(ln)
+                flush()
+            elif raw.strip():
+                parsed_cells.append(("code", raw.strip("\n"), {}))
+
+        created: list[dict[str, Any]] = []
+        for idx, (ctype, src, meta) in enumerate(parsed_cells, 1):
+            cid = f"cell-{idx}"
+            self.add(ctype, src, cid)
+            if meta:
+                cur = self.read()
+                cur["cells"][-1]["metadata"] = meta
+                self.write(cur)
+            created.append({"id": cid, "type": ctype, "metadata": meta})
+        return created

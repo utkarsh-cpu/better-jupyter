@@ -680,6 +680,16 @@ impl Workspace {
                     );
                 for (format, label, description) in [
                     (
+                        "html",
+                        "HTML report (.html)",
+                        "Standalone interactive HTML report with source and outputs",
+                    ),
+                    (
+                        "py",
+                        "Python script (.py)",
+                        "Percent-format Python script (# %%) for version control",
+                    ),
+                    (
                         "pdf",
                         "PDF document (.pdf)",
                         "A paginated document for reading and sharing",
@@ -717,6 +727,7 @@ impl Workspace {
                 let index = *index;
                 for (kind, label, icon) in [
                     ("code", "Code cell", Glyph::Code),
+                    ("sql", "SQL query", Glyph::Database),
                     ("markdown", "Markdown prose", Glyph::Type),
                     ("raw", "Raw text", Glyph::FileText),
                 ] {
@@ -785,6 +796,110 @@ impl Workspace {
                 assistant: false,
             }) => {
                 let index = *index;
+                let cell_meta = self.tabs[self.active].model.cells.get(id);
+                let is_exec = cell_meta.is_some_and(|c| c.is_executable());
+                let is_code = cell_meta.is_some_and(|c| c.disk.kind == "code");
+                let is_sql = cell_meta.is_some_and(|c| c.disk.kind == "sql");
+                let is_hidden = cell_meta.is_some_and(|c| c.is_code_hidden());
+                let is_disabled = cell_meta.is_some_and(|c| c.is_disabled());
+                if is_exec {
+                    let graph = dag::analyze_notebook(&self.tabs[self.active].model);
+                    let ds_count = graph.downstream_ids(id).len().saturating_sub(1);
+                    let ds_label = if ds_count > 0 {
+                        format!("Run + downstream ({ds_count})")
+                    } else {
+                        "Run + downstream".into()
+                    };
+                    let cid_ds = id.clone();
+                    menu = menu.child(
+                        action_button("run-downstream")
+                            .ghost()
+                            .w_full()
+                            .menu_item(ds_label, None)
+                            .unavailable(is_disabled)
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.run_cell_and_downstream(&cid_ds, cx);
+                            })),
+                    );
+                    if is_code {
+                        let cid_fmt = id.clone();
+                        menu = menu.child(
+                            action_button("format-cell-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item("Format cell (ruff)", None)
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.format_cell(&cid_fmt, cx);
+                                })),
+                        );
+                    }
+                    let cid_hide = id.clone();
+                    let cid_dis = id.clone();
+                    let cid_conv = id.clone();
+                    menu = menu
+                        .child(
+                            action_button("toggle-hide-code-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(if is_hidden { "Show code" } else { "Hide code" }, None)
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.mutate_cell_metadata(
+                                        &cid_hide,
+                                        "hide_code",
+                                        json!(!is_hidden),
+                                        cx,
+                                    );
+                                })),
+                        )
+                        .child(
+                            action_button("toggle-disabled-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if is_disabled {
+                                        "Enable cell"
+                                    } else {
+                                        "Disable cell"
+                                    },
+                                    None,
+                                )
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.mutate_cell_metadata(
+                                        &cid_dis,
+                                        "disabled",
+                                        json!(!is_disabled),
+                                        cx,
+                                    );
+                                })),
+                        )
+                        .child(
+                            action_button("convert-cell-type-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if is_sql {
+                                        "Convert to Python"
+                                    } else {
+                                        "Convert to SQL"
+                                    },
+                                    None,
+                                )
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    let target = if is_sql { "code" } else { "sql" };
+                                    v.mutate(json!({
+                                        "action": "convert",
+                                        "cell_id": cid_conv,
+                                        "type": target,
+                                    }));
+                                })),
+                        )
+                        .child(menu_sep(cx));
+                }
                 for (action, label) in [
                     ("duplicate", "Duplicate cell"),
                     ("move-up", "Move up"),
@@ -1109,15 +1224,57 @@ impl Workspace {
                     )
                     .child(menu_sep(cx));
                 if !self.tabs.is_empty() {
-                    menu = menu.child(
-                        action_button("menu-export")
-                            .ghost()
-                            .w_full()
-                            .menu_item("Export notebook\u{2026}", Some("ctrl-shift-e"))
-                            .unavailable(self.command_reason("export-menu").is_some())
-                            .hint("Export notebook (Ctrl+Shift+E)")
-                            .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx))),
-                    );
+                    let app_mode = self.tabs[self.active].app_mode;
+                    let stale_count = dag::analyze_notebook(&self.tabs[self.active].model)
+                        .run_stale_ids
+                        .len();
+                    menu = menu
+                        .child(
+                            action_button("menu-run-stale")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if stale_count > 0 {
+                                        format!("Run stale cells ({stale_count})")
+                                    } else {
+                                        "Run stale cells".into()
+                                    },
+                                    None,
+                                )
+                                .unavailable(stale_count == 0)
+                                .on_click(cx.listener(|v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.run_stale_cells(cx);
+                                })),
+                        )
+                        .child(
+                            action_button("menu-app-mode")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if app_mode {
+                                        "Exit App mode"
+                                    } else {
+                                        "App / Report mode"
+                                    },
+                                    Some("ctrl-."),
+                                )
+                                .on_click(cx.listener(|v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.toggle_app_mode(&ToggleAppMode, window, cx);
+                                })),
+                        )
+                        .child(
+                            action_button("menu-export")
+                                .ghost()
+                                .w_full()
+                                .menu_item("Export notebook\u{2026}", Some("ctrl-shift-e"))
+                                .unavailable(self.command_reason("export-menu").is_some())
+                                .hint("Export notebook (Ctrl+Shift+E)")
+                                .on_click(
+                                    cx.listener(|v, _, window, cx| v.toggle_export(window, cx)),
+                                ),
+                        );
                 }
                 for (surface, shortcut) in [
                     ("Notebook", "ctrl-1"),
