@@ -67,16 +67,22 @@ def test_rss_reports_current_not_peak_memory() -> None:
     assert isinstance(before, int) and before > 0
     if sys.platform != "darwin":
         pytest.skip("mach_task_basic_info and ps fallbacks are macOS-specific")
-    region = mmap.mmap(-1, 256 * 1024 * 1024)
-    for offset in range(0, len(region), mmap.PAGESIZE):
-        region[offset] = 1
+    # Fill the region with incompressible bytes: nearly-empty pages are cheap for the
+    # macOS memory compressor, so touching one byte per page under-reports on busy
+    # CI runners. Thresholds are half the region so pressure-related noise passes.
+    size = 128 * 1024 * 1024
+    margin = size // 2
+    region = mmap.mmap(-1, size)
+    chunk = os.urandom(4 * 1024 * 1024)
+    for offset in range(0, size, len(chunk)):
+        region[offset : offset + len(chunk)] = chunk[::-1] if offset % 2 else chunk
     peak = _mach_rss_bytes()
-    assert peak is not None and peak > before + 200 * 1024 * 1024
+    assert peak is not None and peak > before + margin
     region.close()
     after = _mach_rss_bytes()
-    assert after is not None and after < peak - 200 * 1024 * 1024
+    assert after is not None and after < peak - margin
     current = _process_rss_bytes()
-    assert current is not None and current < peak - 200 * 1024 * 1024
+    assert current is not None and current < peak - margin
     ps_value = _ps_rss_bytes(min_interval=0)
     assert ps_value is not None and abs(ps_value - after) < 64 * 1024 * 1024
     assert _ps_rss_bytes(min_interval=60) == ps_value  # rate-limited: cached value

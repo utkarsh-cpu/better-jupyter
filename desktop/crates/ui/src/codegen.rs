@@ -168,10 +168,14 @@ mod tests {
 
     /// Runs `script` with `input` on stdin using the host Python. `None` when
     /// no Python is installed, so these checks skip rather than fail.
+    ///
+    /// `-X utf8` makes stdin/stdout UTF-8 everywhere: on Windows they otherwise use
+    /// the console code page, which cannot decode e.g. a combining accent. (`-I`
+    /// ignores `PYTHONUTF8`/`PYTHONIOENCODING`, so the flag must be explicit.)
     fn python(script: &str, input: &str) -> Option<std::process::Output> {
         use std::io::Write;
         let mut child = std::process::Command::new("python3")
-            .args(["-I", "-c", script])
+            .args(["-I", "-X", "utf8", "-c", script])
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
