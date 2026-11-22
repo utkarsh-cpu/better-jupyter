@@ -215,7 +215,7 @@ impl Workspace {
     pub(super) fn anchored(
         &self,
         key: impl Into<String>,
-        button: WorkbenchButton,
+        button: impl IntoElement,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let key = key.into();
@@ -649,8 +649,8 @@ impl Workspace {
             .id("workspace-menu-content")
             .debug_selector(|| "workspace-menu-content".into())
             .overflow_y_scroll()
-            .w(px(272.))
-            .max_h(px(440.))
+            .w(rems(17.))
+            .max_h(rems(27.5))
             .p_1()
             .gap_0p5()
             .items_stretch()
@@ -723,8 +723,7 @@ impl Workspace {
                     );
                 }
             }
-            Some(ActiveMenu::Insert(index)) => {
-                let index = *index;
+            Some(ActiveMenu::Insert { after }) => {
                 for (kind, label, icon) in [
                     ("code", "Code cell", Glyph::Code),
                     ("sql", "SQL query", Glyph::Database),
@@ -737,9 +736,12 @@ impl Workspace {
                             .w_full()
                             .icon(icon)
                             .menu_item(label, None)
-                            .on_click(cx.listener(move |v, _, window, cx| {
-                                v.close_menu(window, cx);
-                                v.mutate(json!({"action":"add","type":kind,"index":index}));
+                            .on_click(cx.listener({
+                                let after = after.clone();
+                                move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.insert_cell_after(&after, kind);
+                                }
                             })),
                     );
                 }
@@ -792,10 +794,14 @@ impl Workspace {
             }
             Some(ActiveMenu::Cell {
                 cell_id: id,
-                index,
                 assistant: false,
             }) => {
-                let index = *index;
+                let order = &self.tabs[self.active].model.order;
+                let position = order.iter().position(|c| c == id);
+                let (first, last) = (
+                    position == Some(0),
+                    position.map(|i| i + 1) == Some(order.len()),
+                );
                 let cell_meta = self.tabs[self.active].model.cells.get(id);
                 let is_exec = cell_meta.is_some_and(|c| c.is_executable());
                 let is_code = cell_meta.is_some_and(|c| c.disk.kind == "code");
@@ -803,20 +809,16 @@ impl Workspace {
                 let is_hidden = cell_meta.is_some_and(|c| c.is_code_hidden());
                 let is_disabled = cell_meta.is_some_and(|c| c.is_disabled());
                 if is_exec {
-                    let graph = dag::analyze_notebook(&self.tabs[self.active].model);
-                    let ds_count = graph.downstream_ids(id).len().saturating_sub(1);
-                    let ds_label = if ds_count > 0 {
-                        format!("Run + downstream ({ds_count})")
-                    } else {
-                        "Run + downstream".into()
-                    };
+                    let model = &self.tabs[self.active].model;
+                    let plan = downstream_plan(model, &dag::analyze_notebook(model), id);
                     let cid_ds = id.clone();
                     menu = menu.child(
                         action_button("run-downstream")
                             .ghost()
                             .w_full()
-                            .menu_item(ds_label, None)
-                            .unavailable(is_disabled)
+                            .menu_item(run_downstream_label(&plan), None)
+                            .unavailable(plan.is_err())
+                            .when_some(plan.err(), |b, reason| b.hint(reason))
                             .on_click(cx.listener(move |v, _, window, cx| {
                                 v.close_menu(window, cx);
                                 v.run_cell_and_downstream(&cid_ds, cx);
@@ -891,6 +893,9 @@ impl Workspace {
                                 .on_click(cx.listener(move |v, _, window, cx| {
                                     v.close_menu(window, cx);
                                     let target = if is_sql { "code" } else { "sql" };
+                                    if target == "sql" {
+                                        v.assign_output_var(cid_conv.clone());
+                                    }
                                     v.mutate(json!({
                                         "action": "convert",
                                         "cell_id": cid_conv,
@@ -942,27 +947,39 @@ impl Workspace {
                                 },
                             )
                             .unavailable(
-                                (action == "move-up" && index == 0)
-                                    || (action == "move-down"
-                                        && index + 1 == self.tabs[self.active].model.order.len()),
+                                position.is_none()
+                                    || (action == "move-up" && first)
+                                    || (action == "move-down" && last),
                             )
                             .on_click(cx.listener(move |v, _, window, cx| {
                                 v.close_menu(window, cx);
+                                // Resolve the position now: cells may have moved
+                                // while the menu was open.
+                                let order = &v.tabs[v.active].model.order;
+                                let Some(index) = order.iter().position(|c| *c == cell_id) else {
+                                    return;
+                                };
+                                let count = order.len();
                                 match action {
                                     "delete" => {
                                         v.confirmation =
                                             Some(("delete".into(), json!({"cell_id":cell_id})));
                                         cx.notify();
                                     }
-                                    "move-up" | "move-down" => v.mutate(json!({
-                                        "action":"move",
-                                        "cell_id":cell_id,
-                                        "index": if action == "move-up" {
-                                            index.saturating_sub(1)
+                                    "move-up" | "move-down" => {
+                                        let target = if action == "move-up" {
+                                            index.checked_sub(1)
                                         } else {
-                                            index + 1
+                                            Some(index + 1).filter(|i| *i < count)
+                                        };
+                                        if let Some(target) = target {
+                                            v.mutate(json!({
+                                                "action":"move",
+                                                "cell_id":cell_id,
+                                                "index": target,
+                                            }));
                                         }
-                                    })),
+                                    }
                                     _ => v.mutate(json!({"action":action,"cell_id":cell_id})),
                                 }
                             })),

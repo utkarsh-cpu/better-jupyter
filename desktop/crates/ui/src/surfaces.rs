@@ -281,7 +281,7 @@ impl Workspace {
                     .child(
                         div()
                             .flex_1()
-                            .min_w(px(180.))
+                            .min_w(rems(11.25))
                             .child(Input::new(&self.pkg_install_input).small()),
                     )
                     .child(
@@ -340,7 +340,7 @@ impl Workspace {
             if !pkgs.is_empty() {
                 let mut rows = v_flex()
                     .gap_1()
-                    .max_h(px(280.))
+                    .max_h(rems(17.5))
                     .id("pkg-list")
                     .overflow_y_scroll();
                 for pkg in pkgs.iter().take(100) {

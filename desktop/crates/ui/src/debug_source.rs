@@ -36,7 +36,7 @@ impl Workspace {
             self.select_surface("Notebook", cx);
             self.tabs[self.active].model.selected = Some(id.clone());
             self.tabs[self.active].model.mode = Mode::Edit;
-            self.tabs[self.active].reveal = Some(id.clone());
+            self.request_reveal(Some(id.clone()));
             let editor = self.editor(self.active, id, window, cx);
             editor.update(cx, |editor, cx| {
                 let position = Position::new(location.line.saturating_sub(1) as u32, 0);

@@ -37,11 +37,178 @@ const READING_WIDTH: f32 = 62.;
 /// Height of the gap above a cell that its floating tools occupy.
 const TOOLS_RESERVE: f32 = 30.;
 
-pub(crate) fn boundary_button_label(last: bool) -> Option<&'static str> {
-    last.then_some("Add cell")
+/// The label every insert boundary shows on hover or focus; the trailing
+/// boundary shows it at rest.
+pub(crate) const BOUNDARY_LABEL: &str = "Add cell";
+
+/// An inline rename of a SQL cell's output variable.
+pub(crate) struct OutputVarEdit {
+    pub cell_id: String,
+    pub input: Entity<InputState>,
+    pub error: Option<&'static str>,
+    _events: Subscription,
+}
+
+/// Why `name` cannot be the output variable of SQL cell `cell_id`.
+pub(crate) fn output_var_error(
+    model: &NotebookModel,
+    cell_id: &str,
+    name: &str,
+) -> Option<&'static str> {
+    if name.is_empty() {
+        return Some("Enter a variable name");
+    }
+    if !codegen::is_py_identifier(name) {
+        return Some("Use letters, digits and _, not starting with a digit or a Python keyword");
+    }
+    let defined_elsewhere = dag::analyze_notebook(model)
+        .defs
+        .iter()
+        .any(|(id, defs)| id != cell_id && defs.iter().any(|def| def == name));
+    defined_elsewhere.then_some("Another cell already defines this name")
+}
+
+/// What App mode shows for an executable or raw cell: its outputs and whether
+/// it raised, or `None` to hide the cell entirely. Tracebacks collapse into a
+/// one-line note, and disabled cells never present stale results.
+pub(crate) fn app_mode_outputs(
+    cell: &kernelledger_models::CellModel,
+) -> Option<(Vec<&Value>, bool)> {
+    if cell.is_disabled() || cell.collapsed {
+        return None;
+    }
+    let (errors, outputs): (Vec<&Value>, Vec<&Value>) = cell
+        .output
+        .iter()
+        .partition(|event| event["kind"] == "error");
+    let raised = !errors.is_empty() || matches!(cell.outcome.as_str(), "error" | "failed");
+    (raised || !outputs.is_empty()).then_some((outputs, raised))
 }
 
 impl Workspace {
+    pub(super) fn begin_output_var_edit(
+        &mut self,
+        cell_id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(cell) = self.tabs[self.active].model.cells.get(cell_id) else {
+            return;
+        };
+        let current = cell.sql_output_var();
+        let input = cx.new(|cx| {
+            let mut input = InputState::new(window, cx).placeholder("sql_result");
+            input.set_value(current, window, cx);
+            input
+        });
+        let events =
+            cx.subscribe_in(
+                &input,
+                window,
+                |v, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::PressEnter { .. } => v.commit_output_var_edit(window, cx),
+                    InputEvent::Change => {
+                        if let Some(edit) = &mut v.output_var_edit {
+                            edit.error = None;
+                        }
+                        cx.notify();
+                    }
+                    _ => {}
+                },
+            );
+        input.update(cx, |input, cx| input.focus(window, cx));
+        self.output_var_edit = Some(OutputVarEdit {
+            cell_id: cell_id.to_owned(),
+            input,
+            error: None,
+            _events: events,
+        });
+        cx.notify();
+    }
+
+    /// Validates and stores the edited name; an invalid name stays in the
+    /// field with its reason.
+    pub(super) fn commit_output_var_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(edit) = &mut self.output_var_edit else {
+            return;
+        };
+        let name = edit.input.read(cx).value().trim().to_owned();
+        let cell_id = edit.cell_id.clone();
+        let model = &self.tabs[self.active].model;
+        if let Some(error) = output_var_error(model, &cell_id, &name) {
+            edit.error = Some(error);
+            cx.notify();
+            return;
+        }
+        let changed = model
+            .cells
+            .get(&cell_id)
+            .is_some_and(|cell| cell.cell_metadata().get("output_var") != Some(&json!(name)));
+        self.output_var_edit = None;
+        if changed {
+            self.mutate_cell_metadata(&cell_id, "output_var", json!(name), cx);
+        }
+        self.focus.focus(window, cx);
+        cx.notify();
+    }
+
+    pub(super) fn cancel_output_var_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.output_var_edit.take().is_some() {
+            self.focus.focus(window, cx);
+            cx.notify();
+        }
+    }
+
+    /// The SQL header control: the output variable, renamed in place.
+    fn output_var_control(&self, index: usize, id: &str, cx: &mut Context<Self>) -> AnyElement {
+        let theme = cx.theme();
+        let (info, danger, muted_fg) = (theme.info, theme.danger, theme.muted_foreground);
+        if let Some(edit) = self.output_var_edit.as_ref().filter(|e| e.cell_id == id) {
+            return h_flex()
+                .gap_1()
+                .items_center()
+                .child(div().text_xs().text_color(muted_fg).child("SQL \u{2192}"))
+                .child(
+                    div().w(rems(10.)).child(
+                        Input::new(&edit.input)
+                            .xsmall()
+                            .aria_label("SQL output variable"),
+                    ),
+                )
+                .child(
+                    action_button(("sql-output-var-save", index))
+                        .ghost()
+                        .xsmall()
+                        .icon(Glyph::Check)
+                        .hint("Save variable name (Enter)")
+                        .accessibility_label("Save variable name")
+                        .on_click(
+                            cx.listener(|v, _, window, cx| v.commit_output_var_edit(window, cx)),
+                        ),
+                )
+                .when_some(edit.error, |d, error| {
+                    d.child(div().text_xs().text_color(danger).child(error))
+                })
+                .into_any_element();
+        }
+        let var = self.tabs[self.active]
+            .model
+            .cells
+            .get(id)
+            .map(|cell| cell.sql_output_var())
+            .unwrap_or_default();
+        let id = id.to_owned();
+        action_button(("sql-output-var", index))
+            .ghost()
+            .xsmall()
+            .text_color(info)
+            .label(format!("SQL \u{2192} {var}"))
+            .hint("Rename the variable this query's result is stored in")
+            .accessibility_label(format!("SQL result variable {var}, rename"))
+            .on_click(cx.listener(move |v, _, window, cx| v.begin_output_var_edit(&id, window, cx)))
+            .into_any_element()
+    }
+
     pub(super) fn editor(
         &mut self,
         tab_index: usize,
@@ -159,10 +326,11 @@ impl Workspace {
                     )
                     .into_any_element();
             }
-            if cell.output.is_empty() || cell.collapsed {
+            let Some((shown, raised)) = app_mode_outputs(&cell) else {
                 return div().into_any_element();
-            }
-            let wide_output = cell.output.iter().any(outputs::is_wide_output);
+            };
+            let wide_output = shown.iter().any(|e| outputs::is_wide_output(e));
+            let danger = cx.theme().danger;
             return v_flex()
                 .w_full()
                 .max_w(rems(if wide_output { 80. } else { READING_WIDTH }))
@@ -171,7 +339,7 @@ impl Workspace {
                 .py_2()
                 .gap_2()
                 .when(last, |d| d.pb_8())
-                .children(cell.output.iter().enumerate().map(|(i, e)| {
+                .children(shown.into_iter().enumerate().map(|(i, e)| {
                     let mut e = e.clone();
                     if let Some(handle) =
                         e["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["handle"]
@@ -203,6 +371,24 @@ impl Workspace {
                     }
                     .into_any_element()
                 }))
+                .when(raised, |d| {
+                    d.child(
+                        h_flex()
+                            .id(("app-error", index))
+                            .debug_selector({
+                                let id = id.clone();
+                                move || format!("app-error-{id}")
+                            })
+                            .gap_2()
+                            .items_center()
+                            .text_xs()
+                            .text_color(danger)
+                            .role(Role::Status)
+                            .aria_label("This cell raised an error")
+                            .child(Icon::new(Glyph::TriangleAlert).xsmall())
+                            .child("This cell raised an error"),
+                    )
+                })
                 .into_any_element();
         }
         let editor = self.editor(self.active, &id, window, cx);
@@ -212,11 +398,30 @@ impl Workspace {
         let tab = &self.tabs[self.active];
         let graph = dag::analyze_notebook(&tab.model);
         let upstream_stale = graph.is_upstream_stale(&id);
+        // Name the upstream cells by position so "why is this stale?" is answerable at a glance.
+        let upstream_label = graph
+            .upstream_stale_from
+            .get(&id)
+            .map(|ids| {
+                let mut cells: Vec<String> = ids
+                    .iter()
+                    .filter_map(|u| tab.model.order.iter().position(|o| o == u))
+                    .map(|i| format!("[{}]", i + 1))
+                    .collect();
+                if cells.len() > 3 {
+                    let more = cells.len() - 3;
+                    cells.truncate(3);
+                    cells.push(format!("+{more}"));
+                }
+                format!("Upstream changed: {}", cells.join(" "))
+            })
+            .unwrap_or_else(|| "Upstream stale".to_owned());
         let multi_defs = graph.has_multiple_def(&id);
         let cell = tab.model.cells[&id].clone();
         let is_exec = cell.is_executable();
         let is_sql = cell.disk.kind == "sql";
         let is_disabled = cell.is_disabled();
+        let is_blocked = !is_disabled && graph.is_blocked(&id);
         let is_code_hidden = cell.is_code_hidden();
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
@@ -431,7 +636,6 @@ impl Workspace {
                             v.return_focus = opener;
                             v.menu = Some(ActiveMenu::Cell {
                                 cell_id: id.clone(),
-                                index,
                                 assistant: false,
                             });
                             v.menu_anchor = key.clone();
@@ -449,6 +653,7 @@ impl Workspace {
                 || upstream_stale
                 || is_sql
                 || is_disabled
+                || is_blocked
                 || is_code_hidden
                 || !multi_defs.is_empty()
                 || notable_status(&cell.outcome)
@@ -462,6 +667,7 @@ impl Workspace {
                 || cell.stale()
                 || upstream_stale
                 || is_disabled
+                || is_blocked
                 || is_code_hidden
                 || !multi_defs.is_empty()
         };
@@ -473,6 +679,7 @@ impl Workspace {
             None
         };
         let notable_outcome = notable_status(&cell.outcome);
+        let sql_control = is_sql.then(|| self.output_var_control(index, &id, cx));
         let spacing = cell_spacing(self.preferences.comfortable);
         // A narrow split gives the margin back to the source.
         let margin = if narrow_split { 0.75 } else { CELL_MARGIN };
@@ -517,13 +724,28 @@ impl Workspace {
                     )
                 },
             )
-            .when(is_sql, |d| {
-                d.child(badge(
-                    format!("SQL \u{2192} {}", cell.sql_output_var()),
-                    info,
-                ))
-            })
+            .children(sql_control)
             .when(is_disabled, |d| d.child(badge("Disabled", muted_fg)))
+            .when(is_blocked, |d| {
+                d.child(
+                    div()
+                        .id(("blocked-by-disabled", index))
+                        .debug_selector({
+                            let id = id.clone();
+                            move || format!("blocked-by-disabled-{id}")
+                        })
+                        .child(badge("Blocked by disabled cell", muted_fg))
+                        .tooltip(|_, cx| {
+                            cx.new(|_| {
+                                WorkbenchHint(
+                                    "Depends on a disabled cell; Run all and Run + downstream skip it"
+                                        .into(),
+                                )
+                            })
+                            .into()
+                        }),
+                )
+            })
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
             .when(has_error && !notable_outcome, |d| {
                 d.child(badge("Failed", danger))
@@ -553,7 +775,7 @@ impl Workspace {
                 d.child(badge("Edited since run", warning))
             })
             .when(upstream_stale && !cell.stale(), |d| {
-                d.child(badge("Upstream stale", warning)).child(
+                d.child(badge(upstream_label, warning)).child(
                     action_button(("run-stale-cell", index))
                         .ghost()
                         .small()
@@ -563,9 +785,10 @@ impl Workspace {
                 )
             })
             .when(!multi_defs.is_empty(), |d| {
+                // Redefinition (`df = df.dropna()`) is normal notebook style: informational only.
                 d.child(badge(
                     format!("Redefines {}", multi_defs.join(", ")),
-                    danger,
+                    muted_fg,
                 ))
             })
             .when(cell.stale() && cell.exec_id.is_some(), |d| {
@@ -972,11 +1195,10 @@ impl Workspace {
             index,
             &id,
             last,
-            selected,
             margin,
             &spacing,
-            muted_fg,
             high_contrast,
+            window,
             cx,
         );
         div()
@@ -998,6 +1220,9 @@ impl Workspace {
             .into_any_element()
     }
 
+    /// The insert control below a cell. The whole boundary row is the target:
+    /// a faint "+" on a hairline at rest, with stronger contrast and an
+    /// "Add cell" label on hover or keyboard focus.
     #[allow(clippy::too_many_arguments)]
     #[inline(never)]
     fn cell_boundary(
@@ -1005,90 +1230,114 @@ impl Workspace {
         index: usize,
         id: &str,
         last: bool,
-        selected: bool,
         margin: f32,
         spacing: &CellSpacing,
-        muted_fg: Hsla,
         high_contrast: bool,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let boundary_group: SharedString = format!("boundary-{id}").into();
-        let menu_open = matches!(self.menu, Some(ActiveMenu::Insert(i)) if i == index + 1);
+        let group: SharedString = format!("boundary-{id}").into();
+        let menu_open = matches!(&self.menu, Some(ActiveMenu::Insert { after }) if after == id);
+        let focus = self
+            .insert_focus
+            .entry(id.to_owned())
+            .or_insert_with(|| cx.focus_handle())
+            .clone();
+        let emphasized = menu_open || focus.is_focused(window);
+        let strong = emphasized || high_contrast || self.preferences.comfortable;
+        let theme = cx.theme();
+        let (muted_fg, primary) = (theme.muted_foreground, theme.primary);
         let rule_color = divider(cx);
-        let rest_opacity = if menu_open || self.preferences.comfortable || high_contrast {
-            1.
-        } else if last {
-            0.58
-        } else if selected {
-            0.28
-        } else {
-            0.
-        };
-        let mut insert_btn = action_button(("insert-cell", index))
-            .ghost()
-            .xsmall()
-            .rounded(px(6.))
-            .icon(Glyph::Plus)
-            .text_color(muted_fg)
-            .subtle_contextual(boundary_group.clone(), rest_opacity)
-            .accessibility_label(if last {
-                "Add cell at end of notebook".to_string()
-            } else {
-                format!("Insert cell after cell {}", index + 1)
-            })
-            .on_click(cx.listener({
-                let key = format!("insert-{id}");
-                move |v, _, window, cx| {
-                    v.close_menu(window, cx);
-                    v.return_focus = window.focused(cx);
-                    v.menu = Some(ActiveMenu::Insert(index + 1));
-                    v.menu_anchor = key.clone();
-                    v.dialog_focus.focus(window, cx);
-                    cx.notify();
-                }
-            }));
-        if !menu_open {
-            insert_btn = insert_btn.hint(if last { "Add cell" } else { "Insert cell" });
-        }
-        if let Some(label) = boundary_button_label(last) {
-            insert_btn = insert_btn.px_2().label(label);
-        }
-        let hover_rule = |group: SharedString| {
+        let (rest_rule, rest_icon) = if strong { (0.9, 1.) } else { (0.35, 0.5) };
+        let rule = || {
             div()
                 .flex_1()
                 .h(px(1.))
-                .bg(rule_color.opacity(0.45))
-                .when(!menu_open, |d| {
-                    d.opacity(0.).group_hover(group, |s| s.opacity(1.))
-                })
+                .bg(rule_color.opacity(rest_rule))
+                .group_hover(group.clone(), move |s| s.bg(rule_color.opacity(0.9)))
         };
-        let mut boundary = h_flex()
-            .debug_selector({
-                let id = id.to_owned();
-                move || format!("cell-boundary-{id}")
+        let anchor_key = format!("insert-{id}");
+        let plus = self.anchored(
+            anchor_key.clone(),
+            div()
+                .debug_selector({
+                    let id = id.to_owned();
+                    move || format!("cell-insert-plus-{id}")
+                })
+                .flex_none()
+                .text_color(if emphasized {
+                    primary
+                } else {
+                    muted_fg.opacity(rest_icon)
+                })
+                .group_hover(group.clone(), move |s| s.text_color(muted_fg))
+                .child(Icon::new(Glyph::Plus).small()),
+            cx,
+        );
+        let label = div()
+            .flex_none()
+            .text_xs()
+            .text_color(if emphasized { primary } else { muted_fg })
+            .when(!(last || emphasized), |d| {
+                d.opacity(0.).group_hover(group.clone(), |s| s.opacity(1.))
             })
-            .group(boundary_group.clone())
+            .child(BOUNDARY_LABEL);
+        let mut button = action_button(("insert-cell", index))
+            .bare()
+            .in_hover_group()
+            .track_focus(&focus)
             .w_full()
-            .max_w(rems(READING_WIDTH))
-            .mx_auto()
-            .pl(rems(margin))
-            .pr_3()
             .h(px(if last {
                 spacing.boundary_last
             } else {
                 spacing.boundary
             }))
-            .gap_2()
-            .items_center()
-            .justify_center();
-        if !last {
-            boundary = boundary.child(hover_rule(boundary_group.clone()));
+            .accessibility_label(if last {
+                "Add cell at end of notebook".to_string()
+            } else {
+                format!("Insert cell after cell {}", index + 1)
+            })
+            .child(
+                h_flex()
+                    .w_full()
+                    .gap_2()
+                    .items_center()
+                    .child(rule())
+                    .child(plus)
+                    .child(label)
+                    .child(rule()),
+            )
+            .on_click(cx.listener({
+                let after = id.to_owned();
+                move |v, _, window, cx| {
+                    // Snapshot before close_menu restores the previous menu's focus.
+                    let opener = window.focused(cx);
+                    v.close_menu(window, cx);
+                    v.return_focus = opener;
+                    v.menu = Some(ActiveMenu::Insert {
+                        after: after.clone(),
+                    });
+                    v.menu_anchor = anchor_key.clone();
+                    v.dialog_focus.focus(window, cx);
+                    cx.notify();
+                }
+            }));
+        if !menu_open {
+            button = button.hint(if last { "Add cell" } else { "Insert cell here" });
         }
-        boundary = boundary.child(self.anchored(format!("insert-{id}"), insert_btn, cx));
-        if !last {
-            boundary = boundary.child(hover_rule(boundary_group));
-        }
-        boundary.into_any_element()
+        div()
+            .debug_selector({
+                let id = id.to_owned();
+                move || format!("cell-boundary-{id}")
+            })
+            .group(group)
+            .w_full()
+            .max_w(rems(READING_WIDTH))
+            .mx_auto()
+            .pl(rems(margin))
+            .pr_3()
+            .child(button)
+            .into_any_element()
     }
 
     #[inline(never)]

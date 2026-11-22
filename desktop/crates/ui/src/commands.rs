@@ -417,6 +417,93 @@ pub(super) const COMMANDS: [(&str, &str, &str, Glyph); 67] = [
     ),
 ];
 
+pub(super) const APP_MODE_REASON: &str = "Unavailable in App mode";
+
+/// Commands that change source or cell structure. App mode presents the
+/// notebook read-only; running cells and widgets stay available.
+const APP_MODE_BLOCKED: [&str; 18] = [
+    "add-code",
+    "add-markdown",
+    "add-raw",
+    "add-sql",
+    "duplicate-cell",
+    "delete-cell",
+    "move-up",
+    "move-down",
+    "split-cell",
+    "merge-cell",
+    "undo-source",
+    "redo-source",
+    "format-cell",
+    "toggle-hide-code",
+    "toggle-disabled",
+    "load-source",
+    "toggle-breakpoint",
+    "debug-cell",
+];
+
+/// Every name a code or SQL cell defines, so generated cells do not rebind one.
+pub(crate) fn notebook_names(model: &NotebookModel) -> std::collections::BTreeSet<String> {
+    dag::analyze_notebook(model)
+        .defs
+        .into_values()
+        .flatten()
+        .collect()
+}
+
+/// Disabled cells and every cell that transitively depends on one. Running a
+/// dependent without its disabled ancestor would read missing or stale state.
+pub(crate) fn blocked_cells(
+    model: &NotebookModel,
+    graph: &dag::NotebookDag,
+) -> std::collections::BTreeSet<String> {
+    // The analyzer owns the blocking rule; only executable cells can be run or skipped.
+    graph
+        .blocked
+        .keys()
+        .filter(|id| model.cells.get(*id).is_some_and(|c| c.is_executable()))
+        .cloned()
+        .collect()
+}
+
+/// The cells "Run + downstream" executes from `cell_id`, itself first, or why
+/// it cannot start. Descendants blocked by another disabled cell are skipped.
+pub(crate) fn downstream_plan(
+    model: &NotebookModel,
+    graph: &dag::NotebookDag,
+    cell_id: &str,
+) -> Result<Vec<String>, &'static str> {
+    let blocked = blocked_cells(model, graph);
+    match model.cells.get(cell_id) {
+        None => return Err("Select a code cell first"),
+        Some(cell) if !cell.is_executable() => return Err("Only code and SQL cells can run"),
+        Some(cell) if cell.is_disabled() => {
+            return Err("Cell is disabled; enable it before running");
+        }
+        Some(_) if blocked.contains(cell_id) => {
+            return Err("Blocked by a disabled upstream cell");
+        }
+        Some(_) => {}
+    }
+    let mut ids = vec![cell_id.to_owned()];
+    ids.extend(
+        graph
+            .downstream_ids(cell_id)
+            .into_iter()
+            .filter(|id| !blocked.contains(id)),
+    );
+    Ok(ids)
+}
+
+/// The cell menu label for a "Run + downstream" plan: the count is of the
+/// dependent cells, excluding the cell the run starts from.
+pub(crate) fn run_downstream_label(plan: &Result<Vec<String>, &'static str>) -> String {
+    match plan.as_ref().map(|ids| ids.len().saturating_sub(1)) {
+        Ok(count) if count > 0 => format!("Run + downstream ({count})"),
+        _ => "Run + downstream".into(),
+    }
+}
+
 /// Per-cell assistant actions, grouped behind the cell menu's Assistant entry.
 pub(super) const CELL_ASSISTANT_ACTIONS: [(&str, &str); 5] = [
     ("assistant", "Ask about this cell"),
@@ -540,6 +627,18 @@ impl Workspace {
             cx.notify();
             return;
         }
+        // The SQL output variable field owns its keys: Enter saves, Escape cancels.
+        if self
+            .output_var_edit
+            .as_ref()
+            .is_some_and(|edit| edit.input.read(cx).focus_handle(cx).is_focused(window))
+        {
+            if key == "escape" {
+                self.cancel_output_var_edit(window, cx);
+                cx.stop_propagation();
+            }
+            return;
+        }
         // Dismiss before the editor's Escape action propagates to CommandMode.
         // The popup may already be closed by the time that parent action runs.
         if key == "escape"
@@ -657,14 +756,15 @@ impl Workspace {
                 "down" => index = (index + 1).min(ids.len().saturating_sub(1)),
                 "home" => index = 0,
                 "end" => index = ids.len().saturating_sub(1),
-                "enter" => {
-                    tab.reveal = ids.get(index).cloned();
-                    self.focus.focus(window, cx);
-                }
+                "enter" => {}
                 _ => return,
             }
             if let Some(id) = ids.get(index) {
                 tab.model.selected = Some(id.clone());
+            }
+            if key == "enter" {
+                self.focus.focus(window, cx);
+                self.request_reveal(ids.get(index).cloned());
             }
             cx.stop_propagation();
             cx.notify();
@@ -674,8 +774,12 @@ impl Workspace {
             && !m.control
             && !m.shift
             && !m.alt
-            && let Some(tab) = self.tabs.get_mut(self.active)
+            // A focused insert boundary activates itself.
+            && !self.insert_focus.values().any(|focus| focus.is_focused(window))
+            && let Some(tab) = self.tabs.get(self.active)
             && tab.model.mode == Mode::Command
+            // App mode leaves Enter to focused widgets and buttons.
+            && (!tab.app_mode || self.focus.is_focused(window))
             && !tab
                 .model
                 .selected
@@ -683,7 +787,11 @@ impl Workspace {
                 .and_then(|id| tab.editors.get(id))
                 .is_some_and(|editor| editor.read(cx).focus_handle(cx).is_focused(window))
         {
-            tab.reveal = tab.model.selected.clone();
+            if tab.app_mode {
+                self.show_notice(APP_MODE_REASON, cx);
+            } else {
+                self.request_reveal(tab.model.selected.clone());
+            }
             cx.stop_propagation();
             cx.notify();
             return;
@@ -699,22 +807,12 @@ impl Workspace {
                 return;
             }
             self.run(&RunCell, window, cx);
-            if m.alt {
-                let index = self
-                    .tabs
-                    .get(self.active)
-                    .and_then(|t| {
-                        t.model
-                            .selected
-                            .as_ref()
-                            .and_then(|id| t.model.order.iter().position(|c| c == id))
-                    })
-                    .unwrap_or(0)
-                    + 1;
-                self.mutate(json!({"action":"add","type":"code","index":index}));
+            if m.alt && !self.tabs.get(self.active).is_some_and(|t| t.app_mode) {
+                let index = self.index_after_selection();
+                self.add_cell("code", index, None);
             } else if m.shift
                 && !m.control
-                && let Some(tab) = self.tabs.get_mut(self.active)
+                && let Some(tab) = self.tabs.get(self.active)
                 && let Some(index) = tab
                     .model
                     .selected
@@ -722,7 +820,7 @@ impl Workspace {
                     .and_then(|id| tab.model.order.iter().position(|c| c == id))
                 && let Some(next) = tab.model.order.get(index + 1)
             {
-                tab.reveal = Some(next.clone());
+                self.request_reveal(Some(next.clone()));
             }
             cx.stop_propagation();
             cx.notify();
@@ -768,15 +866,15 @@ impl Workspace {
                 .as_ref()
                 .and_then(|id| tab.model.order.iter().position(|c| c == id))
                 .unwrap_or(0);
+            let blocked = blocked_cells(&tab.model, &dag::analyze_notebook(&tab.model));
             let ids = tab
                 .model
                 .order
                 .iter()
                 .enumerate()
                 .filter(|(i, id)| {
-                    let cell = &tab.model.cells[*id];
-                    cell.is_executable()
-                        && !cell.is_disabled()
+                    tab.model.cells[*id].is_executable()
+                        && !blocked.contains(*id)
                         && match scope {
                             "above" => *i < selected,
                             "below" => *i > selected,
@@ -877,20 +975,28 @@ impl Workspace {
     }
 
     pub(super) fn mutate(&mut self, mut request: Value) {
+        // Every source change funnels through here, so App mode is enforced
+        // once for menus, shortcuts and inserts from other surfaces alike.
+        // Only the notebook-level metadata that records App mode itself passes.
+        if self.tabs.get(self.active).is_some_and(|t| t.app_mode)
+            && !(request["action"] == "metadata" && request["cell_id"].is_null())
+        {
+            self.notice = Some(APP_MODE_REASON.into());
+            return;
+        }
         if matches!(
             request["action"].as_str(),
             Some("add" | "duplicate" | "split")
         ) {
-            let id = uuid::Uuid::new_v4().simple().to_string();
+            let id = request["new_id"]
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| uuid::Uuid::new_v4().simple().to_string());
             request["new_id"] = json!(id);
-            if let Some(tab) = self.tabs.get_mut(self.active) {
-                tab.reveal = Some(id);
-            }
+            self.reveal_after_mutation(Some(id));
         }
-        if request["action"] == "move"
-            && let Some(tab) = self.tabs.get_mut(self.active)
-        {
-            tab.reveal = request["cell_id"].as_str().map(str::to_string);
+        if request["action"] == "move" {
+            self.reveal_after_mutation(request["cell_id"].as_str().map(str::to_string));
         }
         if let Some(tab) = self.tabs.get(self.active) {
             request["manifest_revision"] = json!(tab.model.manifest_revision);
@@ -910,6 +1016,7 @@ impl Workspace {
         // linger over an unrelated page (live UX E / apple-design live finding).
         self.menu = None;
         self.palette = false;
+        self.notice = None;
         self.menu_anchor.clear();
         self.menu_bounds.clear();
         if let Some(tab) = self.tabs.get_mut(self.active) {
@@ -1034,14 +1141,8 @@ impl Workspace {
             "run-stale" => self.run_stale_cells(cx),
             "toggle-app-mode" => self.toggle_app_mode(&ToggleAppMode, window, cx),
             "add-code" | "add-markdown" | "add-raw" | "add-sql" => {
-                let tab = &self.tabs[self.active];
-                let index = tab
-                    .model
-                    .selected
-                    .as_ref()
-                    .and_then(|id| tab.model.order.iter().position(|c| c == id))
-                    .map_or(tab.model.order.len(), |i| i + 1);
-                self.mutate(json!({"action":"add","type":method.strip_prefix("add-").unwrap(),"index":index}));
+                let index = self.index_after_selection();
+                self.add_cell(method.strip_prefix("add-").unwrap_or("code"), index, None);
             }
             "format-cell" => {
                 if let Some(id) = self.tabs[self.active].model.selected.clone() {
@@ -1226,6 +1327,11 @@ impl Workspace {
     }
 
     pub(super) fn command_reason(&self, method: &str) -> Option<&'static str> {
+        if APP_MODE_BLOCKED.contains(&method)
+            && self.tabs.get(self.active).is_some_and(|t| t.app_mode)
+        {
+            return Some(APP_MODE_REASON);
+        }
         if matches!(method, "undo-source" | "redo-source") {
             let Some(tab) = self.tabs.get(self.active) else {
                 return Some("Open a notebook first");
@@ -1324,7 +1430,8 @@ impl Workspace {
         }
         if method == "run-stale" {
             let graph = dag::analyze_notebook(&tab.model);
-            if graph.run_stale_ids.is_empty() {
+            let blocked = blocked_cells(&tab.model, &graph);
+            if graph.run_stale_ids.iter().all(|id| blocked.contains(id)) {
                 return Some("No stale cells to run");
             }
             if tab.runtime["connection_lost"] == true {
@@ -1337,11 +1444,12 @@ impl Workspace {
             }
         }
         if method == "run-all" {
+            let blocked = blocked_cells(&tab.model, &dag::analyze_notebook(&tab.model));
             if !tab
                 .model
                 .cells
-                .values()
-                .any(|c| c.is_executable() && !c.is_disabled())
+                .iter()
+                .any(|(id, c)| c.is_executable() && !blocked.contains(id))
             {
                 return Some("Add an enabled code or SQL cell first");
             }

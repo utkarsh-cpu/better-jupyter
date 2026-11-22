@@ -539,7 +539,7 @@ impl Workspace {
             "cell" => {
                 self.surface = "Notebook".into();
                 self.tabs[self.active].model.selected = Some(id.into());
-                self.tabs[self.active].reveal = Some(id.into());
+                self.request_reveal(Some(id.into()));
             }
             "execution" => {
                 self.select_surface("History", cx);
@@ -559,7 +559,7 @@ impl Workspace {
                 {
                     self.surface = "Notebook".into();
                     self.tabs[self.active].model.selected = Some(cid.clone());
-                    self.tabs[self.active].reveal = Some(cid);
+                    self.request_reveal(Some(cid));
                 }
             }
             _ => {}

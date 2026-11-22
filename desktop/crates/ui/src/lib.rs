@@ -1,6 +1,7 @@
 mod accessibility;
 mod assistant;
 mod checkpoints;
+mod codegen;
 mod components;
 mod dag;
 mod debug_source;
@@ -121,12 +122,16 @@ pub(crate) enum ActiveMenu {
     Notebook,
     Export,
     Runtime,
+    /// Keyed by cell id: cells inserted or removed while the menu is open
+    /// must not redirect its actions, so indexes are resolved on activation.
     Cell {
         cell_id: String,
-        index: usize,
         assistant: bool,
     },
-    Insert(usize),
+    /// Insert after the cell with this id.
+    Insert {
+        after: String,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -135,6 +140,9 @@ pub(crate) struct VariablesState {
     pub detail_tab: String,
     pub selected: Option<String>,
     pub sort_col: Option<String>,
+    /// Position of the sorted column; the worker prefers it over the label, which
+    /// is ambiguous for duplicate, non-string, or truncated column names.
+    pub sort_col_index: Option<u64>,
     pub sort_desc: bool,
     pub filter_query: String,
     pub chart_x: Option<String>,
@@ -149,6 +157,7 @@ impl Default for VariablesState {
             detail_tab: "data".into(),
             selected: None,
             sort_col: None,
+            sort_col_index: None,
             sort_desc: false,
             filter_query: String::new(),
             chart_x: None,
@@ -211,12 +220,23 @@ pub struct Workspace {
     questions: BTreeMap<String, Entity<TextareaState>>,
     console_editors: BTreeMap<String, Entity<EditorState>>,
     tick: Task<()>,
+    /// Re-reads the system high-contrast setting, which Windows can toggle
+    /// without a window-appearance change.
+    contrast_poll: Task<()>,
     wake: smol::channel::Sender<()>,
     appearance_subscription: Option<Subscription>,
     python: PathBuf,
     dark: bool,
     high_contrast: bool,
     confirmation: Option<(String, Value)>,
+    /// Why the last requested notebook action did not run.
+    notice: Option<String>,
+    /// Keyboard focus for each cell's insert boundary, keyed by cell id.
+    insert_focus: BTreeMap<String, FocusHandle>,
+    /// Default output variables for new SQL cells, by cell id, until stored.
+    pending_output_vars: BTreeMap<String, String>,
+    /// The SQL output variable being renamed in a cell header.
+    output_var_edit: Option<notebook::OutputVarEdit>,
     palette_active: usize,
     palette_filter: String,
     palette_scroll: UniformListScrollHandle,
@@ -337,6 +357,7 @@ impl Workspace {
             questions: BTreeMap::new(),
             console_editors: BTreeMap::new(),
             tick: Task::ready(()),
+            contrast_poll: Task::ready(()),
             wake,
             appearance_subscription: None,
             python: std::env::var_os("KL_RUNTIME_PYTHON")
@@ -356,6 +377,10 @@ impl Workspace {
             dark,
             high_contrast,
             confirmation: None,
+            notice: None,
+            insert_focus: BTreeMap::new(),
+            pending_output_vars: BTreeMap::new(),
+            output_var_edit: None,
             palette_active: 0,
             palette_filter: String::new(),
             palette_scroll: UniformListScrollHandle::default(),
@@ -492,6 +517,26 @@ impl Workspace {
                 }
             }
         });
+        if SYSTEM_CONTRAST_POLL && !cfg!(test) {
+            view.contrast_poll = cx.spawn_in(window, async move |view, window| {
+                loop {
+                    window
+                        .background_executor()
+                        .timer(Duration::from_secs(3))
+                        .await;
+                    let alive = view.update_in(window, |view, window, cx| {
+                        // A cheap read; the theme is rebuilt only when it changed.
+                        if view.follow_system && view.high_contrast != system_high_contrast() {
+                            view.sync_system_appearance(window, cx);
+                            cx.notify();
+                        }
+                    });
+                    if alive.is_err() {
+                        break;
+                    }
+                }
+            });
+        }
         // Application keybindings need a focused descendant from the first
         // frame, before a pointer click has focused a button or cell editor.
         view.focus.focus(window, cx);
@@ -674,16 +719,56 @@ impl Workspace {
     pub(crate) fn toggle_app_mode(
         &mut self,
         _: &ToggleAppMode,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(tab) = self.tabs.get_mut(self.active) {
-            tab.app_mode = !tab.app_mode;
-            self.surface = "Notebook".into();
-            let count = tab.model.order.len();
-            tab.list.splice(0..count, count);
-            cx.notify();
+        if self.tabs.is_empty() {
+            return;
         }
+        // Menus capture cell actions that App mode no longer offers.
+        self.close_menu(window, cx);
+        self.palette = false;
+        self.notice = None;
+        self.surface = "Notebook".into();
+        let tab = &mut self.tabs[self.active];
+        tab.app_mode = !tab.app_mode;
+        if tab.app_mode {
+            // No editor is drawn in App mode; keep keys off a hidden editor.
+            tab.model.mode = Mode::Command;
+            tab.reveal = None;
+            self.focus.focus(window, cx);
+        }
+        let count = tab.model.order.len();
+        tab.list.splice(0..count, count);
+        if tab.model.saved_app_mode() != tab.app_mode {
+            let metadata = tab.model.metadata_with_app_mode(tab.app_mode);
+            self.mutate(json!({"action": "metadata", "metadata": metadata}));
+        }
+        cx.notify();
+    }
+
+    /// Selects, scrolls to and edits `id`. The change is applied by `drain`,
+    /// so wake the loop: nothing else may arrive to run it.
+    pub(crate) fn request_reveal(&mut self, id: Option<String>) {
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.reveal = id;
+            let _ = self.wake.try_send(());
+        }
+    }
+
+    /// Like `request_reveal`, for the cell a source mutation creates or moves:
+    /// it waits for the snapshot that mutation produces, so the cell is shown
+    /// where it lands. That snapshot drains it, so no wake is needed.
+    fn reveal_after_mutation(&mut self, id: Option<String>) {
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.reveal = id;
+        }
+    }
+
+    /// Shows an informational notice above the notebook.
+    pub(crate) fn show_notice(&mut self, notice: impl Into<String>, cx: &mut Context<Self>) {
+        self.notice = Some(notice.into());
+        cx.notify();
     }
 
     pub(crate) fn mutate_cell_metadata(
@@ -699,16 +784,11 @@ impl Workspace {
         let Some(cell) = tab.model.cells.get(cell_id) else {
             return;
         };
-        let mut meta = cell.disk.metadata.clone();
-        if value.is_null() {
-            meta.remove(key);
-        } else {
-            meta.insert(key.to_string(), value);
-        }
+        let metadata = cell.metadata_with(key, value);
         self.mutate(json!({
             "action": "metadata",
             "cell_id": cell_id,
-            "metadata": meta,
+            "metadata": metadata,
         }));
         cx.notify();
     }
@@ -719,23 +799,90 @@ impl Workspace {
         source: String,
         cx: &mut Context<Self>,
     ) {
+        let index = self.index_after_selection();
+        self.add_cell(kind, index, Some(source));
+        self.surface = "Notebook".into();
+        cx.notify();
+    }
+
+    /// The insertion index just below the selected cell, or the end.
+    pub(crate) fn index_after_selection(&self) -> usize {
+        self.tabs.get(self.active).map_or(0, |tab| {
+            tab.model
+                .selected
+                .as_ref()
+                .and_then(|id| tab.model.order.iter().position(|c| c == id))
+                .map_or(tab.model.order.len(), |i| i + 1)
+        })
+    }
+
+    /// Inserts below the cell `after`, resolved now rather than when a menu
+    /// opened, or at the end when that cell has since been removed.
+    pub(crate) fn insert_cell_after(&mut self, after: &str, kind: &str) {
         let Some(tab) = self.tabs.get(self.active) else {
             return;
         };
         let index = tab
             .model
-            .selected
-            .as_ref()
-            .and_then(|id| tab.model.order.iter().position(|c| c == id))
+            .order
+            .iter()
+            .position(|id| id == after)
             .map_or(tab.model.order.len(), |i| i + 1);
-        self.mutate(json!({
-            "action": "add",
-            "type": kind,
-            "index": index,
-            "source": source,
-        }));
-        self.surface = "Notebook".into();
-        cx.notify();
+        self.add_cell(kind, index, None);
+    }
+
+    /// Adds a `kind` cell at `index`. A new SQL cell gets an output variable
+    /// that no other cell defines (`sql_result`, `sql_result_2`, …).
+    pub(crate) fn add_cell(&mut self, kind: &str, index: usize, source: Option<String>) {
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        let mut request = json!({"action": "add", "type": kind, "index": index, "new_id": id});
+        if let Some(source) = source {
+            request["source"] = json!(source);
+        }
+        if kind == "sql" {
+            self.assign_output_var(id);
+        }
+        self.mutate(request);
+    }
+
+    /// Records a unique default output variable for SQL cell `id`, applied
+    /// once the cell exists as SQL (see `apply_output_vars`).
+    pub(crate) fn assign_output_var(&mut self, id: String) {
+        let Some(tab) = self.tabs.get(self.active).filter(|tab| !tab.app_mode) else {
+            return;
+        };
+        let mut taken = notebook_names(&tab.model);
+        taken.extend(self.pending_output_vars.values().cloned());
+        let name = codegen::unique_name("sql_result", &taken);
+        self.pending_output_vars.insert(id, name);
+    }
+
+    /// Stores pending default output variables on SQL cells that now exist.
+    /// The `add` mutation cannot carry metadata, so this follows it.
+    fn apply_output_vars(&mut self, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let ready: Vec<String> = self
+            .pending_output_vars
+            .keys()
+            .filter(|id| {
+                tab.model
+                    .cells
+                    .get(*id)
+                    .is_some_and(|c| c.disk.kind == "sql")
+            })
+            .cloned()
+            .collect();
+        for id in ready {
+            let name = self.pending_output_vars.remove(&id).unwrap_or_default();
+            let unset = !self.tabs[self.active].model.cells[&id]
+                .cell_metadata()
+                .contains_key("output_var");
+            if unset {
+                self.mutate_cell_metadata(&id, "output_var", json!(name), cx);
+            }
+        }
     }
 
     pub(crate) fn format_cell(&mut self, cell_id: &str, cx: &mut Context<Self>) {
@@ -771,11 +918,17 @@ impl Workspace {
             return;
         };
         let graph = dag::analyze_notebook(&tab.model);
-        if graph.run_stale_ids.is_empty() {
+        let blocked = blocked_cells(&tab.model, &graph);
+        let ids: Vec<_> = graph
+            .run_stale_ids
+            .into_iter()
+            .filter(|id| !blocked.contains(id))
+            .collect();
+        if ids.is_empty() {
             return;
         }
         self.send(Command::Run {
-            cell_ids: graph.run_stale_ids,
+            cell_ids: ids,
             on_error: "stop".into(),
         });
         cx.notify();
@@ -785,13 +938,13 @@ impl Workspace {
         let Some(tab) = self.tabs.get(self.active) else {
             return;
         };
-        let graph = dag::analyze_notebook(&tab.model);
-        let mut ids = vec![cell_id.to_string()];
-        ids.extend(graph.downstream_ids(cell_id));
-        self.send(Command::Run {
-            cell_ids: ids,
-            on_error: "stop".into(),
-        });
+        match downstream_plan(&tab.model, &dag::analyze_notebook(&tab.model), cell_id) {
+            Ok(ids) => self.send(Command::Run {
+                cell_ids: ids,
+                on_error: "stop".into(),
+            }),
+            Err(reason) => self.notice = Some(reason.into()),
+        }
         cx.notify();
     }
 
@@ -800,8 +953,8 @@ impl Workspace {
             && tab.model.cells.contains_key(&cell_id)
         {
             tab.model.selected = Some(cell_id.clone());
-            tab.reveal = Some(cell_id);
             self.surface = "Notebook".into();
+            self.request_reveal(Some(cell_id));
             cx.notify();
         }
     }
@@ -1158,7 +1311,28 @@ impl Workspace {
                             tab.uninitialized = snapshot.state == "missing"
                                 && !snapshot.details.contains_key("manifest");
                             let order = tab.model.order.clone();
+                            let saved_app_mode = (!tab.model.manifest_revision.is_empty())
+                                .then(|| tab.model.saved_app_mode());
+                            let (app_mode, cell_metadata) =
+                                (tab.app_mode, cell_metadata(&tab.model));
                             tab.model.apply_snapshot(snapshot);
+                            // Adopt the saved App mode on open and on changes made
+                            // elsewhere; a local toggle in flight is not reverted.
+                            if tab.model.source_state == "ok"
+                                && saved_app_mode != Some(tab.model.saved_app_mode())
+                            {
+                                tab.app_mode = tab.model.saved_app_mode();
+                                if tab.app_mode {
+                                    tab.model.mode = Mode::Command;
+                                }
+                            }
+                            // Hidden code, disabled cells and App mode change cell heights.
+                            if order == tab.model.order
+                                && (app_mode != tab.app_mode
+                                    || cell_metadata != self::cell_metadata(&tab.model))
+                            {
+                                tab.list.splice(0..order.len(), order.len());
+                            }
                             if tab.model.source_state == "ok"
                                 && self.recorded_opens.insert(tab.model.project.clone())
                             {
@@ -1230,6 +1404,10 @@ impl Workspace {
                             tab.inspections.remove("Technical error");
                         }
                         tab.runtime = value;
+                        tab.model.live_session = tab.runtime["session_id"]
+                            .as_str()
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_owned);
                         let became_idle = prev_state.as_deref() != Some("idle");
                         let epoch_changed = tab.runtime["interactive"]["namespace_epoch"]
                             != prev_epoch
@@ -1292,6 +1470,7 @@ impl Workspace {
                                 value["source_sha256"].as_str().map(str::to_owned);
                             cell.ordinal = value["ordinal"].as_u64();
                             cell.outcome = value["status"].as_str().unwrap_or("unknown").into();
+                            cell.session_id = value["session_id"].as_str().map(str::to_owned);
                             if let Some(i) = tab.model.order.iter().position(|cid| cid == id) {
                                 tab.list.splice(i..i + 1, 1);
                             }
@@ -1775,30 +1954,44 @@ impl Workspace {
                 }
             }
         }
-        if let Some(tab) = self.tabs.get_mut(self.active)
-            && let Some(id) = tab.reveal.clone()
-            && let Some(index) = tab.model.order.iter().position(|c| c == &id)
-        {
-            tab.model.selected = Some(id.clone());
-            tab.model.mode = Mode::Edit;
-            if tab.list.bounds_for_item(index).is_some() {
-                tab.list.scroll_to_reveal_item(index);
-            } else {
-                // Height estimates are absent after a structural reset. Anchor
-                // directly to an unmeasured target instead of revealing its estimate.
-                tab.list.scroll_to(ListOffset {
-                    item_ix: index,
-                    offset_in_item: px(0.),
-                });
-            }
-            tab.reveal = None;
-            let editor = self.editor(self.active, &id, window, cx);
-            editor.update(cx, |s, cx| s.focus(window, cx));
-            changed = true;
+        if changed {
+            self.apply_output_vars(cx);
         }
+        changed |= self.apply_reveal(window, cx);
         if changed {
             cx.notify();
         }
+    }
+    /// Selects, scrolls to and edits the pending reveal target once it exists.
+    /// App mode only selects and scrolls: it draws no editor.
+    fn apply_reveal(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(tab) = self.tabs.get_mut(self.active) else {
+            return false;
+        };
+        let Some(id) = tab.reveal.clone() else {
+            return false;
+        };
+        let Some(index) = tab.model.order.iter().position(|c| c == &id) else {
+            return false;
+        };
+        tab.reveal = None;
+        tab.model.selected = Some(id.clone());
+        if tab.list.bounds_for_item(index).is_some() {
+            tab.list.scroll_to_reveal_item(index);
+        } else {
+            // Height estimates are absent after a structural reset. Anchor
+            // directly to an unmeasured target instead of revealing its estimate.
+            tab.list.scroll_to(ListOffset {
+                item_ix: index,
+                offset_in_item: px(0.),
+            });
+        }
+        if !tab.app_mode {
+            tab.model.mode = Mode::Edit;
+            let editor = self.editor(self.active, &id, window, cx);
+            editor.update(cx, |s, cx| s.focus(window, cx));
+        }
+        true
     }
     fn back(&mut self) {
         if let Some(tab) = self.tabs.get_mut(self.active)
@@ -2243,7 +2436,9 @@ impl Workspace {
                     let rel = item["path"].as_str().unwrap_or_default().to_string();
                     let name = item["name"].as_str().unwrap_or(&rel).to_string();
                     let size = item["size"].as_u64().unwrap_or(0);
-                    let snippet = item["loader_snippet"].as_str().map(str::to_owned);
+                    // Generated here, not by the helper, so each loader binds its own
+                    // variable and the path is always a safely escaped literal.
+                    let loadable = codegen::loader_source(&rel, &Default::default()).is_some();
                     file_list = file_list.child(
                         h_flex()
                             .id(("ws-file", i))
@@ -2276,7 +2471,7 @@ impl Workspace {
                                             )),
                                     ),
                             )
-                            .when_some(snippet, |d, code| {
+                            .when(loadable, |d| {
                                 d.child(
                                     action_button(("load-file", i))
                                         .ghost()
@@ -2284,7 +2479,11 @@ impl Workspace {
                                         .label("Load")
                                         .hint("Insert loader cell for this file")
                                         .on_click(cx.listener(move |v, _, _, cx| {
-                                            v.insert_cell_with_source("code", code.clone(), cx);
+                                            let taken = notebook_names(&v.tabs[v.active].model);
+                                            if let Some(code) = codegen::loader_source(&rel, &taken)
+                                            {
+                                                v.insert_cell_with_source("code", code, cx);
+                                            }
                                         })),
                                 )
                             }),
@@ -2314,8 +2513,10 @@ impl Workspace {
             .pb_2()
             .gap_0p5();
         let mut shown = 0;
+        let blocked = blocked_cells(&tab.model, &graph);
         for (i, id) in tab.model.order.iter().enumerate() {
             let cell = &tab.model.cells[id];
+            let state = OutlineState::of(cell, blocked.contains(id));
             if !query.is_empty()
                 && !cell.text.to_lowercase().contains(&query)
                 && !id.to_lowercase().contains(&query)
@@ -2362,19 +2563,20 @@ impl Workspace {
                             ", failed"
                         } else if cell.stale() || upstream_stale {
                             ", stale"
-                        } else if cell.is_disabled() {
-                            ", disabled"
                         } else {
                             ""
                         };
                         format!(
-                            "Cell {}: {} cell {id}: {}{status}",
+                            "Cell {}: {} cell {id}: {}{status}{}",
                             i + 1,
                             cell.disk.kind,
                             cell.text
                                 .lines()
                                 .find(|l| !l.trim().is_empty())
-                                .unwrap_or("Empty cell")
+                                .unwrap_or("Empty cell"),
+                            state
+                                .map(|s| format!(", {}", s.label()))
+                                .unwrap_or_default()
                         )
                     })
                     .aria_selected(selected)
@@ -2392,7 +2594,7 @@ impl Workspace {
                     .cursor_pointer()
                     .when(selected, |d| d.bg(active_bg))
                     .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
-                    .when(cell.is_disabled(), |d| d.opacity(0.55))
+                    .when(state.is_some_and(OutlineState::muted), |d| d.opacity(0.55))
                     .child(
                         div()
                             .flex_none()
@@ -2420,6 +2622,22 @@ impl Workspace {
                                 format!("Empty {} cell", kind_label(&cell.disk.kind))
                             })),
                     )
+                    .when_some(state, |d, state| {
+                        d.child(
+                            div()
+                                .id(("outline-state", i))
+                                .debug_selector({
+                                    let id = id.clone();
+                                    move || format!("outline-state-{id}")
+                                })
+                                .flex_none()
+                                .text_color(muted_fg)
+                                .child(Icon::new(state.glyph()).xsmall())
+                                .tooltip(move |_, cx| {
+                                    cx.new(|_| WorkbenchHint(state.hint().into())).into()
+                                }),
+                        )
+                    })
                     .child(
                         h_flex().flex_none().w(px(28.)).justify_end().child(
                             div()
@@ -2441,8 +2659,8 @@ impl Workspace {
                         let t = &mut v.tabs[v.active];
                         t.model.selected = Some(id.clone());
                         t.list.scroll_to_reveal_item(i);
-                        t.reveal = Some(id.clone());
                         v.focus.focus(window, cx);
+                        v.request_reveal(Some(id.clone()));
                         cx.notify();
                     })),
             );
@@ -2541,7 +2759,8 @@ impl Render for Workspace {
             window.set_rem_size(rem_size);
         }
         let font_size = px(14. * self.preferences.ui_scale);
-        let mono_font_size = px(13. * self.preferences.ui_scale);
+        let mono_font_size =
+            output_font_size(self.preferences.editor_size, self.preferences.ui_scale);
         if cx.theme().font_size != font_size || cx.theme().mono_font_size != mono_font_size {
             let theme = Theme::global_mut(cx);
             theme.font_size = font_size;
@@ -3085,6 +3304,62 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
         ),
     }
 }
+/// Why a cell is marked in the outline: it will not run, or shows no source.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum OutlineState {
+    Disabled,
+    Blocked,
+    CodeHidden,
+}
+impl OutlineState {
+    /// Disabled first, then blocked by a disabled ancestor, then hidden code.
+    pub(crate) fn of(cell: &kernelledger_models::CellModel, blocked: bool) -> Option<Self> {
+        if cell.is_disabled() {
+            Some(Self::Disabled)
+        } else if blocked {
+            Some(Self::Blocked)
+        } else if cell.is_code_hidden() {
+            Some(Self::CodeHidden)
+        } else {
+            None
+        }
+    }
+    fn glyph(self) -> Glyph {
+        match self {
+            Self::Disabled => Glyph::PowerOff,
+            Self::Blocked => Glyph::Link2Off,
+            Self::CodeHidden => Glyph::EyeOff,
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Blocked => "blocked by disabled cell",
+            Self::CodeHidden => "code hidden",
+        }
+    }
+    fn hint(self) -> &'static str {
+        match self {
+            Self::Disabled => "Disabled: skipped by Run all",
+            Self::Blocked => "Depends on a disabled cell; Run all skips it",
+            Self::CodeHidden => "Code hidden",
+        }
+    }
+    /// Cells that will not run read as muted.
+    fn muted(self) -> bool {
+        self != Self::CodeHidden
+    }
+}
+
+/// Every cell's manifest fields in notebook order, to detect layout changes.
+fn cell_metadata(model: &NotebookModel) -> Vec<Option<BTreeMap<String, Value>>> {
+    model
+        .order
+        .iter()
+        .map(|id| model.cells.get(id).map(|cell| cell.disk.metadata.clone()))
+        .collect()
+}
+
 fn error_message(code: &str) -> &'static str {
     match code {
         "undo_conflict" => {
@@ -3400,6 +3675,10 @@ fn system_high_contrast() -> bool {
 fn system_high_contrast() -> bool {
     false
 }
+
+/// Whether `system_high_contrast` can change while the window appearance stays
+/// the same, and so needs a periodic re-check.
+const SYSTEM_CONTRAST_POLL: bool = cfg!(target_os = "windows");
 
 fn operation_label(op: &Value, model: &NotebookModel) -> String {
     let kind = op["kind"]

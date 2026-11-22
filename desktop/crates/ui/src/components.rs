@@ -136,6 +136,8 @@ pub(super) struct WorkbenchButton {
 enum ButtonTreatment {
     Secondary,
     Quiet,
+    /// No fill in any state; the content carries hover and focus emphasis.
+    Bare,
     Primary,
     Danger,
     Segment(bool),
@@ -172,17 +174,6 @@ impl WorkbenchButton {
                 .focus(|style| style.opacity(1.));
             // An occluding button would hide its group's hitbox, so a pointer
             // resting on the button would stop hovering the group and hide it.
-            self.occlude = false;
-        }
-        self
-    }
-    pub fn subtle_contextual(mut self, group: impl Into<SharedString>, rest_opacity: f32) -> Self {
-        if rest_opacity < 1. {
-            self.inner = self
-                .inner
-                .opacity(rest_opacity)
-                .group_hover(group, |style| style.opacity(1.))
-                .focus(|style| style.opacity(1.));
             self.occlude = false;
         }
         self
@@ -522,6 +513,25 @@ impl WorkbenchButton {
         self.inner = self.inner.ghost();
         self
     }
+    /// A control drawn entirely by its content, such as a boundary row:
+    /// no fill or border at rest, on hover or when pressed.
+    pub fn bare(mut self) -> Self {
+        self.treatment = ButtonTreatment::Bare;
+        self.inner = self.inner.ghost();
+        self
+    }
+    /// Lets the enclosing hover group see the pointer over this button, for
+    /// content that reacts with `group_hover`.
+    pub fn in_hover_group(mut self) -> Self {
+        self.occlude = false;
+        self
+    }
+    /// Uses a caller-owned focus handle, so the caller can tell when the
+    /// button holds keyboard focus.
+    pub fn track_focus(mut self, focus: &FocusHandle) -> Self {
+        self.inner = self.inner.track_focus(focus);
+        self
+    }
     pub fn primary(mut self) -> Self {
         self.treatment = ButtonTreatment::Primary;
         self.inner = self.inner.primary();
@@ -555,6 +565,10 @@ impl WorkbenchButton {
     }
     pub fn dropdown_caret(mut self, value: bool) -> Self {
         self.inner = self.inner.dropdown_caret(value);
+        self
+    }
+    pub fn child(mut self, child: impl IntoElement) -> Self {
+        self.inner = self.inner.child(child);
         self
     }
     pub fn on_click(
@@ -660,6 +674,16 @@ impl RenderOnce for WorkbenchButton {
                     } else {
                         theme.transparent
                     });
+            }
+            ButtonTreatment::Bare => {
+                self.inner = self.inner.custom(
+                    ButtonCustomVariant::new(cx)
+                        .color(theme.transparent)
+                        .foreground(theme.muted_foreground)
+                        .hover(theme.transparent)
+                        .active(theme.transparent)
+                        .shadow(false),
+                );
             }
             ButtonTreatment::Quiet | ButtonTreatment::Primary | ButtonTreatment::Danger => {}
         }

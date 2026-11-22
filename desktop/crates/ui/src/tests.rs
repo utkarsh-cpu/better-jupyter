@@ -1269,7 +1269,6 @@ fn changing_destination_clears_menus_and_palette(cx: &mut TestAppContext) {
         view.update(cx, |v, cx| {
             v.menu = Some(ActiveMenu::Cell {
                 cell_id: "first".into(),
-                index: 0,
                 assistant: true,
             });
             v.palette = true;
@@ -2253,7 +2252,6 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
         v.return_focus = Some(v.focus.clone());
         v.menu = Some(ActiveMenu::Cell {
             cell_id: "second".into(),
-            index: 1,
             assistant: false,
         });
         v.dialog_focus.focus(window, cx);
@@ -3422,11 +3420,7 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
             super::surface_edge(cx),
             "unselected cells at rest must use the surface_edge hairline"
         );
-        assert_eq!(super::notebook::boundary_button_label(false), None);
-        assert_eq!(
-            super::notebook::boundary_button_label(true),
-            Some("Add cell")
-        );
+        assert_eq!(super::notebook::BOUNDARY_LABEL, "Add cell");
         window.render_frame(cx);
         window.render_frame(cx);
     })
@@ -3446,6 +3440,12 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
     let boundary_first = visual
         .debug_bounds("cell-boundary-first")
         .expect("first cell boundary");
+    let plus_first = visual
+        .debug_bounds("cell-insert-plus-first")
+        .expect("middle '+'");
+    let plus_last = visual
+        .debug_bounds("cell-insert-plus-second")
+        .expect("trailing '+'");
     let (insert_first, insert_last) = cx
         .update_window(handle, |_, window, _| {
             (
@@ -3454,25 +3454,27 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
             )
         })
         .unwrap();
+    // The whole boundary row is the click target, not a small "+" pill.
     assert!(
-        insert_first.size.width <= px(40.),
-        "middle boundary must stay a compact lowkey icon-only '+' trigger, got {:?}",
-        insert_first.size
-    );
-    assert!(
-        insert_last.size.width > insert_first.size.width,
-        "trailing '+ Add cell' ghost trigger {:?} must include its label",
-        insert_last.size
-    );
-    assert!(
-        (insert_first.center().x - insert_last.center().x).abs() <= px(1.),
-        "middle '+' {:?} and trailing '+ Add cell' {:?} triggers must share the same horizontal center",
+        insert_first.size.width >= boundary_first.size.width * 0.9
+            && insert_first.size.height >= boundary_first.size.height - px(1.),
+        "insert target {:?} must fill its boundary row {:?}",
         insert_first,
-        insert_last
+        boundary_first
     );
     assert_eq!(
-        insert_first.size.height, insert_last.size.height,
-        "middle '+' and trailing '+ Add cell' triggers must share the same height"
+        insert_first.size.width, insert_last.size.width,
+        "middle and trailing boundary targets span the same reading column"
+    );
+    assert!(
+        insert_first.size.height >= px(28.) && insert_last.size.height >= px(28.),
+        "boundary targets keep at least the standard pointer target height"
+    );
+    assert!(
+        (plus_first.center().x - plus_last.center().x).abs() <= px(1.),
+        "middle '+' {:?} and trailing '+ Add cell' {:?} must share the same horizontal center",
+        plus_first,
+        plus_last
     );
 
     // Verify generous Marimo-style breathing room between the cell card and the + button.
@@ -3482,14 +3484,14 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         boundary_first.size.height
     );
     assert!(
-        insert_first.origin.y >= card_first.origin.y + card_first.size.height + px(3.),
-        "insert button {:?} must have clear vertical gap below card {:?}",
-        insert_first,
+        plus_first.origin.y >= card_first.origin.y + card_first.size.height + px(3.),
+        "the '+' {:?} must have clear vertical gap below card {:?}",
+        plus_first,
         card_first
     );
     assert!(
-        (insert_first.center().y - boundary_first.center().y).abs() <= px(1.),
-        "insert button must be vertically centered in its boundary slot"
+        (plus_first.center().y - boundary_first.center().y).abs() <= px(1.),
+        "the '+' must be vertically centered in its boundary slot"
     );
 
     // Cell tools share one centerline and float above the source, never over it.
@@ -4650,4 +4652,662 @@ fn dataframe_chart_snippet_and_expanded_widgets_render_cleanly(cx: &mut TestAppC
                 && v["type"] == "code"
                 && v["source"].as_str().is_some_and(|s| s.contains("matplotlib"))
     )));
+}
+
+/// Replaces the mounted notebook's cells, as a source snapshot from disk would.
+fn load_cells(v: &mut Workspace, cells: serde_json::Value) {
+    let tab = &mut v.tabs[0];
+    tab.model.apply_snapshot(
+        serde_json::from_value(json!({"state":"ok","manifest_revision":"cells","cells":cells}))
+            .unwrap(),
+    );
+    tab.list.reset(tab.model.order.len());
+}
+
+fn code_cell(id: &str, source: &str, metadata: serde_json::Value) -> serde_json::Value {
+    json!({"id": id, "type": "code", "source": source, "revision": format!("rev-{id}"), "metadata": metadata})
+}
+
+fn sent_mutations(commands: &Receiver<Command>) -> Vec<serde_json::Value> {
+    commands
+        .try_iter()
+        .filter_map(|c| match c {
+            Command::Mutate(value) => Some(value),
+            _ => None,
+        })
+        .collect()
+}
+
+fn sent_runs(commands: &Receiver<Command>) -> Vec<Vec<String>> {
+    commands
+        .try_iter()
+        .filter_map(|c| match c {
+            Command::Run { cell_ids, .. } => Some(cell_ids),
+            _ => None,
+        })
+        .collect()
+}
+
+#[gpui_kit::test]
+fn enter_and_outline_reveal_edit_their_cell_without_another_service_event(cx: &mut TestAppContext) {
+    // The live wake loop stays installed: nothing else arrives to drain.
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.mode = kernelledger_models::Mode::Command;
+            v.focus.focus(window, cx);
+        });
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.run_until_parked();
+    cx.update_window(handle, |_, window, cx| {
+        let v = view.read(cx);
+        assert_eq!(v.tabs[0].model.mode, kernelledger_models::Mode::Edit);
+        assert!(v.tabs[0].reveal.is_none());
+        assert!(
+            v.tabs[0].editors["first"]
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window),
+            "Enter on a selected cell must focus its editor"
+        );
+        // The outline's keyboard path: move to the next cell and open it.
+        view.update(cx, |v, cx| v.sidebar_focus.focus(window, cx));
+        window.render_frame(cx);
+        window.press("down", cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.run_until_parked();
+    cx.update_window(handle, |_, window, cx| {
+        let v = view.read(cx);
+        assert_eq!(v.tabs[0].model.selected.as_deref(), Some("second"));
+        assert!(
+            v.tabs[0].editors["second"]
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window),
+            "an outline click must open the cell it names"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn cell_setting_toggles_send_the_merged_inner_metadata(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let inner = json!({
+        "tags": ["keep"],
+        "kernelledger": {"ipynb_fields": {"collapsed": false}},
+        "output_var": "totals",
+    });
+    let cell = |metadata: serde_json::Value| {
+        let mut cell = code_cell("first", "print(42)", metadata);
+        cell["attachments"] = json!(["plot.png"]);
+        cell["attachment_mimes"] = json!({"plot.png": "image/png"});
+        cell
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, json!([cell(inner.clone())]));
+            v.tabs[0].model.selected = Some("first".into());
+            v.run_command("toggle-hide-code", window, cx);
+        });
+    })
+    .unwrap();
+    let mut hidden = inner.clone();
+    hidden["hide_code"] = json!(true);
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["action"], "metadata");
+    assert_eq!(sent[0]["cell_id"], "first");
+    assert_eq!(
+        sent[0]["metadata"], hidden,
+        "only the cell's own metadata is sent"
+    );
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            // The helper stores the payload as the cell's `metadata`.
+            load_cells(v, json!([cell(hidden.clone())]));
+            assert!(v.tabs[0].model.cells["first"].is_code_hidden());
+            v.run_command("toggle-disabled", window, cx);
+        });
+    })
+    .unwrap();
+    let mut both = hidden.clone();
+    both["disabled"] = json!(true);
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["metadata"], both);
+    assert!(sent[0]["metadata"].get("metadata").is_none());
+    assert!(sent[0]["metadata"].get("attachments").is_none());
+}
+
+#[gpui_kit::test]
+fn app_mode_blocks_editing_keeps_running_and_closes_menus(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.metadata =
+                json!({"title": "Report", "kernelledger": {"imported_ids": ["x"]}})
+                    .as_object()
+                    .unwrap()
+                    .clone();
+            v.tabs[0].model.selected = Some("first".into());
+            v.menu = Some(ActiveMenu::Insert {
+                after: "first".into(),
+            });
+            v.toggle_app_mode(&super::ToggleAppMode, window, cx);
+            assert!(v.tabs[0].app_mode);
+            assert!(v.menu.is_none(), "App mode closes open cell menus");
+            for method in [
+                "add-code",
+                "add-sql",
+                "delete-cell",
+                "duplicate-cell",
+                "move-down",
+                "merge-cell",
+                "toggle-hide-code",
+                "toggle-disabled",
+                "undo-source",
+            ] {
+                assert_eq!(
+                    v.command_reason(method),
+                    Some(super::commands::APP_MODE_REASON),
+                    "{method}"
+                );
+            }
+            assert_eq!(v.command_reason("run-selected"), None);
+            assert_eq!(v.command_reason("run-all"), None);
+        });
+    })
+    .unwrap();
+    // Recorded per notebook, merged into the existing notebook metadata.
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0]["cell_id"].is_null());
+    assert_eq!(
+        sent[0]["metadata"],
+        json!({"title": "Report", "kernelledger": {"imported_ids": ["x"], "app_mode": true}})
+    );
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        for key in [
+            "ctrl-shift-n",
+            "ctrl-shift-d",
+            "ctrl-alt-down",
+            "alt-enter",
+            "enter",
+        ] {
+            window.press(key, cx);
+        }
+        window.press("ctrl-enter", cx);
+        view.update(cx, |v, _| {
+            // Inserts from other surfaces are refused at the source boundary too.
+            v.mutate(json!({"action":"add","type":"code","index":0}));
+        });
+    })
+    .unwrap();
+    cx.run_until_parked();
+    let all: Vec<Command> = commands.try_iter().collect();
+    assert!(
+        !all.iter().any(|c| matches!(c, Command::Mutate(_))),
+        "App mode must not change source"
+    );
+    assert_eq!(
+        all.iter()
+            .filter(|c| matches!(c, Command::Run { .. }))
+            .count(),
+        2,
+        "Alt+Enter and Ctrl+Enter still run the cell"
+    );
+    let v = view.read_with(cx, |v, _| (v.tabs[0].model.mode.clone(), v.notice.clone()));
+    assert_eq!(v.0, kernelledger_models::Mode::Command);
+    assert_eq!(v.1.as_deref(), Some(super::commands::APP_MODE_REASON));
+}
+
+#[gpui_kit::test]
+fn app_mode_is_restored_from_notebook_metadata_on_open(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, _) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    let snapshot = |app_mode: bool| {
+        Event::Source(json!({
+            "state": "ok",
+            "manifest_revision": format!("m-{app_mode}"),
+            "manifest": {"metadata": {"kernelledger": {"app_mode": app_mode}}},
+            "cells": [code_cell("first", "print(42)", json!({}))],
+        }))
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            // A freshly opened tab has read nothing yet.
+            v.tabs[0].model.manifest_revision.clear();
+            send.send(snapshot(true)).unwrap();
+            v.drain(window, cx);
+            assert!(v.tabs[0].app_mode, "reopening restores App mode");
+            // An unrelated snapshot does not undo a local toggle in flight.
+            v.tabs[0].app_mode = false;
+            send.send(snapshot(true)).unwrap();
+            v.drain(window, cx);
+            assert!(!v.tabs[0].app_mode);
+            // A change saved elsewhere is adopted.
+            v.tabs[0].app_mode = true;
+            send.send(snapshot(false)).unwrap();
+            v.drain(window, cx);
+            assert!(!v.tabs[0].app_mode);
+        });
+    })
+    .unwrap();
+}
+
+#[test]
+fn app_mode_collapses_errors_and_hides_disabled_or_empty_cells() {
+    let cell = |metadata: serde_json::Value, output: Vec<serde_json::Value>| {
+        let mut cell = kernelledger_models::CellModel::from_source(
+            serde_json::from_value(code_cell("c", "x", metadata)).unwrap(),
+        );
+        cell.output = output;
+        cell
+    };
+    let error = json!({"kind":"error","ename":"ValueError","evalue":"bad","traceback":["Traceback ...", "ValueError: bad"]});
+    let text = json!({"kind":"stdout","text":"partial\n"});
+    let failed = cell(json!({}), vec![text.clone(), error.clone()]);
+    let (shown, raised) = super::notebook::app_mode_outputs(&failed).unwrap();
+    assert_eq!(shown, vec![&text], "tracebacks are never shown in App mode");
+    assert!(raised);
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"disabled": true}), vec![text.clone()]))
+            .is_none(),
+        "a disabled cell's outputs are hidden"
+    );
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"hide_code": true}), vec![])).is_none(),
+        "a hidden-code cell without output is hidden entirely"
+    );
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"hide_code": true}), vec![text])).is_some()
+    );
+}
+
+#[gpui_kit::test]
+fn app_mode_renders_a_one_line_error_note_instead_of_the_traceback(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind":"error","ename":"ZeroDivisionError","evalue":"division by zero",
+                "traceback":["ZeroDivisionError: division by zero"]
+            })];
+            v.tabs[0].app_mode = true;
+            v.tabs[0].list.reset(2);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        assert!(window.try_find(("insert-cell", 0usize)).is_none());
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(visual.debug_bounds("app-error-first").is_some());
+}
+
+/// a (disabled) -> b -> d, and c is independent.
+fn load_disabled_chain(v: &mut Workspace) {
+    load_cells(
+        v,
+        json!([
+            code_cell("a", "x = 1", json!({"disabled": true})),
+            code_cell("b", "y = x + 1", json!({})),
+            code_cell("c", "z = 3", json!({})),
+            code_cell("d", "w = y * 2", json!({})),
+        ]),
+    );
+}
+
+#[gpui_kit::test]
+fn disabled_cells_block_their_descendants_in_every_batch_run(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_disabled_chain(v);
+            let model = &v.tabs[0].model;
+            let graph = super::dag::analyze_notebook(model);
+            assert_eq!(
+                super::blocked_cells(model, &graph),
+                ["a", "b", "d"].map(String::from).into()
+            );
+            v.batch("all");
+            v.tabs[0].model.selected = Some("c".into());
+            v.batch("above");
+            v.batch("below");
+            v.run_command("run-stale", window, cx);
+            assert!(v.notice.is_none());
+            v.run_cell_and_downstream("a", cx);
+            assert_eq!(
+                v.notice.as_deref(),
+                Some("Cell is disabled; enable it before running")
+            );
+            v.run_cell_and_downstream("b", cx);
+            assert_eq!(
+                v.notice.as_deref(),
+                Some("Blocked by a disabled upstream cell")
+            );
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for (selector, blocked) in [
+        ("blocked-by-disabled-a", false),
+        ("blocked-by-disabled-b", true),
+        ("blocked-by-disabled-c", false),
+        ("blocked-by-disabled-d", true),
+    ] {
+        assert_eq!(
+            visual.debug_bounds(selector).is_some(),
+            blocked,
+            "{selector}"
+        );
+    }
+    assert_eq!(
+        sent_runs(&commands),
+        vec![vec!["c".to_string()], vec![], vec![], vec!["c".to_string()]],
+        "Run all, above, below and stale skip disabled and blocked cells; \
+         Run + downstream from a disabled or blocked cell sends nothing"
+    );
+}
+
+#[gpui_kit::test]
+fn run_downstream_counts_only_dependents_and_skips_blocked_ones(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, _, cx| {
+        view.update(cx, |v, _| {
+            load_cells(
+                v,
+                json!([
+                    code_cell("a", "x = 1", json!({})),
+                    code_cell("b", "y = x + 1", json!({})),
+                    code_cell("c", "z = y + 1", json!({})),
+                    code_cell("off", "q = 0", json!({"disabled": true})),
+                    code_cell("e", "r = x + q", json!({})),
+                ]),
+            );
+            let model = &v.tabs[0].model;
+            let graph = super::dag::analyze_notebook(model);
+            let plan = super::downstream_plan(model, &graph, "a");
+            assert_eq!(plan, Ok(["a", "b", "c"].map(String::from).to_vec()));
+            assert_eq!(super::run_downstream_label(&plan), "Run + downstream (2)");
+            let leaf = super::downstream_plan(model, &graph, "c");
+            assert_eq!(super::run_downstream_label(&leaf), "Run + downstream");
+            assert!(super::downstream_plan(model, &graph, "off").is_err());
+        });
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn menus_act_on_their_cell_after_cells_are_inserted_above(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let two = || {
+        json!([
+            code_cell("first", "a = 1", json!({})),
+            code_cell("second", "b = 2", json!({}))
+        ])
+    };
+    let three = || {
+        json!([
+            code_cell("above", "c = 3", json!({})),
+            code_cell("first", "a = 1", json!({})),
+            code_cell("second", "b = 2", json!({})),
+        ])
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, two());
+            v.focus.focus(window, cx);
+            v.menu = Some(ActiveMenu::Insert {
+                after: "first".into(),
+            });
+            v.menu_anchor = "insert-first".into();
+            load_cells(v, three());
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("insert-type-code", cx);
+        view.update(cx, |v, cx| {
+            load_cells(v, two());
+            v.menu = Some(ActiveMenu::Cell {
+                cell_id: "second".into(),
+                assistant: false,
+            });
+            load_cells(v, three());
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("move-up", cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent[0]["action"], "add");
+    assert_eq!(sent[0]["index"], 2, "insert lands right after 'first'");
+    assert_eq!(sent[1]["action"], "move");
+    assert_eq!(sent[1]["cell_id"], "second");
+    assert_eq!(
+        sent[1]["index"], 1,
+        "move-up uses the cell's current position"
+    );
+}
+
+#[gpui_kit::test]
+fn insert_boundary_is_keyboard_reachable_and_opens_its_menu(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        let focus = view.read(cx).insert_focus["first"].clone();
+        focus.focus(window, cx);
+        window.render_frame(cx);
+        window.press("enter", cx);
+        assert_eq!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Insert {
+                after: "first".into()
+            })
+        );
+        window.render_frame(cx);
+        window.click("insert-type-markdown", cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["type"], "markdown");
+    assert_eq!(sent[0]["index"], 1);
+}
+
+#[gpui_kit::test]
+fn sql_output_variable_is_renamed_inline_and_new_sql_cells_get_unique_names(
+    cx: &mut TestAppContext,
+) {
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let sql = json!({"id":"q","type":"sql","source":"SELECT 1","revision":"rq",
+        "metadata":{"tags":["t"],"output_var":"orders"}});
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            load_cells(
+                v,
+                json!([code_cell("first", "sql_result = 1", json!({})), sql.clone()]),
+            );
+            let model = &v.tabs[0].model;
+            assert_eq!(
+                super::notebook::output_var_error(model, "q", "revenue"),
+                None
+            );
+            assert_eq!(
+                super::notebook::output_var_error(model, "q", "orders"),
+                None
+            );
+            for bad in ["", "2x", "class", "my var", "sql_result"] {
+                assert!(
+                    super::notebook::output_var_error(model, "q", bad).is_some(),
+                    "{bad:?}"
+                );
+            }
+        });
+        window.render_frame(cx);
+        window.click(("sql-output-var", 1usize), cx);
+        let input = view
+            .read(cx)
+            .output_var_edit
+            .as_ref()
+            .unwrap()
+            .input
+            .clone();
+        assert!(input.read(cx).focus_handle(cx).is_focused(window));
+        input.update(cx, |s, cx| s.set_value("class", window, cx));
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    // Input events reach the workspace once each update completes.
+    cx.update_window(handle, |_, window, cx| {
+        let edit = view.read(cx).output_var_edit.as_ref().unwrap();
+        assert!(edit.error.is_some(), "a keyword is refused in place");
+        let input = edit.input.clone();
+        input.update(cx, |s, cx| s.set_value("revenue", window, cx));
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.update_window(handle, |_, _, cx| {
+        assert!(view.read(cx).output_var_edit.is_none());
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1, "an invalid name is not stored");
+    assert_eq!(sent[0]["cell_id"], "q");
+    assert_eq!(
+        sent[0]["metadata"],
+        json!({"tags":["t"],"output_var":"revenue"})
+    );
+
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0].model.selected = Some("q".into());
+            v.run_command("add-sql", window, cx);
+        });
+    })
+    .unwrap();
+    let add = sent_mutations(&commands).remove(0);
+    let new_id = add["new_id"].as_str().unwrap().to_owned();
+    assert_eq!(add["type"], "sql");
+    assert_eq!(
+        view.read_with(cx, |v, _| v.pending_output_vars.get(&new_id).cloned()),
+        Some("sql_result_2".into()),
+        "sql_result is already defined by another cell"
+    );
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            send.send(Event::Source(
+                json!({"state":"ok","manifest_revision":"after-add","cells":[
+                    code_cell("first", "sql_result = 1", json!({})), sql.clone(),
+                    {"id": new_id, "type":"sql","source":"","revision":"rn","metadata":{}},
+                ]}),
+            ))
+            .unwrap();
+            v.drain(window, cx);
+        });
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["cell_id"], new_id.as_str());
+    assert_eq!(sent[0]["metadata"], json!({"output_var":"sql_result_2"}));
+    assert!(view.read_with(cx, |v, _| v.pending_output_vars.is_empty()));
+}
+
+#[gpui_kit::test]
+fn files_loader_binds_a_unique_name_from_the_file_stem(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, json!([code_cell("first", "sales = 1", json!({}))]));
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].sidebar_tab = "files".into();
+            v.tabs[0].files_cache = Some(json!({"items":[
+                // A helper-provided snippet is ignored in favor of generated code.
+                {"path":"data/Sales \"Q1\".csv","name":"Sales \"Q1\".csv","size":10,
+                 "loader_snippet":"df = evil()"}
+            ]}));
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click(("load-file", 0usize), cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(
+        sent[0]["source"],
+        "import pandas as pd\nsales_q1 = pd.read_csv(\"data/Sales \\\"Q1\\\".csv\")\nsales_q1.head()\n"
+    );
+}
+
+#[gpui_kit::test]
+fn outline_marks_disabled_blocked_and_hidden_cells(cx: &mut TestAppContext) {
+    use super::OutlineState;
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_disabled_chain(v);
+            let cells = &mut v.tabs[0].model.cells;
+            cells.get_mut("c").unwrap().disk.metadata =
+                [("metadata".to_string(), json!({"hide_code": true}))].into();
+            let model = &v.tabs[0].model;
+            let blocked = super::blocked_cells(model, &super::dag::analyze_notebook(model));
+            let state = |id: &str| OutlineState::of(&model.cells[id], blocked.contains(id));
+            assert_eq!(state("a"), Some(OutlineState::Disabled));
+            assert_eq!(state("b"), Some(OutlineState::Blocked));
+            assert_eq!(state("c"), Some(OutlineState::CodeHidden));
+            assert_eq!(state("d"), Some(OutlineState::Blocked));
+            cx.notify();
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for id in [
+        "outline-state-a",
+        "outline-state-b",
+        "outline-state-c",
+        "outline-state-d",
+    ] {
+        assert!(visual.debug_bounds(id).is_some(), "{id}");
+    }
+}
+
+#[gpui_kit::test]
+fn output_text_follows_the_editor_font_size_preference(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.ui_scale = 1.5;
+            v.preferences.editor_size = 18.;
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+        assert_eq!(super::ActiveTheme::theme(cx).mono_font_size, px(17. * 1.5));
+    })
+    .unwrap();
+    assert_eq!(super::output_font_size(14., 1.), px(13.));
 }

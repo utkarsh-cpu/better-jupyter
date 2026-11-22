@@ -84,6 +84,9 @@ pub struct CellModel {
     /// Recorded duration of `exec_id`, never a UI clock or an estimate.
     pub execution_seconds: Option<f64>,
     pub outcome: String,
+    /// Kernel session that produced `outcome`/`ordinal`. Runs from an earlier
+    /// session say nothing about the live namespace.
+    pub session_id: Option<String>,
     pub collapsed: bool,
 }
 impl CellModel {
@@ -99,6 +102,7 @@ impl CellModel {
             ordinal: None,
             execution_seconds: None,
             outcome: String::new(),
+            session_id: None,
             collapsed: false,
         }
     }
@@ -118,12 +122,31 @@ impl CellModel {
     pub fn is_executable(&self) -> bool {
         matches!(self.disk.kind.as_str(), "code" | "sql")
     }
-    fn cell_meta(&self, key: &str) -> Option<&Value> {
+    /// The cell's own `metadata` object. `SourceCell::metadata` flattens every
+    /// other manifest field (attachments, attachment MIME types, …) beside it,
+    /// so per-cell settings such as `disabled` live one level down.
+    pub fn cell_metadata(&self) -> serde_json::Map<String, Value> {
         self.disk
             .metadata
             .get("metadata")
-            .and_then(|m| m.get(key))
-            .or_else(|| self.disk.metadata.get(key))
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default()
+    }
+    /// The complete cell `metadata` object with `key` set, or removed when
+    /// `value` is null. This is the payload of a `metadata` source mutation,
+    /// which replaces the object wholesale.
+    pub fn metadata_with(&self, key: &str, value: Value) -> Value {
+        let mut metadata = self.cell_metadata();
+        if value.is_null() {
+            metadata.remove(key);
+        } else {
+            metadata.insert(key.to_owned(), value);
+        }
+        Value::Object(metadata)
+    }
+    fn cell_meta(&self, key: &str) -> Option<&Value> {
+        self.disk.metadata.get("metadata").and_then(|m| m.get(key))
     }
     pub fn is_disabled(&self) -> bool {
         self.cell_meta("disabled").and_then(Value::as_bool) == Some(true)
@@ -167,13 +190,54 @@ pub struct NotebookModel {
     pub external_changes: usize,
     pub deleted_drafts: Vec<Draft>,
     pub banner: Option<String>,
+    /// Notebook-level manifest `metadata`, as last read from disk.
+    pub metadata: serde_json::Map<String, Value>,
+    /// The running kernel session, from runtime status; `None` while unknown.
+    pub live_session: Option<String>,
 }
 impl NotebookModel {
+    /// Whether the notebook was last saved to open in App mode.
+    pub fn saved_app_mode(&self) -> bool {
+        self.metadata
+            .get("kernelledger")
+            .and_then(|k| k.get("app_mode"))
+            .and_then(Value::as_bool)
+            == Some(true)
+    }
+    /// The notebook `metadata` object with App mode recorded and every other
+    /// field preserved. Off removes the key so ordinary notebooks stay unchanged.
+    pub fn metadata_with_app_mode(&self, on: bool) -> Value {
+        let mut metadata = self.metadata.clone();
+        let mut ledger = metadata
+            .get("kernelledger")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        if on {
+            ledger.insert("app_mode".into(), Value::Bool(true));
+        } else {
+            ledger.remove("app_mode");
+        }
+        if ledger.is_empty() {
+            metadata.remove("kernelledger");
+        } else {
+            metadata.insert("kernelledger".into(), Value::Object(ledger));
+        }
+        Value::Object(metadata)
+    }
     pub fn apply_snapshot(&mut self, snapshot: SourceSnapshot) {
         self.source_state = snapshot.state;
         self.manifest_revision = snapshot.manifest_revision;
         if self.source_state != "ok" && self.source_state != "conflict_markers" {
             return;
+        }
+        if let Some(metadata) = snapshot
+            .details
+            .get("manifest")
+            .and_then(|manifest| manifest.get("metadata"))
+            .and_then(Value::as_object)
+        {
+            self.metadata = metadata.clone();
         }
         let mut changed = 0;
         let next_ids: BTreeSet<_> = snapshot.cells.iter().map(|c| c.id.clone()).collect();
@@ -437,6 +501,53 @@ mod tests {
         assert!(!op.final_state());
         op.state = "unknown".into();
         assert!(op.final_state());
+    }
+    #[test]
+    fn cell_settings_live_in_the_inner_metadata_object() {
+        let disk: SourceCell = serde_json::from_value(json!({
+            "id": "a", "type": "sql", "source": "SELECT 1", "revision": "r",
+            "metadata": {"tags": ["keep"], "output_var": "totals", "kernelledger": {"ipynb_fields": {"x": 1}}},
+            "attachments": ["plot.png"],
+            "attachment_mimes": {"plot.png": "image/png"},
+            // A top-level field with a setting's name is not the setting.
+            "disabled": true,
+        }))
+        .unwrap();
+        let cell = CellModel::from_source(disk);
+        assert!(!cell.is_disabled());
+        assert_eq!(cell.sql_output_var(), "totals");
+        assert_eq!(
+            cell.metadata_with("hide_code", json!(true)),
+            json!({"tags": ["keep"], "output_var": "totals", "kernelledger": {"ipynb_fields": {"x": 1}}, "hide_code": true})
+        );
+        assert_eq!(
+            cell.metadata_with("output_var", Value::Null),
+            json!({"tags": ["keep"], "kernelledger": {"ipynb_fields": {"x": 1}}})
+        );
+    }
+    #[test]
+    fn app_mode_round_trips_through_notebook_metadata_without_clobbering() {
+        let mut notebook = NotebookModel::default();
+        let mut snap = snapshot("x");
+        snap.details.insert(
+            "manifest".into(),
+            json!({"metadata": {"title": "Report", "kernelledger": {"imported_ids": ["a"]}}}),
+        );
+        notebook.apply_snapshot(snap);
+        assert!(!notebook.saved_app_mode());
+        let on = notebook.metadata_with_app_mode(true);
+        assert_eq!(
+            on,
+            json!({"title": "Report", "kernelledger": {"imported_ids": ["a"], "app_mode": true}})
+        );
+        notebook.metadata = on.as_object().unwrap().clone();
+        assert!(notebook.saved_app_mode());
+        assert_eq!(
+            notebook.metadata_with_app_mode(false),
+            json!({"title": "Report", "kernelledger": {"imported_ids": ["a"]}})
+        );
+        notebook.metadata = serde_json::Map::new();
+        assert_eq!(notebook.metadata_with_app_mode(false), json!({}));
     }
     #[test]
     fn replayed_feed_deduplicates() {

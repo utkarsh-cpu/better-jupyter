@@ -44,6 +44,13 @@ pub(crate) fn cell_spacing(comfortable: bool) -> CellSpacing {
     }
 }
 
+/// Monospace size for outputs and tracebacks: one step below the editor
+/// font-size preference, so results read as secondary to their source, and
+/// scaled with the interface like other text.
+pub(crate) fn output_font_size(editor_size: f32, ui_scale: f32) -> Pixels {
+    px((editor_size - 1.) * ui_scale)
+}
+
 pub(super) fn apply_theme(dark: bool, high_contrast: bool, window: &mut Window, cx: &mut App) {
     Theme::change(
         if dark || high_contrast {

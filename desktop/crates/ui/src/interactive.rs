@@ -397,10 +397,17 @@ impl Workspace {
         let next_col = table["next_col_offset"].as_u64();
         let slice_prefix = preview["page"]["slice_prefix"].clone();
         let allow_device_copy = preview["_context"]["allow_device_copy"].as_bool() == Some(true);
-        let active_sort_col = table["sort_col"]
-            .as_str()
-            .map(str::to_owned)
-            .or_else(|| self.tabs[self.active].variables_state.sort_col.clone());
+        // A response that carries `sort_col` (even null) is authoritative: the worker
+        // reports what it actually applied, not what was requested.
+        let (active_sort_col, active_sort_index) = if table.get("sort_col").is_some() {
+            (
+                table["sort_col"].as_str().map(str::to_owned),
+                table["sort_col_index"].as_u64(),
+            )
+        } else {
+            let st = &self.tabs[self.active].variables_state;
+            (st.sort_col.clone(), st.sort_col_index)
+        };
         let active_sort_desc = table["sort_desc"]
             .as_bool()
             .unwrap_or(self.tabs[self.active].variables_state.sort_desc);
@@ -545,7 +552,12 @@ impl Workspace {
             let cname = col["name"].as_str().unwrap_or("").to_owned();
             let cdtype = col["dtype"].as_str().unwrap_or("").to_owned();
             let numeric = matches!(col["kind"].as_str(), Some("integer" | "number"));
-            let is_sorted = !is_matrix && active_sort_col.as_deref() == Some(cname.as_str());
+            let col_index = col["index"].as_u64();
+            let is_sorted = !is_matrix
+                && match (active_sort_index, col_index) {
+                    (Some(a), Some(b)) => a == b,
+                    _ => active_sort_col.as_deref() == Some(cname.as_str()),
+                };
             let title = if is_sorted {
                 if active_sort_desc {
                     format!("{cname} \u{2193}")
@@ -614,7 +626,9 @@ impl Workspace {
                                 (None, false)
                             };
                             let st = &mut view.tabs[view.active].variables_state;
+                            let next_index = next_col.as_ref().and(col_index);
                             st.sort_col = next_col.clone();
+                            st.sort_col_index = next_index;
                             st.sort_desc = next_desc;
                             let mut req = json!({
                                 "handle": h_sort,
@@ -625,6 +639,9 @@ impl Workspace {
                             });
                             if let Some(sc) = next_col {
                                 req["sort_col"] = json!(sc);
+                                if let Some(i) = next_index {
+                                    req["sort_col_index"] = json!(i);
+                                }
                                 req["sort_desc"] = json!(next_desc);
                             }
                             if !filt.trim().is_empty() {
@@ -767,6 +784,9 @@ impl Workspace {
                         }
                         if let Some(sc) = &sc1 {
                             req["sort_col"] = json!(sc);
+                            if let Some(i) = active_sort_index {
+                                req["sort_col_index"] = json!(i);
+                            }
                             req["sort_desc"] = json!(active_sort_desc);
                         }
                         if !f1.trim().is_empty() {
@@ -803,6 +823,9 @@ impl Workspace {
                         }
                         if let Some(sc) = &sc2 {
                             req["sort_col"] = json!(sc);
+                            if let Some(i) = active_sort_index {
+                                req["sort_col_index"] = json!(i);
+                            }
                             req["sort_desc"] = json!(active_sort_desc);
                         }
                         if !f2.trim().is_empty() {
@@ -841,6 +864,9 @@ impl Workspace {
                         }
                         if let Some(sc) = &sc3 {
                             req["sort_col"] = json!(sc);
+                            if let Some(i) = active_sort_index {
+                                req["sort_col_index"] = json!(i);
+                            }
                             req["sort_desc"] = json!(active_sort_desc);
                         }
                         if !f3.trim().is_empty() {
@@ -877,6 +903,9 @@ impl Workspace {
                         }
                         if let Some(sc) = &sc4 {
                             req["sort_col"] = json!(sc);
+                            if let Some(i) = active_sort_index {
+                                req["sort_col_index"] = json!(i);
+                            }
                             req["sort_desc"] = json!(active_sort_desc);
                         }
                         if !f4.trim().is_empty() {
@@ -1273,11 +1302,7 @@ impl Workspace {
             );
         }
 
-        let plot_fn = if chart_kind == "line" { "plot" } else { "bar" };
-        let mpl_snippet = format!(
-            "import matplotlib.pyplot as plt\n\nfig, ax = plt.subplots(figsize=(7, 3.5))\nax.{plot_fn}({expr}[{x_col:?}], {expr}[{y_col:?}])\nax.set_xlabel({x_col:?})\nax.set_ylabel({y_col:?})\nax.set_title(f\"{y_col} by {x_col}\")\nplt.tight_layout()\nplt.show()"
-        );
-        let snippet_for_insert = mpl_snippet.clone();
+        let snippet_for_insert = codegen::chart_source(expr, chart_kind, &x_col, &y_col);
 
         wrap = wrap
             .child(
@@ -2224,10 +2249,15 @@ impl Workspace {
                 let h_clear = handle.clone();
                 let s_clear = segments.clone();
                 let col_limit = table["col_limit"].as_u64().unwrap_or(16).max(1);
-                let sort_col_now = table["sort_col"]
-                    .as_str()
-                    .map(str::to_owned)
-                    .or_else(|| self.tabs[self.active].variables_state.sort_col.clone());
+                let (sort_col_now, sort_index_now) = if table.get("sort_col").is_some() {
+                    (
+                        table["sort_col"].as_str().map(str::to_owned),
+                        table["sort_col_index"].as_u64(),
+                    )
+                } else {
+                    let st = &self.tabs[self.active].variables_state;
+                    (st.sort_col.clone(), st.sort_col_index)
+                };
                 let sort_desc_now = table["sort_desc"]
                     .as_bool()
                     .unwrap_or(self.tabs[self.active].variables_state.sort_desc);
@@ -2313,6 +2343,9 @@ impl Workspace {
                                         });
                                         if let Some(sc) = &sc_apply {
                                             req["sort_col"] = json!(sc);
+                                            if let Some(i) = sort_index_now {
+                                                req["sort_col_index"] = json!(i);
+                                            }
                                             req["sort_desc"] = json!(sort_desc_now);
                                         }
                                         if !q.is_empty() {
@@ -2345,6 +2378,9 @@ impl Workspace {
                                             });
                                             if let Some(sc) = &sc_clear {
                                                 req["sort_col"] = json!(sc);
+                                                if let Some(i) = sort_index_now {
+                                                    req["sort_col_index"] = json!(i);
+                                                }
                                                 req["sort_desc"] = json!(sort_desc_now);
                                             }
                                             view.interactive_request("namespace.preview", req);
@@ -2360,6 +2396,24 @@ impl Workspace {
                         .child(badge(format!("{f_rows} / {u_rows} rows"), theme.info));
                 }
                 panel = panel.child(tab_filter_row);
+                // The worker reports, rather than hides, a filter or sort it could not apply.
+                for (key, what) in [("filter_error", "Filter"), ("sort_error", "Sort")] {
+                    if let Some(err) = table[key].as_str().filter(|e| !e.is_empty()) {
+                        panel = panel.child(
+                            div()
+                                .id(SharedString::from(format!("df-{key}")))
+                                .text_xs()
+                                .text_color(theme.danger)
+                                .child(format!("{what} not applied: {err}")),
+                        );
+                    }
+                }
+                if table["filter_capped"].as_bool() == Some(true) {
+                    panel =
+                        panel.child(div().text_xs().text_color(theme.muted_foreground).child(
+                            "Search scanned a capped sample of rows; refine with col:value",
+                        ));
+                }
 
                 // Reproducible snippet bar when sort or filter is active
                 if let Some(snippet) = page["snippet"].as_str().filter(|s| !s.trim().is_empty()) {
@@ -3238,7 +3292,8 @@ impl Workspace {
                 .cloned()
                 .collect();
 
-            let split_active = preview_val.is_some() && window.viewport_size().width >= px(1040.);
+            let split_active = preview_val.is_some()
+                && window.viewport_size().width >= px(1040. * self.preferences.ui_scale);
             let show_size = !split_active;
 
             let list_section: Div = if !items.is_empty() {

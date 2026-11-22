@@ -157,6 +157,27 @@ impl Workspace {
                     ),
             );
         }
+        if let Some(notice) = self.notice.clone() {
+            banners = banners.child(
+                banner(info, Glyph::Info)
+                    .id("workspace-notice")
+                    .role(Role::Status)
+                    .aria_label(notice.clone())
+                    .child(div().flex_1().min_w_0().text_sm().child(notice))
+                    .child(
+                        action_button("dismiss-notice")
+                            .small()
+                            .ghost()
+                            .icon(Glyph::X)
+                            .hint("Dismiss")
+                            .accessibility_label("Dismiss notice")
+                            .on_click(cx.listener(|v, _, _, cx| {
+                                v.notice = None;
+                                cx.notify();
+                            })),
+                    ),
+            );
+        }
         let source_state = self.tabs[self.active].model.source_state.clone();
         if self.tabs[self.active].uninitialized {
             banners = banners.child(
