@@ -3464,9 +3464,11 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         "trailing '+ Add cell' ghost trigger {:?} must include its label",
         insert_last.size
     );
-    assert_eq!(
-        insert_first.origin.x, insert_last.origin.x,
-        "middle '+' and trailing '+ Add cell' triggers must align to the same left column"
+    assert!(
+        (insert_first.center().x - insert_last.center().x).abs() <= px(1.),
+        "middle '+' {:?} and trailing '+ Add cell' {:?} triggers must share the same horizontal center",
+        insert_first,
+        insert_last
     );
     assert_eq!(
         insert_first.size.height, insert_last.size.height,

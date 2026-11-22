@@ -1053,6 +1053,15 @@ impl Workspace {
         if let Some(label) = boundary_button_label(last) {
             insert_btn = insert_btn.px_2().label(label);
         }
+        let hover_rule = |group: SharedString| {
+            div()
+                .flex_1()
+                .h(px(1.))
+                .bg(rule_color.opacity(0.45))
+                .when(!menu_open, |d| {
+                    d.opacity(0.).group_hover(group, |s| s.opacity(1.))
+                })
+        };
         let mut boundary = h_flex()
             .debug_selector({
                 let id = id.to_owned();
@@ -1069,39 +1078,15 @@ impl Workspace {
             } else {
                 spacing.boundary
             }))
-            .gap_1p5()
+            .gap_2()
             .items_center()
-            .child(self.anchored(format!("insert-{id}"), insert_btn, cx));
-        if last {
-            for (btn_id, kind, label) in [
-                ("quick-add-code", "code", "Code"),
-                ("quick-add-sql", "sql", "SQL"),
-                ("quick-add-markdown", "markdown", "Markdown"),
-            ] {
-                let insert_at = index + 1;
-                boundary = boundary.child(
-                    action_button((btn_id, index))
-                        .ghost()
-                        .xsmall()
-                        .px_2()
-                        .rounded(px(6.))
-                        .label(label)
-                        .text_color(muted_fg)
-                        .contextual(boundary_group.clone(), false)
-                        .accessibility_label(format!("Add {label} cell at end of notebook"))
-                        .on_click(cx.listener(move |v, _, _, _| {
-                            v.mutate(json!({"action":"add","type":kind,"index":insert_at}));
-                        })),
-                );
-            }
-        } else {
-            boundary = boundary.child(div().flex_1().h(px(1.)).bg(rule_color.opacity(0.45)).when(
-                !menu_open,
-                |d| {
-                    d.opacity(0.)
-                        .group_hover(boundary_group.clone(), |s| s.opacity(1.))
-                },
-            ));
+            .justify_center();
+        if !last {
+            boundary = boundary.child(hover_rule(boundary_group.clone()));
+        }
+        boundary = boundary.child(self.anchored(format!("insert-{id}"), insert_btn, cx));
+        if !last {
+            boundary = boundary.child(hover_rule(boundary_group));
         }
         boundary.into_any_element()
     }
