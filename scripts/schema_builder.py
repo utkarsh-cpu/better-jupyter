@@ -37,8 +37,29 @@ schema(
                 "required": ["id", "type"],
                 "properties": {
                     "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"},
-                    "type": {"enum": ["code", "markdown", "raw"]},
-                    "metadata": OBJECT,
+                    "type": {"enum": ["code", "markdown", "raw", "sql"]},
+                    "metadata": {
+                        "type": "object",
+                        "description": "Cell metadata. Cell-level keys (attachments, "
+                        "attachment_mimes) never belong here.",
+                        "properties": {
+                            "output_var": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                                "description": "SQL cells: Python variable bound to the "
+                                "result (default _sql_df).",
+                            },
+                            "disabled": {
+                                "type": "boolean",
+                                "description": "Excluded from run-all; outputs are stale.",
+                            },
+                            "hide_code": {
+                                "type": "boolean",
+                                "description": "Exports and App mode omit this cell's code.",
+                            },
+                        },
+                        "additionalProperties": True,
+                    },
                     "attachments": {
                         "type": "array",
                         "uniqueItems": True,

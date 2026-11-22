@@ -10,7 +10,7 @@ from typing import Any, cast
 from xml.sax.saxutils import escape
 
 from .ledger import fold
-from .notebook import Notebook, source_hash
+from .notebook import Notebook, cell_metadata, source_hash, sql_output_var
 from .sharing import payload
 from .source import SourceError, atomic
 
@@ -86,7 +86,10 @@ def markdown_blocks(text: str) -> list[Block]:
     return blocks
 
 
-def notebook_blocks(notebook: Notebook, ledger: Any = None, blobs: Any = None) -> list[Block]:
+def notebook_blocks(
+    notebook: Notebook, ledger: Any = None, blobs: Any = None, *, report: bool = False
+) -> list[Block]:
+    """Document blocks. Honors per-cell `hide_code`; `report` hides all code (App mode)."""
     manifest = notebook.read()
     title = str(manifest["metadata"].get("title") or notebook.root.name)
     blocks = [Block("title", title)]
@@ -104,21 +107,37 @@ def notebook_blocks(notebook: Notebook, ledger: Any = None, blobs: Any = None) -
         if cell["type"] == "markdown":
             blocks.extend(markdown_blocks(source))
             continue
+        meta = cell_metadata(cell)
+        disabled = meta.get("disabled") is True
+        show_code = not report and meta.get("hide_code") is not True
         kind_label = (
             "Python"
             if cell["type"] == "code"
-            else f"SQL → {cell.get('metadata', {}).get('output_var') or '_sql_df'}"
+            else f"SQL → {sql_output_var(cell)}"
             if cell["type"] == "sql"
             else "Raw text"
         )
-        blocks.append(Block("label", f"Cell {index} · {kind_label}"))
-        blocks.append(Block("code", clean(source)))
+        if show_code:
+            suffix = " · disabled" if disabled else ""
+            blocks.append(Block("label", f"Cell {index} · {kind_label}{suffix}"))
+            blocks.append(Block("code", clean(source)))
         if cell["type"] not in ("code", "sql") or cell["id"] not in records:
             continue
+        if disabled:
+            # A disabled cell's recorded outputs are stale by definition; never present them.
+            if show_code:
+                blocks.append(
+                    Block("warning", "This cell is disabled; its recorded outputs are omitted.")
+                )
+            continue
         record = records[cell["id"]]
-        blocks.append(
-            Block("label", f"Recorded output · execution {record['ordinal']} · {record['status']}")
-        )
+        if show_code:
+            blocks.append(
+                Block(
+                    "label",
+                    f"Recorded output · execution {record['ordinal']} · {record['status']}",
+                )
+            )
         if record["source_sha256"] != source_hash(source):
             blocks.append(
                 Block(
@@ -469,8 +488,28 @@ footer {{ margin-top: 3rem; font-size: .78rem; color: var(--muted); border-top: 
     return html_doc.encode("utf-8")
 
 
+# Stable `.py` export markers, parsed back by `Notebook.import_script`.
+SQL_RUNNER = "from kernelledger.sql import run_sql as _kl_run_sql"
+
+
+def _commented(src: str) -> list[str]:
+    return [f"# {ln}" if ln else "#" for ln in src.splitlines()]
+
+
+def _sql_literal(src: str) -> str:
+    """Readable triple-quoted SQL when exact; otherwise repr()."""
+    if '"""' not in src and "\\" not in src and not src.endswith('"') and "\r" not in src:
+        return '"""\n' + src + '\n"""'
+    return repr(src)
+
+
 def script_bytes(notebook: Notebook) -> bytes:
-    """Export notebook cells as a clean runnable Python script with # %% cell markers."""
+    """Export cells as a runnable Python script with `# %%` markers that round-trip.
+
+    Markers: `# %% [kind] [output_var] id=<id> [disabled=true] [hide_code=true]`.
+    SQL cells run against the script's namespace (DuckDB, else SQLite) and bind
+    their output variable; disabled cells are commented out.
+    """
     manifest = notebook.read()
     lines: list[str] = []
     deps = manifest.get("metadata", {}).get("dependencies")
@@ -491,35 +530,33 @@ def script_bytes(notebook: Notebook) -> bytes:
         ctype = cell["type"]
         cid = cell["id"]
         src = clean(notebook.source(cell)).rstrip("\n")
-        raw_meta = cell.get("metadata")
-        meta: dict[str, Any] = cast(dict[str, Any], raw_meta) if isinstance(raw_meta, dict) else {}
-        disabled = bool(meta.get("disabled", False))
+        meta = cell_metadata(cell)
+        disabled = meta.get("disabled") is True
+        flags = f" id={cid}"
+        if disabled:
+            flags += " disabled=true"
+        if meta.get("hide_code") is True:
+            flags += " hide_code=true"
         if ctype == "markdown":
-            lines.append(f"# %% [markdown] id={cid}")
-            for ln in src.splitlines() or [""]:
-                lines.append(f"# {ln}" if ln else "#")
-        elif ctype == "sql":
-            out_var = str(meta.get("output_var") or "_sql_df")
-            lines.append(f"# %% [sql] {out_var}")
-            if disabled:
-                lines.append("# [disabled]")
-                for ln in src.splitlines():
-                    lines.append(f"# {ln}")
-            else:
-                lines.append(f"# SQL query bound to `{out_var}`")
-                lines.append(f"_kl_sql = {src!r}")
+            lines.append(f"# %% [markdown]{flags}")
+            lines.extend(_commented(src) or ["#"])
         elif ctype == "raw":
-            lines.append(f"# %% [raw] id={cid}")
-            for ln in src.splitlines():
-                lines.append(f"# {ln}")
-        else:
-            lines.append(f"# %% id={cid}")
+            lines.append(f"# %% [raw]{flags}")
+            lines.extend(_commented(src))
+        elif ctype == "sql":
+            out_var = sql_output_var(cell)
+            lines.append(f"# %% [sql] {out_var}{flags}")
             if disabled:
-                lines.append("# [disabled]")
-                for ln in src.splitlines():
-                    lines.append(f"# {ln}")
+                lines.extend(_commented(src))
             else:
-                lines.append(src)
+                lines.append(SQL_RUNNER)
+                lines.append(f"{out_var} = _kl_run_sql(")
+                lines.append(f"    {_sql_literal(src)},")
+                lines.append("    globals(),")
+                lines.append(")")
+        else:
+            lines.append(f"# %%{flags}")
+            lines.extend(_commented(src) if disabled else [src])
         lines.append("")
     return ("\n".join(lines).rstrip("\n") + "\n").encode("utf-8")
 
@@ -531,6 +568,7 @@ def export_document(
     ledger: Any = None,
     blobs: Any = None,
     markdown: str | None = None,
+    report: bool = False,
 ) -> dict[str, str]:
     if format not in ("pdf", "docx", "html", "py"):
         raise SourceError("invalid_request", "Document format must be pdf, docx, html, or py")
@@ -543,7 +581,7 @@ def export_document(
         atomic(destination, script_bytes(notebook))
         return {"path": str(destination), "format": format}
     blocks = (
-        notebook_blocks(notebook, ledger, blobs)
+        notebook_blocks(notebook, ledger, blobs, report=report)
         if markdown is None
         else [Block("title", "Assistant report"), *markdown_blocks(markdown)]
     )

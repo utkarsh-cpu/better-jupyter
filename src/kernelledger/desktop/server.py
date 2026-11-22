@@ -9,7 +9,7 @@ from typing import Any, cast
 
 from .. import __version__
 from ..ledger import Ledger, now, uid
-from ..notebook import canonical, source_hash
+from ..notebook import canonical, source_hash, sql_output_var
 from ..source import SourceError, SourceService
 from . import protocol
 from .contracts import validate
@@ -338,12 +338,9 @@ class DesktopServer:
                             raise SourceError(
                                 "busy", "accepted worker session is no longer available"
                             )
-                        meta = execution.get("metadata")
-                        output_var: str | None = None
-                        if isinstance(meta, dict):
-                            raw_output_var = cast(dict[str, Any], meta).get("output_var")
-                            if isinstance(raw_output_var, str):
-                                output_var = raw_output_var
+                        output_var = (
+                            sql_output_var(execution) if execution.get("type") == "sql" else None
+                        )
                         result = await s.execute(
                             execution["source"],
                             execution["id"],

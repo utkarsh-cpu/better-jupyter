@@ -250,6 +250,9 @@ def parser() -> Any:
     exp = sub.add_parser("export")
     exp.add_argument("path")
     exp.add_argument("--session")
+    exp.add_argument(
+        "--report", action="store_true", help="HTML/PDF/DOCX: hide all code (App/Report mode)"
+    )
     pub = sub.add_parser("publish")
     pub.add_argument("checkpoint_id")
     fetch = sub.add_parser("fetch")
@@ -512,6 +515,7 @@ def execute_cli(args: Any) -> Any:
                         suffix.lstrip("."),
                         ledger,
                         BlobStore(root / ".kl", readonly=True) if ledger is not None else None,
+                        report=args.report,
                     )
                 )
             finally:

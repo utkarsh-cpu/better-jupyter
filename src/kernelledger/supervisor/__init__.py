@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from ..blobs import BUFFER_SIZE, BlobStore, VerifiedBlob, blob_io, check_hash, references
 from ..ledger import Ledger, now, uid
-from ..notebook import Notebook, write_json
+from ..notebook import Notebook, sql_output_var, write_json
 from ..worker import INLINE, json_bytes, validate_checkpoint
 from .platform import DirectoryLock, ProcessTree, secure_token, subprocess_kwargs
 
@@ -150,6 +150,40 @@ def interpreter(
     raise SourceError(
         "interpreter_required", "Select a project interpreter", {"candidates": candidates(root)}
     )
+
+
+def project_python(
+    root: Any, explicit: Any = None, launch: str = "terminal", distribution: str = "installed"
+) -> tuple[str, str]:
+    """The interpreter the project's kernel uses, for tools that act on its environment.
+
+    A running supervisor records its resolved worker interpreter (which honours an
+    explicit `--python`); otherwise this applies the same rules as `interpreter()`.
+    """
+    root = Path(root).resolve()
+    if not explicit:
+        try:
+            info: Any = json.loads((root / ".kl/supervisor.json").read_text(encoding="utf-8"))
+            running: Any = (
+                cast(dict[str, Any], info).get("worker_python") if isinstance(info, dict) else None
+            )
+            if isinstance(running, str) and Path(running).is_file():
+                return running, "running_supervisor"
+        except (OSError, ValueError):
+            pass
+    config_path = root / ".kl/config.json"
+    try:
+        config: Any = json.loads(config_path.read_text()) if config_path.is_file() else {}
+    except (OSError, ValueError):
+        config = {}
+    from ..source import SourceError
+
+    try:
+        return interpreter(
+            root, explicit, config if isinstance(config, dict) else {}, distribution, launch
+        )
+    except SourceError:
+        return sys.executable, "supervisor"
 
 
 class Supervisor:
@@ -613,6 +647,16 @@ class Supervisor:
         self.input_client, self.replay_inputs = client, inputs
         self.bytes_recorded, self.bytes_dropped = 0, 0
         self.waiter = asyncio.get_running_loop().create_future()
+        sql_refs: list[str] | None = None
+        if cell_type == "sql":
+            try:
+                from ..dag import analyze_sql_cell
+
+                refs = analyze_sql_cell(source, output_var or "_sql_df").get("refs")
+                if isinstance(refs, list):
+                    sql_refs = [r for r in cast(list[Any], refs) if isinstance(r, str)]
+            except Exception:
+                sql_refs = None  # The worker falls back to its own conservative scan.
         await self.send_worker(
             "execute",
             exec_id=eid,
@@ -623,6 +667,7 @@ class Supervisor:
             origin=origin or ("notebook" if cid else "unattributed"),
             cell_type=cell_type,
             **({"output_var": output_var} if output_var else {}),
+            **({"sql_refs": sql_refs} if sql_refs is not None else {}),
         )
         result = await self.waiter
         return {**result, "new_empty_session": empty, "session_id": self.session}
@@ -980,11 +1025,8 @@ class Supervisor:
                 )
                 source, cid = cell[0]["source"], cell[0]["id"]
                 cell_type = cell[0].get("type", "code")
-                meta = cell[0].get("metadata")
-                if isinstance(meta, dict):
-                    raw_output_var = cast(dict[str, Any], meta).get("output_var")
-                    if isinstance(raw_output_var, str):
-                        output_var = raw_output_var
+                if cell_type == "sql":
+                    output_var = sql_output_var(cell[0])
             if self.process and self.session:
                 digest = self.blobs.put(source.encode())
                 self.record_blob(digest)
@@ -1087,8 +1129,17 @@ class Supervisor:
 
         self.desktop = DesktopServer(self)
         desktop_server = await asyncio.start_server(self.desktop.client, "127.0.0.1", 0)
+        try:
+            worker_python: str | None = os.path.abspath(
+                interpreter(
+                    self.root, self.explicit_python, self.config, self.distribution, self.launch
+                )[0]
+            )
+        except Exception:
+            worker_python = None
         info = {
             **self.desktop.identity(),
+            "worker_python": worker_python,
             "port": server.sockets[0].getsockname()[1],
             "desktop_port": desktop_server.sockets[0].getsockname()[1],
             "protocols": {"legacy": [1], "desktop": [1]},

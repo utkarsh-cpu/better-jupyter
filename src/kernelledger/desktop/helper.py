@@ -108,22 +108,12 @@ _PKG_SPEC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-\[\],=<>!~ ]{0,127}$")
 
 
 def _selected_python(root: Path, override: str | None = None) -> str:
+    """Package tools act on the kernel's environment: same resolution as the supervisor."""
     if override and Path(override).is_file():
         return override
-    config_path = root / ".kl/config.json"
-    if config_path.is_file():
-        try:
-            config = json.loads(config_path.read_text())
-            py = config.get("python")
-            if isinstance(py, str) and Path(py).is_file():
-                return py
-        except (OSError, ValueError):
-            pass
-    for parent in (root, *root.parents):
-        venv = parent / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        if venv.is_file():
-            return str(venv)
-    return sys.executable
+    from ..supervisor import project_python
+
+    return project_python(root)[0]
 
 
 def list_packages(root: Path, python_path: str | None = None) -> dict[str, Any]:
@@ -188,36 +178,61 @@ def install_package(root: Path, package: str, python_path: str | None = None) ->
     }
 
 
+def _whitespace_format(source: str) -> str:
+    """Strip trailing whitespace outside string tokens; string contents are never altered."""
+    import io
+    import tokenize
+
+    protected: set[int] = set()
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        start, end = token.start[0], token.end[0]
+        # Lines whose end lies inside a multi-line token (triple-quoted or f-string
+        # middles) keep their trailing whitespace: it is part of the string value.
+        if end > start and token.type not in (tokenize.NEWLINE, tokenize.NL):
+            protected.update(range(start, end))
+    lines = source.splitlines()
+    out = [line if number in protected else line.rstrip() for number, line in enumerate(lines, 1)]
+    while out and not out[-1].strip() and len(out) not in protected:
+        out.pop()
+    return ("\n".join(out) + "\n") if out else ""
+
+
+def _run_formatter(command: list[str], source: str, name: str) -> dict[str, Any] | None:
+    kwargs: dict[str, Any] = {"creationflags": 0x08000000} if os.name == "nt" else {}
+    try:
+        result = subprocess.run(
+            command, input=source, capture_output=True, text=True, timeout=10, **kwargs
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode == 0:
+        return {"source": result.stdout, "changed": result.stdout != source, "formatter": name}
+    return {
+        "source": source,
+        "changed": False,
+        "formatter": name,
+        "error": result.stderr.strip()[:500],
+    }
+
+
 def format_code(source: str) -> dict[str, Any]:
+    """Format with `ruff format`, else Black, else a tokenize-safe whitespace cleanup."""
     ruff = shutil.which("ruff")
     if ruff:
-        kwargs: dict[str, Any] = {"creationflags": 0x08000000} if os.name == "nt" else {}
-        try:
-            result = subprocess.run(
-                [ruff, "format", "--stdin-filename", "cell.py", "-"],
-                input=source,
-                capture_output=True,
-                text=True,
-                timeout=10,
-                **kwargs,
-            )
-            if result.returncode == 0:
-                return {
-                    "source": result.stdout,
-                    "changed": result.stdout != source,
-                    "formatter": "ruff",
-                }
-            return {
-                "source": source,
-                "changed": False,
-                "formatter": "ruff",
-                "error": result.stderr.strip()[:500],
-            }
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            return {"source": source, "changed": False, "formatter": "none", "error": str(exc)}
-    # Lightweight fallback: strip trailing whitespace and ensure single trailing newline
-    lines = [line.rstrip() for line in source.splitlines()]
-    formatted = ("\n".join(lines) + "\n") if lines else ""
+        result = _run_formatter(
+            [ruff, "format", "--stdin-filename", "cell.py", "-"], source, "ruff"
+        )
+        if result is not None:
+            return result
+    black = shutil.which("black")
+    if black:
+        result = _run_formatter([black, "--quiet", "-"], source, "black")
+        if result is not None:
+            return result
+    try:
+        formatted = _whitespace_format(source)
+    except Exception as exc:  # tokenize.TokenError / IndentationError: leave source as is
+        return {"source": source, "changed": False, "formatter": "whitespace", "error": str(exc)}
     return {"source": formatted, "changed": formatted != source, "formatter": "whitespace"}
 
 
@@ -276,9 +291,38 @@ def list_workspace_files(root: Path, subdir: str | None = None, limit: int = 200
             if name in skip_dirs or (name.startswith(".") and name not in (".env",)):
                 continue
             rel = str(entry.relative_to(root)).replace("\\", "/")
+            link = entry.is_symlink()
+            if link:
+                try:
+                    target = entry.resolve(strict=True)
+                    target.relative_to(root)
+                except (OSError, ValueError, RuntimeError):
+                    # Dangling, looping, or outside the workspace: never followed.
+                    items.append(
+                        {
+                            "path": rel,
+                            "name": name,
+                            "kind": "symlink",
+                            "symlink": True,
+                            "outside_root": True,
+                            "size": 0,
+                            "depth": depth,
+                        }
+                    )
+                    continue
             if entry.is_dir():
-                items.append({"path": rel, "name": name, "kind": "dir", "size": 0, "depth": depth})
-                walk(entry, depth + 1)
+                items.append(
+                    {
+                        "path": rel,
+                        "name": name,
+                        "kind": "dir",
+                        "size": 0,
+                        "depth": depth,
+                        **({"symlink": True} if link else {}),
+                    }
+                )
+                if not link:  # In-root directory links are listed, not descended (no cycles).
+                    walk(entry, depth + 1)
             elif entry.is_file():
                 try:
                     size = entry.stat().st_size
@@ -292,6 +336,8 @@ def list_workspace_files(root: Path, subdir: str | None = None, limit: int = 200
                     "size": size,
                     "depth": depth,
                 }
+                if link:
+                    item["symlink"] = True
                 snippet = _loader_snippet(rel)
                 if snippet:
                     item["loader_snippet"] = snippet
@@ -443,6 +489,7 @@ class Helper:
                     request["path"],
                     request["format"],
                     markdown=request.get("markdown"),
+                    report=request.get("report") is True,
                 )
             raise SourceError("not_found", "history is empty")
         immutable = (
@@ -525,6 +572,7 @@ class Helper:
                     ledger,
                     self.blobs,
                     request.get("markdown"),
+                    report=request.get("report") is True,
                 )
             if method == "bundle_export":
                 return export_bundle(

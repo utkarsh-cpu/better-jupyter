@@ -2003,6 +2003,17 @@
     },
     {
       "surface": "worker",
+      "name": "checkbox",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
       "name": "checkpoint",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
@@ -2102,6 +2113,17 @@
     },
     {
       "surface": "worker",
+      "name": "dropdown",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
       "name": "entry",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
@@ -2179,6 +2201,17 @@
     },
     {
       "surface": "worker",
+      "name": "form",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
       "name": "frozenset",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
@@ -2235,6 +2268,17 @@
     {
       "surface": "worker",
       "name": "int",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "integer",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
         "tests/test_runtime.py",
@@ -2312,6 +2356,28 @@
     {
       "surface": "worker",
       "name": "list",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "multiselect",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "number",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
         "tests/test_runtime.py",
@@ -2521,6 +2587,17 @@
     {
       "surface": "worker",
       "name": "table",
+      "implementation": "src/kernelledger/worker.py",
+      "regression_suites": [
+        "tests/test_runtime.py",
+        "tests/test_boundaries.py",
+        "tests/test_checkpoint.py"
+      ],
+      "native": "not_implemented"
+    },
+    {
+      "surface": "worker",
+      "name": "text",
       "implementation": "src/kernelledger/worker.py",
       "regression_suites": [
         "tests/test_runtime.py",

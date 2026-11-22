@@ -30,11 +30,29 @@
             "enum": [
               "code",
               "markdown",
-              "raw"
+              "raw",
+              "sql"
             ]
           },
           "metadata": {
-            "type": "object"
+            "type": "object",
+            "description": "Cell metadata. Cell-level keys (attachments, attachment_mimes) never belong here.",
+            "properties": {
+              "output_var": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+                "description": "SQL cells: Python variable bound to the result (default _sql_df)."
+              },
+              "disabled": {
+                "type": "boolean",
+                "description": "Excluded from run-all; outputs are stale."
+              },
+              "hide_code": {
+                "type": "boolean",
+                "description": "Exports and App mode omit this cell's code."
+              }
+            },
+            "additionalProperties": true
           },
           "attachments": {
             "type": "array",

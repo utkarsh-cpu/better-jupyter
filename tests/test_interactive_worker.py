@@ -532,7 +532,10 @@ def test_passive_lazyframe_and_gpu_tensor_never_collect_or_copy(monkeypatch):
     polars_mod = types.ModuleType("polars")
 
     class FakeLazyFrame:
+        schema_calls = 0
+
         def collect_schema(self):
+            FakeLazyFrame.schema_calls += 1
             return {"a": "Int64", "b": "Utf8"}
 
         def collect(self):
@@ -542,13 +545,21 @@ def test_passive_lazyframe_and_gpu_tensor_never_collect_or_copy(monkeypatch):
     monkeypatch.setitem(sys.modules, "polars", polars_mod)
 
     lf = FakeLazyFrame()
+    # Listing/previewing never resolves the schema: that can run scans and I/O.
     lprev = passive_preview(lf)
     assert lprev["category"] == "tabular"
     assert lprev["lazy"] is True
-    assert lprev["columns_preview"] == ["a", "b"]
+    assert lprev["columns_preview"] == []
+    assert lprev["schema_collected"] is False
     lpage = passive_page(lf, 0, 10)
     assert lpage["mode"] == "table" and lpage["lazy"] is True
-    assert len(lpage["schema"]) == 2
+    assert lpage["schema"] == [] and lpage["schema_collected"] is False
+    assert FakeLazyFrame.schema_calls == 0
+    # The schema is resolved only on an explicit request.
+    lpage = passive_page(lf, 0, 10, lazy_schema=True)
+    assert [c["name"] for c in lpage["schema"]] == ["a", "b"]
+    assert lpage["schema_collected"] is True
+    assert FakeLazyFrame.schema_calls == 1
 
     # Mock torch.Tensor on cuda:0
     torch_mod = types.ModuleType("torch")

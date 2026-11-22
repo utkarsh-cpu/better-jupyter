@@ -8,15 +8,40 @@ from ..dag import stale_plan
 from .tools import ReadTools
 
 
+def _current_session_id(tools: ReadTools) -> str | None:
+    """The live kernel session (most recently started `running` session), if any."""
+    try:
+        sessions = tools.read("sessions.list", page_size=500).get("items", [])
+    except Exception:
+        return None
+    running = [s for s in sessions if s.get("state") == "running" and s.get("session_id")]
+    return str(running[-1]["session_id"]) if running else None
+
+
 def stale_cells(tools: ReadTools) -> Any:
     snapshot = tools.read("source.read")
-    latest = tools.read("executions.list", latest_per_cell=True, page_size=500)["items"]
-    by_id = {r["cell_id"]: r for r in latest}
+    session_id = _current_session_id(tools)
     cells = snapshot.get("cells", [])
-    executed_revisions = {
-        cid: row.get("source_sha256") for cid, row in by_id.items() if isinstance(cid, str)
-    }
-    plan = stale_plan(cells, executed_revisions)
+    executions: list[dict[str, Any]] = []
+    if session_id is not None:
+        # Only the live session's executions describe what is actually in the namespace.
+        cursor: str | None = None
+        while True:
+            page = tools.read(
+                "executions.list",
+                session_id=session_id,
+                page_size=500,
+                **({"cursor": cursor} if cursor else {}),
+            )
+            executions.extend(page.get("items", []))
+            cursor = page.get("cursor")
+            if not cursor:
+                break
+    by_id: dict[str, Any] = {}
+    for row in executions:
+        if isinstance(row.get("cell_id"), str):
+            by_id[row["cell_id"]] = row
+    plan = stale_plan(cells, executions=executions)
     state_by_id = {item["cell_id"]: item for item in plan["cells"]}
     result: list[Any] = []
     for cell in cells:
@@ -37,6 +62,7 @@ def stale_cells(tools: ReadTools) -> Any:
                     else "current",
                 ),
                 "upstream_stale_from": planned.get("upstream_stale_from", []),
+                "blocked_by": planned.get("blocked_by"),
                 "defs": planned.get("defs", []),
                 "refs": planned.get("refs", []),
                 "exec_id": row["exec_id"] if row else None,
@@ -51,6 +77,9 @@ def stale_cells(tools: ReadTools) -> Any:
         "multiple_definitions": graph["multiple_definitions"],
         "cycles": graph["cycles"],
         "run_stale_ids": plan["run_stale_ids"],
+        "failed_ids": plan.get("failed_ids", []),
+        "blocked_ids": plan.get("blocked_ids", []),
+        "session_id": session_id,
     }
 
 

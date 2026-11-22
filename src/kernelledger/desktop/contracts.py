@@ -103,6 +103,37 @@ EFFECTS = {
 }
 
 
+# Optional `namespace.preview` paging/table fields. Columns are identified by position
+# (`sort_col_index`); `sort_col` (a display label) remains accepted for older clients.
+NAMESPACE_PREVIEW_PROPERTIES: dict[str, Any] = {
+    "offset": {"type": "integer", "minimum": 0},
+    "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+    "segments": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+            "type": "object",
+            "required": ["kind", "value"],
+            "properties": {"kind": {"enum": ["index", "key", "entry", "attr"]}},
+        },
+    },
+    "slice_prefix": {
+        "type": "array",
+        "maxItems": 8,
+        "items": {"type": "integer", "minimum": 0},
+    },
+    "col_offset": {"type": "integer", "minimum": 0},
+    "col_limit": {"type": "integer", "minimum": 1, "maximum": 40},
+    "include_stats": {"type": "boolean"},
+    "allow_device_copy": {"type": "boolean"},
+    "lazy_schema": {"type": "boolean"},
+    "sort_col": {"type": "string"},
+    "sort_col_index": {"type": "integer", "minimum": 0},
+    "sort_desc": {"type": "boolean"},
+    "filter_query": {"type": "string"},
+}
+
+
 def validate(request: Any, helper: bool = False) -> None:
     if not isinstance(request, dict):
         raise SourceError("invalid_request", "request must be an object")
@@ -149,6 +180,7 @@ def validate(request: Any, helper: bool = False) -> None:
         "page_size",
         "col_offset",
         "col_limit",
+        "sort_col_index",
     ):
         if key in request and (type(request[key]) is not int or request[key] < 0):
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
@@ -217,6 +249,8 @@ def validate(request: Any, helper: bool = False) -> None:
         "include_stats",
         "allow_device_copy",
         "sort_desc",
+        "lazy_schema",
+        "report",
     ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")
@@ -276,6 +310,12 @@ def schema(helper: bool = False) -> Any:
             properties["debug"] = {"type": "boolean"}
         if helper and method == "export_document":
             properties["markdown"] = {"type": "string"}
+            properties["report"] = {"type": "boolean"}
+        if not helper and method == "namespace.list":
+            properties["cursor"] = {"type": "string"}
+            properties["page_size"] = {"type": "integer", "minimum": 1, "maximum": 100}
+        if not helper and method == "namespace.preview":
+            properties.update(NAMESPACE_PREVIEW_PROPERTIES)
         variants.append({"type": "object", "required": keys, "properties": properties})
     variants.extend(
         [
