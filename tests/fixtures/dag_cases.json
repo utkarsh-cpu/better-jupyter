@@ -1,0 +1,1742 @@
+{
+  "python_cells": [
+    {
+      "name": "assign_simple",
+      "source": "x = 1\n",
+      "defs": [
+        "x"
+      ],
+      "refs": []
+    },
+    {
+      "name": "self_increment",
+      "source": "x = x + 1\n",
+      "defs": [
+        "x"
+      ],
+      "refs": [
+        "x"
+      ]
+    },
+    {
+      "name": "df_dropna_redefinition",
+      "source": "df = df.dropna()\n",
+      "defs": [
+        "df"
+      ],
+      "refs": [
+        "df"
+      ]
+    },
+    {
+      "name": "augmented_assign",
+      "source": "total += 1\n",
+      "defs": [
+        "total"
+      ],
+      "refs": [
+        "total"
+      ]
+    },
+    {
+      "name": "chained_assign",
+      "source": "a = b = 0\n",
+      "defs": [
+        "a",
+        "b"
+      ],
+      "refs": []
+    },
+    {
+      "name": "tuple_unpack",
+      "source": "a, b = pair\n",
+      "defs": [
+        "a",
+        "b"
+      ],
+      "refs": [
+        "pair"
+      ]
+    },
+    {
+      "name": "star_unpack",
+      "source": "first, *rest = items\n",
+      "defs": [
+        "first",
+        "rest"
+      ],
+      "refs": [
+        "items"
+      ]
+    },
+    {
+      "name": "nested_list_unpack",
+      "source": "[p, (q, *r)] = data\n",
+      "defs": [
+        "p",
+        "q",
+        "r"
+      ],
+      "refs": [
+        "data"
+      ]
+    },
+    {
+      "name": "chained_with_attribute_target",
+      "source": "a.b = c = d\n",
+      "defs": [
+        "c"
+      ],
+      "refs": [
+        "a",
+        "d"
+      ]
+    },
+    {
+      "name": "annotated_assign",
+      "source": "x: int = compute()\n",
+      "defs": [
+        "x"
+      ],
+      "refs": [
+        "compute"
+      ]
+    },
+    {
+      "name": "bare_annotation",
+      "source": "count: int\n",
+      "defs": [
+        "count"
+      ],
+      "refs": []
+    },
+    {
+      "name": "multiline_paren_assign",
+      "source": "result = (\n    alpha\n    + beta\n)\n",
+      "defs": [
+        "result"
+      ],
+      "refs": [
+        "alpha",
+        "beta"
+      ]
+    },
+    {
+      "name": "print_then_assign",
+      "source": "print(x); y = 2\n",
+      "defs": [
+        "y"
+      ],
+      "refs": [
+        "x"
+      ]
+    },
+    {
+      "name": "assign_then_use",
+      "source": "x = 1\nprint(x)\n",
+      "defs": [
+        "x"
+      ],
+      "refs": []
+    },
+    {
+      "name": "use_before_assign",
+      "source": "print(z)\nz = 3\n",
+      "defs": [
+        "z"
+      ],
+      "refs": [
+        "z"
+      ]
+    },
+    {
+      "name": "multiline_paren_import",
+      "source": "from os.path import (\n    join,\n    basename as base,\n)\n",
+      "defs": [
+        "base",
+        "join"
+      ],
+      "refs": []
+    },
+    {
+      "name": "import_dotted_and_alias",
+      "source": "import a.b.c\nimport numpy as np\n",
+      "defs": [
+        "a",
+        "np"
+      ],
+      "refs": []
+    },
+    {
+      "name": "import_star",
+      "source": "from math import *\n",
+      "defs": [],
+      "refs": []
+    },
+    {
+      "name": "walrus_top_level",
+      "source": "if (n := len(items)) > 10:\n    print(n)\n",
+      "defs": [
+        "n"
+      ],
+      "refs": [
+        "items"
+      ]
+    },
+    {
+      "name": "walrus_in_comprehension",
+      "source": "vals = [y for v in data if (y := f(v))]\n",
+      "defs": [
+        "vals",
+        "y"
+      ],
+      "refs": [
+        "data",
+        "f"
+      ]
+    },
+    {
+      "name": "walrus_in_generator",
+      "source": "any((hit := x) > 3 for x in xs)\n",
+      "defs": [
+        "hit"
+      ],
+      "refs": [
+        "xs"
+      ]
+    },
+    {
+      "name": "walrus_in_lambda",
+      "source": "g = lambda v: (w := v * 2) + w\n",
+      "defs": [
+        "g"
+      ],
+      "refs": []
+    },
+    {
+      "name": "walrus_in_def",
+      "source": "def f(v):\n    if (m := v + offset):\n        return m\n",
+      "defs": [
+        "f"
+      ],
+      "refs": [
+        "offset"
+      ]
+    },
+    {
+      "name": "walrus_in_while",
+      "source": "while (chunk := read()):\n    process(chunk)\n",
+      "defs": [
+        "chunk"
+      ],
+      "refs": [
+        "process",
+        "read"
+      ]
+    },
+    {
+      "name": "if_elif_else_bodies",
+      "source": "if flag:\n    mode = 'a'\nelif other:\n    mode = 'b'\nelse:\n    alt = 1\n",
+      "defs": [
+        "alt",
+        "mode"
+      ],
+      "refs": [
+        "flag",
+        "other"
+      ]
+    },
+    {
+      "name": "try_else_finally_bodies",
+      "source": "try:\n    import ujson as json\nexcept ImportError:\n    import json\nelse:\n    ok = True\nfinally:\n    done = 1\n",
+      "defs": [
+        "done",
+        "json",
+        "ok"
+      ],
+      "refs": []
+    },
+    {
+      "name": "except_as_handler_body",
+      "source": "try:\n    value = risky()\nexcept ValueError as err:\n    fallback = str(err)\n    value = None\n",
+      "defs": [
+        "fallback",
+        "value"
+      ],
+      "refs": [
+        "risky"
+      ]
+    },
+    {
+      "name": "with_as_targets",
+      "source": "with open(path) as fh, lock:\n    text = fh.read()\n",
+      "defs": [
+        "fh",
+        "text"
+      ],
+      "refs": [
+        "lock",
+        "path"
+      ]
+    },
+    {
+      "name": "with_tuple_target",
+      "source": "with ctx() as (a, b):\n    pass\n",
+      "defs": [
+        "a",
+        "b"
+      ],
+      "refs": [
+        "ctx"
+      ]
+    },
+    {
+      "name": "for_else_bodies",
+      "source": "for i, row in enumerate(rows):\n    acc = acc + row\nelse:\n    finished = i\n",
+      "defs": [
+        "acc",
+        "finished",
+        "i",
+        "row"
+      ],
+      "refs": [
+        "acc",
+        "rows"
+      ]
+    },
+    {
+      "name": "for_star_target",
+      "source": "for *head, tail in seqs:\n    pass\n",
+      "defs": [
+        "head",
+        "tail"
+      ],
+      "refs": [
+        "seqs"
+      ]
+    },
+    {
+      "name": "while_body",
+      "source": "while queue:\n    item = queue.pop()\n",
+      "defs": [
+        "item"
+      ],
+      "refs": [
+        "queue"
+      ]
+    },
+    {
+      "name": "match_capture_patterns",
+      "source": "match point:\n    case Point(x=a, y=b):\n        pos = (a, b)\n    case [first, *others]:\n        pos = first\n    case {\"k\": v, **kw}:\n        pos = v\n    case _ as w:\n        pos = w\n",
+      "defs": [
+        "a",
+        "b",
+        "first",
+        "kw",
+        "others",
+        "pos",
+        "v",
+        "w"
+      ],
+      "refs": [
+        "Point",
+        "point"
+      ]
+    },
+    {
+      "name": "match_value_patterns",
+      "source": "match color:\n    case Color.RED:\n        name = 'red'\n    case 1 | 2:\n        name = 'num'\n",
+      "defs": [
+        "name"
+      ],
+      "refs": [
+        "Color",
+        "color"
+      ]
+    },
+    {
+      "name": "global_assignment_in_def",
+      "source": "def reset():\n    global counter\n    counter = 0\n",
+      "defs": [
+        "counter",
+        "reset"
+      ],
+      "refs": []
+    },
+    {
+      "name": "global_augassign_in_def",
+      "source": "def bump():\n    global counter\n    counter += 1\n",
+      "defs": [
+        "bump",
+        "counter"
+      ],
+      "refs": [
+        "counter"
+      ]
+    },
+    {
+      "name": "del_name",
+      "source": "del cache\n",
+      "defs": [],
+      "refs": [
+        "cache"
+      ]
+    },
+    {
+      "name": "del_subscript",
+      "source": "del df['tmp']\n",
+      "defs": [],
+      "refs": [
+        "df"
+      ]
+    },
+    {
+      "name": "attribute_assign",
+      "source": "obj.a = 1\n",
+      "defs": [],
+      "refs": [
+        "obj"
+      ]
+    },
+    {
+      "name": "subscript_assign",
+      "source": "df['c'] = values\n",
+      "defs": [],
+      "refs": [
+        "df",
+        "values"
+      ]
+    },
+    {
+      "name": "loc_assign",
+      "source": "df.loc[mask, 'c'] = 2\n",
+      "defs": [],
+      "refs": [
+        "df",
+        "mask"
+      ]
+    },
+    {
+      "name": "subscript_augassign",
+      "source": "counts[key] += 1\n",
+      "defs": [],
+      "refs": [
+        "counts",
+        "key"
+      ]
+    },
+    {
+      "name": "keyword_args",
+      "source": "out = f(a=b, c=1)\n",
+      "defs": [
+        "out"
+      ],
+      "refs": [
+        "b",
+        "f"
+      ]
+    },
+    {
+      "name": "star_args",
+      "source": "out = f(*args, **opts)\n",
+      "defs": [
+        "out"
+      ],
+      "refs": [
+        "args",
+        "f",
+        "opts"
+      ]
+    },
+    {
+      "name": "default_args_enclosing_scope",
+      "source": "def f(a, b=default_b, *, c=k):\n    return a + b + c + g\n",
+      "defs": [
+        "f"
+      ],
+      "refs": [
+        "default_b",
+        "g",
+        "k"
+      ]
+    },
+    {
+      "name": "function_locals",
+      "source": "def f(x):\n    y = x * 2\n    return y + z\n",
+      "defs": [
+        "f"
+      ],
+      "refs": [
+        "z"
+      ]
+    },
+    {
+      "name": "function_local_read_before_assign",
+      "source": "def f():\n    print(v)\n    v = 1\n",
+      "defs": [
+        "f"
+      ],
+      "refs": []
+    },
+    {
+      "name": "function_uses_later_toplevel",
+      "source": "def f():\n    return later\nlater = 5\n",
+      "defs": [
+        "f",
+        "later"
+      ],
+      "refs": []
+    },
+    {
+      "name": "recursive_function",
+      "source": "def fact(n):\n    return 1 if n < 2 else n * fact(n - 1)\n",
+      "defs": [
+        "fact"
+      ],
+      "refs": []
+    },
+    {
+      "name": "decorated_function",
+      "source": "@cache\ndef load(path):\n    return read(path)\n",
+      "defs": [
+        "load"
+      ],
+      "refs": [
+        "cache",
+        "read"
+      ]
+    },
+    {
+      "name": "function_annotations",
+      "source": "def f(a: Frame) -> Result:\n    return a\n",
+      "defs": [
+        "f"
+      ],
+      "refs": [
+        "Frame",
+        "Result"
+      ]
+    },
+    {
+      "name": "async_def",
+      "source": "async def fetch(url):\n    return await get(url)\n",
+      "defs": [
+        "fetch"
+      ],
+      "refs": [
+        "get"
+      ]
+    },
+    {
+      "name": "import_inside_def",
+      "source": "def f():\n    import json\n    return json.dumps(x)\n",
+      "defs": [
+        "f"
+      ],
+      "refs": [
+        "x"
+      ]
+    },
+    {
+      "name": "nonlocal_in_nested_def",
+      "source": "def outer():\n    n = 0\n    def inner():\n        nonlocal n\n        n += 1\n        return n + extra\n    return inner\n",
+      "defs": [
+        "outer"
+      ],
+      "refs": [
+        "extra"
+      ]
+    },
+    {
+      "name": "closure_free_name",
+      "source": "def outer(a):\n    def inner():\n        return a + b\n    return inner\n",
+      "defs": [
+        "outer"
+      ],
+      "refs": [
+        "b"
+      ]
+    },
+    {
+      "name": "lambda_params",
+      "source": "sq = lambda v, *a, **k: v * scale\n",
+      "defs": [
+        "sq"
+      ],
+      "refs": [
+        "scale"
+      ]
+    },
+    {
+      "name": "lambda_default",
+      "source": "h = lambda v=base: v\n",
+      "defs": [
+        "h"
+      ],
+      "refs": [
+        "base"
+      ]
+    },
+    {
+      "name": "list_comprehension_locals",
+      "source": "squares = [i * i for i in range(n)]\n",
+      "defs": [
+        "squares"
+      ],
+      "refs": [
+        "n"
+      ]
+    },
+    {
+      "name": "dict_comprehension",
+      "source": "lookup = {k: v for k, v in pairs if v is not None}\n",
+      "defs": [
+        "lookup"
+      ],
+      "refs": [
+        "pairs"
+      ]
+    },
+    {
+      "name": "nested_comprehension",
+      "source": "flat = [c for row in grid for c in row if c != blank]\n",
+      "defs": [
+        "flat"
+      ],
+      "refs": [
+        "blank",
+        "grid"
+      ]
+    },
+    {
+      "name": "comprehension_iter_self",
+      "source": "items = [x for x in items if x]\n",
+      "defs": [
+        "items"
+      ],
+      "refs": [
+        "items"
+      ]
+    },
+    {
+      "name": "comprehension_target_does_not_leak",
+      "source": "total = sum(x for x in nums)\nprint(x)\n",
+      "defs": [
+        "total"
+      ],
+      "refs": [
+        "nums",
+        "x"
+      ]
+    },
+    {
+      "name": "class_body_locals",
+      "source": "class Config:\n    size = 10\n    doubled = size * 2\n",
+      "defs": [
+        "Config"
+      ],
+      "refs": []
+    },
+    {
+      "name": "class_body_not_visible_in_method",
+      "source": "class C:\n    y = 1\n    def f(self):\n        return y\n",
+      "defs": [
+        "C"
+      ],
+      "refs": [
+        "y"
+      ]
+    },
+    {
+      "name": "class_body_not_visible_in_comprehension",
+      "source": "class K:\n    base = 2\n    vals = [base * i for i in range(3)]\n",
+      "defs": [
+        "K"
+      ],
+      "refs": [
+        "base"
+      ]
+    },
+    {
+      "name": "class_bases_keywords_decorators",
+      "source": "@register\nclass Model(Base, metaclass=Meta):\n    pass\n",
+      "defs": [
+        "Model"
+      ],
+      "refs": [
+        "Base",
+        "Meta",
+        "register"
+      ]
+    },
+    {
+      "name": "class_methods_self",
+      "source": "class Counter:\n    def __init__(self):\n        self.n = 0\n    def inc(self):\n        self.n += step\n",
+      "defs": [
+        "Counter"
+      ],
+      "refs": [
+        "step"
+      ]
+    },
+    {
+      "name": "fstring_nested_quotes",
+      "source": "msg = f\"{d['k']} items\"\n",
+      "defs": [
+        "msg"
+      ],
+      "refs": [
+        "d"
+      ]
+    },
+    {
+      "name": "fstring_format_spec",
+      "source": "s = f'{x:{width}.{prec}f}'\n",
+      "defs": [
+        "s"
+      ],
+      "refs": [
+        "prec",
+        "width",
+        "x"
+      ]
+    },
+    {
+      "name": "fstring_conversion_and_call",
+      "source": "s = f'{obj.name!r:>10} {len(items)}'\n",
+      "defs": [
+        "s"
+      ],
+      "refs": [
+        "items",
+        "obj"
+      ]
+    },
+    {
+      "name": "fstring_nested_fstring",
+      "source": "s = f\"{f'{inner}'}\"\n",
+      "defs": [
+        "s"
+      ],
+      "refs": [
+        "inner"
+      ]
+    },
+    {
+      "name": "unicode_identifiers",
+      "source": "données = charger(chemin)\n",
+      "defs": [
+        "données"
+      ],
+      "refs": [
+        "charger",
+        "chemin"
+      ]
+    },
+    {
+      "name": "builtins_ignored",
+      "source": "n = len(range(10)) + sum([True, None])\n",
+      "defs": [
+        "n"
+      ],
+      "refs": []
+    },
+    {
+      "name": "builtin_shadowed_in_cell",
+      "source": "list = [1]\nprint(list)\n",
+      "defs": [
+        "list"
+      ],
+      "refs": []
+    },
+    {
+      "name": "dunders_ignored",
+      "source": "__all__ = ['f']\nprint(__name__, __file__)\n",
+      "defs": [],
+      "refs": []
+    },
+    {
+      "name": "private_names_tracked",
+      "source": "_cache = {}\nresult = _helper(_cache)\n",
+      "defs": [
+        "_cache",
+        "result"
+      ],
+      "refs": [
+        "_helper"
+      ]
+    },
+    {
+      "name": "single_underscore_ignored",
+      "source": "for _ in range(3):\n    pass\nv = _\n",
+      "defs": [
+        "v"
+      ],
+      "refs": []
+    },
+    {
+      "name": "kernel_injected_display",
+      "source": "display(df)\n",
+      "defs": [],
+      "refs": [
+        "df"
+      ]
+    },
+    {
+      "name": "timeit_quiet_flag",
+      "source": "%timeit -q f(x)\n",
+      "defs": [],
+      "refs": [
+        "f",
+        "x"
+      ]
+    },
+    {
+      "name": "timeit_n_r_flags",
+      "source": "%timeit -n 10 -r 3 model.fit(X)\n",
+      "defs": [],
+      "refs": [
+        "X",
+        "model"
+      ]
+    },
+    {
+      "name": "time_assignment",
+      "source": "%time y = g(w)\n",
+      "defs": [
+        "y"
+      ],
+      "refs": [
+        "g",
+        "w"
+      ]
+    },
+    {
+      "name": "prun_statement",
+      "source": "%prun run(cfg)\n",
+      "defs": [],
+      "refs": [
+        "cfg",
+        "run"
+      ]
+    },
+    {
+      "name": "shell_line_ignored",
+      "source": "!ls -la\nz = 1\n",
+      "defs": [
+        "z"
+      ],
+      "refs": []
+    },
+    {
+      "name": "shell_capture_assign",
+      "source": "files = !ls *.csv\ncount = len(files)\n",
+      "defs": [
+        "count",
+        "files"
+      ],
+      "refs": []
+    },
+    {
+      "name": "line_magic_capture_assign",
+      "source": "home = %env HOME\n",
+      "defs": [
+        "home"
+      ],
+      "refs": []
+    },
+    {
+      "name": "other_line_magic_ignored",
+      "source": "%matplotlib inline\nplot(data)\n",
+      "defs": [],
+      "refs": [
+        "data",
+        "plot"
+      ]
+    },
+    {
+      "name": "cell_magic_sql_ignored",
+      "source": "%%sql\nSELECT * FROM t\n",
+      "defs": [],
+      "refs": []
+    },
+    {
+      "name": "cell_magic_bash_ignored",
+      "source": "%%bash\necho $x\n",
+      "defs": [],
+      "refs": []
+    },
+    {
+      "name": "cell_magic_timeit",
+      "source": "%%timeit\nresult = compute(data)\n",
+      "defs": [
+        "result"
+      ],
+      "refs": [
+        "compute",
+        "data"
+      ]
+    },
+    {
+      "name": "cell_magic_time",
+      "source": "%%time\nmodel = train(X, y)\n",
+      "defs": [
+        "model"
+      ],
+      "refs": [
+        "X",
+        "train",
+        "y"
+      ]
+    },
+    {
+      "name": "cell_magic_capture_binds_name",
+      "source": "%%capture out\nnoisy(a)\n",
+      "defs": [
+        "out"
+      ],
+      "refs": [
+        "a",
+        "noisy"
+      ]
+    },
+    {
+      "name": "modulo_continuation_in_parens",
+      "source": "msg = (\"%s rows\"\n       % count)\n",
+      "defs": [
+        "msg"
+      ],
+      "refs": [
+        "count"
+      ]
+    },
+    {
+      "name": "modulo_after_backslash",
+      "source": "msg = \"%d\" \\\n% n\n",
+      "defs": [
+        "msg"
+      ],
+      "refs": [
+        "n"
+      ]
+    },
+    {
+      "name": "magic_like_lines_in_triple_string",
+      "source": "doc = \"\"\"\n!not shell\n%not magic\n\"\"\"\nlen(doc)\n",
+      "defs": [
+        "doc"
+      ],
+      "refs": []
+    },
+    {
+      "name": "magics_indented_in_block",
+      "source": "if debug:\n    %time run(a)\n    !echo hi\n",
+      "defs": [],
+      "refs": [
+        "a",
+        "debug",
+        "run"
+      ]
+    },
+    {
+      "name": "syntax_error",
+      "source": "x = = 1\n",
+      "defs": [],
+      "refs": [],
+      "error": true
+    },
+    {
+      "name": "syntax_error_after_valid_lines",
+      "source": "y = 1\ndef broken(:\n",
+      "defs": [],
+      "refs": [],
+      "error": true
+    },
+    {
+      "name": "capture_magic_with_syntax_error",
+      "source": "%%capture out\nx = = 1\n",
+      "defs": [],
+      "refs": [],
+      "error": true
+    }
+  ],
+  "sql_cells": [
+    {
+      "name": "simple_from",
+      "source": "SELECT * FROM sales\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "sales"
+      ]
+    },
+    {
+      "name": "default_output_var",
+      "source": "SELECT * FROM sales\n",
+      "output_var": "_sql_df",
+      "defs": [
+        "_sql_df"
+      ],
+      "refs": [
+        "sales"
+      ]
+    },
+    {
+      "name": "join_with_aliases",
+      "source": "SELECT * FROM orders o JOIN customers AS c ON o.cid = c.id\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "customers",
+        "orders"
+      ]
+    },
+    {
+      "name": "comma_join",
+      "source": "SELECT * FROM a, b AS bb, c WHERE a.x = bb.x\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "name": "cte_excluded",
+      "source": "WITH recent AS (SELECT * FROM orders WHERE d > 1) SELECT * FROM recent\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "orders"
+      ]
+    },
+    {
+      "name": "cte_with_column_list",
+      "source": "WITH t(c1, c2) AS (SELECT x, y FROM src) SELECT * FROM t\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "src"
+      ]
+    },
+    {
+      "name": "quoted_and_multiple_ctes",
+      "source": "WITH \"Totals\" AS (SELECT * FROM sales),\n     second AS (SELECT * FROM \"Totals\")\nSELECT * FROM second JOIN regions USING (id)\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "regions",
+        "sales"
+      ]
+    },
+    {
+      "name": "recursive_cte",
+      "source": "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 5) SELECT * FROM r\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": []
+    },
+    {
+      "name": "comments_stripped",
+      "source": "-- FROM ghost\nSELECT * /* JOIN phantom */ FROM real_tbl\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "real_tbl"
+      ]
+    },
+    {
+      "name": "string_literals_stripped",
+      "source": "SELECT * FROM events WHERE note = 'from fake join other' AND x = 'it''s from y'\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "events"
+      ]
+    },
+    {
+      "name": "extract_inner_from",
+      "source": "SELECT EXTRACT(YEAR FROM order_date) AS y FROM orders\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "orders"
+      ]
+    },
+    {
+      "name": "substring_trim_inner_from",
+      "source": "SELECT SUBSTRING(name FROM 2 FOR 3), TRIM(BOTH ' ' FROM code) FROM people\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "people"
+      ]
+    },
+    {
+      "name": "table_function_excluded",
+      "source": "SELECT * FROM read_csv('data.csv') JOIN lookup ON true\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "lookup"
+      ]
+    },
+    {
+      "name": "schema_qualified",
+      "source": "SELECT * FROM main.tbl JOIN other_db.items ON 1 = 1\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "other_db",
+        "tbl"
+      ]
+    },
+    {
+      "name": "nested_known_schemas",
+      "source": "SELECT * FROM memory.main.events\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "events"
+      ]
+    },
+    {
+      "name": "quoted_identifiers",
+      "source": "SELECT * FROM \"my table\" JOIN \"df_ok\" ON 1 = 1\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "df_ok"
+      ]
+    },
+    {
+      "name": "case_insensitive_keywords",
+      "source": "select * from Lower_Df left outer join right_df on true\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "Lower_Df",
+        "right_df"
+      ]
+    },
+    {
+      "name": "subquery_then_comma_item",
+      "source": "SELECT * FROM (SELECT * FROM inner_df) AS s, outer_df\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "inner_df",
+        "outer_df"
+      ]
+    },
+    {
+      "name": "self_reference_kept",
+      "source": "SELECT * FROM res WHERE x > 0\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "res"
+      ]
+    },
+    {
+      "name": "multiple_statements",
+      "source": "SELECT a FROM t1;\nSELECT b FROM t2;\n",
+      "output_var": "res",
+      "defs": [
+        "res"
+      ],
+      "refs": [
+        "t1",
+        "t2"
+      ]
+    }
+  ],
+  "notebooks": [
+    {
+      "name": "redefinition_chain_no_cycle",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "x = 0\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "x += 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "x += 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c4",
+          "type": "code",
+          "source": "print(x)\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "x"
+          ]
+        ],
+        [
+          "c2",
+          "c3",
+          [
+            "x"
+          ]
+        ],
+        [
+          "c3",
+          "c4",
+          [
+            "x"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3",
+        "c4"
+      ]
+    },
+    {
+      "name": "out_of_order_dependency",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "print(y)\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "y = 1\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c2",
+          "c1",
+          [
+            "y"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c2",
+        "c1"
+      ]
+    },
+    {
+      "name": "two_cell_cycle",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "a = b + 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "b = a + 1\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "a"
+          ]
+        ],
+        [
+          "c2",
+          "c1",
+          [
+            "b"
+          ]
+        ]
+      ],
+      "cycles": [
+        [
+          "c1",
+          "c2"
+        ]
+      ],
+      "topological_order": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "name": "three_cell_cycle",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "a = c\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "b = a\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "c = b\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "a"
+          ]
+        ],
+        [
+          "c2",
+          "c3",
+          [
+            "b"
+          ]
+        ],
+        [
+          "c3",
+          "c1",
+          [
+            "c"
+          ]
+        ]
+      ],
+      "cycles": [
+        [
+          "c1",
+          "c2",
+          "c3"
+        ]
+      ],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "name": "function_param_shadows_global_no_cycle",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "def load():\n    return read_csv('x.csv')\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "def summarize(df):\n    return df.describe()\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "df = load()\ns = summarize(df)\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c3",
+          [
+            "load"
+          ]
+        ],
+        [
+          "c2",
+          "c3",
+          [
+            "summarize"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "name": "dataframe_redefinition",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "df = load_df()\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "df = df.dropna()\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "n = len(df)\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "df"
+          ]
+        ],
+        [
+          "c2",
+          "c3",
+          [
+            "df"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "name": "nearest_preceding_definer_wins",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "x = 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "print(x)\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "x = 2\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "x"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "name": "names_aggregated_per_edge",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "a = 1\nb = 2\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "c = a + b\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "a",
+            "b"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "name": "sql_and_python_mixed",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "sales = make()\n",
+          "disabled": false
+        },
+        {
+          "id": "m1",
+          "type": "markdown",
+          "source": "# Notes\nSELECT FROM nothing",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "sql",
+          "source": "SELECT * FROM sales\n",
+          "disabled": false,
+          "output_var": "summary"
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "print(summary)\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "sales"
+          ]
+        ],
+        [
+          "c2",
+          "c3",
+          [
+            "summary"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2",
+        "c3"
+      ]
+    },
+    {
+      "name": "builtin_shadowed_by_notebook",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "def len(x):\n    return 0\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "n = len([1])\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "len"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "name": "disabled_cell_still_in_graph",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "a = 1\n",
+          "disabled": true
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "b = a\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c1",
+          "c2",
+          [
+            "a"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "name": "syntax_error_cell_has_no_edges",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "x = = 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "print(x)\n",
+          "disabled": false
+        }
+      ],
+      "edges": [],
+      "cycles": [],
+      "topological_order": [
+        "c1",
+        "c2"
+      ]
+    },
+    {
+      "name": "no_self_edges",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "x = x + 1\n",
+          "disabled": false
+        }
+      ],
+      "edges": [],
+      "cycles": [],
+      "topological_order": [
+        "c1"
+      ]
+    },
+    {
+      "name": "topological_order_out_of_order",
+      "cells": [
+        {
+          "id": "c1",
+          "type": "code",
+          "source": "z = y + 1\n",
+          "disabled": false
+        },
+        {
+          "id": "c2",
+          "type": "code",
+          "source": "w = 5\n",
+          "disabled": false
+        },
+        {
+          "id": "c3",
+          "type": "code",
+          "source": "y = w\n",
+          "disabled": false
+        }
+      ],
+      "edges": [
+        [
+          "c2",
+          "c3",
+          [
+            "w"
+          ]
+        ],
+        [
+          "c3",
+          "c1",
+          [
+            "y"
+          ]
+        ]
+      ],
+      "cycles": [],
+      "topological_order": [
+        "c2",
+        "c3",
+        "c1"
+      ]
+    }
+  ]
+}

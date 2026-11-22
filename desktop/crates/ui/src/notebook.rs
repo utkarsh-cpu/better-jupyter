@@ -37,11 +37,178 @@ const READING_WIDTH: f32 = 62.;
 /// Height of the gap above a cell that its floating tools occupy.
 const TOOLS_RESERVE: f32 = 30.;
 
-pub(crate) fn boundary_button_label(last: bool) -> &'static str {
-    if last { "Add cell" } else { "Insert" }
+/// The label every insert boundary shows on hover or focus; the trailing
+/// boundary shows it at rest.
+pub(crate) const BOUNDARY_LABEL: &str = "Add cell";
+
+/// An inline rename of a SQL cell's output variable.
+pub(crate) struct OutputVarEdit {
+    pub cell_id: String,
+    pub input: Entity<InputState>,
+    pub error: Option<&'static str>,
+    _events: Subscription,
+}
+
+/// Why `name` cannot be the output variable of SQL cell `cell_id`.
+pub(crate) fn output_var_error(
+    model: &NotebookModel,
+    cell_id: &str,
+    name: &str,
+) -> Option<&'static str> {
+    if name.is_empty() {
+        return Some("Enter a variable name");
+    }
+    if !codegen::is_py_identifier(name) {
+        return Some("Use letters, digits and _, not starting with a digit or a Python keyword");
+    }
+    let defined_elsewhere = dag::analyze_notebook(model)
+        .defs
+        .iter()
+        .any(|(id, defs)| id != cell_id && defs.iter().any(|def| def == name));
+    defined_elsewhere.then_some("Another cell already defines this name")
+}
+
+/// What App mode shows for an executable or raw cell: its outputs and whether
+/// it raised, or `None` to hide the cell entirely. Tracebacks collapse into a
+/// one-line note, and disabled cells never present stale results.
+pub(crate) fn app_mode_outputs(
+    cell: &kernelledger_models::CellModel,
+) -> Option<(Vec<&Value>, bool)> {
+    if cell.is_disabled() || cell.collapsed {
+        return None;
+    }
+    let (errors, outputs): (Vec<&Value>, Vec<&Value>) = cell
+        .output
+        .iter()
+        .partition(|event| event["kind"] == "error");
+    let raised = !errors.is_empty() || matches!(cell.outcome.as_str(), "error" | "failed");
+    (raised || !outputs.is_empty()).then_some((outputs, raised))
 }
 
 impl Workspace {
+    pub(super) fn begin_output_var_edit(
+        &mut self,
+        cell_id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(cell) = self.tabs[self.active].model.cells.get(cell_id) else {
+            return;
+        };
+        let current = cell.sql_output_var();
+        let input = cx.new(|cx| {
+            let mut input = InputState::new(window, cx).placeholder("sql_result");
+            input.set_value(current, window, cx);
+            input
+        });
+        let events =
+            cx.subscribe_in(
+                &input,
+                window,
+                |v, _, event: &InputEvent, window, cx| match event {
+                    InputEvent::PressEnter { .. } => v.commit_output_var_edit(window, cx),
+                    InputEvent::Change => {
+                        if let Some(edit) = &mut v.output_var_edit {
+                            edit.error = None;
+                        }
+                        cx.notify();
+                    }
+                    _ => {}
+                },
+            );
+        input.update(cx, |input, cx| input.focus(window, cx));
+        self.output_var_edit = Some(OutputVarEdit {
+            cell_id: cell_id.to_owned(),
+            input,
+            error: None,
+            _events: events,
+        });
+        cx.notify();
+    }
+
+    /// Validates and stores the edited name; an invalid name stays in the
+    /// field with its reason.
+    pub(super) fn commit_output_var_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(edit) = &mut self.output_var_edit else {
+            return;
+        };
+        let name = edit.input.read(cx).value().trim().to_owned();
+        let cell_id = edit.cell_id.clone();
+        let model = &self.tabs[self.active].model;
+        if let Some(error) = output_var_error(model, &cell_id, &name) {
+            edit.error = Some(error);
+            cx.notify();
+            return;
+        }
+        let changed = model
+            .cells
+            .get(&cell_id)
+            .is_some_and(|cell| cell.cell_metadata().get("output_var") != Some(&json!(name)));
+        self.output_var_edit = None;
+        if changed {
+            self.mutate_cell_metadata(&cell_id, "output_var", json!(name), cx);
+        }
+        self.focus.focus(window, cx);
+        cx.notify();
+    }
+
+    pub(super) fn cancel_output_var_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.output_var_edit.take().is_some() {
+            self.focus.focus(window, cx);
+            cx.notify();
+        }
+    }
+
+    /// The SQL header control: the output variable, renamed in place.
+    fn output_var_control(&self, index: usize, id: &str, cx: &mut Context<Self>) -> AnyElement {
+        let theme = cx.theme();
+        let (info, danger, muted_fg) = (theme.info, theme.danger, theme.muted_foreground);
+        if let Some(edit) = self.output_var_edit.as_ref().filter(|e| e.cell_id == id) {
+            return h_flex()
+                .gap_1()
+                .items_center()
+                .child(div().text_xs().text_color(muted_fg).child("SQL \u{2192}"))
+                .child(
+                    div().w(rems(10.)).child(
+                        Input::new(&edit.input)
+                            .xsmall()
+                            .aria_label("SQL output variable"),
+                    ),
+                )
+                .child(
+                    action_button(("sql-output-var-save", index))
+                        .ghost()
+                        .xsmall()
+                        .icon(Glyph::Check)
+                        .hint("Save variable name (Enter)")
+                        .accessibility_label("Save variable name")
+                        .on_click(
+                            cx.listener(|v, _, window, cx| v.commit_output_var_edit(window, cx)),
+                        ),
+                )
+                .when_some(edit.error, |d, error| {
+                    d.child(div().text_xs().text_color(danger).child(error))
+                })
+                .into_any_element();
+        }
+        let var = self.tabs[self.active]
+            .model
+            .cells
+            .get(id)
+            .map(|cell| cell.sql_output_var())
+            .unwrap_or_default();
+        let id = id.to_owned();
+        action_button(("sql-output-var", index))
+            .ghost()
+            .xsmall()
+            .text_color(info)
+            .label(format!("SQL \u{2192} {var}"))
+            .hint("Rename the variable this query's result is stored in")
+            .accessibility_label(format!("SQL result variable {var}, rename"))
+            .on_click(cx.listener(move |v, _, window, cx| v.begin_output_var_edit(&id, window, cx)))
+            .into_any_element()
+    }
+
     pub(super) fn editor(
         &mut self,
         tab_index: usize,
@@ -66,6 +233,8 @@ impl Workspace {
                 .scroll_beyond_last_line(Some(0))
                 .language(if kind == "code" {
                     "python"
+                } else if kind == "sql" {
+                    "sql"
                 } else if kind == "markdown" {
                     "markdown"
                 } else {
@@ -78,10 +247,11 @@ impl Workspace {
             s
         });
         let id = id.to_string();
+        let tab_id = self.tabs[tab_index].id;
         if kind == "code" {
             let provider = std::rc::Rc::new(interactive::NotebookCompletion {
                 view: cx.entity().downgrade(),
-                tab: tab_index,
+                tab_id,
                 editor: editor.downgrade(),
             });
             editor.update(cx, |editor, _| {
@@ -92,6 +262,9 @@ impl Workspace {
         let subscription = cx.subscribe(&editor, {
             let id = id.clone();
             move |view, editor, event: &InputEvent, cx| {
+                let Some(tab_index) = view.tab_index_by_id(tab_id) else {
+                    return;
+                };
                 let tab = &mut view.tabs[tab_index];
                 if matches!(event, InputEvent::Focus) {
                     view.active = tab_index;
@@ -135,23 +308,132 @@ impl Workspace {
         let Some(id) = self.tabs[self.active].model.order.get(index).cloned() else {
             return div().into_any_element();
         };
+        if self.tabs[self.active].app_mode {
+            let tab = &self.tabs[self.active];
+            let cell = tab.model.cells[&id].clone();
+            let last = index + 1 == tab.model.order.len();
+            if cell.disk.kind == "markdown" {
+                return div()
+                    .w_full()
+                    .max_w(rems(READING_WIDTH))
+                    .mx_auto()
+                    .px_6()
+                    .py_2()
+                    .when(last, |d| d.pb_8())
+                    .child(
+                        TextView::markdown(("app-md", index), safe_markdown(&cell.text))
+                            .on_link_click(safe_link),
+                    )
+                    .into_any_element();
+            }
+            let Some((shown, raised)) = app_mode_outputs(&cell) else {
+                return div().into_any_element();
+            };
+            let wide_output = shown.iter().any(|e| outputs::is_wide_output(e));
+            let danger = cx.theme().danger;
+            return v_flex()
+                .w_full()
+                .max_w(rems(if wide_output { 80. } else { READING_WIDTH }))
+                .mx_auto()
+                .px_6()
+                .py_2()
+                .gap_2()
+                .when(last, |d| d.pb_8())
+                .children(shown.into_iter().enumerate().map(|(i, e)| {
+                    let mut e = e.clone();
+                    if let Some(handle) =
+                        e["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["handle"]
+                            .as_str()
+                            .map(str::to_owned)
+                        && let Some(model) = self.tabs[self.active]
+                            .inspections
+                            .get("Widget state")
+                            .and_then(|states| states.get(&handle))
+                    {
+                        e["bundle"]["application/vnd.kernelledger.widget+json"]["value"] =
+                            model.clone();
+                    }
+                    outputs::OutputBlock {
+                        tools_state: None,
+                        id: format!("app-{id}-{i}").into(),
+                        event: e,
+                        context: format!("Output {} for cell {}", i + 1, index + 1,).into(),
+                        commands: Some(self.tabs[self.active].service.commands.clone()),
+                        cell_id: id.clone().into(),
+                        project: Some(self.tabs[self.active].model.project.clone()),
+                        exec_id: cell.exec_id.clone().unwrap_or_default().into(),
+                        index: i,
+                        worker_generation:
+                            self.tabs[self.active].runtime["interactive"]["worker_generation"]
+                                .as_str()
+                                .map(str::to_owned),
+                        workspace: Some(cx.entity()),
+                    }
+                    .into_any_element()
+                }))
+                .when(raised, |d| {
+                    d.child(
+                        h_flex()
+                            .id(("app-error", index))
+                            .debug_selector({
+                                let id = id.clone();
+                                move || format!("app-error-{id}")
+                            })
+                            .gap_2()
+                            .items_center()
+                            .text_xs()
+                            .text_color(danger)
+                            .role(Role::Status)
+                            .aria_label("This cell raised an error")
+                            .child(Icon::new(Glyph::TriangleAlert).xsmall())
+                            .child("This cell raised an error"),
+                    )
+                })
+                .into_any_element();
+        }
         let editor = self.editor(self.active, &id, window, cx);
         self.debug_editor_markers(&id, &editor, cx);
         let gutter = self.debug_gutter(&id, &editor, cx);
         let editor_focused = editor.read(cx).focus_handle(cx).is_focused(window);
         let tab = &self.tabs[self.active];
+        let graph = dag::analyze_notebook(&tab.model);
+        let upstream_stale = graph.is_upstream_stale(&id);
+        // Name the upstream cells by position so "why is this stale?" is answerable at a glance.
+        let upstream_label = graph
+            .upstream_stale_from
+            .get(&id)
+            .map(|ids| {
+                let mut cells: Vec<String> = ids
+                    .iter()
+                    .filter_map(|u| tab.model.order.iter().position(|o| o == u))
+                    .map(|i| format!("[{}]", i + 1))
+                    .collect();
+                if cells.len() > 3 {
+                    let more = cells.len() - 3;
+                    cells.truncate(3);
+                    cells.push(format!("+{more}"));
+                }
+                format!("Upstream changed: {}", cells.join(" "))
+            })
+            .unwrap_or_else(|| "Upstream stale".to_owned());
+        let multi_defs = graph.has_multiple_def(&id);
         let cell = tab.model.cells[&id].clone();
+        let is_exec = cell.is_executable();
+        let is_sql = cell.disk.kind == "sql";
+        let is_disabled = cell.is_disabled();
+        let is_blocked = !is_disabled && graph.is_blocked(&id);
+        let is_code_hidden = cell.is_code_hidden();
         let selected = tab.model.selected.as_deref() == Some(id.as_str());
         let last = index + 1 == tab.model.order.len();
         let theme = cx.theme();
-        let (muted_fg, primary, transparent, popover, muted, hairline) = (
+        let (muted_fg, primary, transparent, muted, hairline) = (
             theme.muted_foreground,
             theme.primary,
             theme.transparent,
-            theme.popover,
             theme.muted,
             theme.border,
         );
+        let high_contrast = theme.background.l == 0.;
         let mono = theme.mono_font_family.clone();
         let (warning, danger, info) = (theme.warning, theme.danger, theme.info);
         let save = match cell.save {
@@ -199,18 +481,22 @@ impl Workspace {
         // A narrow split needs a full-width editor. Keep its run button,
         // execution count, and output tools in the toolbar above the source.
         let narrow_split = self.compact && tab.assistant.open;
-        let inline_code = compact_source && !narrow_split && cell.disk.kind == "code";
+        let inline_code = compact_source && !narrow_split && is_exec;
         let inline_markdown = compact_source && cell.disk.kind == "markdown";
-        let mut run_action = if cell.disk.kind == "code" {
+        let mut run_action = if is_exec {
             Some(
                 action_button(("run", index))
                     .ghost()
                     .small()
                     .text_color(if selected { primary } else { muted_fg })
                     .icon(Glyph::Play)
-                    .hint("Run cell (Ctrl+Enter)")
+                    .hint(if is_disabled {
+                        "Cell is disabled (re-enable to run)"
+                    } else {
+                        "Run cell (Ctrl+Enter)"
+                    })
                     .accessibility_label(format!("Run {}", cell_title(&cell.text, &cell.disk.kind)))
-                    .unavailable(cell.save == SaveState::Conflict)
+                    .unavailable(cell.save == SaveState::Conflict || is_disabled)
                     .on_click(cx.listener({
                         let id = id.clone();
                         move |v, _, _, _| {
@@ -331,7 +617,10 @@ impl Workspace {
                     .icon(Glyph::Ellipsis)
                     .contextual(group.clone(), selected || self.preferences.comfortable)
                     .when(
-                        self.cell_menu.as_ref().is_none_or(|(open, _)| *open != id),
+                        !matches!(
+                            &self.menu,
+                            Some(ActiveMenu::Cell { cell_id, .. }) if cell_id == &id
+                        ),
                         |b| b.hint("Cell actions"),
                     )
                     .accessibility_label(format!(
@@ -345,7 +634,10 @@ impl Workspace {
                             let opener = window.focused(cx);
                             v.close_menu(window, cx);
                             v.return_focus = opener;
-                            v.cell_menu = Some((id.clone(), index));
+                            v.menu = Some(ActiveMenu::Cell {
+                                cell_id: id.clone(),
+                                assistant: false,
+                            });
                             v.menu_anchor = key.clone();
                             v.dialog_focus.focus(window, cx);
                             cx.notify();
@@ -355,15 +647,29 @@ impl Workspace {
             ),
         );
         let show_header = if inline_code || inline_markdown {
-            save.is_some() || has_error || cell.stale() || notable_status(&cell.outcome)
+            save.is_some()
+                || has_error
+                || cell.stale()
+                || upstream_stale
+                || is_sql
+                || is_disabled
+                || is_blocked
+                || is_code_hidden
+                || !multi_defs.is_empty()
+                || notable_status(&cell.outcome)
         } else {
             self.high_contrast
-                || cell.disk.kind == "code"
+                || is_exec
                 || selected
                 || self.preferences.comfortable
                 || save.is_some()
                 || has_error
                 || cell.stale()
+                || upstream_stale
+                || is_disabled
+                || is_blocked
+                || is_code_hidden
+                || !multi_defs.is_empty()
         };
         let mut inline_run = if inline_code { run_action.take() } else { None };
         let mut header_actions = Some(actions);
@@ -373,6 +679,7 @@ impl Workspace {
             None
         };
         let notable_outcome = notable_status(&cell.outcome);
+        let sql_control = is_sql.then(|| self.output_var_control(index, &id, cx));
         let spacing = cell_spacing(self.preferences.comfortable);
         // A narrow split gives the margin back to the source.
         let margin = if narrow_split { 0.75 } else { CELL_MARGIN };
@@ -389,21 +696,17 @@ impl Workspace {
             .flex_wrap()
             .py(px(spacing.header_py))
             .when_some(run_action, |d, button| d.child(button))
-            .when_some(
-                cell.ordinal
-                    .filter(|_| cell.disk.kind == "code" && !inline_code),
-                |d, n| {
-                    d.child(
-                        div()
-                            .flex_none()
-                            .min_w(px(28.))
-                            .font_family(mono.clone())
-                            .text_xs()
-                            .text_color(muted_fg)
-                            .child(format!("[{n}]")),
-                    )
-                },
-            )
+            .when_some(cell.ordinal.filter(|_| is_exec && !inline_code), |d, n| {
+                d.child(
+                    div()
+                        .flex_none()
+                        .min_w(px(28.))
+                        .font_family(mono.clone())
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child(format!("[{n}]")),
+                )
+            })
             .when_some(
                 cell.execution_seconds
                     .filter(|_| self.preferences.show_cell_duration && !inline_code),
@@ -421,6 +724,28 @@ impl Workspace {
                     )
                 },
             )
+            .children(sql_control)
+            .when(is_disabled, |d| d.child(badge("Disabled", muted_fg)))
+            .when(is_blocked, |d| {
+                d.child(
+                    div()
+                        .id(("blocked-by-disabled", index))
+                        .debug_selector({
+                            let id = id.clone();
+                            move || format!("blocked-by-disabled-{id}")
+                        })
+                        .child(badge("Blocked by disabled cell", muted_fg))
+                        .tooltip(|_, cx| {
+                            cx.new(|_| {
+                                WorkbenchHint(
+                                    "Depends on a disabled cell; Run all and Run + downstream skip it"
+                                        .into(),
+                                )
+                            })
+                            .into()
+                        }),
+                )
+            })
             .when_some(save, |d, (label, color)| d.child(badge(label, color)))
             .when(has_error && !notable_outcome, |d| {
                 d.child(badge("Failed", danger))
@@ -448,6 +773,23 @@ impl Workspace {
             })
             .when(cell.stale(), |d| {
                 d.child(badge("Edited since run", warning))
+            })
+            .when(upstream_stale && !cell.stale(), |d| {
+                d.child(badge(upstream_label, warning)).child(
+                    action_button(("run-stale-cell", index))
+                        .ghost()
+                        .small()
+                        .icon(Glyph::Play)
+                        .label("Run stale")
+                        .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                )
+            })
+            .when(!multi_defs.is_empty(), |d| {
+                // Redefinition (`df = df.dropna()`) is normal notebook style: informational only.
+                d.child(badge(
+                    format!("Redefines {}", multi_defs.join(", ")),
+                    muted_fg,
+                ))
             })
             .when(cell.stale() && cell.exec_id.is_some(), |d| {
                 let exec_id = cell.exec_id.clone().unwrap_or_default();
@@ -487,7 +829,7 @@ impl Workspace {
                     primary
                 } else if has_error {
                     danger
-                } else if cell.stale() {
+                } else if cell.stale() || upstream_stale {
                     warning
                 } else {
                     transparent
@@ -524,6 +866,9 @@ impl Workspace {
                     let row_h = px((self.preferences.editor_size * 1.5
                         + 18. * self.preferences.ui_scale)
                         .max(30. * self.preferences.ui_scale));
+                    let hide_editor = is_code_hidden
+                        && cell.disk.kind != "markdown"
+                        && !(selected && tab.model.mode == Mode::Edit);
                     d.child(
                         h_flex()
                             .w_full()
@@ -584,7 +929,39 @@ impl Workspace {
                                             )
                                     }),
                             )
-                            .child(
+                            .child(if hide_editor {
+                                let cid_show = id.clone();
+                                h_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .px_3()
+                                    .py_1p5()
+                                    .gap_2()
+                                    .items_center()
+                                    .rounded(px(6.))
+                                    .bg(muted.opacity(0.6))
+                                    .border_1()
+                                    .border_color(surface_edge(cx))
+                                    .text_xs()
+                                    .text_color(muted_fg)
+                                    .child(Icon::new(Glyph::EyeOff).xsmall())
+                                    .child(format!("{} source hidden", kind_label(&cell.disk.kind)))
+                                    .child(div().flex_1())
+                                    .child(
+                                        action_button(("show-hidden-code", index))
+                                            .ghost()
+                                            .small()
+                                            .label("Show code")
+                                            .on_click(cx.listener(move |v, _, _, cx| {
+                                                v.mutate_cell_metadata(
+                                                    &cid_show,
+                                                    "hide_code",
+                                                    json!(false),
+                                                    cx,
+                                                );
+                                            })),
+                                    )
+                            } else {
                                 h_flex()
                                     .debug_selector({
                                         let id = id.clone();
@@ -596,7 +973,9 @@ impl Workspace {
                                     .gap_2()
                                     .pr_2()
                                     .rounded(px(6.))
+                                    .overflow_hidden()
                                     .bg(muted)
+                                    .when(is_disabled, |d| d.opacity(0.58))
                                     .border_1()
                                     .border_color(cell_border_color(
                                         selected,
@@ -632,8 +1011,8 @@ impl Workspace {
                                                     ))
                                                     .bordered(false),
                                             ),
-                                    ),
-                            ),
+                                    )
+                            }),
                     )
                 },
             );
@@ -812,20 +1191,16 @@ impl Workspace {
                     }))
             });
         }
-        let boundary_group: SharedString = format!("boundary-{id}").into();
-        let boundary_visible = last || self.preferences.comfortable || selected;
-        let rule_color = divider(cx);
-        let card_edge = surface_edge(cx);
-        let line_rule = |group: SharedString| {
-            div()
-                .flex_1()
-                .max_w(rems(8.))
-                .h(px(1.))
-                .bg(rule_color)
-                .when(!boundary_visible, |d| {
-                    d.opacity(0.).group_hover(group, |s| s.opacity(1.))
-                })
-        };
+        let boundary = self.cell_boundary(
+            index,
+            &id,
+            last,
+            margin,
+            &spacing,
+            high_contrast,
+            window,
+            cx,
+        );
         div()
             .debug_selector({
                 let id = id.clone();
@@ -841,60 +1216,127 @@ impl Workspace {
             .pt(px(if index == 0 { TOOLS_RESERVE + 2. } else { 0. }))
             .pb(px(if last { 24. } else { 0. }))
             .child(entry.child(card))
+            .child(boundary)
+            .into_any_element()
+    }
+
+    /// The insert control below a cell. The whole boundary row is the target:
+    /// a faint "+" on a hairline at rest, with stronger contrast and an
+    /// "Add cell" label on hover or keyboard focus.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn cell_boundary(
+        &mut self,
+        index: usize,
+        id: &str,
+        last: bool,
+        margin: f32,
+        spacing: &CellSpacing,
+        high_contrast: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let group: SharedString = format!("boundary-{id}").into();
+        let menu_open = matches!(&self.menu, Some(ActiveMenu::Insert { after }) if after == id);
+        let focus = self
+            .insert_focus
+            .entry(id.to_owned())
+            .or_insert_with(|| cx.focus_handle())
+            .clone();
+        let emphasized = menu_open || focus.is_focused(window);
+        let strong = emphasized || high_contrast || self.preferences.comfortable;
+        let theme = cx.theme();
+        let (muted_fg, primary) = (theme.muted_foreground, theme.primary);
+        let rule_color = divider(cx);
+        let (rest_rule, rest_icon) = if strong { (0.9, 1.) } else { (0.35, 0.5) };
+        let rule = || {
+            div()
+                .flex_1()
+                .h(px(1.))
+                .bg(rule_color.opacity(rest_rule))
+                .group_hover(group.clone(), move |s| s.bg(rule_color.opacity(0.9)))
+        };
+        let anchor_key = format!("insert-{id}");
+        let plus = self.anchored(
+            anchor_key.clone(),
+            div()
+                .debug_selector({
+                    let id = id.to_owned();
+                    move || format!("cell-insert-plus-{id}")
+                })
+                .flex_none()
+                .text_color(if emphasized {
+                    primary
+                } else {
+                    muted_fg.opacity(rest_icon)
+                })
+                .group_hover(group.clone(), move |s| s.text_color(muted_fg))
+                .child(Icon::new(Glyph::Plus).small()),
+            cx,
+        );
+        let label = div()
+            .flex_none()
+            .text_xs()
+            .text_color(if emphasized { primary } else { muted_fg })
+            .when(!(last || emphasized), |d| {
+                d.opacity(0.).group_hover(group.clone(), |s| s.opacity(1.))
+            })
+            .child(BOUNDARY_LABEL);
+        let mut button = action_button(("insert-cell", index))
+            .bare()
+            .in_hover_group()
+            .track_focus(&focus)
+            .w_full()
+            .h(px(if last {
+                spacing.boundary_last
+            } else {
+                spacing.boundary
+            }))
+            .accessibility_label(if last {
+                "Add cell at end of notebook".to_string()
+            } else {
+                format!("Insert cell after cell {}", index + 1)
+            })
             .child(
                 h_flex()
-                    .debug_selector({
-                        let id = id.clone();
-                        move || format!("cell-boundary-{id}")
-                    })
-                    .group(boundary_group.clone())
                     .w_full()
-                    .h(px(if last {
-                        spacing.boundary_last
-                    } else {
-                        spacing.boundary
-                    }))
-                    .py_1p5()
-                    .gap_3()
+                    .gap_2()
                     .items_center()
-                    .justify_center()
-                    .child(line_rule(boundary_group.clone()))
-                    .child(
-                        self.anchored(
-                            format!("insert-{id}"),
-                            action_button(("insert-cell", index))
-                                .ghost()
-                                .small()
-                                .rounded_full()
-                                .px_2p5()
-                                .border_1()
-                                .border_color(card_edge)
-                                .bg(popover)
-                                .icon(Glyph::Plus)
-                                .label(boundary_button_label(last))
-                                .text_color(muted_fg)
-                                .contextual(boundary_group.clone(), boundary_visible)
-                                .accessibility_label(if last {
-                                    "Add cell at end of notebook".to_string()
-                                } else {
-                                    format!("Insert cell after cell {}", index + 1)
-                                })
-                                .on_click(cx.listener({
-                                    let key = format!("insert-{id}");
-                                    move |v, _, window, cx| {
-                                        v.close_menu(window, cx);
-                                        v.return_focus = window.focused(cx);
-                                        v.insert_menu = Some(index + 1);
-                                        v.menu_anchor = key.clone();
-                                        v.dialog_focus.focus(window, cx);
-                                        cx.notify();
-                                    }
-                                })),
-                            cx,
-                        ),
-                    )
-                    .child(line_rule(boundary_group)),
+                    .child(rule())
+                    .child(plus)
+                    .child(label)
+                    .child(rule()),
             )
+            .on_click(cx.listener({
+                let after = id.to_owned();
+                move |v, _, window, cx| {
+                    // Snapshot before close_menu restores the previous menu's focus.
+                    let opener = window.focused(cx);
+                    v.close_menu(window, cx);
+                    v.return_focus = opener;
+                    v.menu = Some(ActiveMenu::Insert {
+                        after: after.clone(),
+                    });
+                    v.menu_anchor = anchor_key.clone();
+                    v.dialog_focus.focus(window, cx);
+                    cx.notify();
+                }
+            }));
+        if !menu_open {
+            button = button.hint(if last { "Add cell" } else { "Insert cell here" });
+        }
+        div()
+            .debug_selector({
+                let id = id.to_owned();
+                move || format!("cell-boundary-{id}")
+            })
+            .group(group)
+            .w_full()
+            .max_w(rems(READING_WIDTH))
+            .mx_auto()
+            .pl(rems(margin))
+            .pr_3()
+            .child(button)
             .into_any_element()
     }
 

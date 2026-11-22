@@ -123,7 +123,7 @@ impl Workspace {
     /// Settings remembers one scroll position per section; other pages use one per surface.
     pub(super) fn scroll_key(&self) -> String {
         if self.surface == "Settings" {
-            format!("Settings/{}", self.settings_section)
+            format!("Settings/{}", self.settings_section.key())
         } else {
             self.surface.clone()
         }
@@ -632,13 +632,12 @@ impl Workspace {
                                         v.select_surface("Notebook", cx);
                                         let tab = &mut v.tabs[v.active];
                                         tab.model.selected = Some(id.clone());
-                                        tab.model.mode = Mode::Edit;
-                                        tab.reveal = Some(id.clone());
                                         if let Some(editor) = tab.editors.get(&id) {
                                             editor.update(cx, |e, cx| e.focus(window, cx));
                                         } else {
                                             v.focus.focus(window, cx);
                                         }
+                                        v.request_reveal(Some(id.clone()));
                                         cx.notify();
                                     })),
                             )

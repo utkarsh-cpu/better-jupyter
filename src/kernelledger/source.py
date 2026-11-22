@@ -13,7 +13,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
-from .notebook import EXTENSIONS, Notebook, canonical, filename, source_hash
+from .notebook import (
+    EXTENSIONS,
+    Notebook,
+    canonical,
+    cell_metadata,
+    filename,
+    normalize_metadata,
+    source_hash,
+)
 
 
 class SourceError(ValueError):
@@ -534,7 +542,10 @@ class SourceService:
             elif action == "metadata":
                 if cid:
                     require(cell)
-                (cell if cid else data)["metadata"] = request["metadata"]
+                    # Clients once sent the whole cell (or `{"metadata": {...}}`) as metadata.
+                    cell["metadata"] = normalize_metadata(request["metadata"])
+                else:
+                    data["metadata"] = request["metadata"]
             elif action == "retarget":
                 data["id"] = str(uuid.uuid4())
             else:
@@ -556,13 +567,17 @@ class SourceService:
                 raise SourceError("source_invalid", "invalid manifest", current)
             cells = {c["id"]: c for c in current["cells"]}
             if ids == "all":
-                ids = [c["id"] for c in current["cells"] if c["type"] == "code"]
+                ids = [
+                    c["id"]
+                    for c in current["cells"]
+                    if c["type"] in ("code", "sql") and cell_metadata(c).get("disabled") is not True
+                ]
             result: list[Any] = []
             for cid in ids:
                 cell = cells.get(cid)
-                if cell is None or cell["type"] != "code":
+                if cell is None or cell["type"] not in ("code", "sql"):
                     raise SourceError(
-                        "source_invalid", "missing or non-code cell", {"cell_id": cid}
+                        "source_invalid", "missing or non-executable cell", {"cell_id": cid}
                     )
                 if self._markers(cell["source"]):
                     raise SourceError(

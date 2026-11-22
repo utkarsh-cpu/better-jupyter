@@ -115,7 +115,32 @@ def test_invalid_export_does_not_replace_destination(tmp_path):
     path = tmp_path / "existing.pdf"
     path.write_bytes(b"preserve me")
     with pytest.raises(SourceError, match="format"):
-        export_document(notebook, str(path), "html")
+        export_document(notebook, str(path), "rtf")
     with pytest.raises(SourceError, match=".docx"):
         export_document(notebook, str(path), "docx")
     assert path.read_bytes() == b"preserve me"
+
+
+def test_html_and_python_script_export(tmp_path):
+    notebook = Notebook(tmp_path / "notebook")
+    notebook.init()
+    notebook.add("markdown", "# Experiment Report", "intro")
+    notebook.add("code", "value = 42\nvalue", "calc")
+    notebook.add("sql", "SELECT 1 AS ok", "query")
+
+    html_path = tmp_path / "report.html"
+    res_html = export_document(notebook, str(html_path), "html")
+    assert res_html["format"] == "html"
+    html_text = html_path.read_text(encoding="utf-8")
+    assert "Experiment Report" in html_text
+    assert "value = 42" in html_text
+    assert "SELECT 1 AS ok" in html_text
+
+    py_path = tmp_path / "notebook.py"
+    res_py = export_document(notebook, str(py_path), "py")
+    assert res_py["format"] == "py"
+    py_text = py_path.read_text(encoding="utf-8")
+    assert "# %% [markdown] id=intro" in py_text
+    assert "# %% id=calc" in py_text
+    assert "value = 42" in py_text
+    assert "# %% [sql]" in py_text

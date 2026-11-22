@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -103,6 +104,249 @@ def validate_interpreter(path: str) -> Any:
     return data
 
 
+_PKG_SPEC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-\[\],=<>!~ ]{0,127}$")
+
+
+def _selected_python(root: Path, override: str | None = None) -> str:
+    """Package tools act on the kernel's environment: same resolution as the supervisor."""
+    if override and Path(override).is_file():
+        return override
+    from ..supervisor import project_python
+
+    return project_python(root)[0]
+
+
+def list_packages(root: Path, python_path: str | None = None) -> dict[str, Any]:
+    py = _selected_python(root, python_path)
+    script = (
+        "import importlib.metadata as m, json; "
+        "items = sorted("
+        "({'name': d.metadata.get('Name') or d.name, 'version': d.version or ''} "
+        "for d in m.distributions() if (d.metadata.get('Name') or d.name)), "
+        "key=lambda x: x['name'].lower()); "
+        "print(json.dumps(items))"
+    )
+    kwargs: dict[str, Any] = {"creationflags": 0x08000000} if os.name == "nt" else {}
+    try:
+        result = subprocess.run(
+            [py, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            **kwargs,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise SourceError("invalid_request", f"failed to list packages: {exc}") from None
+    if result.returncode != 0:
+        raise SourceError(
+            "invalid_request",
+            "failed to inspect installed packages",
+            {"stderr": result.stderr[-1000:]},
+        )
+    items = json.loads(result.stdout or "[]")
+    return {"python": py, "items": items, "total": len(items)}
+
+
+def install_package(root: Path, package: str, python_path: str | None = None) -> dict[str, Any]:
+    spec = package.strip()
+    if not spec or spec.startswith("-") or not _PKG_SPEC_RE.match(spec):
+        raise SourceError("invalid_request", f"invalid package specification: {package!r}")
+    py = _selected_python(root, python_path)
+    uv = shutil.which("uv")
+    cmd = [uv, "pip", "install", "--python", py, spec] if uv else [py, "-m", "pip", "install", spec]
+    kwargs: dict[str, Any] = {"creationflags": 0x08000000} if os.name == "nt" else {}
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            **kwargs,
+        )
+    except subprocess.TimeoutExpired:
+        raise SourceError("timeout", f"installing {spec} timed out after 180s") from None
+    except OSError as exc:
+        raise SourceError("invalid_request", f"installer failed to start: {exc}") from None
+    return {
+        "ok": result.returncode == 0,
+        "package": spec,
+        "python": py,
+        "installer": "uv" if uv else "pip",
+        "returncode": result.returncode,
+        "stdout": result.stdout[-4000:],
+        "stderr": result.stderr[-4000:],
+    }
+
+
+def _whitespace_format(source: str) -> str:
+    """Strip trailing whitespace outside string tokens; string contents are never altered."""
+    import io
+    import tokenize
+
+    protected: set[int] = set()
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        start, end = token.start[0], token.end[0]
+        # Lines whose end lies inside a multi-line token (triple-quoted or f-string
+        # middles) keep their trailing whitespace: it is part of the string value.
+        if end > start and token.type not in (tokenize.NEWLINE, tokenize.NL):
+            protected.update(range(start, end))
+    lines = source.splitlines()
+    out = [line if number in protected else line.rstrip() for number, line in enumerate(lines, 1)]
+    while out and not out[-1].strip() and len(out) not in protected:
+        out.pop()
+    return ("\n".join(out) + "\n") if out else ""
+
+
+def _run_formatter(command: list[str], source: str, name: str) -> dict[str, Any] | None:
+    kwargs: dict[str, Any] = {"creationflags": 0x08000000} if os.name == "nt" else {}
+    try:
+        result = subprocess.run(
+            command, input=source, capture_output=True, text=True, timeout=10, **kwargs
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode == 0:
+        return {"source": result.stdout, "changed": result.stdout != source, "formatter": name}
+    return {
+        "source": source,
+        "changed": False,
+        "formatter": name,
+        "error": result.stderr.strip()[:500],
+    }
+
+
+def format_code(source: str) -> dict[str, Any]:
+    """Format with `ruff format`, else Black, else a tokenize-safe whitespace cleanup."""
+    ruff = shutil.which("ruff")
+    if ruff:
+        result = _run_formatter(
+            [ruff, "format", "--stdin-filename", "cell.py", "-"], source, "ruff"
+        )
+        if result is not None:
+            return result
+    black = shutil.which("black")
+    if black:
+        result = _run_formatter([black, "--quiet", "-"], source, "black")
+        if result is not None:
+            return result
+    try:
+        formatted = _whitespace_format(source)
+    except Exception as exc:  # tokenize.TokenError / IndentationError: leave source as is
+        return {"source": source, "changed": False, "formatter": "whitespace", "error": str(exc)}
+    return {"source": formatted, "changed": formatted != source, "formatter": "whitespace"}
+
+
+def _loader_snippet(rel_path: str) -> str | None:
+    suffix = Path(rel_path).suffix.lower()
+    quoted = repr(rel_path)
+    if suffix == ".csv":
+        return f"import pandas as pd\ndf = pd.read_csv({quoted})\ndf.head()\n"
+    if suffix == ".tsv":
+        return f"import pandas as pd\ndf = pd.read_csv({quoted}, sep='\\t')\ndf.head()\n"
+    if suffix in (".parquet", ".pq"):
+        return f"import pandas as pd\ndf = pd.read_parquet({quoted})\ndf.head()\n"
+    if suffix == ".json":
+        return f"import json\nfrom pathlib import Path\ndata = json.loads(Path({quoted}).read_text())\n"
+    if suffix == ".jsonl":
+        return f"import pandas as pd\ndf = pd.read_json({quoted}, lines=True)\ndf.head()\n"
+    if suffix in (".xlsx", ".xls"):
+        return f"import pandas as pd\ndf = pd.read_excel({quoted})\ndf.head()\n"
+    if suffix in (".db", ".sqlite", ".sqlite3"):
+        return f"import sqlite3\nconn = sqlite3.connect({quoted})\n"
+    return None
+
+
+def list_workspace_files(root: Path, subdir: str | None = None, limit: int = 200) -> dict[str, Any]:
+    base = root
+    if subdir:
+        candidate = (root / subdir).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            raise SourceError(
+                "invalid_request", "path must stay inside notebook workspace"
+            ) from None
+        if not candidate.is_dir():
+            raise SourceError("not_found", "directory not found")
+        base = candidate
+    skip_dirs = {".git", ".kl", ".venv", "__pycache__", "node_modules", "target", ".pytest_cache"}
+    items: list[dict[str, Any]] = []
+    truncated = False
+
+    def walk(directory: Path, depth: int) -> None:
+        nonlocal truncated
+        if depth > 4 or len(items) >= limit:
+            if len(items) >= limit:
+                truncated = True
+            return
+        try:
+            entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except OSError:
+            return
+        for entry in entries:
+            if len(items) >= limit:
+                truncated = True
+                return
+            name = entry.name
+            if name in skip_dirs or (name.startswith(".") and name not in (".env",)):
+                continue
+            rel = str(entry.relative_to(root)).replace("\\", "/")
+            link = entry.is_symlink()
+            if link:
+                try:
+                    target = entry.resolve(strict=True)
+                    target.relative_to(root)
+                except (OSError, ValueError, RuntimeError):
+                    # Dangling, looping, or outside the workspace: never followed.
+                    items.append(
+                        {
+                            "path": rel,
+                            "name": name,
+                            "kind": "symlink",
+                            "symlink": True,
+                            "outside_root": True,
+                            "size": 0,
+                            "depth": depth,
+                        }
+                    )
+                    continue
+            if entry.is_dir():
+                items.append(
+                    {
+                        "path": rel,
+                        "name": name,
+                        "kind": "dir",
+                        "size": 0,
+                        "depth": depth,
+                        **({"symlink": True} if link else {}),
+                    }
+                )
+                if not link:  # In-root directory links are listed, not descended (no cycles).
+                    walk(entry, depth + 1)
+            elif entry.is_file():
+                try:
+                    size = entry.stat().st_size
+                except OSError:
+                    size = 0
+                item: dict[str, Any] = {
+                    "path": rel,
+                    "name": name,
+                    "kind": "file",
+                    "ext": entry.suffix.lower(),
+                    "size": size,
+                    "depth": depth,
+                }
+                if link:
+                    item["symlink"] = True
+                snippet = _loader_snippet(rel)
+                if snippet:
+                    item["loader_snippet"] = snippet
+                items.append(item)
+
+    walk(base, 0)
+    return {"root": str(root), "items": items, "truncated": truncated}
+
+
 class Helper:
     def __init__(self, root: Any):
         self.root = Path(root).resolve()
@@ -121,6 +365,29 @@ class Helper:
             return self.source.mutate(request)
         if method == "ping":
             return {"kind": "pong"}
+        if method == "packages.list":
+            return list_packages(self.root, request.get("path"))
+        if method == "packages.install":
+            return install_package(self.root, request["package"], request.get("path"))
+        if method == "code.format":
+            return format_code(request["source"])
+        if method == "files.list":
+            return list_workspace_files(self.root, request.get("path"))
+        if method == "dag.analyze":
+            from ..dag import notebook_stale_plan
+
+            ledger_path = self.root / ".kl/ledger.sqlite"
+            if ledger_path.exists():
+                immutable = (
+                    not os.access(ledger_path.parent, os.W_OK)
+                    and not (ledger_path.parent / "supervisor.json").exists()
+                )
+                ledger = Ledger(ledger_path, readonly=True, immutable=immutable)
+                try:
+                    return notebook_stale_plan(self.notebook, ledger)
+                finally:
+                    ledger.close()
+            return notebook_stale_plan(self.notebook, None)
         if method == "native.status":
             from ..gpu.backends.capabilities import inventory
 
@@ -222,6 +489,7 @@ class Helper:
                     request["path"],
                     request["format"],
                     markdown=request.get("markdown"),
+                    report=request.get("report") is True,
                 )
             raise SourceError("not_found", "history is empty")
         immutable = (
@@ -304,6 +572,7 @@ class Helper:
                     ledger,
                     self.blobs,
                     request.get("markdown"),
+                    report=request.get("report") is True,
                 )
             if method == "bundle_export":
                 return export_bundle(

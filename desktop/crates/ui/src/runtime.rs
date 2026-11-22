@@ -157,6 +157,27 @@ impl Workspace {
                     ),
             );
         }
+        if let Some(notice) = self.notice.clone() {
+            banners = banners.child(
+                banner(info, Glyph::Info)
+                    .id("workspace-notice")
+                    .role(Role::Status)
+                    .aria_label(notice.clone())
+                    .child(div().flex_1().min_w_0().text_sm().child(notice))
+                    .child(
+                        action_button("dismiss-notice")
+                            .small()
+                            .ghost()
+                            .icon(Glyph::X)
+                            .hint("Dismiss")
+                            .accessibility_label("Dismiss notice")
+                            .on_click(cx.listener(|v, _, _, cx| {
+                                v.notice = None;
+                                cx.notify();
+                            })),
+                    ),
+            );
+        }
         let source_state = self.tabs[self.active].model.source_state.clone();
         if self.tabs[self.active].uninitialized {
             banners = banners.child(
@@ -409,6 +430,50 @@ impl Workspace {
                 div().id("save-status").role(Role::Label).aria_label(save).child(save)
             })
             .child(div().flex_1())
+            .when_some(
+                tab.runtime["interactive"]["worker_rss_bytes"].as_u64(),
+                |d, rss| {
+                    let delta = tab.runtime["interactive"]["memory_delta_bytes"].as_i64();
+                    let label = format_rss_bytes(rss);
+                    let tip = match delta {
+                        Some(delta) if delta > 0 => {
+                            format!("Worker RAM: {label} (+{} last run)", format_rss_bytes(delta as u64))
+                        }
+                        Some(delta) if delta < 0 => {
+                            format!(
+                                "Worker RAM: {label} (-{} last run)",
+                                format_rss_bytes(delta.unsigned_abs())
+                            )
+                        }
+                        _ => format!("Worker resident memory: {label}"),
+                    };
+                    d.child(
+                        div()
+                            .id("worker-ram-pill")
+                            .role(Role::Label)
+                            .aria_label(tip.clone())
+                            .font_family(theme.mono_font_family.clone())
+                            .text_color(muted_fg)
+                            .tooltip(move |_, cx| cx.new(|_| WorkbenchHint(tip.clone().into())).into())
+                            .child(format!("RAM {label}")),
+                    )
+                    .child(status_rule(cx))
+                },
+            )
+            .when(self.surface == "Notebook", |d| {
+                d.child(
+                    action_button("status-app-mode")
+                        .ghost()
+                        .small()
+                        .icon(if tab.app_mode { Glyph::Code } else { Glyph::Eye })
+                        .label(if tab.app_mode { "Edit cells" } else { "App mode" })
+                        .selected(tab.app_mode)
+                        .hint("Toggle App / Report mode (Cmd+.)")
+                        .on_click(cx.listener(|v, _, window, cx| {
+                            v.toggle_app_mode(&ToggleAppMode, window, cx)
+                        })),
+                )
+            })
             .when(tab.assistant.busy, |d| {
                 let provider = if ai_provider.is_empty() {
                     "AI"
@@ -445,5 +510,21 @@ impl Workspace {
                 )
             })
             .into_any_element()
+    }
+}
+
+pub(crate) fn format_rss_bytes(bytes: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = 1024.0 * 1024.0;
+    const GB: f64 = 1024.0 * 1024.0 * 1024.0;
+    let b = bytes as f64;
+    if b >= GB {
+        format!("{:.2} GB", b / GB)
+    } else if b >= MB {
+        format!("{:.0} MB", b / MB)
+    } else if b >= KB {
+        format!("{:.0} KB", b / KB)
+    } else {
+        format!("{bytes} B")
     }
 }

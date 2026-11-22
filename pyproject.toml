@@ -31,7 +31,17 @@ gpu = [
     "numpy==2.5.2; python_version >= '3.12'",
     "numpy>=2,<2.5; python_version < '3.12'",
 ]
-dev = ["pytest", "hypothesis", "jsonschema", "ruff", "pyright", "pypdf>=5,<7"]
+dev = [
+    "pytest",
+    "hypothesis",
+    "jsonschema",
+    "ruff",
+    "pyright",
+    "pypdf>=5,<7",
+    # Optional SQL/DataFrame engines, so the DuckDB and Polars paths are tested.
+    "duckdb>=1.1",
+    "polars>=1.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kernelledger"]

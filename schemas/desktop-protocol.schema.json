@@ -96,6 +96,14 @@
         },
         "worker_generation": {
           "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
         }
       }
     },
@@ -120,6 +128,75 @@
           "type": "string"
         },
         "handle": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "page_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "segments": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "value"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "index",
+                  "key",
+                  "entry",
+                  "attr"
+                ]
+              }
+            }
+          }
+        },
+        "slice_prefix": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "col_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "col_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 40
+        },
+        "include_stats": {
+          "type": "boolean"
+        },
+        "allow_device_copy": {
+          "type": "boolean"
+        },
+        "lazy_schema": {
+          "type": "boolean"
+        },
+        "sort_col": {
+          "type": "string"
+        },
+        "sort_col_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sort_desc": {
+          "type": "boolean"
+        },
+        "filter_query": {
           "type": "string"
         }
       }

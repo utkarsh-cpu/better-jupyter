@@ -353,3 +353,325 @@ def test_plotly_default_figure_has_offline_html_without_renderer_setup(notebook)
     assert "cdn.plot.ly" not in html.split("Plotly.newPlot(")[-1]
     assert "[output truncated" not in html
     assert not any(event["kind"] == "stdout" for event in events)
+
+
+def test_passive_containers_stdlib_dataclasses_and_generators():
+    import collections
+    import dataclasses
+    import datetime as dt
+    import decimal
+    import enum
+    import pathlib
+    import re
+    import types
+    import uuid
+
+    from kernelledger.worker import _resolve_segments, passive_page
+
+    class Color(enum.Enum):
+        RED = 1
+
+    Point = collections.namedtuple("Point", ["x", "y"])
+
+    @dataclasses.dataclass
+    class Config:
+        lr: float
+        layers: list[int]
+
+    class Hostile:
+        def __repr__(self):
+            raise AssertionError("repr called")
+
+        def __getattribute__(self, name):
+            raise AssertionError("getattribute called")
+
+    # Nested list + tuples + hostile item stays strictly passive
+    nested = [(1, "a"), (2, {"k": [10, 20]}), Hostile()]
+    prev = passive_preview(nested, 256)
+    assert prev["category"] == "collection"
+    assert prev["size_label"] == "3 items"
+    assert prev["expandable"] is True
+    assert "(1, 'a')" in prev["preview"]
+    assert "(2, {'k': <list, 2 items>})" in prev["preview"]
+    assert "<Hostile>" in prev["preview"]
+
+    # Circular reference does not recurse infinitely
+    circ: list[object] = [1]
+    circ.append(circ)
+    assert "<circular list>" in passive_preview(circ)["preview"]
+
+    # NamedTuple, deque, Counter, OrderedDict, set
+    pt = Point(3, 4)
+    assert "Point(x=3, y=4)" in passive_preview(pt)["preview"]
+    pt_page = passive_page(pt, 0, 10)
+    assert pt_page["mode"] == "sequence"
+    assert pt_page["items"][0]["key"]["preview"] == "x"
+
+    dq = collections.deque([1, 2, 3])
+    assert passive_preview(dq)["size_label"] == "3 items"
+    assert passive_page(dq, 1, 2)["items"][0]["preview"] == "2"
+
+    cnt = collections.Counter({"a": 3, "b": 1})
+    assert passive_preview(cnt)["category"] == "collection"
+    assert passive_page(cnt, 0, 10)["mode"] == "mapping"
+
+    # Stdlib scalars
+    assert "2026-01-02" in passive_preview(dt.date(2026, 1, 2))["preview"]
+    assert "3.14" in passive_preview(decimal.Decimal("3.14"))["preview"]
+    assert "Color.RED" in passive_preview(Color.RED)["preview"]
+    assert "hello" in passive_preview(pathlib.PurePosixPath("/tmp/hello"))["preview"]
+    assert "re.compile" in passive_preview(re.compile(r"\d+"))["preview"]
+    u = uuid.UUID("12345678-1234-5678-1234-567812345678")
+    assert "12345678" in passive_preview(u)["preview"]
+    ns = types.SimpleNamespace(alpha=1, beta="two")
+    assert "alpha=1" in passive_preview(ns)["preview"]
+
+    # Dataclass passive instance fields
+    cfg = Config(lr=0.001, layers=[64, 128])
+    cfg_prev = passive_preview(cfg)
+    assert cfg_prev["expandable"] is True
+    assert "lr=0.001" in cfg_prev["preview"]
+    cfg_page = passive_page(cfg, 0, 10)
+    assert cfg_page["mode"] == "attributes"
+    assert {item["key"]["preview"] for item in cfg_page["items"]} == {"lr", "layers"}
+
+    # Generator is NEVER consumed
+    gen = (x * 10 for x in range(3))
+    gen_prev = passive_preview(gen)
+    assert "not consumed" in gen_prev["preview"]
+    assert next(gen) == 0
+
+    # Long string and bytes paging
+    long_text = "line-" * 40
+    assert passive_preview(long_text)["expandable"] is True
+    tpage = passive_page(long_text, 0, 50)
+    assert tpage["mode"] == "text" and tpage["total"] == len(long_text)
+
+    raw = bytes(range(256)) * 2
+    bpage = passive_page(raw, 0, 16)
+    assert bpage["mode"] == "bytes" and bpage["next_offset"] == 256
+
+    # Structured segment drill-down
+    target, crumbs = _resolve_segments(
+        nested,
+        "nested",
+        [
+            {"kind": "index", "value": 1},
+            {"kind": "index", "value": 1},
+            {"kind": "key", "value": "k"},
+        ],
+    )
+    assert target == [10, 20]
+    assert [c["label"] for c in crumbs] == ["nested", "[1]", "[1]", "['k']"]
+
+
+def test_passive_numpy_matrix_and_pandas_dataframe():
+    numpy = pytest.importorskip("numpy")
+    pandas = pytest.importorskip("pandas")
+    from kernelledger.worker import passive_page
+
+    # NumPy 2D & 3D slicing
+    mat = numpy.arange(12, dtype=numpy.int64).reshape(3, 4)
+    mprev = passive_preview(mat)
+    assert mprev["category"] == "array"
+    assert mprev["shape"] == [3, 4]
+    assert "int64 (3, 4)" in mprev["preview"]
+    mpage = passive_page(mat, 1, 2, col_offset=1, col_limit=2)
+    assert mpage["mode"] == "matrix"
+    assert mpage["table"]["rows"][0][0]["text"] == "5"
+    assert mpage["table"]["next_col_offset"] == 3
+
+    cube = numpy.arange(24).reshape(2, 3, 4)
+    cpage = passive_page(cube, 0, 3, slice_prefix=[1])
+    assert cpage["mode"] == "matrix"
+    assert cpage["lead_dims"] == [2]
+    assert cpage["table"]["rows"][0][0]["text"] == "12"
+
+    # pandas DataFrame + Schema + on-demand stats
+    df = pandas.DataFrame(
+        {
+            "city": ["Paris", "Tokyo", None, "Lima"],
+            "temp": [18.5, 22.0, float("nan"), 19.5],
+            "rank": [1, 2, 3, 4],
+        }
+    )
+    dprev = passive_preview(df)
+    assert dprev["category"] == "tabular"
+    assert dprev["library"] == "pandas"
+    assert dprev["shape"] == [4, 3]
+    assert dprev["columns_preview"] == ["city", "temp", "rank"]
+
+    dpage = passive_page(df, 0, 2, col_offset=0, col_limit=2, include_stats=False)
+    assert dpage["mode"] == "table"
+    assert len(dpage["table"]["rows"]) == 2
+    assert len(dpage["table"]["columns"]) == 2
+    assert dpage["table"]["next_row_offset"] == 2
+    assert dpage["table"]["next_col_offset"] == 2
+    assert dpage["schema"][0]["null_count"] == 1
+    assert "mean" not in dpage["schema"][1]
+
+    dpage_stats = passive_page(df, 0, 4, col_offset=0, col_limit=3, include_stats=True)
+    assert dpage_stats["table"]["rows"][2][0]["null"] is True
+    assert dpage_stats["table"]["rows"][2][1]["null"] is True
+    assert dpage_stats["schema"][1]["mean"] == "20"
+
+    # pandas Series
+    sprev = passive_preview(df["temp"])
+    assert sprev["category"] == "tabular" and sprev["length"] == 4
+    spage = passive_page(df["temp"], 0, 2)
+    assert spage["mode"] == "series" and len(spage["items"]) == 2
+
+
+def test_passive_lazyframe_and_gpu_tensor_never_collect_or_copy(monkeypatch):
+    import sys
+    import types
+
+    from kernelledger.worker import passive_page
+
+    # Mock polars.LazyFrame
+    polars_mod = types.ModuleType("polars")
+
+    class FakeLazyFrame:
+        schema_calls = 0
+
+        def collect_schema(self):
+            FakeLazyFrame.schema_calls += 1
+            return {"a": "Int64", "b": "Utf8"}
+
+        def collect(self):
+            raise AssertionError("LazyFrame.collect() must never be called passively")
+
+    polars_mod.LazyFrame = FakeLazyFrame  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "polars", polars_mod)
+
+    lf = FakeLazyFrame()
+    # Listing/previewing never resolves the schema: that can run scans and I/O.
+    lprev = passive_preview(lf)
+    assert lprev["category"] == "tabular"
+    assert lprev["lazy"] is True
+    assert lprev["columns_preview"] == []
+    assert lprev["schema_collected"] is False
+    lpage = passive_page(lf, 0, 10)
+    assert lpage["mode"] == "table" and lpage["lazy"] is True
+    assert lpage["schema"] == [] and lpage["schema_collected"] is False
+    assert FakeLazyFrame.schema_calls == 0
+    # The schema is resolved only on an explicit request.
+    lpage = passive_page(lf, 0, 10, lazy_schema=True)
+    assert [c["name"] for c in lpage["schema"]] == ["a", "b"]
+    assert lpage["schema_collected"] is True
+    assert FakeLazyFrame.schema_calls == 1
+
+    # Mock torch.Tensor on cuda:0
+    torch_mod = types.ModuleType("torch")
+
+    class FakeDevice:
+        def __init__(self, dev_type: str, text: str):
+            self.type = dev_type
+            self._text = text
+
+        def __str__(self):
+            return self._text
+
+    class FakeTensor:
+        def __init__(self, on_gpu: bool = True):
+            self.shape = (2, 3)
+            self.dtype = "torch.float32"
+            self.device = FakeDevice("cuda" if on_gpu else "cpu", "cuda:0" if on_gpu else "cpu")
+            self.requires_grad = True
+            self.copied = False
+
+        def element_size(self):
+            return 4
+
+        def numel(self):
+            return 6
+
+        def detach(self):
+            return self
+
+        def __getitem__(self, idx):
+            return self
+
+        def cpu(self):
+            self.copied = True
+            return self
+
+        def tolist(self):
+            return [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+
+    torch_mod.Tensor = FakeTensor  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "torch", torch_mod)
+
+    t = FakeTensor(on_gpu=True)
+    tprev = passive_preview(t)
+    assert tprev["category"] == "array"
+    assert tprev["on_device"] is True
+    assert t.copied is False
+
+    # Default page refuses GPU copy
+    tpage = passive_page(t, 0, 10)
+    assert tpage["mode"] == "device_tensor"
+    assert t.copied is False
+
+    # Explicit opt-in copies bounded slice
+    tpage_optin = passive_page(t, 0, 10, allow_device_copy=True)
+    assert tpage_optin["mode"] == "matrix"
+    assert t.copied is True
+    assert tpage_optin["table"]["rows"][0][0]["text"] == "1.0"
+
+
+def test_live_namespace_preview_drilldown_and_contracts(notebook):
+    from kernelledger.desktop import contracts
+
+    contracts.validate(
+        {
+            "method": "namespace.preview",
+            "worker_generation": "gen",
+            "handle": "1:rows",
+            "segments": [{"kind": "index", "value": 0}, {"kind": "key", "value": "score"}],
+            "col_offset": 0,
+            "col_limit": 12,
+            "include_stats": True,
+            "allow_device_copy": False,
+            "slice_prefix": [0, 1],
+        }
+    )
+    with pytest.raises(SourceError):
+        contracts.validate(
+            {
+                "method": "namespace.preview",
+                "worker_generation": "gen",
+                "handle": "1:rows",
+                "segments": [{"kind": "eval", "value": "1+1"}],
+            }
+        )
+
+    ensure_supervisor(notebook.root)
+    successful(notebook, "rows = [('alpha', {'score': 9.5}), ('beta', {'score': 7.2})]")
+    client = Client(notebook.root)
+    try:
+        gen = client.call("runtime.status")["interactive"]["worker_generation"]
+        listing = client.call("namespace.list", worker_generation=gen)
+        row_item = next(item for item in listing["items"] if item["name"] == "rows")
+        assert "('alpha', {'score': 9.5})" in row_item["preview"]
+        assert row_item["size_label"] == "2 items"
+
+        drilled = client.call(
+            "namespace.preview",
+            worker_generation=gen,
+            handle=row_item["handle"],
+            segments=[
+                {"kind": "index", "value": 0},
+                {"kind": "index", "value": 1},
+                {"kind": "key", "value": "score"},
+            ],
+        )
+        assert drilled["preview"] == "9.5"
+        assert [c["label"] for c in drilled["breadcrumbs"]] == [
+            "rows",
+            "[0]",
+            "[1]",
+            "['score']",
+        ]
+    finally:
+        client.close()

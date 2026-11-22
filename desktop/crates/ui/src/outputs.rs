@@ -455,11 +455,22 @@ impl RenderOnce for OutputBlock {
                 format!("Recorded output: {}", self.context)
             })
             .when(error, |d| {
+                let high_contrast = cx
+                    .try_global::<WorkbenchPresentation>()
+                    .is_some_and(|p| p.high_contrast);
                 d.p_3()
                     .rounded(px(6.))
-                    .border_l_2()
-                    .border_color(cx.theme().danger)
-                    .bg(cx.theme().danger.opacity(0.08))
+                    .when(high_contrast, |d| {
+                        d.border_1()
+                            .border_l_2()
+                            .border_color(cx.theme().danger)
+                            .bg(cx.theme().background)
+                    })
+                    .when(!high_contrast, |d| {
+                        d.border_l_2()
+                            .border_color(cx.theme().danger)
+                            .bg(cx.theme().danger.opacity(0.08))
+                    })
             })
             .when(self.tools_state.is_none(), |d| {
                 d.child(
@@ -658,6 +669,8 @@ impl RenderOnce for OutputBlock {
         }
         if error {
             let state = state.clone();
+            let missing_pkg = missing_module_from_error(event);
+            let ws_install = self.workspace.clone();
             body = body.child(
                 h_flex()
                     .gap_2()
@@ -673,6 +686,28 @@ impl RenderOnce for OutputBlock {
                                 event["evalue"].as_str().unwrap_or("Execution failed")
                             )),
                     )
+                    .when_some(missing_pkg.zip(ws_install), |row, (pkg, ws)| {
+                        let label = format!("Install {pkg}");
+                        let pkg_install = pkg.clone();
+                        row.child(
+                            action_button((
+                                ElementId::from(self.id.clone()),
+                                "install-missing-pkg",
+                            ))
+                            .outline()
+                            .small()
+                            .icon(Glyph::Plus)
+                            .label(label)
+                            .hint(format!(
+                                "Install `{pkg}` into the active notebook Python environment"
+                            ))
+                            .on_click(move |_, _, cx| {
+                                ws.update(cx, |w, cx| {
+                                    w.install_package(pkg_install.clone(), cx);
+                                });
+                            }),
+                        )
+                    })
                     .child(
                         action_button((ElementId::from(self.id.clone()), "traceback"))
                             .ghost()
@@ -706,21 +741,381 @@ impl RenderOnce for OutputBlock {
                 && widget["worker_generation"]
                     .as_str()
                     .is_some_and(|generation| {
-                        self.worker_generation.as_deref() == Some(generation)
+                        !generation.is_empty()
+                            && self.worker_generation.as_deref() == Some(generation)
                     });
             let kind = widget["kind"].as_str().unwrap_or("");
-            let mut widget_row = h_flex().gap_2().flex_wrap().items_center().child(
-                div()
-                    .text_sm()
-                    .font_weight(FontWeight::MEDIUM)
-                    .child(widget["label"].as_str().unwrap_or("Widget").to_owned()),
-            );
-            if active {
-                if kind == "checkbox" {
+
+            // Read-only display widgets (`stat`, `callout`) render richly both live and in recorded snapshots / App Mode.
+            if kind == "stat" {
+                let label = widget["label"].as_str().unwrap_or("").to_owned();
+                let val_str = widget["value"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| widget["value"].to_string());
+                let caption = widget["caption"].as_str().unwrap_or("").to_owned();
+                let delta = widget["delta"].as_str().unwrap_or("").to_owned();
+                let dir = widget["direction"].as_str().unwrap_or("neutral");
+                let delta_tone = match dir {
+                    "increase" | "up" | "positive" => cx.theme().success,
+                    "decrease" | "down" | "negative" => cx.theme().danger,
+                    _ => cx.theme().muted_foreground,
+                };
+                body = body.child(
+                    v_flex()
+                        .gap_1()
+                        .p_3()
+                        .min_w(rems(12.))
+                        .max_w(rems(22.))
+                        .rounded(px(8.))
+                        .border_1()
+                        .border_color(divider(cx))
+                        .bg(cx.theme().popover)
+                        .when(!label.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_xs()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(label),
+                            )
+                        })
+                        .child(
+                            h_flex()
+                                .gap_2()
+                                .items_baseline()
+                                .child(
+                                    div()
+                                        .text_xl()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .font_family(cx.theme().mono_font_family.clone())
+                                        .child(val_str),
+                                )
+                                .when(!delta.is_empty(), |r| r.child(badge(delta, delta_tone))),
+                        )
+                        .when(!caption.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child(caption),
+                            )
+                        }),
+                );
+            } else if kind == "callout" {
+                let title = widget["label"].as_str().unwrap_or("").to_owned();
+                let message = widget["value"].as_str().unwrap_or("").to_owned();
+                let variant = widget["variant"].as_str().unwrap_or("info");
+                let accent = match variant {
+                    "success" => cx.theme().success,
+                    "warning" | "warn" => cx.theme().warning,
+                    "danger" | "error" => cx.theme().danger,
+                    "neutral" => cx.theme().muted_foreground,
+                    _ => cx.theme().info,
+                };
+                body = body.child(
+                    v_flex()
+                        .gap_1()
+                        .p_3()
+                        .rounded(px(8.))
+                        .border_1()
+                        .border_color(accent.opacity(0.35))
+                        .bg(accent.opacity(0.08))
+                        .when(!title.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(accent)
+                                    .child(title),
+                            )
+                        })
+                        .child(div().text_sm().whitespace_normal().child(message)),
+                );
+            } else if kind == "form" {
+                let form_label = widget["label"].as_str().unwrap_or("Form").to_owned();
+                let submit_label = widget["submit_label"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("Submit")
+                    .to_owned();
+                let fields = widget["fields"].as_array().cloned().unwrap_or_default();
+                let initial_val = widget["value"].clone();
+                let draft_state = window.use_keyed_state(
+                    (ElementId::from(self.id.clone()), "widget-form-draft"),
+                    cx,
+                    move |_, _| {
+                        if initial_val.is_object() {
+                            initial_val
+                        } else {
+                            json!({})
+                        }
+                    },
+                );
+                let draft_now = draft_state.read(cx).clone();
+                let mut form_box = v_flex()
+                    .gap_2()
+                    .p_3()
+                    .rounded(px(8.))
+                    .border_1()
+                    .border_color(divider(cx))
+                    .bg(cx.theme().popover)
+                    .child(
+                        h_flex()
+                            .justify_between()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(form_label),
+                            )
+                            .when(!active, |r| {
+                                r.child(badge("Recorded snapshot", cx.theme().muted_foreground))
+                            }),
+                    );
+                for (f_idx, field) in fields.iter().enumerate() {
+                    let fname = field["name"].as_str().unwrap_or("").to_owned();
+                    let fkind = field["kind"].as_str().unwrap_or("text");
+                    let flabel = field["label"].as_str().unwrap_or(&fname).to_owned();
+                    let cur_val = draft_now
+                        .get(&fname)
+                        .cloned()
+                        .unwrap_or_else(|| field["value"].clone());
+                    let mut row = h_flex().gap_2().items_center().flex_wrap().child(
+                        div()
+                            .min_w(rems(7.))
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(cx.theme().muted_foreground)
+                            .child(flabel.clone()),
+                    );
+                    if !active {
+                        row = row.child(
+                            div()
+                                .text_xs()
+                                .font_family(cx.theme().mono_font_family.clone())
+                                .child(cur_val.to_string()),
+                        );
+                    } else if fkind == "checkbox" {
+                        let ds = draft_state.clone();
+                        let key = fname.clone();
+                        row = row.child(
+                            Checkbox::new(SharedString::from(format!(
+                                "{}-form-chk-{f_idx}",
+                                self.id
+                            )))
+                            .label(flabel)
+                            .checked(cur_val == true)
+                            .on_click(move |val: &bool, _, cx| {
+                                ds.update(cx, |m, cx| {
+                                    m[&key] = json!(*val);
+                                    cx.notify();
+                                });
+                            }),
+                        );
+                    } else if fkind == "dropdown" {
+                        for (o_idx, opt) in field["options"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .take(32)
+                            .enumerate()
+                        {
+                            if let Some(lbl) = opt.as_str() {
+                                let ds = draft_state.clone();
+                                let key = fname.clone();
+                                let ov = opt.clone();
+                                let selected = cur_val == *opt;
+                                row = row.child(
+                                    action_button(SharedString::from(format!(
+                                        "{}-form-dd-{f_idx}-{o_idx}",
+                                        self.id
+                                    )))
+                                    .xsmall()
+                                    .segment(selected)
+                                    .label(lbl.to_owned())
+                                    .on_click(
+                                        move |_, _, cx| {
+                                            ds.update(cx, |m, cx| {
+                                                m[&key] = ov.clone();
+                                                cx.notify();
+                                            });
+                                        },
+                                    ),
+                                );
+                            }
+                        }
+                    } else if fkind == "integer_slider" {
+                        let val = cur_val.as_i64().unwrap_or(0);
+                        let lower = field["lower"].as_i64().unwrap_or(0);
+                        let upper = field["upper"].as_i64().unwrap_or(100);
+                        let ds1 = draft_state.clone();
+                        let ds2 = draft_state.clone();
+                        let k1 = fname.clone();
+                        let k2 = fname.clone();
+                        row = row
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-form-is-dec-{f_idx}",
+                                    self.id
+                                )))
+                                .outline()
+                                .xsmall()
+                                .label("-")
+                                .unavailable(val <= lower)
+                                .on_click(move |_, _, cx| {
+                                    ds1.update(cx, |m, cx| {
+                                        m[&k1] = json!((val - 1).max(lower));
+                                        cx.notify();
+                                    });
+                                }),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .font_family(cx.theme().mono_font_family.clone())
+                                    .child(val.to_string()),
+                            )
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-form-is-inc-{f_idx}",
+                                    self.id
+                                )))
+                                .outline()
+                                .xsmall()
+                                .label("+")
+                                .unavailable(val >= upper)
+                                .on_click(move |_, _, cx| {
+                                    ds2.update(cx, |m, cx| {
+                                        m[&k2] = json!((val + 1).min(upper));
+                                        cx.notify();
+                                    });
+                                }),
+                            );
+                    } else if fkind == "float_slider" {
+                        let val = cur_val.as_f64().unwrap_or(0.0);
+                        let lower = field["lower"].as_f64().unwrap_or(0.0);
+                        let upper = field["upper"].as_f64().unwrap_or(1.0);
+                        let step = field["step"].as_f64().unwrap_or(0.1).max(1e-6);
+                        let ds1 = draft_state.clone();
+                        let ds2 = draft_state.clone();
+                        let k1 = fname.clone();
+                        let k2 = fname.clone();
+                        row = row
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-form-fs-dec-{f_idx}",
+                                    self.id
+                                )))
+                                .outline()
+                                .xsmall()
+                                .label("-")
+                                .unavailable(val <= lower + 1e-9)
+                                .on_click(move |_, _, cx| {
+                                    ds1.update(cx, |m, cx| {
+                                        m[&k1] =
+                                            json!(((val - step).max(lower) * 1e6).round() / 1e6);
+                                        cx.notify();
+                                    });
+                                }),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .font_family(cx.theme().mono_font_family.clone())
+                                    .child(format!("{val:.3}")),
+                            )
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-form-fs-inc-{f_idx}",
+                                    self.id
+                                )))
+                                .outline()
+                                .xsmall()
+                                .label("+")
+                                .unavailable(val >= upper - 1e-9)
+                                .on_click(move |_, _, cx| {
+                                    ds2.update(cx, |m, cx| {
+                                        m[&k2] =
+                                            json!(((val + step).min(upper) * 1e6).round() / 1e6);
+                                        cx.notify();
+                                    });
+                                }),
+                            );
+                    } else {
+                        let init_txt = cur_val
+                            .as_str()
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| cur_val.to_string());
+                        let placeholder = field["placeholder"].as_str().unwrap_or("").to_owned();
+                        let field_input = window.use_keyed_state(
+                            (
+                                ElementId::from(self.id.clone()),
+                                format!("form-txt-{f_idx}"),
+                            ),
+                            cx,
+                            move |window, cx| {
+                                let mut s = InputState::new(window, cx);
+                                if !placeholder.is_empty() {
+                                    s = s.placeholder(placeholder);
+                                }
+                                if !init_txt.is_empty() {
+                                    s.set_value(init_txt, window, cx);
+                                }
+                                s
+                            },
+                        );
+                        let cur_inp_val = field_input.read(cx).value().to_string();
+                        if draft_now.get(&fname).and_then(Value::as_str)
+                            != Some(cur_inp_val.as_str())
+                        {
+                            draft_state.update(cx, |m, _| {
+                                m[&fname] = json!(cur_inp_val);
+                            });
+                        }
+                        row = row.child(div().w(rems(14.)).child(Input::new(&field_input)));
+                    }
+                    form_box = form_box.child(row);
+                }
+                if active {
                     let model = widget.clone();
                     let controls = commands.clone();
-                    widget_row = widget_row.child(
-                        Checkbox::new(SharedString::from(format!("{}-widget-checkbox", self.id)))
+                    let ds_submit = draft_state.clone();
+                    form_box = form_box.child(
+                        action_button(SharedString::from(format!("{}-form-submit", self.id)))
+                            .primary()
+                            .small()
+                            .self_start()
+                            .label(submit_label)
+                            .on_click(move |_, _, cx| {
+                                let payload = ds_submit.read(cx).clone();
+                                if let Some(commands) = &controls {
+                                    let _ = commands.send(Command::WidgetEvent {
+                                        model: model.clone(),
+                                        value: payload,
+                                    });
+                                }
+                            }),
+                    );
+                }
+                body = body.child(form_box);
+            } else {
+                let mut widget_row = h_flex().gap_2().flex_wrap().items_center().child(
+                    div()
+                        .text_sm()
+                        .font_weight(FontWeight::MEDIUM)
+                        .child(widget["label"].as_str().unwrap_or("Widget").to_owned()),
+                );
+                if active {
+                    if kind == "checkbox" {
+                        let model = widget.clone();
+                        let controls = commands.clone();
+                        widget_row = widget_row.child(
+                            Checkbox::new(SharedString::from(format!(
+                                "{}-widget-checkbox",
+                                self.id
+                            )))
                             .label(widget["label"].as_str().unwrap_or("Checkbox").to_owned())
                             .checked(widget["value"] == true)
                             .on_click(move |value: &bool, _, _| {
@@ -731,42 +1126,187 @@ impl RenderOnce for OutputBlock {
                                     });
                                 }
                             }),
-                    );
-                }
-                let mut choices: Vec<(String, Value)> = Vec::new();
-                match kind {
-                    "button" => choices.push(("Click".into(), Value::Null)),
-                    "checkbox" => {}
-                    "dropdown" => {
-                        for option in widget["options"].as_array().into_iter().flatten().take(100) {
-                            if let Some(label) = option.as_str() {
-                                choices.push((label.to_owned(), option.clone()));
+                        );
+                    } else if kind == "text" {
+                        let init_text = widget["value"].as_str().unwrap_or("").to_owned();
+                        let ph = widget["placeholder"]
+                            .as_str()
+                            .unwrap_or("Enter text")
+                            .to_owned();
+                        let txt_input = window.use_keyed_state(
+                            (ElementId::from(self.id.clone()), "widget-text-input"),
+                            cx,
+                            move |window, cx| {
+                                let mut s = InputState::new(window, cx).placeholder(ph);
+                                if !init_text.is_empty() {
+                                    s.set_value(init_text, window, cx);
+                                }
+                                s
+                            },
+                        );
+                        let model = widget.clone();
+                        let controls = commands.clone();
+                        let inp_read = txt_input.clone();
+                        widget_row = widget_row
+                            .child(div().w(rems(16.)).child(Input::new(&txt_input)))
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-widget-text-apply",
+                                    self.id
+                                )))
+                                .outline()
+                                .small()
+                                .label("Apply")
+                                .on_click(move |_, _, cx| {
+                                    let val = inp_read.read(cx).value().to_string();
+                                    if let Some(commands) = &controls {
+                                        let _ = commands.send(Command::WidgetEvent {
+                                            model: model.clone(),
+                                            value: json!(val),
+                                        });
+                                    }
+                                }),
+                            );
+                    } else if kind == "multiselect" {
+                        let selected: Vec<String> = widget["value"]
+                            .as_array()
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(Value::as_str)
+                                    .map(str::to_owned)
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        for (idx, opt) in widget["options"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .take(64)
+                            .enumerate()
+                        {
+                            if let Some(lbl) = opt.as_str() {
+                                let is_on = selected.iter().any(|s| s == lbl);
+                                let mut next = selected.clone();
+                                if is_on {
+                                    next.retain(|s| s != lbl);
+                                } else {
+                                    next.push(lbl.to_owned());
+                                }
+                                let model = widget.clone();
+                                let controls = commands.clone();
+                                widget_row = widget_row.child(
+                                    action_button(SharedString::from(format!(
+                                        "{}-widget-ms-{idx}",
+                                        self.id
+                                    )))
+                                    .xsmall()
+                                    .segment(is_on)
+                                    .label(lbl.to_owned())
+                                    .on_click(
+                                        move |_, _, _| {
+                                            if let Some(commands) = &controls {
+                                                let _ = commands.send(Command::WidgetEvent {
+                                                    model: model.clone(),
+                                                    value: json!(next),
+                                                });
+                                            }
+                                        },
+                                    ),
+                                );
                             }
                         }
+                    } else if kind == "float_slider" {
+                        let value = widget["value"].as_f64().unwrap_or(0.0);
+                        let lower = widget["lower"].as_f64().unwrap_or(0.0);
+                        let upper = widget["upper"].as_f64().unwrap_or(1.0);
+                        let step = widget["step"].as_f64().unwrap_or(0.1).max(1e-6);
+                        let dec_val = ((value - step).max(lower) * 1e6).round() / 1e6;
+                        let inc_val = ((value + step).min(upper) * 1e6).round() / 1e6;
+                        let m1 = widget.clone();
+                        let c1 = commands.clone();
+                        let m2 = widget.clone();
+                        let c2 = commands.clone();
+                        widget_row = widget_row
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-widget-fs-dec",
+                                    self.id
+                                )))
+                                .outline()
+                                .small()
+                                .label("-")
+                                .unavailable(value <= lower + 1e-9)
+                                .on_click(move |_, _, _| {
+                                    if let Some(commands) = &c1 {
+                                        let _ = commands.send(Command::WidgetEvent {
+                                            model: m1.clone(),
+                                            value: json!(dec_val),
+                                        });
+                                    }
+                                }),
+                            )
+                            .child(badge(
+                                format!("{value:.3} ({lower:.3}\u{2013}{upper:.3})"),
+                                cx.theme().primary,
+                            ))
+                            .child(
+                                action_button(SharedString::from(format!(
+                                    "{}-widget-fs-inc",
+                                    self.id
+                                )))
+                                .outline()
+                                .small()
+                                .label("+")
+                                .unavailable(value >= upper - 1e-9)
+                                .on_click(move |_, _, _| {
+                                    if let Some(commands) = &c2 {
+                                        let _ = commands.send(Command::WidgetEvent {
+                                            model: m2.clone(),
+                                            value: json!(inc_val),
+                                        });
+                                    }
+                                }),
+                            );
                     }
-                    "integer_slider" => {
-                        if let Some(value) = widget["value"].as_i64() {
-                            if value > widget["lower"].as_i64().unwrap_or(0) {
-                                choices.push((format!("Decrease ({value})"), json!(value - 1)));
-                            }
-                            if value < widget["upper"].as_i64().unwrap_or(100) {
-                                choices.push((format!("Increase ({value})"), json!(value + 1)));
+                    let mut choices: Vec<(String, Value)> = Vec::new();
+                    match kind {
+                        "button" => choices.push(("Click".into(), Value::Null)),
+                        "checkbox" | "text" | "multiselect" | "float_slider" => {}
+                        "dropdown" => {
+                            for option in
+                                widget["options"].as_array().into_iter().flatten().take(100)
+                            {
+                                if let Some(label) = option.as_str() {
+                                    choices.push((label.to_owned(), option.clone()));
+                                }
                             }
                         }
+                        "integer_slider" => {
+                            if let Some(value) = widget["value"].as_i64() {
+                                if value > widget["lower"].as_i64().unwrap_or(0) {
+                                    choices.push((format!("Decrease ({value})"), json!(value - 1)));
+                                }
+                                if value < widget["upper"].as_i64().unwrap_or(100) {
+                                    choices.push((format!("Increase ({value})"), json!(value + 1)));
+                                }
+                            }
+                        }
+                        "progress" => {
+                            widget_row = widget_row.child(badge(
+                                format!("{} / {}", widget["value"], widget["upper"]),
+                                cx.theme().info,
+                            ));
+                        }
+                        _ => {}
                     }
-                    "progress" => {
-                        widget_row = widget_row.child(badge(
-                            format!("{} / {}", widget["value"], widget["upper"]),
-                            cx.theme().info,
-                        ));
-                    }
-                    _ => {}
-                }
-                for (index, (label, value)) in choices.into_iter().enumerate() {
-                    let model = widget.clone();
-                    let commands = commands.clone();
-                    widget_row = widget_row.child(
-                        action_button(SharedString::from(format!("{}-widget-{index}", self.id)))
+                    for (index, (label, value)) in choices.into_iter().enumerate() {
+                        let model = widget.clone();
+                        let commands = commands.clone();
+                        widget_row = widget_row.child(
+                            action_button(SharedString::from(format!(
+                                "{}-widget-{index}",
+                                self.id
+                            )))
                             .outline()
                             .small()
                             .accessibility_label(format!(
@@ -782,18 +1322,19 @@ impl RenderOnce for OutputBlock {
                                     });
                                 }
                             }),
-                    );
+                        );
+                    }
+                } else {
+                    widget_row = widget_row
+                        .child(badge("Recorded snapshot", cx.theme().muted_foreground))
+                        .child(info_tip(
+                            SharedString::from(format!("{}-widget-tip", self.id)),
+                            "Recorded widget snapshot. Recreate the widget in the current runtime to interact.",
+                            cx,
+                        ));
                 }
-            } else {
-                widget_row = widget_row
-                    .child(badge("Recorded snapshot", cx.theme().muted_foreground))
-                    .child(info_tip(
-                        SharedString::from(format!("{}-widget-tip", self.id)),
-                        "Recorded widget snapshot. Recreate the widget in the current runtime to interact.",
-                        cx,
-                    ));
+                body = body.child(widget_row);
             }
-            body = body.child(widget_row);
         }
         if html_interactive && !html_available {
             body = body.child(
@@ -850,7 +1391,12 @@ impl RenderOnce for OutputBlock {
             || event["bundle"]["text/html"]["rows"].is_array()
             || html_interactive
             || event["bundle"]["text/markdown"]["value"].is_string()
-            || !event["bundle"]["application/json"]["value"].is_null();
+            || !event["bundle"]["application/json"]["value"].is_null()
+            || matches!(
+                event["bundle"]["application/vnd.kernelledger.widget+json"]["value"]["kind"]
+                    .as_str(),
+                Some("stat" | "callout" | "form")
+            );
         if let Some(text) = text.filter(|_| !prefer_rich || search) {
             if !error || details || search {
                 let shown = if paging.is_some() {
@@ -1467,4 +2013,30 @@ pub(super) fn attachment_preview(
         }
     }
     block.into_any_element()
+}
+
+/// Extract the top-level package name from a Python `ModuleNotFoundError` / `ImportError` event.
+pub(crate) fn missing_module_from_error(event: &Value) -> Option<String> {
+    let ename = event["ename"].as_str().unwrap_or("");
+    if ename != "ModuleNotFoundError" && ename != "ImportError" {
+        return None;
+    }
+    let evalue = event["evalue"].as_str().unwrap_or("");
+    let marker = "No module named ";
+    let rest = evalue.split_once(marker)?.1.trim();
+    let quoted = rest
+        .strip_prefix('\'')
+        .and_then(|s| s.split('\'').next())
+        .or_else(|| rest.strip_prefix('"').and_then(|s| s.split('"').next()))?;
+    let top = quoted.split('.').next()?.trim();
+    if top.is_empty()
+        || top.len() > 64
+        || top.starts_with('_')
+        || !top
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return None;
+    }
+    Some(top.to_owned())
 }

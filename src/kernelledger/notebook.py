@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
-EXTENSIONS: dict[str, str] = {"code": ".py", "markdown": ".md", "raw": ".raw"}
+EXTENSIONS: dict[str, str] = {"code": ".py", "markdown": ".md", "raw": ".raw", "sql": ".sql"}
 DEVICES = {"CON", "PRN", "AUX", "NUL"} | {
     f"{prefix}{i}" for prefix in ("COM", "LPT") for i in range(1, 10)
 }
@@ -43,6 +43,54 @@ def source_hash(text: Any) -> Any:
     return hashlib.sha256(canonical(text).encode()).hexdigest()
 
 
+# Cell-level keys that belong beside `metadata`, never inside it.
+CELL_KEYS = frozenset(
+    {
+        "id",
+        "type",
+        "source",
+        "revision",
+        "attachments",
+        "attachment_mimes",
+        "attachment_alternatives",
+    }
+)
+DEFAULT_SQL_OUTPUT = "_sql_df"
+
+
+def normalize_metadata(metadata: Any) -> dict[str, Any]:
+    """Flatten accidental `{"metadata": {...}}` nesting and drop copied cell-level keys.
+
+    Outer keys win over nested ones, because clients set the edited key at the outer level.
+    """
+    if not isinstance(metadata, dict):
+        return {}
+    outer = cast(dict[str, Any], metadata)
+    flat: dict[str, Any] = {}
+    nested = outer.get("metadata")
+    if isinstance(nested, dict):
+        flat.update(normalize_metadata(nested))
+    for key, value in outer.items():
+        if key != "metadata" and key not in CELL_KEYS:
+            flat[key] = value
+    return flat
+
+
+def cell_metadata(cell: Any) -> dict[str, Any]:
+    """A cell's metadata, tolerant of the nested shape some clients wrote."""
+    if not isinstance(cell, dict):
+        return {}
+    return normalize_metadata(cast(dict[str, Any], cell).get("metadata"))
+
+
+def sql_output_var(cell: Any) -> str:
+    """Output variable of a SQL cell: `metadata.output_var`, default `_sql_df`."""
+    value = cell_metadata(cell).get("output_var")
+    if isinstance(value, str) and value.isidentifier():
+        return value
+    return DEFAULT_SQL_OUTPUT
+
+
 def write_json(path: Any, value: Any) -> Any:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -50,6 +98,39 @@ def write_json(path: Any, value: Any) -> Any:
         json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
     tmp.replace(path)
+
+
+def _script_sql(body: str) -> tuple[str, str | None]:
+    """SQL text (and bound name) of an exported SQL cell body; raw SQL is returned as-is."""
+    import ast
+
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return body, None
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            value = node.value
+            if (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id in ("_kl_run_sql", "run_sql")
+                and value.args
+            ):
+                value = value.args[0]
+            elif node.targets[0].id != "_kl_sql":  # pre-marker exports bound `_kl_sql = '...'`
+                continue
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                text = value.value
+                if text.startswith("\n") and text.endswith("\n"):
+                    text = text[1:-1]
+                bound = node.targets[0].id
+                return text, None if bound == "_kl_sql" else bound
+    return body, None
 
 
 class Notebook:
@@ -283,13 +364,37 @@ class Notebook:
                     "attachments",
                 )
             }
+            cell_type = item["cell_type"]
+            marker = metadata.get("kernelledger")
+            if (
+                cell_type == "code"
+                and isinstance(marker, dict)
+                and cast(dict[str, Any], marker).get("type") == "sql"
+            ):
+                # KernelLedger SQL cells are exported as `%%sql` code cells plus metadata.
+                kl_meta = {
+                    k: v
+                    for k, v in cast(dict[str, Any], marker).items()
+                    if k not in ("type", "output_var")
+                }
+                if kl_meta:
+                    metadata["kernelledger"] = kl_meta
+                else:
+                    metadata.pop("kernelledger")
+                out_var = cast(dict[str, Any], marker).get("output_var")
+                if isinstance(out_var, str) and out_var.isidentifier():
+                    metadata["output_var"] = out_var
+                cell_type = "sql"
+                first, newline, rest = source.partition("\n")
+                if first.strip().startswith("%%sql"):
+                    source = rest if newline else ""
             if extras or item.get("execution_count") is not None:
                 interchange = metadata.setdefault("kernelledger", {})
                 if extras:
                     interchange["ipynb_fields"] = extras
                 if item.get("execution_count") is not None:
                     interchange["imported_execution_count"] = item["execution_count"]
-            self.add(item["cell_type"], source, cid, metadata)
+            self.add(cell_type, source, cid, metadata)
             cell = self.cell(cid)
             attachments = item.get("attachments", {})
             if attachments:
@@ -321,7 +426,7 @@ class Notebook:
                 data = self.read()
                 data["cells"][-1] = cell
                 self.write(data)
-            if item["cell_type"] == "code":
+            if cell_type in ("code", "sql"):
                 output_rows.append(
                     {
                         "cell_id": cid,
@@ -341,12 +446,26 @@ class Notebook:
         data, cells = self.read(), []
         for cell in data["cells"]:
             source = self.source(cell)
+            cell_meta = cell_metadata(cell)
+            export_type = "code" if cell["type"] == "sql" else cell["type"]
+            item_meta: dict[str, Any] = dict(cell_meta)
+            if cell["type"] == "sql":
+                # Plain `%%sql` (jupysql reads arguments as a connection), with the
+                # KernelLedger cell type and output variable carried in metadata.
+                out_var = sql_output_var(cell)
+                item_meta.pop("output_var", None)
+                item_meta["kernelledger"] = {
+                    **cast(dict[str, Any], item_meta.get("kernelledger") or {}),
+                    "type": "sql",
+                    "output_var": out_var,
+                }
+                source = f"%%sql\n{source}"
             item: dict[Any, Any]
             item = {
-                **cell.get("metadata", {}).get("kernelledger", {}).get("ipynb_fields", {}),
+                **cell_meta.get("kernelledger", {}).get("ipynb_fields", {}),
                 "id": cell["id"],
-                "cell_type": cell["type"],
-                "metadata": dict(cell.get("metadata", {})),
+                "cell_type": export_type,
+                "metadata": item_meta,
                 "source": source,
             }
             if cell.get("attachments"):
@@ -366,7 +485,7 @@ class Notebook:
                         item["attachments"][name][mime] = base64.b64encode(
                             (self.root / "attachments" / cell["id"] / stored_name).read_bytes()
                         ).decode()
-            if cell["type"] == "code":
+            if export_type == "code":
                 record = outputs.get(cell["id"], {})
                 item.update(
                     outputs=record.get("outputs", []), execution_count=record.get("ordinal")
@@ -389,3 +508,174 @@ class Notebook:
                 "cells": cells,
             },
         )
+
+    def import_script(self, path: Any) -> list[dict[str, Any]]:
+        """Import a marimo (@app.cell) notebook or Jupytext/VS Code (# %%) Python script."""
+        import ast
+        import textwrap
+
+        data = self.read()
+        if data["cells"]:
+            raise ValueError("import target notebook must be empty")
+        raw = canonical(Path(path).read_text(encoding="utf-8"))
+        parsed_cells: list[tuple[str, str, dict[str, Any]]] = []
+
+        # 1. Try marimo @app.cell AST extraction first.
+        try:
+            tree = ast.parse(raw)
+        except SyntaxError:
+            tree = None
+
+        if tree is not None:
+            marimo_funcs: list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, dict[str, Any]]] = []
+            for node in tree.body:
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for dec in node.decorator_list:
+                    dec_attr = dec.func if isinstance(dec, ast.Call) else dec
+                    if isinstance(dec_attr, ast.Attribute) and dec_attr.attr == "cell":
+                        meta: dict[str, Any] = {}
+                        if isinstance(dec, ast.Call):
+                            for kw in dec.keywords:
+                                if (
+                                    kw.arg in ("hide_code", "disabled")
+                                    and isinstance(kw.value, ast.Constant)
+                                    and isinstance(kw.value.value, bool)
+                                ):
+                                    meta[kw.arg] = kw.value.value
+                        marimo_funcs.append((node, meta))
+                        break
+            if marimo_funcs:
+                lines = raw.splitlines()
+                for func, meta in marimo_funcs:
+                    body_stmts = list(func.body)
+                    if body_stmts and isinstance(body_stmts[-1], ast.Return):
+                        body_stmts = body_stmts[:-1]
+                    if not body_stmts:
+                        continue
+                    # Detect pure `mo.md("...")` markdown cell
+                    if (
+                        len(body_stmts) == 1
+                        and isinstance(body_stmts[0], ast.Expr)
+                        and isinstance(body_stmts[0].value, ast.Call)
+                        and isinstance(body_stmts[0].value.func, ast.Attribute)
+                        and body_stmts[0].value.func.attr == "md"
+                        and len(body_stmts[0].value.args) == 1
+                        and isinstance(body_stmts[0].value.args[0], ast.Constant)
+                        and isinstance(body_stmts[0].value.args[0].value, str)
+                    ):
+                        md_text = textwrap.dedent(body_stmts[0].value.args[0].value).strip("\n")
+                        parsed_cells.append(("markdown", md_text, meta))
+                        continue
+                    # Detect `out = mo.sql("...")` SQL cell
+                    if (
+                        len(body_stmts) == 1
+                        and isinstance(body_stmts[0], ast.Assign)
+                        and len(body_stmts[0].targets) == 1
+                        and isinstance(body_stmts[0].targets[0], ast.Name)
+                        and isinstance(body_stmts[0].value, ast.Call)
+                        and isinstance(body_stmts[0].value.func, ast.Attribute)
+                        and body_stmts[0].value.func.attr == "sql"
+                        and len(body_stmts[0].value.args) >= 1
+                        and isinstance(body_stmts[0].value.args[0], ast.Constant)
+                        and isinstance(body_stmts[0].value.args[0].value, str)
+                    ):
+                        sql_text = textwrap.dedent(body_stmts[0].value.args[0].value).strip("\n")
+                        sql_meta = {**meta, "output_var": body_stmts[0].targets[0].id}
+                        parsed_cells.append(("sql", sql_text, sql_meta))
+                        continue
+                    start_line = body_stmts[0].lineno - 1
+                    end_line = body_stmts[-1].end_lineno or body_stmts[-1].lineno
+                    snippet = textwrap.dedent("\n".join(lines[start_line:end_line])).strip("\n")
+                    if snippet:
+                        parsed_cells.append(("code", snippet, meta))
+
+        # 2. Fallback: Jupytext / VS Code percent format (`# %%`), including the
+        # KernelLedger export markers `# %% [kind] [output_var] id=.. disabled=true ..`.
+        ids: list[str | None] = []
+        if not parsed_cells:
+            marker = re.compile(r"^#\s*%%(?:\s*\[([^\]]+)\])?(.*)$")
+            lines = raw.splitlines()
+            if any(marker.match(ln) for ln in lines):
+                cur_type = "code"
+                cur_meta: dict[str, Any] = {}
+                cur_id: str | None = None
+                buf: list[str] = []
+
+                def uncomment(text: str) -> str:
+                    return "\n".join(
+                        ln[2:] if ln.startswith("# ") else ln[1:] if ln.startswith("#") else ln
+                        for ln in text.splitlines()
+                    )
+
+                def flush() -> None:
+                    nonlocal buf
+                    body = list(buf)
+                    meta = dict(cur_meta)
+                    if body and body[0].strip() == "# [disabled]":  # pre-marker exports
+                        body = body[1:]
+                        meta["disabled"] = True
+                    text = "\n".join(body).strip("\n")
+                    if text:
+                        kind = cur_type
+                        if kind in ("markdown", "raw") or meta.get("disabled") is True:
+                            text = uncomment(text)
+                        elif kind == "sql":
+                            text, bound = _script_sql(text)
+                            if bound and "output_var" not in meta:
+                                meta["output_var"] = bound
+                        parsed_cells.append((kind, text, meta))
+                        ids.append(cur_id)
+                    buf = []
+
+                seen_marker = False
+                for ln in lines:
+                    m = marker.match(ln)
+                    if m:
+                        if seen_marker or any(
+                            b.strip() and not b.lstrip().startswith("#") for b in buf
+                        ):
+                            flush()
+                        else:
+                            buf = []
+                        seen_marker = True
+                        tag = (m.group(1) or "").strip().lower()
+                        cur_meta = {}
+                        cur_id = None
+                        bare: list[str] = []
+                        for word in (m.group(2) or "").split():
+                            key, eq, value = word.partition("=")
+                            if not eq:
+                                bare.append(word)
+                            elif key == "id" and valid_id(value):
+                                cur_id = value
+                            elif key in ("disabled", "hide_code") and value in ("true", "false"):
+                                cur_meta[key] = value == "true"
+                        if tag in ("markdown", "md"):
+                            cur_type = "markdown"
+                        elif tag == "sql":
+                            cur_type = "sql"
+                            if bare and bare[0].isidentifier():
+                                cur_meta["output_var"] = bare[0]
+                        elif tag == "raw":
+                            cur_type = "raw"
+                        else:
+                            cur_type = "code"
+                    else:
+                        buf.append(ln)
+                flush()
+            elif raw.strip():
+                parsed_cells.append(("code", raw.strip("\n"), {}))
+
+        created: list[dict[str, Any]] = []
+        used: set[str] = set()
+        for idx, (ctype, src, meta) in enumerate(parsed_cells, 1):
+            wanted = ids[idx - 1] if idx - 1 < len(ids) else None
+            cid = wanted if wanted and wanted.lower() not in used else f"cell-{idx}"
+            while cid.lower() in used:
+                cid = uuid.uuid4().hex[:12]
+            used.add(cid.lower())
+            # Exports drop each cell's final newline; restore the canonical file ending.
+            self.add(ctype, src + "\n" if src else src, cid, meta or None)
+            created.append({"id": cid, "type": ctype, "metadata": meta})
+        return created

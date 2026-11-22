@@ -85,8 +85,10 @@ impl GroupReveal {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) struct WorkbenchPresentation {
     pub comfortable: bool,
+    pub high_contrast: bool,
 }
 impl gpui_kit::Global for WorkbenchPresentation {}
 
@@ -134,6 +136,8 @@ pub(super) struct WorkbenchButton {
 enum ButtonTreatment {
     Secondary,
     Quiet,
+    /// No fill in any state; the content carries hover and focus emphasis.
+    Bare,
     Primary,
     Danger,
     Segment(bool),
@@ -277,6 +281,174 @@ impl WorkbenchButton {
             );
         self
     }
+    /// A full-width 3- or 4-column variable inspector row (`Name` | `Type` | `Size` | `Value`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn variable_row(
+        mut self,
+        name: String,
+        short_type: String,
+        size_label: String,
+        preview: String,
+        show_size: bool,
+        expandable: bool,
+        selected: bool,
+        mono: SharedString,
+        muted: Hsla,
+        accent: Hsla,
+    ) -> Self {
+        let accessible = if size_label.is_empty() {
+            format!("{name} ({short_type}): {preview}")
+        } else {
+            format!("{name} ({short_type}, {size_label}): {preview}")
+        };
+        self.name = Some(accessible.clone().into());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .compact()
+            .px_2()
+            .when(selected, |b| b.bg(accent))
+            .accessibility_label(accessible)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap_2p5()
+                    .child(
+                        div()
+                            .w(rems(10.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .font_family(mono.clone())
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(name),
+                    )
+                    .child(
+                        div()
+                            .w(rems(7.2))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .text_color(muted)
+                            .child(short_type),
+                    )
+                    .when(show_size, |row| {
+                        row.child(
+                            div()
+                                .w(rems(9.5))
+                                .flex_none()
+                                .truncate()
+                                .text_left()
+                                .text_xs()
+                                .font_family(mono.clone())
+                                .text_color(muted)
+                                .child(size_label),
+                        )
+                    })
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_left()
+                            .font_family(mono)
+                            .font_weight(FontWeight::NORMAL)
+                            .child(preview),
+                    )
+                    .when(expandable, |row| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .text_color(muted)
+                                .opacity(0.65)
+                                .child(Icon::new(Glyph::ChevronRight).xsmall()),
+                        )
+                    }),
+            );
+        self
+    }
+    /// A full-width drill-down child row inside the variable detail inspector (`Key/Index | Type | Value ›`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn variable_child_row(
+        mut self,
+        key_label: String,
+        val_type: String,
+        val_text: String,
+        key_emphasized: bool,
+        mono: SharedString,
+        fg: Hsla,
+        muted: Hsla,
+    ) -> Self {
+        let accessible = format!("Inspect {key_label} ({val_type}): {val_text}");
+        self.name = Some(accessible.clone().into());
+        self.full_row = true;
+        self.inner = self
+            .inner
+            .w_full()
+            .flex_1()
+            .justify_start()
+            .compact()
+            .px_2p5()
+            .accessibility_label(accessible)
+            .child(
+                h_flex()
+                    .flex_1()
+                    .w_full()
+                    .min_w_0()
+                    .items_center()
+                    .gap_2p5()
+                    .child(
+                        div()
+                            .w(rems(7.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(if key_emphasized { fg } else { muted })
+                            .child(key_label),
+                    )
+                    .child(
+                        div()
+                            .w(rems(5.5))
+                            .flex_none()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono.clone())
+                            .text_color(muted)
+                            .child(val_type),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_left()
+                            .text_xs()
+                            .font_family(mono)
+                            .font_weight(FontWeight::NORMAL)
+                            .child(val_text),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_color(muted)
+                            .opacity(0.75)
+                            .child(Icon::new(Glyph::ChevronRight).xsmall()),
+                    ),
+            );
+        self
+    }
     /// A full-width two-line row: a title with a quieter line of detail below.
     pub fn suggestion(
         mut self,
@@ -332,9 +504,32 @@ impl WorkbenchButton {
         self.inner = self.inner.small();
         self
     }
+    pub fn xsmall(mut self) -> Self {
+        self.inner = self.inner.xsmall();
+        self
+    }
     pub fn ghost(mut self) -> Self {
         self.treatment = ButtonTreatment::Quiet;
         self.inner = self.inner.ghost();
+        self
+    }
+    /// A control drawn entirely by its content, such as a boundary row:
+    /// no fill or border at rest, on hover or when pressed.
+    pub fn bare(mut self) -> Self {
+        self.treatment = ButtonTreatment::Bare;
+        self.inner = self.inner.ghost();
+        self
+    }
+    /// Lets the enclosing hover group see the pointer over this button, for
+    /// content that reacts with `group_hover`.
+    pub fn in_hover_group(mut self) -> Self {
+        self.occlude = false;
+        self
+    }
+    /// Uses a caller-owned focus handle, so the caller can tell when the
+    /// button holds keyboard focus.
+    pub fn track_focus(mut self, focus: &FocusHandle) -> Self {
+        self.inner = self.inner.track_focus(focus);
         self
     }
     pub fn primary(mut self) -> Self {
@@ -370,6 +565,10 @@ impl WorkbenchButton {
     }
     pub fn dropdown_caret(mut self, value: bool) -> Self {
         self.inner = self.inner.dropdown_caret(value);
+        self
+    }
+    pub fn child(mut self, child: impl IntoElement) -> Self {
+        self.inner = self.inner.child(child);
         self
     }
     pub fn on_click(
@@ -475,6 +674,16 @@ impl RenderOnce for WorkbenchButton {
                     } else {
                         theme.transparent
                     });
+            }
+            ButtonTreatment::Bare => {
+                self.inner = self.inner.custom(
+                    ButtonCustomVariant::new(cx)
+                        .color(theme.transparent)
+                        .foreground(theme.muted_foreground)
+                        .hover(theme.transparent)
+                        .active(theme.transparent)
+                        .shadow(false),
+                );
             }
             ButtonTreatment::Quiet | ButtonTreatment::Primary | ButtonTreatment::Danger => {}
         }
@@ -621,6 +830,8 @@ pub(super) fn outcome_label(value: &str) -> &str {
         "idle" => "Ready",
         "running" => "Running",
         "verified" => "Active",
+        "stale" => "Stale",
+        "stopped" => "Stopped",
         _ => value,
     }
 }
@@ -641,20 +852,43 @@ pub(super) fn notable_status(value: &str) -> bool {
     )
 }
 
-pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Div {
-    h_flex()
-        .flex_none()
-        .min_h(px(18.))
-        .px(px(6.))
-        .py(px(1.))
-        .rounded(px(4.))
-        .bg(color.opacity(0.12))
-        .items_center()
-        .text_color(color)
-        .text_size(rems(0.6875))
-        .line_height(rems(1.))
-        .font_weight(FontWeight::MEDIUM)
-        .child(label.into())
+#[derive(IntoElement)]
+pub(super) struct Badge {
+    label: SharedString,
+    color: Hsla,
+}
+
+impl RenderOnce for Badge {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let high_contrast = cx
+            .try_global::<WorkbenchPresentation>()
+            .is_some_and(|p| p.high_contrast);
+        h_flex()
+            .flex_none()
+            .min_h(px(18.))
+            .px(px(6.))
+            .py(px(1.))
+            .rounded(px(4.))
+            .when(high_contrast, |d| {
+                d.bg(cx.theme().background)
+                    .border_1()
+                    .border_color(self.color)
+            })
+            .when(!high_contrast, |d| d.bg(self.color.opacity(0.12)))
+            .items_center()
+            .text_color(self.color)
+            .text_size(rems(0.6875))
+            .line_height(rems(1.))
+            .font_weight(FontWeight::MEDIUM)
+            .child(self.label)
+    }
+}
+
+pub(super) fn badge(label: impl Into<SharedString>, color: Hsla) -> Badge {
+    Badge {
+        label: label.into(),
+        color,
+    }
 }
 pub(super) fn dot(color: Hsla) -> Div {
     div().flex_none().size(px(7.)).rounded_full().bg(color)

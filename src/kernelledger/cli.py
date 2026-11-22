@@ -250,6 +250,9 @@ def parser() -> Any:
     exp = sub.add_parser("export")
     exp.add_argument("path")
     exp.add_argument("--session")
+    exp.add_argument(
+        "--report", action="store_true", help="HTML/PDF/DOCX: hide all code (App/Report mode)"
+    )
     pub = sub.add_parser("publish")
     pub.add_argument("checkpoint_id")
     fetch = sub.add_parser("fetch")
@@ -491,24 +494,48 @@ def execute_cli(args: Any) -> Any:
         emit(report)
         return 1 if report["issues"] else 0
     elif command == "import":
-        rows = notebook.import_ipynb(args.path)
-        if args.keep_outputs:
-            emit(offline_mutation(root, "import_outputs", {"rows": rows}))
+        if Path(args.path).suffix.lower() == ".py":
+            emit(notebook.import_script(args.path))
+        else:
+            rows = notebook.import_ipynb(args.path)
+            if args.keep_outputs:
+                emit(offline_mutation(root, "import_outputs", {"rows": rows}))
     elif command == "export":
-        outputs: dict[Any, Any]
-        outputs = {}
-        if args.session:
-            ledger = Ledger(root / ".kl" / "ledger.sqlite", readonly=True)
+        suffix = Path(args.path).suffix.lower()
+        if suffix in (".html", ".py", ".pdf", ".docx"):
+            from .documents import export_document
+
+            ledger_path = root / ".kl" / "ledger.sqlite"
+            ledger = Ledger(ledger_path, readonly=True) if ledger_path.exists() else None
             try:
-                outputs = notebook_outputs(ledger, BlobStore(root / ".kl"), args.session)
+                emit(
+                    export_document(
+                        notebook,
+                        args.path,
+                        suffix.lstrip("."),
+                        ledger,
+                        BlobStore(root / ".kl", readonly=True) if ledger is not None else None,
+                        report=args.report,
+                    )
+                )
             finally:
-                ledger.close()
-        notebook.export_ipynb(args.path, outputs)
+                if ledger is not None:
+                    ledger.close()
+        else:
+            outputs: dict[Any, Any]
+            outputs = {}
+            if args.session:
+                ledger = Ledger(root / ".kl" / "ledger.sqlite", readonly=True)
+                try:
+                    outputs = notebook_outputs(ledger, BlobStore(root / ".kl"), args.session)
+                finally:
+                    ledger.close()
+            notebook.export_ipynb(args.path, outputs)
     elif command in ("log", "show"):
         if command == "show":
             try:
                 cell = notebook.cell(args.exec_id)
-                if cell["type"] != "code":
+                if cell["type"] not in ("code", "sql"):
                     print(notebook.source(cell), end="")
                     return 0
             except ValueError:

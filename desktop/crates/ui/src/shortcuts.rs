@@ -36,6 +36,7 @@ pub(super) fn platform_binding(keys: &'static str) -> &'static str {
         "ctrl-b" => "cmd-b",
         "ctrl-s" => "cmd-s",
         "ctrl-o" => "cmd-o",
+        "ctrl-w" => "cmd-w",
         "ctrl-shift-f" => "cmd-shift-f",
         "ctrl-shift-p" => "cmd-shift-p",
         "ctrl-shift-n" => "cmd-shift-n",
@@ -73,6 +74,7 @@ pub(super) fn shortcut_text(text: &str) -> String {
 pub(super) const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("undo-source", "Undo cell structure", "ctrl-z"),
     ("redo-source", "Redo cell structure", "ctrl-shift-z"),
+    ("close-notebook", "Close notebook", "ctrl-w"),
     ("notebook", "Notebook", "ctrl-1"),
     ("history", "History", "ctrl-2"),
     ("checkpoints", "Checkpoints", "ctrl-3"),
@@ -137,13 +139,15 @@ impl Workspace {
     }
 
     pub(super) fn toggle_export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let open = !self.export_menu;
+        let open = !matches!(self.menu, Some(ActiveMenu::Export));
         let origin = self.return_focus.clone().or_else(|| window.focused(cx));
         self.close_menu(window, cx);
-        self.return_focus = origin;
-        self.menu_anchor = "export".into();
-        self.export_menu = open;
-        self.dialog_focus.focus(window, cx);
+        if open {
+            self.return_focus = origin;
+            self.menu_anchor = "export".into();
+            self.menu = Some(ActiveMenu::Export);
+            self.dialog_focus.focus(window, cx);
+        }
         cx.notify();
     }
 }

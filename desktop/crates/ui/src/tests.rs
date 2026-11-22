@@ -1,6 +1,6 @@
 use super::{
-    Palette, Tab, Workspace, confirmation_copy, history_matches, inspection_surface,
-    runtime_action_available,
+    ActiveMenu, Palette, Tab, TabId, Workspace, confirmation_copy, history_matches,
+    inspection_surface, runtime_action_available, settings::SettingsSection,
 };
 use gpui_kit::{
     AnyWindowHandle, AppContext, Bounds, Entity, Focusable, ListAlignment, ListState, Point,
@@ -307,8 +307,10 @@ fn mount(cx: &mut TestAppContext) -> (AnyWindowHandle, Entity<Workspace>, Receiv
                 let mut view = Workspace::new(None, "system", vec![], window, cx);
                 let mut model = NotebookModel { project: PathBuf::from("test-notebook"), ..Default::default() };
                 model.apply_snapshot(serde_json::from_value(json!({"state":"ok","manifest_revision":"test","cells":[{"id":"first","type":"code","source":"print(42)","revision":"hash"},{"id":"second","type":"code","source":"x = 1","revision":"hash2"}]})).unwrap());
-                view.tabs.push(Tab { assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
-                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new() });
+                let tab_id = TabId(view.next_tab_id);
+                view.next_tab_id += 1;
+                view.tabs.push(Tab { id: tab_id, assistant: Default::default(), model, service: NotebookService { commands: send, events }, list: ListState::new(2, ListAlignment::Top, px(200.)), editors: BTreeMap::new(), subscriptions: vec![], runtime: json!({"worker_state":"idle"}), operations: BTreeMap::new(), inspections: BTreeMap::new(), inspection_method: BTreeMap::new(), scrolls: BTreeMap::new(), parents: vec![], raw_details: BTreeMap::new(), reveal: None,
+                    debug_decorations: BTreeMap::new(), uninitialized: false, selections: BTreeMap::new(), drafts: vec![], history_filter: String::new(), history_applied: String::new(), checkpoint_notice: None, error: None, attachment_pages: BTreeMap::new(), variables_scroll: Default::default(), variables_state: Default::default(), console_history: vec![], html_views: BTreeMap::new(), html_states: BTreeMap::new(), html_notes: BTreeMap::new(), sidebar_tab: "outline".into(), app_mode: false, files_cache: None, packages_cache: None, package_install_status: None, formatting_cell: None });
                 view
             })
         }).unwrap()
@@ -565,21 +567,21 @@ fn export_menu_blocks_background_actions_and_escape_restores_focus(cx: &mut Test
         view.update(cx, |v, cx| v.focus.focus(window, cx));
         window.render_frame(cx);
         window.press("ctrl-shift-e", cx);
-        assert!(view.read(cx).export_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Export));
         assert!(view.read(cx).dialog_focus.is_focused(window));
         window.render_frame(cx);
         window.press("ctrl-shift-n", cx);
         window.press("ctrl-shift-enter", cx);
         assert!(commands.try_recv().is_err());
         window.press("escape", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
         view.update(cx, |v, _| {
             v.tabs[0].model.cells.get_mut("first").unwrap().save =
                 kernelledger_models::SaveState::Conflict
         });
         window.press("ctrl-shift-e", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
     })
     .unwrap();
 }
@@ -596,7 +598,7 @@ fn export_selection_sends_format_and_cancellation_sends_nothing(cx: &mut TestApp
             window.press("ctrl-shift-e", cx);
             window.render_frame(cx);
             window.click(format!("export-{format}"), cx);
-            assert!(!view.read(cx).export_menu);
+            assert!(view.read(cx).menu.is_none());
         })
         .unwrap();
         assert!(cx.did_prompt_for_new_path());
@@ -1020,8 +1022,8 @@ fn theme_text_and_focus_tokens_meet_contrast_thresholds(cx: &mut TestAppContext)
 #[gpui_kit::test]
 fn clipped_settings_control_scrolls_into_view_before_it_runs(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
-    let (section, id) = ("editor", "editor-size-24");
-    let key = format!("Settings/{section}");
+    let (section, id) = (SettingsSection::Editor, "editor-size-24");
+    let key = format!("Settings/{}", section.key());
     let observe = |cx: &mut TestAppContext, height: f32| {
         cx.simulate_window_resize(handle, size(px(800.), px(height)));
         cx.update_window(handle, |_, window, cx| {
@@ -1034,7 +1036,7 @@ fn clipped_settings_control_scrolls_into_view_before_it_runs(cx: &mut TestAppCon
             window.render_frame(cx);
             let viewport = view.read(cx).tabs[0]
                 .scrolls
-                .get(&format!("Settings/{section}"))
+                .get(&format!("Settings/{}", section.key()))
                 .expect("each Settings section keeps a scroll handle")
                 .bounds();
             let node = window.find(id);
@@ -1122,7 +1124,7 @@ fn settings_segments_change_preferences_through_native_buttons(cx: &mut TestAppC
         window.render_frame(cx);
         assert!(window.try_find("editor-size-16").is_none());
         window.click("settings-nav-editor", cx);
-        assert_eq!(view.read(cx).settings_section, "editor");
+        assert_eq!(view.read(cx).settings_section, SettingsSection::Editor);
         window.render_frame(cx);
         assert!(window.try_find("appearance-dark").is_none());
         window.click("editor-size-16", cx);
@@ -1243,13 +1245,13 @@ fn menu_blocks_background_execution_and_escape_returns_focus(cx: &mut TestAppCon
             v.tabs[0].model.selected = Some("first".into());
             v.focus.focus(window, cx);
             v.return_focus = Some(v.focus.clone());
-            v.app_menu = true;
+            v.menu = Some(ActiveMenu::Application);
             v.dialog_focus.focus(window, cx);
         });
         window.render_frame(cx);
         window.press("ctrl-enter", cx);
         window.press("escape", cx);
-        assert!(!view.read(cx).app_menu);
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
     })
     .unwrap();
@@ -1265,19 +1267,14 @@ fn changing_destination_clears_menus_and_palette(cx: &mut TestAppContext) {
     let (handle, view, _) = mount(cx);
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, cx| {
-            v.app_menu = true;
-            v.export_menu = true;
-            v.runtime_menu = true;
+            v.menu = Some(ActiveMenu::Cell {
+                cell_id: "first".into(),
+                assistant: true,
+            });
             v.palette = true;
-            v.cell_menu = Some(("first".into(), 0));
-            v.insert_menu = Some(0);
             v.select_surface("History", cx);
-            assert!(!v.app_menu);
-            assert!(!v.export_menu);
-            assert!(!v.runtime_menu);
+            assert!(v.menu.is_none());
             assert!(!v.palette);
-            assert!(v.cell_menu.is_none());
-            assert!(v.insert_menu.is_none());
             assert_eq!(v.surface, "History");
         });
         window.render_frame(cx);
@@ -1293,7 +1290,7 @@ fn application_menu_rows_span_the_panel_and_start_on_the_leading_edge(cx: &mut T
         window.render_frame(cx);
         window.click("application-menu", cx);
         window.render_frame(cx);
-        assert!(view.read(cx).app_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Application));
     })
     .unwrap();
     let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
@@ -1359,7 +1356,7 @@ fn history_filters_validate_dates_and_keep_existing_text_and_outcome(cx: &mut Te
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, cx| {
             v.surface = "History".into();
-            v.history_owner = Some(0);
+            v.history_owner = Some(v.tabs[0].id);
             v.history_query
                 .update(cx, |s, cx| s.set_value("outcome:error total", window, cx));
             v.tabs[0]
@@ -1415,7 +1412,7 @@ fn history_pending_edits_never_describe_the_list_and_clear_resets_both(cx: &mut 
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "History".into();
-            v.history_owner = Some(0);
+            v.history_owner = Some(v.tabs[0].id);
             v.tabs[0].inspections.insert("History".into(), rows);
         });
         window.render_frame(cx);
@@ -1483,7 +1480,7 @@ fn history_cursor_keeps_session_scope_and_return_to_cell_restores_editor(cx: &mu
     let (handle, view, commands) = mount(cx);
     cx.update_window(handle,|_,window,cx|{
         view.update(cx,|v,cx|{
-            v.surface="History".into();v.history_owner=Some(0);
+            v.surface="History".into();v.history_owner=Some(v.tabs[0].id);
             v.tabs[0].inspection_method.insert("History".into(),"executions.list".into());
             v.tabs[0].inspections.insert("History".into(),json!({"items":[],"cursor":"next","_page_request":{"session_id":"saved-session"}}));
             v.editor(0,"first",window,cx);
@@ -1647,7 +1644,7 @@ fn disabled_titlebar_action_stays_centered_and_runtime_actions_live_in_menu(
         window.render_frame(cx);
         window.click("run-all", cx);
         window.click("runtime-menu", cx);
-        assert!(view.read(cx).runtime_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Runtime));
         window.render_frame(cx);
         window.click("interrupt", cx);
         assert!(view.read(cx).confirmation.is_none());
@@ -1996,7 +1993,7 @@ fn provider_setup_round_trip_keeps_the_question_and_context(cx: &mut TestAppCont
         window.render_frame(cx);
         let v = view.read(cx);
         assert_eq!(v.surface, "Settings");
-        assert_eq!(v.settings_section, "assistant");
+        assert_eq!(v.settings_section, SettingsSection::Assistant);
         assert_eq!(v.tabs[0].assistant.selected_cells, ["second"]);
         assert_eq!(question.read(cx).value().to_string(), "Why is x zero?");
     })
@@ -2018,7 +2015,7 @@ fn settings_owns_its_width_and_return_restores_assistant(cx: &mut TestAppContext
                 view.update(cx, |v, cx| {
                     v.preferences.ui_scale = scale;
                     v.tabs[0].assistant.open = true;
-                    v.settings_section = "assistant";
+                    v.settings_section = SettingsSection::Assistant;
                     v.select_surface("Settings", cx);
                 });
                 window.render_frame(cx);
@@ -2253,7 +2250,10 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
                 cx: &mut gpui_kit::Context<Workspace>| {
         v.focus.focus(window, cx);
         v.return_focus = Some(v.focus.clone());
-        v.cell_menu = Some(("second".into(), 1));
+        v.menu = Some(ActiveMenu::Cell {
+            cell_id: "second".into(),
+            assistant: false,
+        });
         v.dialog_focus.focus(window, cx);
     };
     cx.update_window(handle, |_, window, cx| {
@@ -2263,16 +2263,28 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
         });
         window.render_frame(cx);
         window.press("right", cx);
-        assert!(view.read(cx).cell_menu_assistant);
+        assert!(matches!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Cell {
+                assistant: true,
+                ..
+            })
+        ));
         window.render_frame(cx);
         window.press("left", cx);
-        assert!(!view.read(cx).cell_menu_assistant);
+        assert!(matches!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Cell {
+                assistant: false,
+                ..
+            })
+        ));
         window.render_frame(cx);
         window.click("cell-menu-assistant", cx);
         window.render_frame(cx);
         window.click("ai-edit", cx);
         let v = view.read(cx);
-        assert!(v.cell_menu.is_none());
+        assert!(v.menu.is_none());
         assert_eq!(v.tabs[0].model.selected.as_deref(), Some("second"));
         assert_eq!(v.tabs[0].assistant.selected_cells, ["second"]);
     })
@@ -2284,7 +2296,7 @@ fn cell_menu_puts_editing_first_and_assistant_actions_target_the_invoking_cell(
         view.update(cx, |v, cx| open(v, window, cx));
         window.render_frame(cx);
         window.press("escape", cx);
-        assert!(view.read(cx).cell_menu.is_none());
+        assert!(view.read(cx).menu.is_none());
         assert!(view.read(cx).focus.is_focused(window));
     })
     .unwrap();
@@ -2592,7 +2604,7 @@ fn collapsed_destinations_and_export_remain_reachable(cx: &mut TestAppContext) {
         window.render_frame(cx);
         assert!(!super::shell::header_collapse(800., 1., false).run_label);
         window.click("Notebook", cx);
-        assert!(view.read(cx).app_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Application));
         window.render_frame(cx);
         window.click("destination-History", cx);
         assert_eq!(view.read(cx).surface, "History");
@@ -2605,10 +2617,10 @@ fn collapsed_destinations_and_export_remain_reachable(cx: &mut TestAppContext) {
         window.click("application-menu", cx);
         window.render_frame(cx);
         window.click("menu-export", cx);
-        assert!(view.read(cx).export_menu);
+        assert_eq!(view.read(cx).menu, Some(ActiveMenu::Export));
         window.render_frame(cx);
         window.press("escape", cx);
-        assert!(!view.read(cx).export_menu);
+        assert!(view.read(cx).menu.is_none());
     })
     .unwrap();
 }
@@ -2631,7 +2643,7 @@ fn duration_preference_is_optional_and_last_execution_identity_controls_the_badg
         }
         view.update(cx, |v, _| {
             assert!(!v.preferences.show_cell_duration);
-            v.surface = "Settings".into(); v.settings_section = "layout";
+            v.surface = "Settings".into(); v.settings_section = SettingsSection::Layout;
         });
         window.render_frame(cx);
         window.click("show-cell-duration", cx);
@@ -2698,7 +2710,7 @@ fn html_network_settings_validate_domains_and_stop_existing_outputs(cx: &mut Tes
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "layout";
+            v.settings_section = SettingsSection::Layout;
             v.tabs[0].html_notes.insert(
                 "first-0".into(),
                 "Interactive HTML is not created in automated tests.".into(),
@@ -2759,7 +2771,7 @@ fn interactive_html_stays_off_until_render_and_does_not_construct_a_webview(
             })];
             v.tabs[0].list.splice(0..1, 1);
             v.surface = "Settings".into();
-            v.settings_section = "layout";
+            v.settings_section = SettingsSection::Layout;
         });
         window.render_frame(cx);
         window.click("allow-html-output", cx);
@@ -3408,8 +3420,7 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
             super::surface_edge(cx),
             "unselected cells at rest must use the surface_edge hairline"
         );
-        assert_eq!(super::notebook::boundary_button_label(false), "Insert");
-        assert_eq!(super::notebook::boundary_button_label(true), "Add cell");
+        assert_eq!(super::notebook::BOUNDARY_LABEL, "Add cell");
         window.render_frame(cx);
         window.render_frame(cx);
     })
@@ -3429,6 +3440,12 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
     let boundary_first = visual
         .debug_bounds("cell-boundary-first")
         .expect("first cell boundary");
+    let plus_first = visual
+        .debug_bounds("cell-insert-plus-first")
+        .expect("middle '+'");
+    let plus_last = visual
+        .debug_bounds("cell-insert-plus-second")
+        .expect("trailing '+'");
     let (insert_first, insert_last) = cx
         .update_window(handle, |_, window, _| {
             (
@@ -3437,14 +3454,27 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
             )
         })
         .unwrap();
+    // The whole boundary row is the click target, not a small "+" pill.
     assert!(
-        insert_first.size.width >= px(64.),
-        "visible middle boundary must render the '+ Insert' pill rather than an icon-only circle, got {:?}",
-        insert_first.size
+        insert_first.size.width >= boundary_first.size.width * 0.9
+            && insert_first.size.height >= boundary_first.size.height - px(1.),
+        "insert target {:?} must fill its boundary row {:?}",
+        insert_first,
+        boundary_first
     );
     assert_eq!(
-        insert_first.size.height, insert_last.size.height,
-        "middle '+ Insert' and trailing '+ Add cell' pills must share the same height"
+        insert_first.size.width, insert_last.size.width,
+        "middle and trailing boundary targets span the same reading column"
+    );
+    assert!(
+        insert_first.size.height >= px(28.) && insert_last.size.height >= px(28.),
+        "boundary targets keep at least the standard pointer target height"
+    );
+    assert!(
+        (plus_first.center().x - plus_last.center().x).abs() <= px(1.),
+        "middle '+' {:?} and trailing '+ Add cell' {:?} must share the same horizontal center",
+        plus_first,
+        plus_last
     );
 
     // Verify generous Marimo-style breathing room between the cell card and the + button.
@@ -3454,14 +3484,14 @@ fn cell_boundary_spacing_and_inline_button_alignment_match_marimo_rhythm(cx: &mu
         boundary_first.size.height
     );
     assert!(
-        insert_first.origin.y >= card_first.origin.y + card_first.size.height + px(3.),
-        "insert button {:?} must have clear vertical gap below card {:?}",
-        insert_first,
+        plus_first.origin.y >= card_first.origin.y + card_first.size.height + px(3.),
+        "the '+' {:?} must have clear vertical gap below card {:?}",
+        plus_first,
         card_first
     );
     assert!(
-        (insert_first.center().y - boundary_first.center().y).abs() <= px(1.),
-        "insert button must be vertically centered in its boundary slot"
+        (plus_first.center().y - boundary_first.center().y).abs() <= px(1.),
+        "the '+' must be vertically centered in its boundary slot"
     );
 
     // Cell tools share one centerline and float above the source, never over it.
@@ -3519,7 +3549,7 @@ fn provider_choice_is_a_draft_and_one_save_uses_the_selected_endpoint(cx: &mut T
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "assistant";
+            v.settings_section = SettingsSection::Assistant;
             v.tabs[0].assistant.settings = json!({"settings":{"provider":"openai-compatible","model":"test-model","providers":{"openai-compatible":{"base_url":"http://localhost:11434/v1","structured_output":true}}}});
         });
         window.render_frame(cx);
@@ -3714,7 +3744,7 @@ fn invalid_budget_is_reported_inline_and_blocks_save(cx: &mut TestAppContext) {
     cx.update_window(handle, |_, window, cx| {
         view.update(cx, |v, _| {
             v.surface = "Settings".into();
-            v.settings_section = "assistant";
+            v.settings_section = SettingsSection::Assistant;
             v.tabs[0].assistant.settings =
                 json!({"settings":{"provider":"openai-compatible","model":"m"}});
         });
@@ -3738,4 +3768,1546 @@ fn invalid_budget_is_reported_inline_and_blocks_save(cx: &mut TestAppContext) {
             .any(|c| matches!(c, Command::Assistant { method, .. } if method == "settings.update")),
         "an invalid budget must not be saved"
     );
+}
+
+#[test]
+fn popover_left_aligns_trailing_triggers_to_their_right_edge_and_clamps_to_viewport() {
+    use super::shell::popover_left;
+    let trigger = Bounds {
+        origin: Point::new(px(960.), px(10.)),
+        size: size(px(88.), px(28.)),
+    };
+    // Right edge of trigger is 1048; width 280 -> left 768.
+    assert_eq!(popover_left(trigger, px(280.), px(1440.), true), px(768.));
+    // Left-aligned stays at trigger origin.
+    assert_eq!(popover_left(trigger, px(280.), px(1440.), false), px(960.));
+    // Far-right trigger clamps to viewport - width - 12.
+    let far_right = Bounds {
+        origin: Point::new(px(1400.), px(10.)),
+        size: size(px(28.), px(28.)),
+    };
+    assert_eq!(
+        popover_left(far_right, px(280.), px(1440.), true),
+        px(1148.)
+    );
+    assert_eq!(
+        popover_left(far_right, px(280.), px(1440.), false),
+        px(1148.)
+    );
+    // Unmeasured right-aligned fallback docks inside right margin.
+    assert_eq!(
+        popover_left(Bounds::default(), px(280.), px(1440.), true),
+        px(1148.)
+    );
+    // Trigger near left edge clamps to 12px margin.
+    let far_left = Bounds {
+        origin: Point::new(px(20.), px(10.)),
+        size: size(px(40.), px(28.)),
+    };
+    assert_eq!(popover_left(far_left, px(280.), px(1440.), true), px(12.));
+}
+
+#[gpui_kit::test]
+fn mono_font_size_scales_at_13px_and_high_contrast_updates_presentation_global(
+    cx: &mut TestAppContext,
+) {
+    use super::ActiveTheme;
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.ui_scale = 1.5;
+            v.high_contrast = true;
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind": "error",
+                "ename": "ZeroDivisionError",
+                "evalue": "division by zero",
+                "traceback": ["ZeroDivisionError: division by zero"]
+            })];
+            v.tabs[0].list.splice(0..1, 1);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        assert_eq!(cx.theme().font_size, px(14. * 1.5));
+        assert_eq!(cx.theme().mono_font_size, px(13. * 1.5));
+        let pres = cx
+            .try_global::<super::components::WorkbenchPresentation>()
+            .expect("presentation global");
+        assert!(pres.high_contrast);
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn close_tab_switches_active_and_returns_to_welcome_on_last_tab(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            let (send, _) = mpsc::channel();
+            let (_, events) = mpsc::channel();
+            let second_id = TabId(v.next_tab_id);
+            v.next_tab_id += 1;
+            let model = NotebookModel {
+                project: PathBuf::from("second-notebook"),
+                ..Default::default()
+            };
+            v.tabs.push(Tab {
+                id: second_id,
+                assistant: Default::default(),
+                model,
+                service: NotebookService {
+                    commands: send,
+                    events,
+                },
+                list: ListState::new(0, ListAlignment::Top, px(200.)),
+                editors: BTreeMap::new(),
+                debug_decorations: BTreeMap::new(),
+                subscriptions: vec![],
+                runtime: json!({"worker_state":"idle"}),
+                operations: BTreeMap::new(),
+                inspections: BTreeMap::new(),
+                inspection_method: BTreeMap::new(),
+                scrolls: BTreeMap::new(),
+                parents: vec![],
+                raw_details: BTreeMap::new(),
+                reveal: None,
+                uninitialized: false,
+                selections: BTreeMap::new(),
+                drafts: vec![],
+                history_filter: String::new(),
+                history_applied: String::new(),
+                checkpoint_notice: None,
+                error: None,
+                attachment_pages: BTreeMap::new(),
+                variables_scroll: Default::default(),
+                variables_state: Default::default(),
+                console_history: vec![],
+                html_views: BTreeMap::new(),
+                html_states: BTreeMap::new(),
+                html_notes: BTreeMap::new(),
+                sidebar_tab: "outline".into(),
+                app_mode: false,
+                files_cache: None,
+                packages_cache: None,
+                package_install_status: None,
+                formatting_cell: None,
+            });
+            v.active = 1;
+            let _ = v.console_editor(window, cx);
+        });
+        // Close the first tab while second is active: active shifts down to 0.
+        view.update(cx, |v, cx| v.close_tab(0, window, cx));
+        assert_eq!(view.read(cx).tabs.len(), 1);
+        assert_eq!(view.read(cx).active, 0);
+        assert_eq!(
+            view.read(cx).tabs[0].model.project,
+            PathBuf::from("second-notebook")
+        );
+        // Close the last remaining tab via command dispatch: returns to Welcome.
+        view.update(cx, |v, cx| v.run_command("close-notebook", window, cx));
+        assert!(view.read(cx).tabs.is_empty());
+        assert_eq!(view.read(cx).surface, "Notebook");
+        assert!(view.read(cx).console_editors.is_empty());
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn variables_filter_and_idle_passive_refresh(cx: &mut TestAppContext) {
+    use super::interactive::variable_matches;
+    let item = json!({"name": "learning_rate", "type": "float", "preview": "0.001"});
+    assert!(variable_matches(&item, ""));
+    assert!(variable_matches(&item, "learning"));
+    assert!(variable_matches(&item, "float"));
+    assert!(variable_matches(&item, "0.001"));
+    assert!(!variable_matches(&item, "dataframe"));
+
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, _, cx| {
+        // Offline runtime: switching to Variables must NOT send namespace.list.
+        view.update(cx, |v, cx| {
+            v.tabs[0].runtime = json!({"worker_state": "offline"});
+            v.select_surface("Variables", cx);
+        });
+    })
+    .unwrap();
+    assert!(!commands.try_iter().any(
+        |c| matches!(c, Command::Interactive { ref method, .. } if method == "namespace.list")
+    ));
+
+    cx.update_window(handle, |_, _, cx| {
+        // Idle runtime with no cached Variables snapshot: passively requests namespace.list.
+        view.update(cx, |v, cx| {
+            v.tabs[0].runtime =
+                json!({"worker_state": "idle", "interactive": {"worker_generation": "g1"}});
+            v.select_surface("Notebook", cx);
+            v.select_surface("Variables", cx);
+        });
+    })
+    .unwrap();
+    assert!(commands.try_iter().any(
+        |c| matches!(c, Command::Interactive { ref method, .. } if method == "namespace.list")
+    ));
+}
+
+#[gpui_kit::test]
+fn console_transcript_accumulates_and_clears(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, _) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.select_surface("Console", cx);
+        });
+        send.send(Event::Inspection {
+            method: "console.execution".into(),
+            value: json!({
+                "exec_id": "exec-1",
+                "status": "ok",
+                "source": "a = 1",
+                "outputs": []
+            }),
+        })
+        .unwrap();
+        send.send(Event::Inspection {
+            method: "console.execution".into(),
+            value: json!({
+                "exec_id": "exec-2",
+                "status": "ok",
+                "source": "a + 2",
+                "outputs": [{"kind": "stream", "name": "stdout", "text": "3\n"}]
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        assert_eq!(view.read(cx).tabs[0].console_history.len(), 2);
+        assert_eq!(
+            view.read(cx).tabs[0].inspections["Console output"]["exec_id"],
+            "exec-2"
+        );
+        window.render_frame(cx);
+        window.click("console-clear", cx);
+        assert!(view.read(cx).tabs[0].console_history.is_empty());
+        assert!(
+            !view.read(cx).tabs[0]
+                .inspections
+                .contains_key("Console output")
+        );
+    })
+    .unwrap();
+}
+
+#[test]
+fn help_document_parses_shortcut_table_and_outcome_labels_capitalize() {
+    let raw = include_str!("../../../../docs/desktop/help.md")
+        .trim_start()
+        .strip_prefix("# Help and shortcuts")
+        .unwrap()
+        .trim_start();
+    let parsed = super::help::parse_help_document(raw);
+    assert!(
+        parsed
+            .shortcuts
+            .iter()
+            .any(|(action, keys)| action == "Close notebook" && keys == "Ctrl+W")
+    );
+    assert!(
+        parsed
+            .shortcuts
+            .iter()
+            .any(|(action, keys)| action == "Run cell, select next" && keys == "Shift+Enter")
+    );
+    assert!(
+        parsed
+            .sections
+            .iter()
+            .any(|section| section.starts_with("## Export a document"))
+    );
+    assert_eq!(super::components::outcome_label("stale"), "Stale");
+    assert_eq!(super::components::outcome_label("stopped"), "Stopped");
+}
+
+#[test]
+fn variables_category_filtering_column_search_and_breadcrumbs() {
+    use super::interactive::{
+        breadcrumb_expression, variable_matches, variable_matches_category, variable_short_type,
+    };
+
+    let df = json!({
+        "name": "sales_df",
+        "type": "pandas.core.frame.DataFrame",
+        "short_type": "DataFrame",
+        "category": "tabular",
+        "size_label": "120 rows \u{00d7} 4 cols",
+        "preview": "DataFrame(120\u{00d7}4) [region, revenue, units, date]",
+        "columns_preview": ["region", "revenue", "units", "date"]
+    });
+    let arr = json!({
+        "name": "weights",
+        "type": "numpy.ndarray",
+        "short_type": "ndarray",
+        "category": "array",
+        "size_label": "(32, 64) float32",
+        "preview": "array((32, 64), float32)"
+    });
+    let rows = json!({
+        "name": "rows",
+        "type": "list",
+        "short_type": "list",
+        "category": "collection",
+        "size_label": "5 items",
+        "preview": "[(1, 'a'), (2, 'b')]"
+    });
+    let lr = json!({
+        "name": "lr",
+        "type": "float",
+        "short_type": "float",
+        "category": "scalar",
+        "preview": "0.001"
+    });
+    let legacy_df = json!({
+        "name": "old_df",
+        "type": "pandas.core.frame.DataFrame",
+        "preview": "10 rows x 2 cols"
+    });
+
+    assert_eq!(variable_short_type(&legacy_df), "DataFrame");
+    assert!(variable_matches(&df, "revenue"));
+    assert!(variable_matches(&df, "120 rows"));
+    assert!(variable_matches(&arr, "float32"));
+    assert!(!variable_matches(&rows, "revenue"));
+
+    assert!(variable_matches_category(&df, "all"));
+    assert!(variable_matches_category(&df, "tables_arrays"));
+    assert!(variable_matches_category(&arr, "tables_arrays"));
+    assert!(variable_matches_category(&legacy_df, "tables_arrays"));
+    assert!(!variable_matches_category(&rows, "tables_arrays"));
+    assert!(variable_matches_category(&rows, "collections"));
+    assert!(variable_matches_category(&lr, "scalars"));
+    assert!(variable_matches_category(
+        &json!({"name": "fn", "type": "function", "category": "callable"}),
+        "other"
+    ));
+
+    let nested = json!({
+        "name": "rows",
+        "breadcrumbs": [
+            {"label": "rows", "segments": []},
+            {"label": "[0]", "segments": [{"kind": "index", "value": 0}]},
+            {"label": "['score']", "segments": [{"kind": "index", "value": 0}, {"kind": "key", "value": "score"}]},
+            {"label": ".value", "segments": [{"kind": "index", "value": 0}, {"kind": "key", "value": "score"}, {"kind": "attr", "value": "value"}]}
+        ]
+    });
+    assert_eq!(breadcrumb_expression(&nested), "rows[0]['score'].value");
+
+    let from_set = json!({
+        "name": "tags",
+        "breadcrumbs": [
+            {"label": "tags", "segments": []},
+            {"label": "#2", "segments": [{"kind": "entry", "value": 2}]}
+        ]
+    });
+    assert_eq!(breadcrumb_expression(&from_set), "list(tags)[2]");
+}
+
+#[gpui_kit::test]
+fn variables_auto_refresh_on_idle_and_drilldown_fallback(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+
+    let (handle, view, commands) = mount(cx);
+    let (send, receive) = mpsc::channel();
+
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0].runtime = json!({
+                "worker_state": "running",
+                "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+            });
+            v.tabs[0].inspections.insert(
+                "Variables".into(),
+                json!({
+                    "worker_generation": "g1",
+                    "namespace_epoch": 1,
+                    "items": [{"name": "rows", "type": "list", "handle": "h1"}]
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("rows".into());
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "rows",
+                    "type": "dict",
+                    "segments": [{"kind": "index", "value": 0}],
+                    "_context": {"handle": "h1", "segments": [{"kind": "index", "value": 0}]}
+                }),
+            );
+            v.select_surface("Variables", cx);
+        });
+        while commands.try_recv().is_ok() {}
+
+        // Worker finishes execution and transitions running -> idle with new epoch 2.
+        send.send(Event::Runtime(json!({
+            "worker_state": "idle",
+            "interactive": {"worker_generation": "g1", "namespace_epoch": 2}
+        })))
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let sent: Vec<Command> = commands.try_iter().collect();
+        assert!(sent.iter().any(
+            |c| matches!(c, Command::Interactive { method, .. } if method == "namespace.list")
+        ));
+
+        // New namespace.list arrives -> selected variable preview auto-refreshes with same segments.
+        send.send(Event::Inspection {
+            method: "namespace.list".into(),
+            value: json!({
+                "worker_generation": "g1",
+                "namespace_epoch": 2,
+                "items": [{"name": "rows", "type": "list", "handle": "h2"}]
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let sent_preview: Vec<Command> = commands.try_iter().collect();
+        assert!(sent_preview.iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview"
+                    && fields["handle"] == "h2"
+                    && fields["segments"] == json!([{"kind": "index", "value": 0}])
+        )));
+
+        // If that drilled segment no longer exists, UI automatically falls back to root (segments: []).
+        send.send(Event::Inspection {
+            method: "namespace.preview".into(),
+            value: json!({
+                "error": {"code": "name_not_found", "message": "not found"},
+                "_context": {"handle": "h2", "segments": [{"kind": "index", "value": 0}]}
+            }),
+        })
+        .unwrap();
+        view.update(cx, |v, cx| v.drain(window, cx));
+        let fallback: Vec<Command> = commands.try_iter().collect();
+        assert!(fallback.iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview"
+                    && fields["handle"] == "h2"
+                    && fields["segments"] == json!([])
+        )));
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn variables_explorer_renders_dataframe_matrix_tensor_and_nested_drilldown(
+    cx: &mut TestAppContext,
+) {
+    cx.update(gpui_kit::init);
+    let (send, commands) = mpsc::channel();
+    let (_, events) = mpsc::channel();
+    let (handle, view) = cx.update(|cx| {
+        gpui_kit::open_window(
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(Bounds {
+                    origin: Point::default(),
+                    size: size(px(1280.), px(800.)),
+                })),
+                ..Default::default()
+            },
+            cx,
+            |window, cx| {
+                cx.new(|cx| {
+                    let mut view = Workspace::new(None, "system", vec![], window, cx);
+                    let mut model = NotebookModel {
+                        project: PathBuf::from("vars-demo"),
+                        ..Default::default()
+                    };
+                    model.apply_snapshot(
+                        serde_json::from_value(json!({
+                            "state": "ok",
+                            "manifest_revision": "test",
+                            "cells": [{"id": "c1", "type": "code", "source": "x = 1", "revision": "r1"}]
+                        }))
+                        .unwrap(),
+                    );
+                    let tab_id = TabId(view.next_tab_id);
+                    view.next_tab_id += 1;
+                    view.tabs.push(Tab {
+                        id: tab_id,
+                        assistant: Default::default(),
+                        model,
+                        service: NotebookService { commands: send, events },
+                        list: ListState::new(1, ListAlignment::Top, px(200.)),
+                        editors: BTreeMap::new(),
+                        subscriptions: vec![],
+                        runtime: json!({
+                            "worker_state": "idle",
+                            "session_id": "sess-1234",
+                            "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+                        }),
+                        operations: BTreeMap::new(),
+                        inspections: BTreeMap::new(),
+                        inspection_method: BTreeMap::new(),
+                        scrolls: BTreeMap::new(),
+                        parents: vec![],
+                        raw_details: BTreeMap::new(),
+                        reveal: None,
+                        debug_decorations: BTreeMap::new(),
+                        uninitialized: false,
+                        selections: BTreeMap::new(),
+                        drafts: vec![],
+                        history_filter: String::new(),
+                        history_applied: String::new(),
+                        checkpoint_notice: None,
+                        error: None,
+                        attachment_pages: BTreeMap::new(),
+                        variables_scroll: Default::default(),
+                        variables_state: Default::default(),
+                        console_history: vec![],
+                        html_views: BTreeMap::new(),
+                        html_states: BTreeMap::new(),
+                        html_notes: BTreeMap::new(),
+                        sidebar_tab: "outline".into(),
+                        app_mode: false,
+                        files_cache: None,
+                        packages_cache: None,
+                        package_install_status: None,
+                        formatting_cell: None,
+                    });
+                    view.tick = gpui_kit::Task::ready(());
+                    view
+                })
+            },
+        )
+        .unwrap()
+    });
+
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].inspections.insert(
+                "Variables".into(),
+                json!({
+                    "worker_generation": "g1",
+                    "namespace_epoch": 1,
+                    "items": [
+                        {
+                            "name": "df",
+                            "handle": "h-df",
+                            "type": "pandas.core.frame.DataFrame",
+                            "short_type": "DataFrame",
+                            "category": "tabular",
+                            "size_label": "3 rows \u{00d7} 2 cols",
+                            "preview": "DataFrame(3\u{00d7}2) [city, score]",
+                            "columns_preview": ["city", "score"],
+                            "expandable": true
+                        },
+                        {
+                            "name": "rows",
+                            "handle": "h-rows",
+                            "type": "list",
+                            "short_type": "list",
+                            "category": "collection",
+                            "size_label": "2 items",
+                            "preview": "[('a', {'k': 1}), ('b', {'k': 2})]",
+                            "expandable": true
+                        }
+                    ]
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("df".into());
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "df",
+                    "type": "pandas.core.frame.DataFrame",
+                    "short_type": "DataFrame",
+                    "category": "tabular",
+                    "size_label": "3 rows \u{00d7} 2 cols",
+                    "preview": "DataFrame(3\u{00d7}2) [city, score]",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "df", "segments": []}],
+                    "_context": {"handle": "h-df", "segments": []},
+                    "page": {
+                        "mode": "table",
+                        "table": {
+                            "columns": [
+                                {"name": "city", "dtype": "object", "numeric": false},
+                                {"name": "score", "dtype": "float64", "numeric": true}
+                            ],
+                            "index": ["0", "1", "2"],
+                            "rows": [
+                                [{"text": "NYC", "null": false, "numeric": false}, {"text": "98.5", "null": false, "numeric": true}],
+                                [{"text": "SF", "null": false, "numeric": false}, {"text": "null", "null": true, "numeric": true}]
+                            ],
+                            "row_offset": 0,
+                            "col_offset": 0,
+                            "total_rows": 3,
+                            "total_cols": 2,
+                            "next_row_offset": 2
+                        },
+                        "schema": [
+                            {"name": "city", "dtype": "object"},
+                            {"name": "score", "dtype": "float64"}
+                        ],
+                        "stats_included": false
+                    }
+                }),
+            );
+            v.select_surface("Variables", cx);
+        });
+        while commands.try_recv().is_ok() {}
+        window.render_frame(cx);
+
+        // Switch to Schema tab and click "Compute stats"
+        window.click("var-tab-schema", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].variables_state.detail_tab, "schema");
+        window.click("var-schema-compute-stats", cx);
+        assert!(commands.try_iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview" && fields["include_stats"] == json!(true)
+        )));
+
+        // Switch preview to a CUDA tensor and verify opt-in copy action
+        view.update(cx, |v, cx| {
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "gpu_t",
+                    "type": "torch.Tensor",
+                    "short_type": "Tensor",
+                    "category": "array",
+                    "size_label": "(4, 4) float32 cuda:0",
+                    "preview": "Tensor((4, 4), float32, device=cuda:0)",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "gpu_t", "segments": []}],
+                    "_context": {"handle": "h-gpu", "segments": []},
+                    "page": {
+                        "mode": "device_tensor",
+                        "device": "cuda:0",
+                        "shape": [4, 4],
+                        "dtype": "float32"
+                    }
+                }),
+            );
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("var-tensor-copy-cpu", cx);
+        assert!(commands.try_iter().any(|c| matches!(
+            c,
+            Command::Interactive { method, fields }
+                if method == "namespace.preview" && fields["allow_device_copy"] == json!(true)
+        )));
+    })
+    .unwrap();
+}
+
+#[test]
+fn missing_module_parser_and_rss_formatter_cover_edge_cases() {
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named 'polars'"
+        }))
+        .as_deref(),
+        Some("polars")
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named 'sklearn.metrics'"
+        }))
+        .as_deref(),
+        Some("sklearn")
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ValueError",
+            "evalue": "No module named 'polars'"
+        })),
+        None
+    );
+    assert_eq!(
+        super::outputs::missing_module_from_error(&json!({
+            "ename": "ModuleNotFoundError",
+            "evalue": "No module named '_internal'"
+        })),
+        None
+    );
+
+    assert_eq!(super::runtime::format_rss_bytes(512), "512 B");
+    assert_eq!(super::runtime::format_rss_bytes(1024 * 64), "64 KB");
+    assert_eq!(super::runtime::format_rss_bytes(1024 * 1024 * 42), "42 MB");
+    assert_eq!(
+        super::runtime::format_rss_bytes(1024 * 1024 * 1536),
+        "1.50 GB"
+    );
+}
+
+#[gpui_kit::test]
+fn marimo_commands_app_mode_sql_controls_and_sidebar_tabs_work(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(860.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            // Toggle App Mode on and off
+            assert!(!v.tabs[0].app_mode);
+            v.run_command("toggle-app-mode", window, cx);
+            assert!(v.tabs[0].app_mode);
+        });
+        window.render_frame(cx);
+        view.update(cx, |v, cx| {
+            v.run_command("toggle-app-mode", window, cx);
+            assert!(!v.tabs[0].app_mode);
+            // Switch sidebar to Deps and Files
+            v.run_command("sidebar-deps", window, cx);
+            assert_eq!(v.tabs[0].sidebar_tab, "dependencies");
+        });
+        window.render_frame(cx);
+        view.update(cx, |v, cx| {
+            v.run_command("sidebar-files", window, cx);
+            assert_eq!(v.tabs[0].sidebar_tab, "files");
+            // Cell controls: SQL, hide code, disabled, format, run stale
+            v.run_command("add-sql", window, cx);
+            v.run_command("toggle-hide-code", window, cx);
+            v.run_command("toggle-disabled", window, cx);
+            v.run_command("format-cell", window, cx);
+            v.run_command("run-stale", window, cx);
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+
+    let sent: Vec<Command> = commands.try_iter().collect();
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Inspect { method, .. } if method == "files.list"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "add" && v["type"] == "sql"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "metadata" && v["metadata"]["hide_code"] == true
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Mutate(v) if v["action"] == "metadata" && v["metadata"]["disabled"] == true
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Inspect { method, .. } if method == "code.format"
+    )));
+    assert!(sent.iter().any(|c| matches!(
+        c,
+        Command::Run { cell_ids, .. } if !cell_ids.is_empty()
+    )));
+}
+
+#[gpui_kit::test]
+fn dataframe_chart_snippet_and_expanded_widgets_render_cleanly(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(860.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            // Attach stat, callout, float_slider, text, multiselect, form, and ModuleNotFoundError outputs
+            let cell = v.tabs[0].model.cells.get_mut("first").unwrap();
+            cell.text = "df = make_df()\n".into();
+            cell.output = vec![
+                json!({
+                    "kind": "error",
+                    "ename": "ModuleNotFoundError",
+                    "evalue": "No module named 'duckdb'",
+                    "traceback": ["ModuleNotFoundError: No module named 'duckdb'"]
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "kind": "stat",
+                                "label": "Revenue",
+                                "value": "$42,000",
+                                "delta": "+12%",
+                                "direction": "increase",
+                                "caption": "Quarter over quarter"
+                            }
+                        }
+                    }
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "kind": "callout",
+                                "label": "Note",
+                                "value": "Passive preview active",
+                                "variant": "info"
+                            }
+                        }
+                    }
+                }),
+                json!({
+                    "kind": "display",
+                    "bundle": {
+                        "application/vnd.kernelledger.widget+json": {
+                            "value": {
+                                "schema": "kernelledger.widget/1",
+                                "handle": "w-form",
+                                "worker_generation": "g1",
+                                "kind": "form",
+                                "label": "Params",
+                                "submit_label": "Apply",
+                                "value": {"lr": 0.05, "name": "exp1"},
+                                "fields": [
+                                    {"name": "lr", "kind": "float_slider", "label": "LR", "value": 0.05, "lower": 0.01, "upper": 1.0, "step": 0.01},
+                                    {"name": "name", "kind": "text", "label": "Run", "value": "exp1"}
+                                ]
+                            }
+                        }
+                    }
+                }),
+            ];
+            v.tabs[0].runtime = json!({
+                "worker_state": "idle",
+                "session_id": "s1",
+                "worker_rss_bytes": 134_217_728u64,
+                "interactive": {"worker_generation": "g1", "namespace_epoch": 1}
+            });
+            v.tabs[0].inspections.insert(
+                "Variable preview".into(),
+                json!({
+                    "name": "df",
+                    "type": "pandas.core.frame.DataFrame",
+                    "short_type": "DataFrame",
+                    "category": "dataframe",
+                    "size_label": "2 x 2",
+                    "preview": "DataFrame(2x2)",
+                    "segments": [],
+                    "breadcrumbs": [{"label": "df", "segments": []}],
+                    "_context": {"handle": "h-df", "segments": []},
+                    "page": {
+                        "mode": "table",
+                        "snippet": "df_filtered = df.sort_values('score', ascending=False)",
+                        "table": {
+                            "columns": [
+                                {"name": "city", "dtype": "object", "kind": "string"},
+                                {"name": "score", "dtype": "float64", "kind": "number"}
+                            ],
+                            "index": ["0", "1"],
+                            "rows": [
+                                [{"text": "NYC", "null": false, "numeric": false}, {"text": "98.5", "null": false, "numeric": true}],
+                                [{"text": "SF", "null": false, "numeric": false}, {"text": "91.0", "null": false, "numeric": true}]
+                            ],
+                            "row_offset": 0,
+                            "col_offset": 0,
+                            "total_rows": 2,
+                            "unfiltered_rows": 5,
+                            "total_cols": 2,
+                            "sort_col": "score",
+                            "sort_desc": true
+                        },
+                        "schema": [
+                            {"name": "city", "dtype": "object", "top_values": [{"value": "NYC", "count": 3}]},
+                            {"name": "score", "dtype": "float64", "histogram": [1, 2, 4, 3, 1, 0, 2, 1]}
+                        ],
+                        "stats_included": true
+                    }
+                }),
+            );
+            v.tabs[0].variables_state.selected = Some("df".into());
+            cx.notify();
+        });
+        window.render_frame(cx);
+
+        // Switch to Variables -> Schema -> Chart and click Insert matplotlib cell
+        view.update(cx, |v, cx| v.select_surface("Variables", cx));
+        window.render_frame(cx);
+        window.click("var-tab-schema", cx);
+        window.render_frame(cx);
+        window.click("var-tab-chart", cx);
+        window.render_frame(cx);
+        assert_eq!(view.read(cx).tabs[0].variables_state.detail_tab, "chart");
+        window.click("chart-insert-mpl", cx);
+        window.render_frame(cx);
+    })
+    .unwrap();
+
+    assert!(commands.try_iter().any(|c| matches!(
+        c,
+        Command::Mutate(v)
+            if v["action"] == "add"
+                && v["type"] == "code"
+                && v["source"].as_str().is_some_and(|s| s.contains("matplotlib"))
+    )));
+}
+
+/// Replaces the mounted notebook's cells, as a source snapshot from disk would.
+fn load_cells(v: &mut Workspace, cells: serde_json::Value) {
+    let tab = &mut v.tabs[0];
+    tab.model.apply_snapshot(
+        serde_json::from_value(json!({"state":"ok","manifest_revision":"cells","cells":cells}))
+            .unwrap(),
+    );
+    tab.list.reset(tab.model.order.len());
+}
+
+fn code_cell(id: &str, source: &str, metadata: serde_json::Value) -> serde_json::Value {
+    json!({"id": id, "type": "code", "source": source, "revision": format!("rev-{id}"), "metadata": metadata})
+}
+
+fn sent_mutations(commands: &Receiver<Command>) -> Vec<serde_json::Value> {
+    commands
+        .try_iter()
+        .filter_map(|c| match c {
+            Command::Mutate(value) => Some(value),
+            _ => None,
+        })
+        .collect()
+}
+
+fn sent_runs(commands: &Receiver<Command>) -> Vec<Vec<String>> {
+    commands
+        .try_iter()
+        .filter_map(|c| match c {
+            Command::Run { cell_ids, .. } => Some(cell_ids),
+            _ => None,
+        })
+        .collect()
+}
+
+#[gpui_kit::test]
+fn enter_and_outline_reveal_edit_their_cell_without_another_service_event(cx: &mut TestAppContext) {
+    // The live wake loop stays installed: nothing else arrives to drain.
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].model.mode = kernelledger_models::Mode::Command;
+            v.focus.focus(window, cx);
+        });
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.run_until_parked();
+    cx.update_window(handle, |_, window, cx| {
+        let v = view.read(cx);
+        assert_eq!(v.tabs[0].model.mode, kernelledger_models::Mode::Edit);
+        assert!(v.tabs[0].reveal.is_none());
+        assert!(
+            v.tabs[0].editors["first"]
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window),
+            "Enter on a selected cell must focus its editor"
+        );
+        // The outline's keyboard path: move to the next cell and open it.
+        view.update(cx, |v, cx| v.sidebar_focus.focus(window, cx));
+        window.render_frame(cx);
+        window.press("down", cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.run_until_parked();
+    cx.update_window(handle, |_, window, cx| {
+        let v = view.read(cx);
+        assert_eq!(v.tabs[0].model.selected.as_deref(), Some("second"));
+        assert!(
+            v.tabs[0].editors["second"]
+                .read(cx)
+                .focus_handle(cx)
+                .is_focused(window),
+            "an outline click must open the cell it names"
+        );
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn cell_setting_toggles_send_the_merged_inner_metadata(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let inner = json!({
+        "tags": ["keep"],
+        "kernelledger": {"ipynb_fields": {"collapsed": false}},
+        "output_var": "totals",
+    });
+    let cell = |metadata: serde_json::Value| {
+        let mut cell = code_cell("first", "print(42)", metadata);
+        cell["attachments"] = json!(["plot.png"]);
+        cell["attachment_mimes"] = json!({"plot.png": "image/png"});
+        cell
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, json!([cell(inner.clone())]));
+            v.tabs[0].model.selected = Some("first".into());
+            v.run_command("toggle-hide-code", window, cx);
+        });
+    })
+    .unwrap();
+    let mut hidden = inner.clone();
+    hidden["hide_code"] = json!(true);
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["action"], "metadata");
+    assert_eq!(sent[0]["cell_id"], "first");
+    assert_eq!(
+        sent[0]["metadata"], hidden,
+        "only the cell's own metadata is sent"
+    );
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            // The helper stores the payload as the cell's `metadata`.
+            load_cells(v, json!([cell(hidden.clone())]));
+            assert!(v.tabs[0].model.cells["first"].is_code_hidden());
+            v.run_command("toggle-disabled", window, cx);
+        });
+    })
+    .unwrap();
+    let mut both = hidden.clone();
+    both["disabled"] = json!(true);
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["metadata"], both);
+    assert!(sent[0]["metadata"].get("metadata").is_none());
+    assert!(sent[0]["metadata"].get("attachments").is_none());
+}
+
+#[gpui_kit::test]
+fn app_mode_blocks_editing_keeps_running_and_closes_menus(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.metadata =
+                json!({"title": "Report", "kernelledger": {"imported_ids": ["x"]}})
+                    .as_object()
+                    .unwrap()
+                    .clone();
+            v.tabs[0].model.selected = Some("first".into());
+            v.menu = Some(ActiveMenu::Insert {
+                after: "first".into(),
+            });
+            v.toggle_app_mode(&super::ToggleAppMode, window, cx);
+            assert!(v.tabs[0].app_mode);
+            assert!(v.menu.is_none(), "App mode closes open cell menus");
+            for method in [
+                "add-code",
+                "add-sql",
+                "delete-cell",
+                "duplicate-cell",
+                "move-down",
+                "merge-cell",
+                "toggle-hide-code",
+                "toggle-disabled",
+                "undo-source",
+            ] {
+                assert_eq!(
+                    v.command_reason(method),
+                    Some(super::commands::APP_MODE_REASON),
+                    "{method}"
+                );
+            }
+            assert_eq!(v.command_reason("run-selected"), None);
+            assert_eq!(v.command_reason("run-all"), None);
+        });
+    })
+    .unwrap();
+    // Recorded per notebook, merged into the existing notebook metadata.
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0]["cell_id"].is_null());
+    assert_eq!(
+        sent[0]["metadata"],
+        json!({"title": "Report", "kernelledger": {"imported_ids": ["x"], "app_mode": true}})
+    );
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        for key in [
+            "ctrl-shift-n",
+            "ctrl-shift-d",
+            "ctrl-alt-down",
+            "alt-enter",
+            "enter",
+        ] {
+            window.press(key, cx);
+        }
+        window.press("ctrl-enter", cx);
+        view.update(cx, |v, _| {
+            // Inserts from other surfaces are refused at the source boundary too.
+            v.mutate(json!({"action":"add","type":"code","index":0}));
+        });
+    })
+    .unwrap();
+    cx.run_until_parked();
+    let all: Vec<Command> = commands.try_iter().collect();
+    assert!(
+        !all.iter().any(|c| matches!(c, Command::Mutate(_))),
+        "App mode must not change source"
+    );
+    assert_eq!(
+        all.iter()
+            .filter(|c| matches!(c, Command::Run { .. }))
+            .count(),
+        2,
+        "Alt+Enter and Ctrl+Enter still run the cell"
+    );
+    let v = view.read_with(cx, |v, _| (v.tabs[0].model.mode.clone(), v.notice.clone()));
+    assert_eq!(v.0, kernelledger_models::Mode::Command);
+    assert_eq!(v.1.as_deref(), Some(super::commands::APP_MODE_REASON));
+}
+
+#[gpui_kit::test]
+fn app_mode_is_restored_from_notebook_metadata_on_open(cx: &mut TestAppContext) {
+    use kernelledger_client::service::Event;
+    let (handle, view, _) = mount(cx);
+    let (send, receive) = mpsc::channel();
+    let snapshot = |app_mode: bool| {
+        Event::Source(json!({
+            "state": "ok",
+            "manifest_revision": format!("m-{app_mode}"),
+            "manifest": {"metadata": {"kernelledger": {"app_mode": app_mode}}},
+            "cells": [code_cell("first", "print(42)", json!({}))],
+        }))
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            // A freshly opened tab has read nothing yet.
+            v.tabs[0].model.manifest_revision.clear();
+            send.send(snapshot(true)).unwrap();
+            v.drain(window, cx);
+            assert!(v.tabs[0].app_mode, "reopening restores App mode");
+            // An unrelated snapshot does not undo a local toggle in flight.
+            v.tabs[0].app_mode = false;
+            send.send(snapshot(true)).unwrap();
+            v.drain(window, cx);
+            assert!(!v.tabs[0].app_mode);
+            // A change saved elsewhere is adopted.
+            v.tabs[0].app_mode = true;
+            send.send(snapshot(false)).unwrap();
+            v.drain(window, cx);
+            assert!(!v.tabs[0].app_mode);
+        });
+    })
+    .unwrap();
+}
+
+#[test]
+fn app_mode_collapses_errors_and_hides_disabled_or_empty_cells() {
+    let cell = |metadata: serde_json::Value, output: Vec<serde_json::Value>| {
+        let mut cell = kernelledger_models::CellModel::from_source(
+            serde_json::from_value(code_cell("c", "x", metadata)).unwrap(),
+        );
+        cell.output = output;
+        cell
+    };
+    let error = json!({"kind":"error","ename":"ValueError","evalue":"bad","traceback":["Traceback ...", "ValueError: bad"]});
+    let text = json!({"kind":"stdout","text":"partial\n"});
+    let failed = cell(json!({}), vec![text.clone(), error.clone()]);
+    let (shown, raised) = super::notebook::app_mode_outputs(&failed).unwrap();
+    assert_eq!(shown, vec![&text], "tracebacks are never shown in App mode");
+    assert!(raised);
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"disabled": true}), vec![text.clone()]))
+            .is_none(),
+        "a disabled cell's outputs are hidden"
+    );
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"hide_code": true}), vec![])).is_none(),
+        "a hidden-code cell without output is hidden entirely"
+    );
+    assert!(
+        super::notebook::app_mode_outputs(&cell(json!({"hide_code": true}), vec![text])).is_some()
+    );
+}
+
+#[gpui_kit::test]
+fn app_mode_renders_a_one_line_error_note_instead_of_the_traceback(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tabs[0].model.cells.get_mut("first").unwrap().output = vec![json!({
+                "kind":"error","ename":"ZeroDivisionError","evalue":"division by zero",
+                "traceback":["ZeroDivisionError: division by zero"]
+            })];
+            v.tabs[0].app_mode = true;
+            v.tabs[0].list.reset(2);
+            cx.notify();
+        });
+        window.render_frame(cx);
+        assert!(window.try_find(("insert-cell", 0usize)).is_none());
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    assert!(visual.debug_bounds("app-error-first").is_some());
+}
+
+/// a (disabled) -> b -> d, and c is independent.
+fn load_disabled_chain(v: &mut Workspace) {
+    load_cells(
+        v,
+        json!([
+            code_cell("a", "x = 1", json!({"disabled": true})),
+            code_cell("b", "y = x + 1", json!({})),
+            code_cell("c", "z = 3", json!({})),
+            code_cell("d", "w = y * 2", json!({})),
+        ]),
+    );
+}
+
+#[gpui_kit::test]
+fn disabled_cells_block_their_descendants_in_every_batch_run(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_disabled_chain(v);
+            let model = &v.tabs[0].model;
+            let graph = super::dag::analyze_notebook(model);
+            assert_eq!(
+                super::blocked_cells(model, &graph),
+                ["a", "b", "d"].map(String::from).into()
+            );
+            v.batch("all");
+            v.tabs[0].model.selected = Some("c".into());
+            v.batch("above");
+            v.batch("below");
+            v.run_command("run-stale", window, cx);
+            assert!(v.notice.is_none());
+            v.run_cell_and_downstream("a", cx);
+            assert_eq!(
+                v.notice.as_deref(),
+                Some("Cell is disabled; enable it before running")
+            );
+            v.run_cell_and_downstream("b", cx);
+            assert_eq!(
+                v.notice.as_deref(),
+                Some("Blocked by a disabled upstream cell")
+            );
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for (selector, blocked) in [
+        ("blocked-by-disabled-a", false),
+        ("blocked-by-disabled-b", true),
+        ("blocked-by-disabled-c", false),
+        ("blocked-by-disabled-d", true),
+    ] {
+        assert_eq!(
+            visual.debug_bounds(selector).is_some(),
+            blocked,
+            "{selector}"
+        );
+    }
+    assert_eq!(
+        sent_runs(&commands),
+        vec![vec!["c".to_string()], vec![], vec![], vec!["c".to_string()]],
+        "Run all, above, below and stale skip disabled and blocked cells; \
+         Run + downstream from a disabled or blocked cell sends nothing"
+    );
+}
+
+#[gpui_kit::test]
+fn run_downstream_counts_only_dependents_and_skips_blocked_ones(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, _, cx| {
+        view.update(cx, |v, _| {
+            load_cells(
+                v,
+                json!([
+                    code_cell("a", "x = 1", json!({})),
+                    code_cell("b", "y = x + 1", json!({})),
+                    code_cell("c", "z = y + 1", json!({})),
+                    code_cell("off", "q = 0", json!({"disabled": true})),
+                    code_cell("e", "r = x + q", json!({})),
+                ]),
+            );
+            let model = &v.tabs[0].model;
+            let graph = super::dag::analyze_notebook(model);
+            let plan = super::downstream_plan(model, &graph, "a");
+            assert_eq!(plan, Ok(["a", "b", "c"].map(String::from).to_vec()));
+            assert_eq!(super::run_downstream_label(&plan), "Run + downstream (2)");
+            let leaf = super::downstream_plan(model, &graph, "c");
+            assert_eq!(super::run_downstream_label(&leaf), "Run + downstream");
+            assert!(super::downstream_plan(model, &graph, "off").is_err());
+        });
+    })
+    .unwrap();
+}
+
+#[gpui_kit::test]
+fn menus_act_on_their_cell_after_cells_are_inserted_above(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    let two = || {
+        json!([
+            code_cell("first", "a = 1", json!({})),
+            code_cell("second", "b = 2", json!({}))
+        ])
+    };
+    let three = || {
+        json!([
+            code_cell("above", "c = 3", json!({})),
+            code_cell("first", "a = 1", json!({})),
+            code_cell("second", "b = 2", json!({})),
+        ])
+    };
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, two());
+            v.focus.focus(window, cx);
+            v.menu = Some(ActiveMenu::Insert {
+                after: "first".into(),
+            });
+            v.menu_anchor = "insert-first".into();
+            load_cells(v, three());
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("insert-type-code", cx);
+        view.update(cx, |v, cx| {
+            load_cells(v, two());
+            v.menu = Some(ActiveMenu::Cell {
+                cell_id: "second".into(),
+                assistant: false,
+            });
+            load_cells(v, three());
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click("move-up", cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent[0]["action"], "add");
+    assert_eq!(sent[0]["index"], 2, "insert lands right after 'first'");
+    assert_eq!(sent[1]["action"], "move");
+    assert_eq!(sent[1]["cell_id"], "second");
+    assert_eq!(
+        sent[1]["index"], 1,
+        "move-up uses the cell's current position"
+    );
+}
+
+#[gpui_kit::test]
+fn insert_boundary_is_keyboard_reachable_and_opens_its_menu(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        window.render_frame(cx);
+        let focus = view.read(cx).insert_focus["first"].clone();
+        focus.focus(window, cx);
+        window.render_frame(cx);
+        window.press("enter", cx);
+        assert_eq!(
+            view.read(cx).menu,
+            Some(ActiveMenu::Insert {
+                after: "first".into()
+            })
+        );
+        window.render_frame(cx);
+        window.click("insert-type-markdown", cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["type"], "markdown");
+    assert_eq!(sent[0]["index"], 1);
+}
+
+#[gpui_kit::test]
+fn sql_output_variable_is_renamed_inline_and_new_sql_cells_get_unique_names(
+    cx: &mut TestAppContext,
+) {
+    use kernelledger_client::service::Event;
+    let (handle, view, commands) = mount(cx);
+    let sql = json!({"id":"q","type":"sql","source":"SELECT 1","revision":"rq",
+        "metadata":{"tags":["t"],"output_var":"orders"}});
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, _| {
+            load_cells(
+                v,
+                json!([code_cell("first", "sql_result = 1", json!({})), sql.clone()]),
+            );
+            let model = &v.tabs[0].model;
+            assert_eq!(
+                super::notebook::output_var_error(model, "q", "revenue"),
+                None
+            );
+            assert_eq!(
+                super::notebook::output_var_error(model, "q", "orders"),
+                None
+            );
+            for bad in ["", "2x", "class", "my var", "sql_result"] {
+                assert!(
+                    super::notebook::output_var_error(model, "q", bad).is_some(),
+                    "{bad:?}"
+                );
+            }
+        });
+        window.render_frame(cx);
+        window.click(("sql-output-var", 1usize), cx);
+        let input = view
+            .read(cx)
+            .output_var_edit
+            .as_ref()
+            .unwrap()
+            .input
+            .clone();
+        assert!(input.read(cx).focus_handle(cx).is_focused(window));
+        input.update(cx, |s, cx| s.set_value("class", window, cx));
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    // Input events reach the workspace once each update completes.
+    cx.update_window(handle, |_, window, cx| {
+        let edit = view.read(cx).output_var_edit.as_ref().unwrap();
+        assert!(edit.error.is_some(), "a keyword is refused in place");
+        let input = edit.input.clone();
+        input.update(cx, |s, cx| s.set_value("revenue", window, cx));
+        window.render_frame(cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.update_window(handle, |_, _, cx| {
+        assert!(view.read(cx).output_var_edit.is_none());
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1, "an invalid name is not stored");
+    assert_eq!(sent[0]["cell_id"], "q");
+    assert_eq!(
+        sent[0]["metadata"],
+        json!({"tags":["t"],"output_var":"revenue"})
+    );
+
+    let (send, receive) = mpsc::channel();
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.tick = gpui_kit::Task::ready(());
+            v.tabs[0].service.events = receive;
+            v.tabs[0].model.selected = Some("q".into());
+            v.run_command("add-sql", window, cx);
+        });
+    })
+    .unwrap();
+    let add = sent_mutations(&commands).remove(0);
+    let new_id = add["new_id"].as_str().unwrap().to_owned();
+    assert_eq!(add["type"], "sql");
+    assert_eq!(
+        view.read_with(cx, |v, _| v.pending_output_vars.get(&new_id).cloned()),
+        Some("sql_result_2".into()),
+        "sql_result is already defined by another cell"
+    );
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            send.send(Event::Source(
+                json!({"state":"ok","manifest_revision":"after-add","cells":[
+                    code_cell("first", "sql_result = 1", json!({})), sql.clone(),
+                    {"id": new_id, "type":"sql","source":"","revision":"rn","metadata":{}},
+                ]}),
+            ))
+            .unwrap();
+            v.drain(window, cx);
+        });
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["cell_id"], new_id.as_str());
+    assert_eq!(sent[0]["metadata"], json!({"output_var":"sql_result_2"}));
+    assert!(view.read_with(cx, |v, _| v.pending_output_vars.is_empty()));
+}
+
+#[gpui_kit::test]
+fn files_loader_binds_a_unique_name_from_the_file_stem(cx: &mut TestAppContext) {
+    let (handle, view, commands) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_cells(v, json!([code_cell("first", "sales = 1", json!({}))]));
+            v.tabs[0].model.selected = Some("first".into());
+            v.tabs[0].sidebar_tab = "files".into();
+            v.tabs[0].files_cache = Some(json!({"items":[
+                // A helper-provided snippet is ignored in favor of generated code.
+                {"path":"data/Sales \"Q1\".csv","name":"Sales \"Q1\".csv","size":10,
+                 "loader_snippet":"df = evil()"}
+            ]}));
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.click(("load-file", 0usize), cx);
+    })
+    .unwrap();
+    let sent = sent_mutations(&commands);
+    assert_eq!(
+        sent[0]["source"],
+        "import pandas as pd\nsales_q1 = pd.read_csv(\"data/Sales \\\"Q1\\\".csv\")\nsales_q1.head()\n"
+    );
+}
+
+#[gpui_kit::test]
+fn outline_marks_disabled_blocked_and_hidden_cells(cx: &mut TestAppContext) {
+    use super::OutlineState;
+    let (handle, view, _) = mount(cx);
+    cx.simulate_window_resize(handle, size(px(1280.), px(850.)));
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            load_disabled_chain(v);
+            let cells = &mut v.tabs[0].model.cells;
+            cells.get_mut("c").unwrap().disk.metadata =
+                [("metadata".to_string(), json!({"hide_code": true}))].into();
+            let model = &v.tabs[0].model;
+            let blocked = super::blocked_cells(model, &super::dag::analyze_notebook(model));
+            let state = |id: &str| OutlineState::of(&model.cells[id], blocked.contains(id));
+            assert_eq!(state("a"), Some(OutlineState::Disabled));
+            assert_eq!(state("b"), Some(OutlineState::Blocked));
+            assert_eq!(state("c"), Some(OutlineState::CodeHidden));
+            assert_eq!(state("d"), Some(OutlineState::Blocked));
+            cx.notify();
+        });
+        window.render_frame(cx);
+    })
+    .unwrap();
+    let mut visual = gpui_kit::VisualTestContext::from_window(handle, cx);
+    for id in [
+        "outline-state-a",
+        "outline-state-b",
+        "outline-state-c",
+        "outline-state-d",
+    ] {
+        assert!(visual.debug_bounds(id).is_some(), "{id}");
+    }
+}
+
+#[gpui_kit::test]
+fn output_text_follows_the_editor_font_size_preference(cx: &mut TestAppContext) {
+    let (handle, view, _) = mount(cx);
+    cx.update_window(handle, |_, window, cx| {
+        view.update(cx, |v, cx| {
+            v.preferences.ui_scale = 1.5;
+            v.preferences.editor_size = 18.;
+            cx.notify();
+        });
+        window.render_frame(cx);
+        window.render_frame(cx);
+        assert_eq!(super::ActiveTheme::theme(cx).mono_font_size, px(17. * 1.5));
+    })
+    .unwrap();
+    assert_eq!(super::output_font_size(14., 1.), px(13.));
 }

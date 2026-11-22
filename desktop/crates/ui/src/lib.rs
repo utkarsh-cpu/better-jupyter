@@ -1,7 +1,9 @@
 mod accessibility;
 mod assistant;
 mod checkpoints;
+mod codegen;
 mod components;
+mod dag;
 mod debug_source;
 mod diagnostics;
 mod help;
@@ -49,7 +51,15 @@ use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
 actions!(
     kernelledger,
-    [Save, RunCell, RunAll, Palette, OpenNotebook, CommandMode]
+    [
+        Save,
+        RunCell,
+        RunAll,
+        Palette,
+        OpenNotebook,
+        CommandMode,
+        ToggleAppMode
+    ]
 );
 const SURFACES: [(&str, Glyph, &str); 10] = [
     (
@@ -102,7 +112,63 @@ const SURFACES: [(&str, Glyph, &str); 10] = [
 mod commands;
 use commands::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct TabId(pub u64);
+
+/// At most one header or contextual popover menu can be open at a time.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ActiveMenu {
+    Application,
+    Notebook,
+    Export,
+    Runtime,
+    /// Keyed by cell id: cells inserted or removed while the menu is open
+    /// must not redirect its actions, so indexes are resolved on activation.
+    Cell {
+        cell_id: String,
+        assistant: bool,
+    },
+    /// Insert after the cell with this id.
+    Insert {
+        after: String,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct VariablesState {
+    pub category: String,
+    pub detail_tab: String,
+    pub selected: Option<String>,
+    pub sort_col: Option<String>,
+    /// Position of the sorted column; the worker prefers it over the label, which
+    /// is ambiguous for duplicate, non-string, or truncated column names.
+    pub sort_col_index: Option<u64>,
+    pub sort_desc: bool,
+    pub filter_query: String,
+    pub chart_x: Option<String>,
+    pub chart_y: Option<String>,
+    pub chart_kind: String,
+}
+
+impl Default for VariablesState {
+    fn default() -> Self {
+        Self {
+            category: "all".into(),
+            detail_tab: "data".into(),
+            selected: None,
+            sort_col: None,
+            sort_col_index: None,
+            sort_desc: false,
+            filter_query: String::new(),
+            chart_x: None,
+            chart_y: None,
+            chart_kind: "bar".into(),
+        }
+    }
+}
+
 struct Tab {
+    id: TabId,
     assistant: assistant::AssistantView,
     model: NotebookModel,
     service: NotebookService,
@@ -128,13 +194,22 @@ struct Tab {
     error: Option<String>,
     attachment_pages: BTreeMap<String, Value>,
     variables_scroll: UniformListScrollHandle,
+    variables_state: VariablesState,
+    console_history: Vec<Value>,
     html_views: BTreeMap<String, Entity<gpui_webview::WebView>>,
     html_notes: BTreeMap<String, String>,
     html_states: BTreeMap<String, html_output::HtmlState>,
+    sidebar_tab: String,
+    app_mode: bool,
+    files_cache: Option<Value>,
+    packages_cache: Option<Value>,
+    package_install_status: Option<String>,
+    formatting_cell: Option<String>,
 }
 pub struct Workspace {
     tabs: Vec<Tab>,
     active: usize,
+    next_tab_id: u64,
     focus: FocusHandle,
     surface: String,
     palette: bool,
@@ -145,10 +220,23 @@ pub struct Workspace {
     questions: BTreeMap<String, Entity<TextareaState>>,
     console_editors: BTreeMap<String, Entity<EditorState>>,
     tick: Task<()>,
+    /// Re-reads the system high-contrast setting, which Windows can toggle
+    /// without a window-appearance change.
+    contrast_poll: Task<()>,
+    wake: smol::channel::Sender<()>,
+    appearance_subscription: Option<Subscription>,
     python: PathBuf,
     dark: bool,
     high_contrast: bool,
     confirmation: Option<(String, Value)>,
+    /// Why the last requested notebook action did not run.
+    notice: Option<String>,
+    /// Keyboard focus for each cell's insert boundary, keyed by cell id.
+    insert_focus: BTreeMap<String, FocusHandle>,
+    /// Default output variables for new SQL cells, by cell id, until stored.
+    pending_output_vars: BTreeMap<String, String>,
+    /// The SQL output variable being renamed in a cell header.
+    output_var_edit: Option<notebook::OutputVarEdit>,
     palette_active: usize,
     palette_filter: String,
     palette_scroll: UniformListScrollHandle,
@@ -156,14 +244,8 @@ pub struct Workspace {
     assistant_scroll_mark: (usize, bool, bool, usize, bool, usize),
     return_focus: Option<FocusHandle>,
     sidebar_visible: bool,
-    app_menu: bool,
-    notebook_menu: bool,
-    export_menu: bool,
-    history_owner: Option<usize>,
-    runtime_menu: bool,
-    cell_menu: Option<(String, usize)>,
-    cell_menu_assistant: bool,
-    insert_menu: Option<usize>,
+    menu: Option<ActiveMenu>,
+    history_owner: Option<TabId>,
     menu_anchor: String,
     menu_bounds: BTreeMap<String, Bounds<Pixels>>,
     preferences: kernelledger_client::preferences::Preferences,
@@ -182,8 +264,12 @@ pub struct Workspace {
     history_fields_key: String,
     history_filters_open: bool,
     history_enter: Option<Subscription>,
-    settings_section: &'static str,
+    settings_section: settings::SettingsSection,
     help_query: Entity<InputState>,
+    variables_query: Entity<InputState>,
+    df_filter_query: Entity<InputState>,
+    pkg_install_input: Entity<InputState>,
+    query_subscriptions: Vec<Subscription>,
     record_active: usize,
     sidebar_focus: FocusHandle,
     assistant_focus: FocusHandle,
@@ -194,6 +280,8 @@ pub struct Workspace {
     recent: Vec<RecentNotebook>,
     recorded_opens: std::collections::BTreeSet<PathBuf>,
     welcome_notice: Option<String>,
+    applied_title: String,
+    applied_presentation: Option<WorkbenchPresentation>,
 }
 impl Workspace {
     pub fn new(
@@ -211,6 +299,7 @@ impl Workspace {
             KeyBinding::new("ctrl-shift-enter", RunAll, Some("KernelLedger")),
             KeyBinding::new("ctrl-shift-p", Palette, Some("KernelLedger")),
             KeyBinding::new("ctrl-o", OpenNotebook, Some("KernelLedger")),
+            KeyBinding::new("ctrl-.", ToggleAppMode, Some("KernelLedger")),
             KeyBinding::new("escape", CommandMode, Some("KernelLedger")),
         ]);
         #[cfg(target_os = "macos")]
@@ -218,6 +307,7 @@ impl Workspace {
             KeyBinding::new("cmd-s", Save, Some("KernelLedger")),
             KeyBinding::new("cmd-shift-p", Palette, Some("KernelLedger")),
             KeyBinding::new("cmd-o", OpenNotebook, Some("KernelLedger")),
+            KeyBinding::new("cmd-.", ToggleAppMode, Some("KernelLedger")),
         ]);
         let follow_system = appearance == "system";
         let dark = if follow_system {
@@ -253,9 +343,11 @@ impl Workspace {
             input
         });
         let (html_signals, html_signal_receiver) = std::sync::mpsc::sync_channel(64);
+        let (wake, wake_rx) = smol::channel::bounded(1);
         let mut view = Self {
             tabs: vec![],
             active: 0,
+            next_tab_id: 1,
             focus: cx.focus_handle(),
             surface: "Notebook".into(),
             palette: false,
@@ -265,6 +357,9 @@ impl Workspace {
             questions: BTreeMap::new(),
             console_editors: BTreeMap::new(),
             tick: Task::ready(()),
+            contrast_poll: Task::ready(()),
+            wake,
+            appearance_subscription: None,
             python: std::env::var_os("KL_RUNTIME_PYTHON")
                 .map(PathBuf::from)
                 .or_else(|| {
@@ -282,6 +377,10 @@ impl Workspace {
             dark,
             high_contrast,
             confirmation: None,
+            notice: None,
+            insert_focus: BTreeMap::new(),
+            pending_output_vars: BTreeMap::new(),
+            output_var_edit: None,
             palette_active: 0,
             palette_filter: String::new(),
             palette_scroll: UniformListScrollHandle::default(),
@@ -289,14 +388,8 @@ impl Workspace {
             assistant_scroll_mark: Default::default(),
             return_focus: None,
             sidebar_visible: preferences.outline_visible,
-            app_menu: false,
-            notebook_menu: false,
-            export_menu: false,
+            menu: None,
             history_owner: None,
-            runtime_menu: false,
-            cell_menu: None,
-            cell_menu_assistant: false,
-            insert_menu: None,
             menu_anchor: String::new(),
             menu_bounds: BTreeMap::new(),
             preferences,
@@ -316,8 +409,17 @@ impl Workspace {
             history_fields_key: String::new(),
             history_filters_open: false,
             history_enter: None,
-            settings_section: settings::SECTIONS[0].0,
+            settings_section: settings::SettingsSection::Appearance,
             help_query: cx.new(|cx| InputState::new(window, cx).placeholder("Search Help")),
+            variables_query: cx.new(|cx| {
+                InputState::new(window, cx).placeholder("Filter name, type, value, or column")
+            }),
+            df_filter_query: cx.new(|cx| {
+                InputState::new(window, cx).placeholder("Filter: col>10, col==val, or text\u{2026}")
+            }),
+            pkg_install_input: cx
+                .new(|cx| InputState::new(window, cx).placeholder("Install package (e.g. duckdb)")),
+            query_subscriptions: Vec::new(),
             record_active: 0,
             sidebar_focus: cx.focus_handle(),
             assistant_focus: cx.focus_handle(),
@@ -328,6 +430,8 @@ impl Workspace {
             recent,
             recorded_opens: Default::default(),
             welcome_notice: None,
+            applied_title: String::new(),
+            applied_presentation: None,
         };
         let weak = cx.entity().downgrade();
         let handle = window.window_handle();
@@ -346,6 +450,10 @@ impl Workspace {
                 });
             }
         }));
+        view.appearance_subscription =
+            Some(cx.observe_window_appearance(window, |view, window, cx| {
+                view.sync_system_appearance(window, cx)
+            }));
         view.history_enter = Some(cx.subscribe_in(
             &view.history_query,
             window,
@@ -355,36 +463,149 @@ impl Workspace {
                 _ => {}
             },
         ));
+        for input in [
+            view.query.clone(),
+            view.palette_query.clone(),
+            view.help_query.clone(),
+            view.variables_query.clone(),
+        ] {
+            view.query_subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                |_, _, event: &InputEvent, _, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        cx.notify();
+                    }
+                },
+            ));
+        }
         if let Some(project) = project {
             view.open(project, cx);
         }
         view.tick = cx.spawn_in(window, async move |view, window| {
             loop {
-                window
-                    .background_executor()
-                    .timer(Duration::from_millis(50))
-                    .await;
+                let busy = view
+                    .read_with(window, |view, _| {
+                        view.tabs.iter().any(|tab| tab.assistant.busy)
+                    })
+                    .unwrap_or(false);
+                if busy {
+                    let wake_fut = async { wake_rx.recv().await.is_ok() };
+                    let timer_fut = async {
+                        window
+                            .background_executor()
+                            .timer(Duration::from_secs(1))
+                            .await;
+                        true
+                    };
+                    if !smol::future::or(wake_fut, timer_fut).await {
+                        break;
+                    }
+                } else if wake_rx.recv().await.is_err() {
+                    break;
+                }
                 if view
-                    .update_in(window, |view, window, cx| view.drain(window, cx))
+                    .update_in(window, |view, window, cx| {
+                        view.drain(window, cx);
+                        if view.tabs.iter().any(|tab| tab.assistant.busy) {
+                            cx.notify();
+                        }
+                    })
                     .is_err()
                 {
                     break;
                 }
             }
         });
+        if SYSTEM_CONTRAST_POLL && !cfg!(test) {
+            view.contrast_poll = cx.spawn_in(window, async move |view, window| {
+                loop {
+                    window
+                        .background_executor()
+                        .timer(Duration::from_secs(3))
+                        .await;
+                    let alive = view.update_in(window, |view, window, cx| {
+                        // A cheap read; the theme is rebuilt only when it changed.
+                        if view.follow_system && view.high_contrast != system_high_contrast() {
+                            view.sync_system_appearance(window, cx);
+                            cx.notify();
+                        }
+                    });
+                    if alive.is_err() {
+                        break;
+                    }
+                }
+            });
+        }
         // Application keybindings need a focused descendant from the first
         // frame, before a pointer click has focused a button or cell editor.
         view.focus.focus(window, cx);
         view
     }
+
+    pub(crate) fn wake_notifier(&self) -> std::sync::Arc<dyn Fn() + Send + Sync> {
+        let wake = self.wake.clone();
+        std::sync::Arc::new(move || {
+            let _ = wake.try_send(());
+        })
+    }
+
+    pub(crate) fn has_menu(&self) -> bool {
+        self.menu.is_some()
+    }
+
+    pub(crate) fn tab_index_by_id(&self, id: TabId) -> Option<usize> {
+        self.tabs.iter().position(|tab| tab.id == id)
+    }
+
+    pub(crate) fn tab_by_id(&self, id: TabId) -> Option<&Tab> {
+        self.tabs.iter().find(|tab| tab.id == id)
+    }
+
+    pub(crate) fn tab_by_id_mut(&mut self, id: TabId) -> Option<&mut Tab> {
+        self.tabs.iter_mut().find(|tab| tab.id == id)
+    }
+
+    fn sync_system_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.follow_system {
+            let dark = matches!(
+                window.appearance(),
+                WindowAppearance::Dark | WindowAppearance::VibrantDark
+            );
+            let high_contrast = system_high_contrast();
+            if self.dark != dark || self.high_contrast != high_contrast {
+                self.dark = dark;
+                self.high_contrast = high_contrast;
+                apply_theme(self.dark, self.high_contrast, window, cx);
+            }
+        }
+    }
+
+    fn sync_confirmation_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.confirmation.is_some() && !self.dialog_open {
+            self.return_focus = window.focused(cx);
+            self.confirm_focus.focus(window, cx);
+            self.dialog_open = true;
+        } else if self.confirmation.is_none() && self.dialog_open {
+            self.dialog_open = false;
+            if let Some(focus) = self.return_focus.take() {
+                focus.focus(window, cx);
+            }
+        }
+    }
+
     fn open(&mut self, project: PathBuf, cx: &mut Context<Self>) {
         if let Some(i) = self.tabs.iter().position(|t| t.model.project == project) {
             self.active = i;
             return;
         }
+        let id = TabId(self.next_tab_id);
+        self.next_tab_id += 1;
+        let wake = self.wake_notifier();
         self.tabs.push(Tab {
+            id,
             assistant: assistant::AssistantView::default(),
-            service: NotebookService::start(project.clone(), self.python.clone()),
+            service: NotebookService::start_with_wake(project.clone(), self.python.clone(), wake),
             model: NotebookModel {
                 project,
                 ..Default::default()
@@ -410,11 +631,61 @@ impl Workspace {
             error: None,
             attachment_pages: BTreeMap::new(),
             variables_scroll: UniformListScrollHandle::default(),
+            variables_state: VariablesState::default(),
+            console_history: vec![],
             html_views: BTreeMap::new(),
             html_states: BTreeMap::new(),
             html_notes: BTreeMap::new(),
+            sidebar_tab: "outline".into(),
+            app_mode: false,
+            files_cache: None,
+            packages_cache: None,
+            package_install_status: None,
+            formatting_cell: None,
         });
         self.active = self.tabs.len() - 1;
+        cx.notify();
+    }
+
+    pub(crate) fn close_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if index >= self.tabs.len() {
+            return;
+        }
+        for view in self.tabs[index].html_views.values() {
+            view.update(cx, |wv, _| {
+                let _ = wv.set_visible(false);
+            });
+        }
+        let closed = self.tabs.remove(index);
+        let key = closed.model.project.display().to_string();
+        self.console_editors.remove(&key);
+        self.questions.remove(&key);
+        if self.history_owner == Some(closed.id) {
+            self.history_owner = None;
+            self.history_controls.clear();
+            self.history_field_subscriptions.clear();
+            self.history_fields_key.clear();
+        }
+        self.confirmation = None;
+        if self.tabs.is_empty() {
+            self.active = 0;
+            self.record_active = 0;
+            if self.surface != "Help" {
+                self.surface = "Notebook".into();
+            }
+        } else {
+            if index < self.active {
+                self.active -= 1;
+            } else {
+                self.active = self.active.min(self.tabs.len() - 1);
+            }
+            self.record_active = self.tabs[self.active]
+                .selections
+                .get(&self.surface)
+                .copied()
+                .unwrap_or(0);
+        }
+        self.close_menu(window, cx);
         cx.notify();
     }
     fn send(&self, command: Command) {
@@ -443,6 +714,249 @@ impl Workspace {
             method: method.into(),
             fields,
         });
+    }
+
+    pub(crate) fn toggle_app_mode(
+        &mut self,
+        _: &ToggleAppMode,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.tabs.is_empty() {
+            return;
+        }
+        // Menus capture cell actions that App mode no longer offers.
+        self.close_menu(window, cx);
+        self.palette = false;
+        self.notice = None;
+        self.surface = "Notebook".into();
+        let tab = &mut self.tabs[self.active];
+        tab.app_mode = !tab.app_mode;
+        if tab.app_mode {
+            // No editor is drawn in App mode; keep keys off a hidden editor.
+            tab.model.mode = Mode::Command;
+            tab.reveal = None;
+            self.focus.focus(window, cx);
+        }
+        let count = tab.model.order.len();
+        tab.list.splice(0..count, count);
+        if tab.model.saved_app_mode() != tab.app_mode {
+            let metadata = tab.model.metadata_with_app_mode(tab.app_mode);
+            self.mutate(json!({"action": "metadata", "metadata": metadata}));
+        }
+        cx.notify();
+    }
+
+    /// Selects, scrolls to and edits `id`. The change is applied by `drain`,
+    /// so wake the loop: nothing else may arrive to run it.
+    pub(crate) fn request_reveal(&mut self, id: Option<String>) {
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.reveal = id;
+            let _ = self.wake.try_send(());
+        }
+    }
+
+    /// Like `request_reveal`, for the cell a source mutation creates or moves:
+    /// it waits for the snapshot that mutation produces, so the cell is shown
+    /// where it lands. That snapshot drains it, so no wake is needed.
+    fn reveal_after_mutation(&mut self, id: Option<String>) {
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.reveal = id;
+        }
+    }
+
+    /// Shows an informational notice above the notebook.
+    pub(crate) fn show_notice(&mut self, notice: impl Into<String>, cx: &mut Context<Self>) {
+        self.notice = Some(notice.into());
+        cx.notify();
+    }
+
+    pub(crate) fn mutate_cell_metadata(
+        &mut self,
+        cell_id: &str,
+        key: &str,
+        value: Value,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let Some(cell) = tab.model.cells.get(cell_id) else {
+            return;
+        };
+        let metadata = cell.metadata_with(key, value);
+        self.mutate(json!({
+            "action": "metadata",
+            "cell_id": cell_id,
+            "metadata": metadata,
+        }));
+        cx.notify();
+    }
+
+    pub(crate) fn insert_cell_with_source(
+        &mut self,
+        kind: &str,
+        source: String,
+        cx: &mut Context<Self>,
+    ) {
+        let index = self.index_after_selection();
+        self.add_cell(kind, index, Some(source));
+        self.surface = "Notebook".into();
+        cx.notify();
+    }
+
+    /// The insertion index just below the selected cell, or the end.
+    pub(crate) fn index_after_selection(&self) -> usize {
+        self.tabs.get(self.active).map_or(0, |tab| {
+            tab.model
+                .selected
+                .as_ref()
+                .and_then(|id| tab.model.order.iter().position(|c| c == id))
+                .map_or(tab.model.order.len(), |i| i + 1)
+        })
+    }
+
+    /// Inserts below the cell `after`, resolved now rather than when a menu
+    /// opened, or at the end when that cell has since been removed.
+    pub(crate) fn insert_cell_after(&mut self, after: &str, kind: &str) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let index = tab
+            .model
+            .order
+            .iter()
+            .position(|id| id == after)
+            .map_or(tab.model.order.len(), |i| i + 1);
+        self.add_cell(kind, index, None);
+    }
+
+    /// Adds a `kind` cell at `index`. A new SQL cell gets an output variable
+    /// that no other cell defines (`sql_result`, `sql_result_2`, …).
+    pub(crate) fn add_cell(&mut self, kind: &str, index: usize, source: Option<String>) {
+        let id = uuid::Uuid::new_v4().simple().to_string();
+        let mut request = json!({"action": "add", "type": kind, "index": index, "new_id": id});
+        if let Some(source) = source {
+            request["source"] = json!(source);
+        }
+        if kind == "sql" {
+            self.assign_output_var(id);
+        }
+        self.mutate(request);
+    }
+
+    /// Records a unique default output variable for SQL cell `id`, applied
+    /// once the cell exists as SQL (see `apply_output_vars`).
+    pub(crate) fn assign_output_var(&mut self, id: String) {
+        let Some(tab) = self.tabs.get(self.active).filter(|tab| !tab.app_mode) else {
+            return;
+        };
+        let mut taken = notebook_names(&tab.model);
+        taken.extend(self.pending_output_vars.values().cloned());
+        let name = codegen::unique_name("sql_result", &taken);
+        self.pending_output_vars.insert(id, name);
+    }
+
+    /// Stores pending default output variables on SQL cells that now exist.
+    /// The `add` mutation cannot carry metadata, so this follows it.
+    fn apply_output_vars(&mut self, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let ready: Vec<String> = self
+            .pending_output_vars
+            .keys()
+            .filter(|id| {
+                tab.model
+                    .cells
+                    .get(*id)
+                    .is_some_and(|c| c.disk.kind == "sql")
+            })
+            .cloned()
+            .collect();
+        for id in ready {
+            let name = self.pending_output_vars.remove(&id).unwrap_or_default();
+            let unset = !self.tabs[self.active].model.cells[&id]
+                .cell_metadata()
+                .contains_key("output_var");
+            if unset {
+                self.mutate_cell_metadata(&id, "output_var", json!(name), cx);
+            }
+        }
+    }
+
+    pub(crate) fn format_cell(&mut self, cell_id: &str, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get_mut(self.active) else {
+            return;
+        };
+        let Some(cell) = tab.model.cells.get(cell_id) else {
+            return;
+        };
+        if cell.disk.kind != "code" {
+            return;
+        }
+        let source = cell.text.clone();
+        tab.formatting_cell = Some(cell_id.to_string());
+        self.inspect("code.format", json!({"source": source}));
+        cx.notify();
+    }
+
+    pub(crate) fn install_package(&mut self, package: String, cx: &mut Context<Self>) {
+        let spec = package.trim().to_string();
+        if spec.is_empty() {
+            return;
+        }
+        if let Some(tab) = self.tabs.get_mut(self.active) {
+            tab.package_install_status = Some(format!("Installing {spec}\u{2026}"));
+        }
+        self.inspect("packages.install", json!({"package": spec}));
+        cx.notify();
+    }
+
+    pub(crate) fn run_stale_cells(&mut self, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        let graph = dag::analyze_notebook(&tab.model);
+        let blocked = blocked_cells(&tab.model, &graph);
+        let ids: Vec<_> = graph
+            .run_stale_ids
+            .into_iter()
+            .filter(|id| !blocked.contains(id))
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        self.send(Command::Run {
+            cell_ids: ids,
+            on_error: "stop".into(),
+        });
+        cx.notify();
+    }
+
+    pub(crate) fn run_cell_and_downstream(&mut self, cell_id: &str, cx: &mut Context<Self>) {
+        let Some(tab) = self.tabs.get(self.active) else {
+            return;
+        };
+        match downstream_plan(&tab.model, &dag::analyze_notebook(&tab.model), cell_id) {
+            Ok(ids) => self.send(Command::Run {
+                cell_ids: ids,
+                on_error: "stop".into(),
+            }),
+            Err(reason) => self.notice = Some(reason.into()),
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn jump_to_cell(&mut self, cell_id: String, cx: &mut Context<Self>) {
+        if let Some(tab) = self.tabs.get_mut(self.active)
+            && tab.model.cells.contains_key(&cell_id)
+        {
+            tab.model.selected = Some(cell_id.clone());
+            self.surface = "Notebook".into();
+            self.request_reveal(Some(cell_id));
+            cx.notify();
+        }
     }
     fn open_dialog(&mut self, _: &OpenNotebook, window: &mut Window, cx: &mut Context<Self>) {
         let focus = window.focused(cx).unwrap_or_else(|| self.focus.clone());
@@ -483,28 +997,8 @@ impl Workspace {
         .detach();
     }
     fn drain(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.follow_system {
-            let dark = matches!(
-                window.appearance(),
-                WindowAppearance::Dark | WindowAppearance::VibrantDark
-            );
-            let high_contrast = system_high_contrast();
-            if self.dark != dark || self.high_contrast != high_contrast {
-                self.dark = dark;
-                self.high_contrast = high_contrast;
-                apply_theme(self.dark, self.high_contrast, window, cx);
-            }
-        }
-        if self.confirmation.is_some() && !self.dialog_open {
-            self.return_focus = window.focused(cx);
-            self.confirm_focus.focus(window, cx);
-            self.dialog_open = true;
-        } else if self.confirmation.is_none() && self.dialog_open {
-            self.dialog_open = false;
-            if let Some(focus) = self.return_focus.take() {
-                focus.focus(window, cx);
-            }
-        }
+        self.sync_system_appearance(window, cx);
+        self.sync_confirmation_focus(window, cx);
         let mut changed = false;
         let mut html_ready = Vec::new();
         for (event_tab, tab) in self.tabs.iter_mut().enumerate() {
@@ -817,7 +1311,28 @@ impl Workspace {
                             tab.uninitialized = snapshot.state == "missing"
                                 && !snapshot.details.contains_key("manifest");
                             let order = tab.model.order.clone();
+                            let saved_app_mode = (!tab.model.manifest_revision.is_empty())
+                                .then(|| tab.model.saved_app_mode());
+                            let (app_mode, cell_metadata) =
+                                (tab.app_mode, cell_metadata(&tab.model));
                             tab.model.apply_snapshot(snapshot);
+                            // Adopt the saved App mode on open and on changes made
+                            // elsewhere; a local toggle in flight is not reverted.
+                            if tab.model.source_state == "ok"
+                                && saved_app_mode != Some(tab.model.saved_app_mode())
+                            {
+                                tab.app_mode = tab.model.saved_app_mode();
+                                if tab.app_mode {
+                                    tab.model.mode = Mode::Command;
+                                }
+                            }
+                            // Hidden code, disabled cells and App mode change cell heights.
+                            if order == tab.model.order
+                                && (app_mode != tab.app_mode
+                                    || cell_metadata != self::cell_metadata(&tab.model))
+                            {
+                                tab.list.splice(0..order.len(), order.len());
+                            }
                             if tab.model.source_state == "ok"
                                 && self.recorded_opens.insert(tab.model.project.clone())
                             {
@@ -874,9 +1389,10 @@ impl Workspace {
                         }
                     }
                     Event::Runtime(value) => {
-                        if value["interactive"]["worker_generation"]
-                            != tab.runtime["interactive"]["worker_generation"]
-                        {
+                        let prev_state = tab.runtime["worker_state"].as_str().map(str::to_owned);
+                        let prev_epoch = tab.runtime["interactive"]["namespace_epoch"].clone();
+                        let prev_gen = tab.runtime["interactive"]["worker_generation"].clone();
+                        if value["interactive"]["worker_generation"] != prev_gen {
                             tab.inspections.remove("Widget state");
                         }
                         if tab
@@ -888,6 +1404,27 @@ impl Workspace {
                             tab.inspections.remove("Technical error");
                         }
                         tab.runtime = value;
+                        tab.model.live_session = tab.runtime["session_id"]
+                            .as_str()
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_owned);
+                        let became_idle = prev_state.as_deref() != Some("idle");
+                        let epoch_changed = tab.runtime["interactive"]["namespace_epoch"]
+                            != prev_epoch
+                            || tab.runtime["interactive"]["worker_generation"] != prev_gen;
+                        if event_tab == self.active
+                            && self.surface == "Variables"
+                            && tab.runtime["worker_state"] == "idle"
+                            && (became_idle || epoch_changed)
+                            && tab.runtime["interactive"]["worker_generation"].is_string()
+                        {
+                            let _ = tab.service.commands.send(Command::Interactive {
+                                method: "namespace.list".into(),
+                                fields: json!({
+                                    "worker_generation": tab.runtime["interactive"]["worker_generation"]
+                                }),
+                            });
+                        }
                     }
                     Event::Operation(value) => {
                         if value["state"] == "completed"
@@ -933,6 +1470,7 @@ impl Workspace {
                                 value["source_sha256"].as_str().map(str::to_owned);
                             cell.ordinal = value["ordinal"].as_u64();
                             cell.outcome = value["status"].as_str().unwrap_or("unknown").into();
+                            cell.session_id = value["session_id"].as_str().map(str::to_owned);
                             if let Some(i) = tab.model.order.iter().position(|cid| cid == id) {
                                 tab.list.splice(i..i + 1, 1);
                             }
@@ -977,6 +1515,11 @@ impl Workspace {
                             continue;
                         }
                         if method == "console.execution" {
+                            tab.console_history.push(value.clone());
+                            if tab.console_history.len() > 50 {
+                                let excess = tab.console_history.len() - 50;
+                                tab.console_history.drain(..excess);
+                            }
                             tab.inspections.insert("Console output".into(), value);
                             continue;
                         }
@@ -1006,6 +1549,67 @@ impl Workspace {
                             tab.inspections.insert("Breakpoints".into(), value);
                             continue;
                         }
+                        if method == "files.list" {
+                            tab.files_cache = Some(value);
+                            continue;
+                        }
+                        if method == "packages.list" {
+                            tab.packages_cache = Some(value);
+                            continue;
+                        }
+                        if method == "packages.install" {
+                            let ok = value["ok"].as_bool().unwrap_or(false);
+                            let pkg = value["package"].as_str().unwrap_or("package");
+                            if ok {
+                                tab.package_install_status =
+                                    Some(format!("Installed {pkg} successfully."));
+                                let _ = tab.service.commands.send(Command::Inspect {
+                                    method: "packages.list".into(),
+                                    fields: json!({}),
+                                });
+                            } else {
+                                let err = value["error"]
+                                    .as_str()
+                                    .or_else(|| value["stderr"].as_str())
+                                    .unwrap_or("Package installation failed");
+                                tab.package_install_status =
+                                    Some(format!("Failed to install {pkg}: {err}"));
+                            }
+                            continue;
+                        }
+                        if method == "code.format" {
+                            if let Some(cid) = tab.formatting_cell.take()
+                                && let Some(formatted) = value["source"].as_str()
+                                && let Some(cell) = tab.model.cells.get_mut(&cid)
+                                && cell.text != formatted
+                            {
+                                let resized = editor_lines(&cell.text) != editor_lines(formatted);
+                                cell.edit(formatted.to_owned());
+                                if let Some(editor) = tab.editors.get(&cid) {
+                                    editor.update(cx, |s, cx| {
+                                        s.set_value(formatted.to_owned(), window, cx)
+                                    });
+                                }
+                                if resized
+                                    && let Some(i) = tab.model.order.iter().position(|c| *c == cid)
+                                {
+                                    tab.list.splice(i..i + 1, 1);
+                                }
+                                if let Some(request) = tab.model.save_request(&cid) {
+                                    let _ = tab.service.commands.send(Command::Edit {
+                                        cell_id: cid,
+                                        request,
+                                    });
+                                }
+                            }
+                            continue;
+                        }
+                        if method == "code.inspect" {
+                            tab.inspections.insert("Live docs".into(), value.clone());
+                            if self.surface == "Console" {
+                                continue;
+                            }
+                        }
                         if method.starts_with("namespace.") || method == "code.inspect" {
                             let key = if method == "namespace.list" {
                                 "Variables"
@@ -1016,7 +1620,76 @@ impl Workspace {
                                 || value["worker_generation"]
                                     == tab.runtime["interactive"]["worker_generation"]
                             {
-                                tab.inspections.insert(key.into(), value);
+                                if method == "namespace.preview"
+                                    && value["error"]["code"].as_str() == Some("name_not_found")
+                                    && value["_context"]["segments"]
+                                        .as_array()
+                                        .is_some_and(|s| !s.is_empty())
+                                    && let Some(handle) = value["_context"]["handle"].as_str()
+                                {
+                                    let _ = tab.service.commands.send(Command::Interactive {
+                                        method: "namespace.preview".into(),
+                                        fields: json!({
+                                            "worker_generation": tab.runtime["interactive"]["worker_generation"],
+                                            "handle": handle,
+                                            "segments": [],
+                                        }),
+                                    });
+                                    continue;
+                                }
+                                tab.inspections.insert(key.into(), value.clone());
+                                if method == "namespace.list"
+                                    && tab.runtime["worker_state"] == "idle"
+                                    && let Some(selected_name) =
+                                        tab.variables_state.selected.clone()
+                                {
+                                    if let Some(found) = value["items"].as_array().and_then(|arr| {
+                                        arr.iter().find(|it| {
+                                            it["name"].as_str() == Some(selected_name.as_str())
+                                        })
+                                    }) {
+                                        let needs_refresh = tab
+                                            .inspections
+                                            .get("Variable preview")
+                                            .is_none_or(|prev| {
+                                                prev["name"].as_str()
+                                                    != Some(selected_name.as_str())
+                                                    || prev["namespace_epoch"]
+                                                        != value["namespace_epoch"]
+                                                    || prev["worker_generation"]
+                                                        != value["worker_generation"]
+                                            });
+                                        if needs_refresh
+                                            && let Some(handle) = found["handle"].as_str()
+                                        {
+                                            let segments = tab
+                                                .inspections
+                                                .get("Variable preview")
+                                                .filter(|prev| {
+                                                    prev["name"].as_str()
+                                                        == Some(selected_name.as_str())
+                                                })
+                                                .and_then(|prev| prev["segments"].as_array())
+                                                .cloned()
+                                                .unwrap_or_default();
+                                            let mut fields = json!({
+                                                "worker_generation": tab.runtime["interactive"]["worker_generation"],
+                                                "handle": handle,
+                                            });
+                                            if !segments.is_empty() {
+                                                fields["segments"] = Value::Array(segments);
+                                            }
+                                            let _ =
+                                                tab.service.commands.send(Command::Interactive {
+                                                    method: "namespace.preview".into(),
+                                                    fields,
+                                                });
+                                        }
+                                    } else {
+                                        tab.variables_state.selected = None;
+                                        tab.inspections.remove("Variable preview");
+                                    }
+                                }
                             }
                             continue;
                         }
@@ -1115,6 +1788,16 @@ impl Workspace {
                                 );
                             }
                         }
+                        for record in &mut tab.console_history {
+                            if record["exec_id"] == exec_id
+                                && let Some(event) = record["outputs"].get_mut(index)
+                                && kernelledger_client::output::matches_blob(event, &slot, &digest)
+                            {
+                                kernelledger_client::output::write_page(
+                                    event, &slot, &text, offset, end, total,
+                                );
+                            }
+                        }
                     }
                     Event::ImageCached {
                         cell_id,
@@ -1144,6 +1827,13 @@ impl Workspace {
                             if let Some(history) = tab.inspections.get_mut(surface)
                                 && history["exec_id"] == exec_id
                                 && let Some(event) = history["outputs"].get_mut(index)
+                            {
+                                assign(event);
+                            }
+                        }
+                        for record in &mut tab.console_history {
+                            if record["exec_id"] == exec_id
+                                && let Some(event) = record["outputs"].get_mut(index)
                             {
                                 assign(event);
                             }
@@ -1264,30 +1954,44 @@ impl Workspace {
                 }
             }
         }
-        if let Some(tab) = self.tabs.get_mut(self.active)
-            && let Some(id) = tab.reveal.clone()
-            && let Some(index) = tab.model.order.iter().position(|c| c == &id)
-        {
-            tab.model.selected = Some(id.clone());
-            tab.model.mode = Mode::Edit;
-            if tab.list.bounds_for_item(index).is_some() {
-                tab.list.scroll_to_reveal_item(index);
-            } else {
-                // Height estimates are absent after a structural reset. Anchor
-                // directly to an unmeasured target instead of revealing its estimate.
-                tab.list.scroll_to(ListOffset {
-                    item_ix: index,
-                    offset_in_item: px(0.),
-                });
-            }
-            tab.reveal = None;
-            let editor = self.editor(self.active, &id, window, cx);
-            editor.update(cx, |s, cx| s.focus(window, cx));
-            changed = true;
+        if changed {
+            self.apply_output_vars(cx);
         }
+        changed |= self.apply_reveal(window, cx);
         if changed {
             cx.notify();
         }
+    }
+    /// Selects, scrolls to and edits the pending reveal target once it exists.
+    /// App mode only selects and scrolls: it draws no editor.
+    fn apply_reveal(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(tab) = self.tabs.get_mut(self.active) else {
+            return false;
+        };
+        let Some(id) = tab.reveal.clone() else {
+            return false;
+        };
+        let Some(index) = tab.model.order.iter().position(|c| c == &id) else {
+            return false;
+        };
+        tab.reveal = None;
+        tab.model.selected = Some(id.clone());
+        if tab.list.bounds_for_item(index).is_some() {
+            tab.list.scroll_to_reveal_item(index);
+        } else {
+            // Height estimates are absent after a structural reset. Anchor
+            // directly to an unmeasured target instead of revealing its estimate.
+            tab.list.scroll_to(ListOffset {
+                item_ix: index,
+                offset_in_item: px(0.),
+            });
+        }
+        if !tab.app_mode {
+            tab.model.mode = Mode::Edit;
+            let editor = self.editor(self.active, &id, window, cx);
+            editor.update(cx, |s, cx| s.focus(window, cx));
+        }
+        true
     }
     fn back(&mut self) {
         if let Some(tab) = self.tabs.get_mut(self.active)
@@ -1379,7 +2083,10 @@ impl Workspace {
             return;
         }
         // Preserve editors, drafts and durable operation keys; never resubmit work.
-        tab.service = NotebookService::start(tab.model.project.clone(), self.python.clone());
+        let wake = self.wake_notifier();
+        let tab = &mut self.tabs[self.active];
+        tab.service =
+            NotebookService::start_with_wake(tab.model.project.clone(), self.python.clone(), wake);
         tab.error = None;
         tab.inspections.remove("Technical error");
         tab.inspections.remove("Application Python");
@@ -1444,6 +2151,7 @@ impl Workspace {
             warning,
             danger,
             info,
+            success,
             transparent,
         ) = (
             theme.sidebar,
@@ -1455,10 +2163,344 @@ impl Workspace {
             theme.warning,
             theme.danger,
             theme.info,
+            theme.success,
             theme.transparent,
         );
         let mono = theme.mono_font_family.clone();
         let tab = &self.tabs[self.active];
+        let active_tab = tab.sidebar_tab.as_str();
+        let graph = dag::analyze_notebook(&tab.model);
+
+        let tab_bar = h_flex()
+            .flex_none()
+            .px_2()
+            .pt_2()
+            .pb_1()
+            .gap_1()
+            .items_center()
+            .border_b_1()
+            .border_color(divider(cx))
+            .child(
+                action_button("sidebar-tab-outline")
+                    .small()
+                    .segment(active_tab == "outline")
+                    .label("Outline")
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "outline".into();
+                        cx.notify();
+                    })),
+            )
+            .child(
+                action_button("sidebar-tab-deps")
+                    .small()
+                    .segment(active_tab == "dependencies")
+                    .label(if graph.run_stale_ids.is_empty() {
+                        "Deps".into()
+                    } else {
+                        format!("Deps ({})", graph.run_stale_ids.len())
+                    })
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "dependencies".into();
+                        cx.notify();
+                    })),
+            )
+            .child(
+                action_button("sidebar-tab-files")
+                    .small()
+                    .segment(active_tab == "files")
+                    .label("Files")
+                    .on_click(cx.listener(|v, _, _, cx| {
+                        v.tabs[v.active].sidebar_tab = "files".into();
+                        if v.tabs[v.active].files_cache.is_none() {
+                            v.inspect("files.list", json!({}));
+                        }
+                        cx.notify();
+                    })),
+            );
+
+        if active_tab == "dependencies" {
+            let mut dep_list = v_flex()
+                .id("deps-list")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .px_2()
+                .py_2()
+                .gap_2();
+            dep_list = dep_list.child(
+                h_flex()
+                    .gap_1p5()
+                    .flex_wrap()
+                    .items_center()
+                    .child(badge(format!("{} edges", graph.edges.len()), muted_fg))
+                    .when(!graph.run_stale_ids.is_empty(), |d| {
+                        d.child(badge(
+                            format!("{} stale", graph.run_stale_ids.len()),
+                            warning,
+                        ))
+                    })
+                    .when(!graph.cycles.is_empty(), |d| {
+                        d.child(badge(format!("{} cycle", graph.cycles.len()), danger))
+                    })
+                    .when(!graph.multiple_definitions.is_empty(), |d| {
+                        d.child(badge(
+                            format!("{} redef", graph.multiple_definitions.len()),
+                            danger,
+                        ))
+                    }),
+            );
+            if !graph.run_stale_ids.is_empty() {
+                dep_list = dep_list.child(
+                    action_button("sidebar-run-stale")
+                        .primary()
+                        .small()
+                        .w_full()
+                        .icon(Glyph::Play)
+                        .label(format!("Run stale ({})", graph.run_stale_ids.len()))
+                        .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                );
+            }
+            if !graph.cycles.is_empty() {
+                let summary = graph
+                    .cycles
+                    .iter()
+                    .map(|c| c.join(" \u{2192} "))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                dep_list = dep_list.child(
+                    div()
+                        .p_2()
+                        .rounded(radius)
+                        .border_1()
+                        .border_color(danger.opacity(0.35))
+                        .bg(danger.opacity(0.08))
+                        .text_xs()
+                        .text_color(danger)
+                        .whitespace_normal()
+                        .child(format!("Dependency cycle: {summary}")),
+                );
+            }
+            for (i, id) in tab.model.order.iter().enumerate() {
+                let Some(cell) = tab.model.cells.get(id) else {
+                    continue;
+                };
+                if !cell.is_executable() {
+                    continue;
+                }
+                let defs = graph.defs.get(id).map(Vec::as_slice).unwrap_or(&[]);
+                let refs = graph.refs.get(id).map(Vec::as_slice).unwrap_or(&[]);
+                let upstream_stale = graph.is_upstream_stale(id);
+                let direct_stale = cell.stale();
+                let selected = tab.model.selected.as_deref() == Some(id.as_str());
+                let jump_id = id.clone();
+                dep_list = dep_list.child(
+                    v_flex()
+                        .id(("dep-cell", i))
+                        .p_2()
+                        .gap_1()
+                        .rounded(radius)
+                        .border_1()
+                        .border_color(if selected { primary } else { surface_edge(cx) })
+                        .when(selected, |d| d.bg(active_bg))
+                        .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |v, _, _, cx| {
+                            v.jump_to_cell(jump_id.clone(), cx);
+                        }))
+                        .child(
+                            h_flex()
+                                .gap_1p5()
+                                .items_center()
+                                .child(Icon::new(kind_icon(&cell.disk.kind)).xsmall())
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .font_family(mono.clone())
+                                        .text_xs()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(format!("Cell {} ({id})", i + 1)),
+                                )
+                                .when(direct_stale || upstream_stale, |d| d.child(dot(warning))),
+                        )
+                        .when(!defs.is_empty(), |d| {
+                            d.child(
+                                h_flex()
+                                    .gap_1()
+                                    .flex_wrap()
+                                    .items_center()
+                                    .child(
+                                        div()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child("defs:"),
+                                    )
+                                    .children(defs.iter().take(6).map(|name| {
+                                        div()
+                                            .px_1()
+                                            .rounded(px(4.))
+                                            .bg(success.opacity(0.14))
+                                            .font_family(mono.clone())
+                                            .text_size(rems(0.6875))
+                                            .text_color(success)
+                                            .child(name.clone())
+                                    })),
+                            )
+                        })
+                        .when(!refs.is_empty(), |d| {
+                            d.child(
+                                h_flex()
+                                    .gap_1()
+                                    .flex_wrap()
+                                    .items_center()
+                                    .child(
+                                        div()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child("refs:"),
+                                    )
+                                    .children(refs.iter().take(6).map(|name| {
+                                        div()
+                                            .px_1()
+                                            .rounded(px(4.))
+                                            .bg(info.opacity(0.12))
+                                            .font_family(mono.clone())
+                                            .text_size(rems(0.6875))
+                                            .text_color(info)
+                                            .child(name.clone())
+                                    })),
+                            )
+                        }),
+                );
+            }
+            return v_flex()
+                .id("sidebar")
+                .debug_selector(|| "notebook-outline".into())
+                .track_focus(&self.sidebar_focus)
+                .size_full()
+                .bg(bar)
+                .child(tab_bar)
+                .child(dep_list)
+                .into_any_element();
+        }
+
+        if active_tab == "files" {
+            let files = tab
+                .files_cache
+                .as_ref()
+                .and_then(|v| v["items"].as_array())
+                .cloned()
+                .unwrap_or_default();
+            let mut file_list = v_flex()
+                .id("files-list")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .px_2()
+                .py_2()
+                .gap_1();
+            file_list = file_list.child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .pb_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted_fg)
+                            .child(format!("{} file(s)", files.len())),
+                    )
+                    .child(
+                        action_button("refresh-workspace-files")
+                            .ghost()
+                            .small()
+                            .icon(Glyph::RefreshCw)
+                            .hint("Refresh workspace files")
+                            .on_click(cx.listener(|v, _, _, _| {
+                                v.inspect("files.list", json!({}));
+                            })),
+                    ),
+            );
+            if files.is_empty() {
+                file_list = file_list.child(
+                    div()
+                        .py_4()
+                        .text_center()
+                        .text_xs()
+                        .text_color(muted_fg)
+                        .child("No workspace files found."),
+                );
+            } else {
+                for (i, item) in files.iter().enumerate() {
+                    let rel = item["path"].as_str().unwrap_or_default().to_string();
+                    let name = item["name"].as_str().unwrap_or(&rel).to_string();
+                    let size = item["size"].as_u64().unwrap_or(0);
+                    // Generated here, not by the helper, so each loader binds its own
+                    // variable and the path is always a safely escaped literal.
+                    let loadable = codegen::loader_source(&rel, &Default::default()).is_some();
+                    file_list = file_list.child(
+                        h_flex()
+                            .id(("ws-file", i))
+                            .px_2()
+                            .py_1()
+                            .gap_1p5()
+                            .items_center()
+                            .rounded(radius)
+                            .hover(move |s| s.bg(hover_bg))
+                            .child(Icon::new(Glyph::FileText).xsmall().text_color(muted_fg))
+                            .child(
+                                v_flex()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(
+                                        div()
+                                            .truncate()
+                                            .text_xs()
+                                            .font_family(mono.clone())
+                                            .child(name),
+                                    )
+                                    .child(
+                                        div()
+                                            .truncate()
+                                            .text_size(rems(0.6875))
+                                            .text_color(muted_fg)
+                                            .child(format!(
+                                                "{rel} \u{00b7} {}",
+                                                runtime::format_rss_bytes(size)
+                                            )),
+                                    ),
+                            )
+                            .when(loadable, |d| {
+                                d.child(
+                                    action_button(("load-file", i))
+                                        .ghost()
+                                        .small()
+                                        .label("Load")
+                                        .hint("Insert loader cell for this file")
+                                        .on_click(cx.listener(move |v, _, _, cx| {
+                                            let taken = notebook_names(&v.tabs[v.active].model);
+                                            if let Some(code) = codegen::loader_source(&rel, &taken)
+                                            {
+                                                v.insert_cell_with_source("code", code, cx);
+                                            }
+                                        })),
+                                )
+                            }),
+                    );
+                }
+            }
+            return v_flex()
+                .id("sidebar")
+                .debug_selector(|| "notebook-outline".into())
+                .track_focus(&self.sidebar_focus)
+                .size_full()
+                .bg(bar)
+                .child(tab_bar)
+                .child(file_list)
+                .into_any_element();
+        }
+
         let query = self.query.read(cx).value().to_lowercase();
         let mut list = v_flex()
             .id("cell-list")
@@ -1471,8 +2513,10 @@ impl Workspace {
             .pb_2()
             .gap_0p5();
         let mut shown = 0;
+        let blocked = blocked_cells(&tab.model, &graph);
         for (i, id) in tab.model.order.iter().enumerate() {
             let cell = &tab.model.cells[id];
+            let state = OutlineState::of(cell, blocked.contains(id));
             if !query.is_empty()
                 && !cell.text.to_lowercase().contains(&query)
                 && !id.to_lowercase().contains(&query)
@@ -1494,12 +2538,13 @@ impl Workspace {
                 };
                 text.chars().take(80).collect::<String>()
             });
-            let is_code = cell.disk.kind == "code";
+            let is_exec = cell.is_executable();
+            let upstream_stale = graph.is_upstream_stale(id);
             let marker = if matches!(cell.save, SaveState::Conflict | SaveState::Failed)
                 || matches!(cell.outcome.as_str(), "error" | "failed")
             {
                 Some(danger)
-            } else if cell.stale() {
+            } else if cell.stale() || upstream_stale {
                 Some(warning)
             } else if cell.save == SaveState::Dirty {
                 Some(info)
@@ -1516,19 +2561,22 @@ impl Workspace {
                             || matches!(cell.outcome.as_str(), "error" | "failed")
                         {
                             ", failed"
-                        } else if cell.stale() {
+                        } else if cell.stale() || upstream_stale {
                             ", stale"
                         } else {
                             ""
                         };
                         format!(
-                            "Cell {}: {} cell {id}: {}{status}",
+                            "Cell {}: {} cell {id}: {}{status}{}",
                             i + 1,
                             cell.disk.kind,
                             cell.text
                                 .lines()
                                 .find(|l| !l.trim().is_empty())
-                                .unwrap_or("Empty cell")
+                                .unwrap_or("Empty cell"),
+                            state
+                                .map(|s| format!(", {}", s.label()))
+                                .unwrap_or_default()
                         )
                     })
                     .aria_selected(selected)
@@ -1546,6 +2594,7 @@ impl Workspace {
                     .cursor_pointer()
                     .when(selected, |d| d.bg(active_bg))
                     .when(!selected, |d| d.hover(move |s| s.bg(hover_bg)))
+                    .when(state.is_some_and(OutlineState::muted), |d| d.opacity(0.55))
                     .child(
                         div()
                             .flex_none()
@@ -1557,12 +2606,12 @@ impl Workspace {
                             .flex_1()
                             .min_w_0()
                             .truncate()
-                            .when(is_code, |d| {
+                            .when(is_exec, |d| {
                                 d.font_family(mono.clone())
                                     .text_size(rems(0.75))
                                     .text_color(muted_fg)
                             })
-                            .when(!is_code, |d| d.text_size(rems(0.8125)))
+                            .when(!is_exec, |d| d.text_size(rems(0.8125)))
                             .when(heading.is_some(), |d| d.font_weight(FontWeight::SEMIBOLD))
                             .when(selected, |d| {
                                 d.font_weight(FontWeight::MEDIUM)
@@ -1573,13 +2622,29 @@ impl Workspace {
                                 format!("Empty {} cell", kind_label(&cell.disk.kind))
                             })),
                     )
+                    .when_some(state, |d, state| {
+                        d.child(
+                            div()
+                                .id(("outline-state", i))
+                                .debug_selector({
+                                    let id = id.clone();
+                                    move || format!("outline-state-{id}")
+                                })
+                                .flex_none()
+                                .text_color(muted_fg)
+                                .child(Icon::new(state.glyph()).xsmall())
+                                .tooltip(move |_, cx| {
+                                    cx.new(|_| WorkbenchHint(state.hint().into())).into()
+                                }),
+                        )
+                    })
                     .child(
                         h_flex().flex_none().w(px(28.)).justify_end().child(
                             div()
                                 .text_size(rems(0.6875))
                                 .font_family(mono.clone())
                                 .text_color(muted_fg)
-                                .child(if cell.disk.kind == "code" {
+                                .child(if is_exec {
                                     cell.ordinal
                                         .map(|n| format!("[{n}]"))
                                         .unwrap_or_else(|| "\u{2014}".into())
@@ -1594,8 +2659,8 @@ impl Workspace {
                         let t = &mut v.tabs[v.active];
                         t.model.selected = Some(id.clone());
                         t.list.scroll_to_reveal_item(i);
-                        t.reveal = Some(id.clone());
                         v.focus.focus(window, cx);
+                        v.request_reveal(Some(id.clone()));
                         cx.notify();
                     })),
             );
@@ -1625,6 +2690,7 @@ impl Workspace {
             .track_focus(&self.sidebar_focus)
             .size_full()
             .bg(bar)
+            .child(tab_bar)
             .child(
                 h_flex()
                     .flex_none()
@@ -1665,40 +2731,40 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.conceal_html_views(cx);
-        if self.confirmation.is_some() && !self.dialog_open {
-            self.return_focus = window.focused(cx);
-            self.confirm_focus.focus(window, cx);
-            self.dialog_open = true;
-        } else if self.confirmation.is_none() && self.dialog_open {
-            self.dialog_open = false;
-            if let Some(focus) = self.return_focus.take() {
-                focus.focus(window, cx);
-            }
-        }
-        if self.history_owner != Some(self.active) && !self.tabs.is_empty() {
-            if let Some(old) = self
-                .history_owner
-                .and_then(|index| self.tabs.get_mut(index))
-            {
-                old.history_filter = self.history_query.read(cx).value().to_string();
+        self.sync_confirmation_focus(window, cx);
+        let active_id = self.tabs.get(self.active).map(|tab| tab.id);
+        if self.history_owner != active_id && !self.tabs.is_empty() {
+            let previous_query = self.history_query.read(cx).value().to_string();
+            if let Some(old) = self.history_owner.and_then(|id| self.tab_by_id_mut(id)) {
+                old.history_filter = previous_query;
             }
             let query = self.tabs[self.active].history_filter.clone();
             self.history_query
                 .update(cx, |state, cx| state.set_value(query, window, cx));
-            self.history_owner = Some(self.active);
+            self.history_owner = active_id;
             self.history_controls.clear();
             self.history_field_subscriptions.clear();
             self.history_fields_key.clear();
         }
-        cx.set_global(WorkbenchPresentation {
+        let presentation = WorkbenchPresentation {
             comfortable: self.preferences.comfortable,
-        });
-        window.set_rem_size(px(16. * self.preferences.ui_scale));
+            high_contrast: self.high_contrast,
+        };
+        if self.applied_presentation != Some(presentation) {
+            cx.set_global(presentation);
+            self.applied_presentation = Some(presentation);
+        }
+        let rem_size = px(16. * self.preferences.ui_scale);
+        if window.rem_size() != rem_size {
+            window.set_rem_size(rem_size);
+        }
         let font_size = px(14. * self.preferences.ui_scale);
-        if cx.theme().font_size != font_size {
+        let mono_font_size =
+            output_font_size(self.preferences.editor_size, self.preferences.ui_scale);
+        if cx.theme().font_size != font_size || cx.theme().mono_font_size != mono_font_size {
             let theme = Theme::global_mut(cx);
             theme.font_size = font_size;
-            theme.mono_font_size = font_size;
+            theme.mono_font_size = mono_font_size;
             Theme::sync_base(cx);
         }
         self.compact = window.viewport_size().width < px(1024. * self.preferences.ui_scale);
@@ -1723,7 +2789,10 @@ impl Render for Workspace {
                 )
             })
             .unwrap_or_else(|| "KernelLedger".into());
-        window.set_window_title(&title);
+        if self.applied_title != title {
+            window.set_window_title(&title);
+            self.applied_title = title;
+        }
         let filter = self.palette_query.read(cx).value().to_lowercase();
         if filter != self.palette_filter {
             self.palette_filter = filter;
@@ -1749,16 +2818,12 @@ impl Render for Workspace {
             .on_action(cx.listener(Self::palette))
             .on_action(cx.listener(Self::open_dialog))
             .on_action(cx.listener(Self::command_mode))
+            .on_action(cx.listener(Self::toggle_app_mode))
             .on_action(
                 cx.listener(|v, action: &shortcuts::WorkbenchCommand, window, cx| {
                     if !v.palette
                         && v.confirmation.is_none()
-                        && !v.app_menu
-                        && !v.runtime_menu
-                        && !v.export_menu
-                        && !v.notebook_menu
-                        && v.cell_menu.is_none()
-                        && v.insert_menu.is_none()
+                        && !v.has_menu()
                         && (!matches!(action.method.as_str(), "undo-source" | "redo-source")
                             || v.focus.is_focused(window))
                     {
@@ -1798,18 +2863,100 @@ impl Render for Workspace {
                 root = root.child(self.welcome(cx));
             }
         } else {
+            let app_mode = self.tabs[self.active].app_mode;
             let center = if self.surface != "Notebook" {
                 self.panel(window, cx)
             } else if self.tabs[self.active].model.order.is_empty() {
                 self.empty_notebook(cx)
             } else {
                 let state = self.tabs[self.active].list.clone();
+                let has_executed = self.tabs[self.active]
+                    .model
+                    .cells
+                    .values()
+                    .any(|c| c.executed_revision.is_some());
+                let stale_count = dag::analyze_notebook(&self.tabs[self.active].model)
+                    .run_stale_ids
+                    .len();
                 let view = cx.entity();
-                list(state, move |i, window, cx| {
+                let cell_list = list(state, move |i, window, cx| {
                     view.update(cx, |view, cx| view.cell(i, window, cx))
                 })
-                .size_full()
-                .into_any_element()
+                .size_full();
+                if app_mode || (has_executed && stale_count > 0) {
+                    let strip = if app_mode {
+                        h_flex()
+                            .flex_none()
+                            .w_full()
+                            .px_4()
+                            .py_1p5()
+                            .gap_2()
+                            .items_center()
+                            .bg(cx.theme().info.opacity(0.08))
+                            .border_b_1()
+                            .border_color(cx.theme().info.opacity(0.25))
+                            .child(Icon::new(Glyph::Eye).small().text_color(cx.theme().info))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .text_xs()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .child(
+                                        "App / Report mode \u{2014} code and cell controls hidden",
+                                    ),
+                            )
+                            .child(
+                                action_button("exit-app-mode-bar")
+                                    .outline()
+                                    .small()
+                                    .label("Exit App mode")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.toggle_app_mode(&ToggleAppMode, window, cx)
+                                    })),
+                            )
+                    } else {
+                        h_flex()
+                            .flex_none()
+                            .w_full()
+                            .px_4()
+                            .py_1()
+                            .gap_2()
+                            .items_center()
+                            .bg(cx.theme().warning.opacity(0.08))
+                            .border_b_1()
+                            .border_color(cx.theme().warning.opacity(0.25))
+                            .child(dot(cx.theme().warning))
+                            .child(div().flex_1().text_xs().child(format!(
+                                "{stale_count} stale cell{} need re-running to stay in sync",
+                                if stale_count == 1 { "" } else { "s" }
+                            )))
+                            .child(
+                                action_button("notebook-open-deps")
+                                    .ghost()
+                                    .small()
+                                    .label("Dependencies")
+                                    .on_click(cx.listener(|v, _, window, cx| {
+                                        v.run_command("sidebar-deps", window, cx)
+                                    })),
+                            )
+                            .child(
+                                action_button("notebook-run-stale")
+                                    .primary()
+                                    .small()
+                                    .icon(Glyph::Play)
+                                    .label(format!("Run stale ({stale_count})"))
+                                    .on_click(cx.listener(|v, _, _, cx| v.run_stale_cells(cx))),
+                            )
+                    };
+                    v_flex()
+                        .size_full()
+                        .min_h_0()
+                        .child(strip)
+                        .child(div().flex_1().min_h_0().child(cell_list))
+                        .into_any_element()
+                } else {
+                    cell_list.into_any_element()
+                }
             };
             let viewport_width = window.viewport_size().width / px(1.);
             let scale = self.preferences.ui_scale;
@@ -1838,6 +2985,8 @@ impl Render for Workspace {
             } else {
                 center
             };
+            let show_sidebar =
+                self.surface == "Notebook" && !self.compact && self.sidebar_visible && !app_mode;
             root = root
                 .child(self.banners(window, cx))
                 .child(
@@ -1850,21 +2999,18 @@ impl Render for Workspace {
                                 "notebook-layout-v5-{}-{}-{}-{}-{}",
                                 self.preferences.outline_width,
                                 self.surface,
-                                self.sidebar_visible && !self.compact,
+                                show_sidebar,
                                 show_assistant && !self.compact,
                                 compact_assistant_sibling
                             )))
-                            .when(
-                                self.surface == "Notebook" && !self.compact && self.sidebar_visible,
-                                |d| {
-                                    d.child(
-                                        resizable_panel()
-                                            .size(px(self.preferences.outline_width))
-                                            .size_range(px(180.)..px(300.))
-                                            .child(self.sidebar(cx)),
-                                    )
-                                },
-                            )
+                            .when(show_sidebar, |d| {
+                                d.child(
+                                    resizable_panel()
+                                        .size(px(self.preferences.outline_width))
+                                        .size_range(px(180.)..px(300.))
+                                        .child(self.sidebar(cx)),
+                                )
+                            })
                             .child(
                                 resizable_panel()
                                     .size_range(if compact_assistant_sibling {
@@ -1952,13 +3098,7 @@ impl Render for Workspace {
                 )
                 .child(self.status_bar(cx));
         }
-        if self.app_menu
-            || self.export_menu
-            || self.runtime_menu
-            || self.notebook_menu
-            || self.cell_menu.is_some()
-            || self.insert_menu.is_some()
-        {
+        if self.has_menu() {
             root = root.child(self.menu_overlay(window, cx));
         }
         if self.palette {
@@ -1999,6 +3139,7 @@ impl Render for Workspace {
 fn kind_label(kind: &str) -> &'static str {
     match kind {
         "code" => "Python",
+        "sql" => "SQL",
         "markdown" => "Markdown",
         _ => "Raw",
     }
@@ -2006,6 +3147,7 @@ fn kind_label(kind: &str) -> &'static str {
 fn kind_icon(kind: &str) -> Glyph {
     match kind {
         "code" => Glyph::Code,
+        "sql" => Glyph::Database,
         "markdown" => Glyph::Type,
         _ => Glyph::FileText,
     }
@@ -2162,6 +3304,62 @@ fn confirmation_copy(method: &str) -> (&'static str, &'static str, &'static str)
         ),
     }
 }
+/// Why a cell is marked in the outline: it will not run, or shows no source.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum OutlineState {
+    Disabled,
+    Blocked,
+    CodeHidden,
+}
+impl OutlineState {
+    /// Disabled first, then blocked by a disabled ancestor, then hidden code.
+    pub(crate) fn of(cell: &kernelledger_models::CellModel, blocked: bool) -> Option<Self> {
+        if cell.is_disabled() {
+            Some(Self::Disabled)
+        } else if blocked {
+            Some(Self::Blocked)
+        } else if cell.is_code_hidden() {
+            Some(Self::CodeHidden)
+        } else {
+            None
+        }
+    }
+    fn glyph(self) -> Glyph {
+        match self {
+            Self::Disabled => Glyph::PowerOff,
+            Self::Blocked => Glyph::Link2Off,
+            Self::CodeHidden => Glyph::EyeOff,
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Blocked => "blocked by disabled cell",
+            Self::CodeHidden => "code hidden",
+        }
+    }
+    fn hint(self) -> &'static str {
+        match self {
+            Self::Disabled => "Disabled: skipped by Run all",
+            Self::Blocked => "Depends on a disabled cell; Run all skips it",
+            Self::CodeHidden => "Code hidden",
+        }
+    }
+    /// Cells that will not run read as muted.
+    fn muted(self) -> bool {
+        self != Self::CodeHidden
+    }
+}
+
+/// Every cell's manifest fields in notebook order, to detect layout changes.
+fn cell_metadata(model: &NotebookModel) -> Vec<Option<BTreeMap<String, Value>>> {
+    model
+        .order
+        .iter()
+        .map(|id| model.cells.get(id).map(|cell| cell.disk.metadata.clone()))
+        .collect()
+}
+
 fn error_message(code: &str) -> &'static str {
     match code {
         "undo_conflict" => {
@@ -2477,6 +3675,10 @@ fn system_high_contrast() -> bool {
 fn system_high_contrast() -> bool {
     false
 }
+
+/// Whether `system_high_contrast` can change while the window appearance stays
+/// the same, and so needs a periodic re-check.
+const SYSTEM_CONTRAST_POLL: bool = cfg!(target_os = "windows");
 
 fn operation_label(op: &Value, model: &NotebookModel) -> String {
     let kind = op["kind"]

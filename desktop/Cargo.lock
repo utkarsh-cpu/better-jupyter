@@ -4464,6 +4464,8 @@ dependencies = [
  "lsp-types",
  "serde_json",
  "smol",
+ "tree-sitter",
+ "tree-sitter-python",
  "unicode-ident",
  "uuid",
 ]

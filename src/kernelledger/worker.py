@@ -67,6 +67,9 @@ INTERACTIVE_FEATURES = [
     "media_attachments",
     "debugger",
     "native_widgets_v1",
+    # namespace.preview tables: positional columns (index), sort_col_index, sort/filter
+    # applied+error fields, snippet=None on error, lazy_schema opt-in.
+    "table_explorer_v2",
 ]
 MAGICS = {
     "pip": "Install with the selected project interpreter (explicit execution).",
@@ -89,7 +92,156 @@ CELL_MAGICS = {
     "sh": "POSIX shell cell (unavailable on Windows). External effects are recorded, not undone.",
     "bash": "Explicit Bash cell on POSIX when Bash is installed.",
     "cmd": "Windows command cell using the selected platform shell.",
+    "sql": "Execute SQL against in-memory DataFrames (DuckDB or SQLite fallback) and bind result.",
 }
+
+
+def _process_rss_bytes() -> int | None:
+    """Read current worker resident set size (bytes) using stdlib only."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+
+            class _ProcessMemoryCounters(ctypes.Structure):
+                _fields_ = [
+                    ("cb", ctypes.c_uint32),
+                    ("PageFaultCount", ctypes.c_uint32),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            windll: Any = getattr(ctypes, "windll", None)
+            if windll is not None:
+                counters = _ProcessMemoryCounters()
+                counters.cb = ctypes.sizeof(counters)
+                get_current_process = windll.kernel32.GetCurrentProcess
+                get_current_process.restype = ctypes.c_void_p
+                get_mem_info = (
+                    getattr(windll.kernel32, "K32GetProcessMemoryInfo", None)
+                    or windll.psapi.GetProcessMemoryInfo
+                )
+                get_mem_info.argtypes = [
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_uint32,
+                ]
+                get_mem_info.restype = ctypes.c_int
+                handle = get_current_process()
+                if get_mem_info(handle, ctypes.byref(counters), counters.cb):
+                    return int(counters.WorkingSetSize)
+        except Exception:
+            return None
+        return None
+    try:
+        if os.path.isfile("/proc/self/statm"):
+            with open("/proc/self/statm", encoding="utf-8") as fh:
+                parts = fh.read().split()
+            if len(parts) >= 2:
+                return int(parts[1]) * os.sysconf("SC_PAGE_SIZE")
+    except Exception:
+        pass
+    psutil_mod = sys.modules.get("psutil")
+    if psutil_mod is None and importlib.util.find_spec("psutil") is not None:
+        try:
+            psutil_mod = importlib.import_module("psutil")
+        except Exception:
+            psutil_mod = None
+    if psutil_mod is not None:
+        try:
+            return int(psutil_mod.Process().memory_info().rss)
+        except Exception:
+            pass
+    if sys.platform == "darwin":
+        # ru_maxrss is the peak; current RSS comes from task_info or, rarely, ps.
+        rss = _mach_rss_bytes()
+        return rss if rss is not None else _ps_rss_bytes()
+    try:
+        import resource
+
+        # Last resort on other POSIX systems: peak RSS in kilobytes.
+        return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+    except Exception:
+        return None
+
+
+_MACH_TASK_INFO: list[Any] = []
+
+
+def _mach_rss_bytes() -> int | None:
+    """Current resident size from mach_task_basic_info (macOS), without subprocesses."""
+    if sys.platform != "darwin":
+        return None
+    try:
+        import ctypes
+
+        if not _MACH_TASK_INFO:
+
+            class _TimeValue(ctypes.Structure):
+                _fields_ = [("seconds", ctypes.c_int), ("microseconds", ctypes.c_int)]
+
+            # `#pragma pack(4)` in the SDK; natural alignment yields the same 48-byte layout.
+            class _MachTaskBasicInfo(ctypes.Structure):
+                _fields_ = [
+                    ("virtual_size", ctypes.c_uint64),
+                    ("resident_size", ctypes.c_uint64),
+                    ("resident_size_max", ctypes.c_uint64),
+                    ("user_time", _TimeValue),
+                    ("system_time", _TimeValue),
+                    ("policy", ctypes.c_int),
+                    ("suspend_count", ctypes.c_int),
+                ]
+
+            libc = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+            task_info = libc.task_info
+            task_info.argtypes = [
+                ctypes.c_uint,
+                ctypes.c_int,
+                ctypes.c_void_p,
+                ctypes.POINTER(ctypes.c_uint),
+            ]
+            task_info.restype = ctypes.c_int
+            _MACH_TASK_INFO.extend(
+                [task_info, ctypes.c_uint.in_dll(libc, "mach_task_self_"), _MachTaskBasicInfo]
+            )
+        task_info, task_self, info_type = _MACH_TASK_INFO
+        info = info_type()
+        count = ctypes.c_uint(ctypes.sizeof(info) // ctypes.sizeof(ctypes.c_uint))
+        mach_task_basic_info = 20
+        if task_info(
+            task_self.value, mach_task_basic_info, ctypes.byref(info), ctypes.byref(count)
+        ):
+            return None
+        return int(info.resident_size)
+    except Exception:
+        return None
+
+
+_PS_RSS_CACHE: list[Any] = [0.0, None]
+
+
+def _ps_rss_bytes(min_interval: float = 1.0) -> int | None:
+    """`ps -o rss=` fallback, rate-limited because it spawns a process."""
+    now = time.monotonic()
+    if _PS_RSS_CACHE[1] is not None and now - _PS_RSS_CACHE[0] < min_interval:
+        return _PS_RSS_CACHE[1]
+    try:
+        output = subprocess.run(
+            ["ps", "-o", "rss=", "-p", str(os.getpid())],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+        value = int(output) * 1024 if output.isdigit() else None
+    except Exception:
+        value = None
+    _PS_RSS_CACHE[:] = [now, value]
+    return value
 
 
 def cell_magic(source: str) -> tuple[str, str, str] | None:
@@ -231,7 +383,7 @@ def notebook_tree(source: str, filename: str) -> ast.Module:
     """
     magic = cell_magic(source)
     if magic:
-        if magic[0] in ("writefile", "sh", "bash", "cmd"):
+        if magic[0] in ("writefile", "sh", "bash", "cmd", "sql"):
             return ast.parse("pass", filename)
         source = magic[2]
     lines = source.splitlines(keepends=True)
@@ -1561,6 +1713,16 @@ class CustomEngine:
                 stream.write(content.encode("utf-8"))
             print(f"{'Appended' if append else 'Wrote'} {path}")
             return None
+        if name == "sql":
+            # `%%sql name <<` (ipython-sql/jupysql assignment) is accepted as `%%sql name`.
+            target = argument.strip().removesuffix("<<").strip() or "_sql_df"
+            if not target.isidentifier() or keyword.iskeyword(target):
+                raise ValueError("%%sql accepts an optional Python identifier as output variable")
+            original = self.worker.index.entries[filename][0]
+            lines = original.splitlines(keepends=True)
+            header = next(row for row, line in enumerate(lines) if line.startswith("%%"))
+            sql_body = "".join(lines[header + 1 :])
+            return self.worker.execute_sql(sql_body, output_var=target)
         return self.run_magic(name, argument, tree, filename)
 
     def run_magic(self, name: str, argument: str, tree: ast.Module, filename: str) -> Any:
@@ -1745,6 +1907,132 @@ def passive_attributes(value: Any) -> dict[str, Any]:
     return result
 
 
+def _short_type_name(qualified: str) -> str:
+    if qualified.startswith("builtins."):
+        return qualified[len("builtins.") :]
+    return qualified.rsplit(".", 1)[-1]
+
+
+def _format_bytes(count: int) -> str:
+    if count < 1024:
+        return f"{count} B"
+    if count < 1024 * 1024:
+        return f"{count / 1024:.1f} KiB"
+    if count < 1024 * 1024 * 1024:
+        return f"{count / (1024 * 1024):.1f} MiB"
+    return f"{count / (1024 * 1024 * 1024):.1f} GiB"
+
+
+def _normalized_dtype_kind(dtype_text: str) -> str:
+    low = dtype_text.lower()
+    if any(tok in low for tok in ("int", "uint")):
+        return "integer"
+    if any(tok in low for tok in ("float", "double", "decimal")):
+        return "number"
+    if "bool" in low:
+        return "boolean"
+    if any(tok in low for tok in ("datetime", "timestamp", "timedelta", "duration")):
+        return "datetime"
+    if "date" in low or "time" in low:
+        return "date"
+    if any(tok in low for tok in ("str", "utf8", "string", "unicode", "<u", "|s")):
+        return "string"
+    if "cat" in low or "dict" in low:
+        return "categorical"
+    if "bin" in low or "byte" in low:
+        return "binary"
+    if "object" in low:
+        return "object"
+    return "unknown"
+
+
+def _is_subclass_passive(cls: Any, base: Any) -> bool:
+    return isinstance(base, type) and base in type.__dict__["__mro__"].__get__(cls)
+
+
+def _passive_instance_fields(value: Any, limit: int = 200) -> dict[str, Any]:
+    """Read instance __dict__ and __slots__ via C descriptors only, never calling user hooks."""
+    cls = cast(Any, type(value))
+    if cls in (
+        type(None),
+        bool,
+        int,
+        float,
+        complex,
+        str,
+        bytes,
+        bytearray,
+        list,
+        tuple,
+        dict,
+        set,
+        frozenset,
+        types.FunctionType,
+        types.BuiltinFunctionType,
+        type,
+    ):
+        return {}
+    if cls is types.ModuleType:
+        raw = types.ModuleType.__getattribute__(value, "__dict__")
+        out: dict[str, Any] = {}
+        for k, v in itertools.islice(raw.items(), limit):
+            if type(k) is str and not k.startswith("__"):
+                out[k] = v
+        return out
+    fields: dict[str, Any] = {}
+    mro = type.__dict__["__mro__"].__get__(cls)
+    for base in mro:
+        base_dict = type.__dict__["__dict__"].__get__(base)
+        desc = base_dict.get("__dict__")
+        if type(desc) in (types.GetSetDescriptorType, types.MemberDescriptorType):
+            try:
+                inst_dict = desc.__get__(value)
+            except Exception:
+                inst_dict = None
+            if type(inst_dict) is dict:
+                inst_map = cast(dict[Any, Any], inst_dict)
+                for k, v in itertools.islice(inst_map.items(), limit):
+                    if type(k) is str and len(fields) < limit:
+                        fields.setdefault(k, v)
+            break
+    for base in mro:
+        base_dict = type.__dict__["__dict__"].__get__(base)
+        for name, item in base_dict.items():
+            if len(fields) >= limit:
+                return fields
+            if (
+                type(item) is types.MemberDescriptorType
+                and name not in ("__dict__", "__weakref__")
+                and name not in fields
+            ):
+                try:
+                    fields[name] = item.__get__(value)
+                except AttributeError:
+                    pass
+    return fields
+
+
+def _namedtuple_fields(value: Any) -> tuple[str, ...] | None:
+    cls = cast(Any, type(value))
+    if cls is tuple or not issubclass(cls, tuple):
+        return None
+    fields = type.__dict__["__dict__"].__get__(cls).get("_fields")
+    if type(fields) is tuple:
+        fields_tuple = cast(tuple[Any, ...], fields)
+        if all(type(f) is str for f in fields_tuple) and len(fields_tuple) == len(value):
+            return cast(tuple[str, ...], fields_tuple)
+    return None
+
+
+def _is_exact_stdlib(value: Any, module_name: str, class_names: tuple[str, ...]) -> bool:
+    module = sys.modules.get(module_name)
+    if type(module) is not types.ModuleType:
+        return False
+    ns = types.ModuleType.__getattribute__(module, "__dict__")
+    cls = cast(Any, type(value))
+    return any(ns.get(name) is cls for name in class_names)
+
+
 def passive_array(value: Any) -> Any:
     """Use only NumPy's C descriptors on an exact ndarray, never its subclasses."""
     module = sys.modules.get("numpy")
@@ -1770,31 +2058,1436 @@ def passive_array(value: Any) -> Any:
     dtype = attributes["dtype"].__get__(value)
     kind = dtype_attributes["kind"].__get__(dtype)
     itemsize = dtype_attributes["itemsize"].__get__(dtype)
+    kind_names = {
+        "b": "bool",
+        "i": f"int{itemsize * 8}",
+        "u": f"uint{itemsize * 8}",
+        "f": f"float{itemsize * 8}",
+        "c": f"complex{itemsize * 8}",
+        "U": f"str{itemsize // 4}" if itemsize else "str",
+        "S": f"bytes{itemsize}" if itemsize else "bytes",
+        "M": "datetime64",
+        "m": "timedelta64",
+        "O": "object",
+        "V": f"void{itemsize * 8}",
+    }
+    dtype_str = kind_names.get(kind, f"{kind}{itemsize}")
     return {
         "shape": list(attributes["shape"].__get__(value)),
         "length": attributes["size"].__get__(value),
         "nbytes": attributes["nbytes"].__get__(value),
         "dtype": f"{kind}{itemsize}",
+        "dtype_str": dtype_str,
         "hasobject": dtype_attributes["hasobject"].__get__(dtype),
         "flat_descriptor": attributes["flat"],
         "item_descriptor": type.__dict__["__dict__"].__get__(generic).get("item"),
     }
 
 
+def passive_torch_tensor(value: Any) -> dict[str, Any] | None:
+    """Inspect an exact torch.Tensor without moving GPU/MPS memory."""
+    module = sys.modules.get("torch")
+    if type(module) is not types.ModuleType:
+        return None
+    ns = types.ModuleType.__getattribute__(module, "__dict__")
+    cls = ns.get("Tensor")
+    if type(value) is not cls or type(cls) is not type:
+        return None
+    try:
+        shape = [int(d) for d in value.shape]
+        numel = int(value.numel())
+        nbytes = int(value.element_size()) * numel
+        dtype_str = str(value.dtype).removeprefix("torch.")
+        device_str = str(value.device)
+        return {
+            "shape": shape,
+            "length": numel,
+            "nbytes": nbytes,
+            "dtype": dtype_str,
+            "device": device_str,
+            "on_device": device_str != "cpu",
+            "requires_grad": bool(value.requires_grad),
+        }
+    except Exception:
+        return None
+
+
+def _tensor_element(tensor: Any, shape: list[int], flat_index: int) -> Any:
+    """Read one element by unravelled index: a 0-d view, never a flattened copy."""
+    index: list[int] = []
+    for dim in reversed(shape):
+        index.append(flat_index % dim)
+        flat_index //= dim
+    return tensor[tuple(reversed(index))].item() if shape else tensor.item()
+
+
+def _is_null_scalar(val: Any) -> bool:
+    if val is None:
+        return True
+    if type(val) is float and math.isnan(val):
+        return True
+    pd = sys.modules.get("pandas")
+    if type(pd) is types.ModuleType:
+        ns = types.ModuleType.__getattribute__(pd, "__dict__")
+        if val is ns.get("NA") or val is ns.get("NaT"):
+            return True
+    return False
+
+
+def _format_cell_value(val: Any, max_len: int = 96) -> dict[str, Any]:
+    if _is_null_scalar(val):
+        text = "NaN" if type(val) is float else "null"
+        return {"text": text, "null": True, "numeric": False}
+    cls = cast(Any, type(val))
+    if cls is bool:
+        return {"text": "True" if val else "False", "null": False, "numeric": False}
+    if cls is int:
+        text = str(val) if val.bit_length() < 4096 else f"<int, {val.bit_length()} bits>"
+        return {"text": text[:max_len], "null": False, "numeric": True}
+    if cls is float:
+        return {"text": repr(val)[:max_len], "null": False, "numeric": True}
+    if cls is str:
+        text = val if len(val) <= max_len else val[: max_len - 1] + "…"
+        return {"text": text, "null": False, "numeric": False}
+    # Handle numpy scalar types safely via C .item()
+    np_mod = sys.modules.get("numpy")
+    if type(np_mod) is types.ModuleType:
+        generic = types.ModuleType.__getattribute__(np_mod, "__dict__").get("generic")
+        if _is_subclass_passive(cls, generic):
+            item_desc = type.__dict__["__dict__"].__get__(generic).get("item")
+            if type(item_desc) is types.MethodDescriptorType:
+                try:
+                    return _format_cell_value(item_desc(val), max_len)
+                except Exception:
+                    pass
+    text = _passive_inline(val, max_items=3, max_str=36, max_chars=max_len)
+    return {"text": text, "null": False, "numeric": False}
+
+
+def _column_label(label: Any, max_len: int = 128) -> str:
+    """Display text for a column/index label without calling user __str__/__repr__."""
+    if label is None:
+        return "None"
+    if type(label) is str:
+        return label if len(label) <= max_len else label[: max_len - 1] + "…"
+    if type(label) is tuple:
+        parts = [_column_label(part, max_len) for part in cast(tuple[Any, ...], label)[:8]]
+        text = " / ".join(parts)
+        return text if len(text) <= max_len else text[: max_len - 1] + "…"
+    return _format_cell_value(label, max_len)["text"]
+
+
+def _code_literal(label: Any) -> str | None:
+    """`repr()` of a label only when that repr is a Python literal that evaluates back to it."""
+    cls = cast(Any, type(label))
+    if cls in (str, bool) or (cls is int and label.bit_length() < 256):
+        return repr(label)
+    if cls is float and math.isfinite(label):
+        return repr(label)
+    if cls is tuple and len(label) <= 16:
+        parts = [_code_literal(part) for part in cast(tuple[Any, ...], label)]
+        if all(p is not None for p in parts):
+            return "(" + ", ".join(cast(list[str], parts)) + ("," if len(parts) == 1 else "") + ")"
+    return None
+
+
+def passive_dataframe(value: Any, lazy_schema: bool = False) -> dict[str, Any] | None:
+    """Inspect exact pandas/polars/pyarrow tabular objects without importing or collecting lazy plans."""
+    cls = cast(Any, type(value))
+    # 1. Exact pandas.DataFrame
+    pd = sys.modules.get("pandas")
+    if type(pd) is types.ModuleType:
+        pd_ns = types.ModuleType.__getattribute__(pd, "__dict__")
+        if cls is pd_ns.get("DataFrame"):
+            try:
+                nrows, ncols = int(value.shape[0]), int(value.shape[1])
+                raw_cols: list[Any] = list(itertools.islice(value.columns, 500))
+                col_names = [_column_label(c) for c in raw_cols]
+                raw_dtypes = value.dtypes
+                col_dtypes = [str(raw_dtypes.iloc[i])[:64] for i in range(len(raw_cols))]
+                mem = None
+                if nrows * ncols <= 100_000:
+                    try:
+                        mem = int(value.memory_usage(index=True, deep=False).sum())
+                    except Exception:
+                        mem = None
+                return {
+                    "library": "pandas",
+                    "lazy": False,
+                    "nrows": nrows,
+                    "ncols": ncols,
+                    "col_names": col_names,
+                    "col_dtypes": col_dtypes,
+                    "memory_bytes": mem,
+                }
+            except Exception:
+                return None
+
+    # 2. Exact polars.DataFrame / polars.LazyFrame
+    pl = sys.modules.get("polars")
+    if type(pl) is types.ModuleType:
+        pl_ns = types.ModuleType.__getattribute__(pl, "__dict__")
+        if cls is pl_ns.get("DataFrame"):
+            try:
+                nrows, ncols = int(value.height), int(value.width)
+                schema = value.schema
+                items: list[tuple[Any, Any]] = list(itertools.islice(schema.items(), 500))
+                col_names = [_column_label(k) for k, _ in items]
+                col_dtypes = [str(v)[:64] for _, v in items]
+                try:
+                    mem = int(value.estimated_size())
+                except Exception:
+                    mem = None
+                return {
+                    "library": "polars",
+                    "lazy": False,
+                    "nrows": nrows,
+                    "ncols": ncols,
+                    "col_names": col_names,
+                    "col_dtypes": col_dtypes,
+                    "memory_bytes": mem,
+                }
+            except Exception:
+                return None
+        if cls is pl_ns.get("LazyFrame"):
+            # Resolving a lazy schema can run scans and I/O; only do it on explicit request.
+            info: dict[str, Any] = {
+                "library": "polars",
+                "lazy": True,
+                "nrows": None,
+                "ncols": None,
+                "col_names": [],
+                "col_dtypes": [],
+                "memory_bytes": None,
+                "schema_collected": False,
+            }
+            if lazy_schema:
+                try:
+                    schema = value.collect_schema()
+                    items = list(itertools.islice(schema.items(), 500))
+                    info.update(
+                        ncols=len(schema),
+                        col_names=[_column_label(k) for k, _ in items],
+                        col_dtypes=[str(v)[:64] for _, v in items],
+                        schema_collected=True,
+                    )
+                except Exception as error:
+                    info["schema_error"] = f"{type(error).__name__}: {error}"[:512]
+            return info
+
+    # 3. Exact pyarrow.Table / pyarrow.RecordBatch
+    pa = sys.modules.get("pyarrow")
+    if type(pa) is types.ModuleType:
+        pa_ns = types.ModuleType.__getattribute__(pa, "__dict__")
+        if cls in (pa_ns.get("Table"), pa_ns.get("RecordBatch")):
+            try:
+                nrows, ncols = int(value.num_rows), int(value.num_columns)
+                fields: list[Any] = list(itertools.islice(value.schema, 500))
+                col_names = [_column_label(f.name) for f in fields]
+                col_dtypes = [str(f.type)[:64] for f in fields]
+                try:
+                    mem = int(value.nbytes)
+                except Exception:
+                    mem = None
+                return {
+                    "library": "pyarrow",
+                    "lazy": False,
+                    "nrows": nrows,
+                    "ncols": ncols,
+                    "col_names": col_names,
+                    "col_dtypes": col_dtypes,
+                    "memory_bytes": mem,
+                }
+            except Exception:
+                return None
+    return None
+
+
+def passive_series(value: Any) -> dict[str, Any] | None:
+    cls = cast(Any, type(value))
+    pd = sys.modules.get("pandas")
+    if type(pd) is types.ModuleType:
+        pd_ns = types.ModuleType.__getattribute__(pd, "__dict__")
+        if cls is pd_ns.get("Series"):
+            try:
+                return {
+                    "library": "pandas",
+                    "length": int(len(value)),
+                    "dtype": str(value.dtype)[:64],
+                    "series_name": None if value.name is None else _column_label(value.name),
+                }
+            except Exception:
+                return None
+    pl = sys.modules.get("polars")
+    if type(pl) is types.ModuleType:
+        pl_ns = types.ModuleType.__getattribute__(pl, "__dict__")
+        if cls is pl_ns.get("Series"):
+            try:
+                return {
+                    "library": "polars",
+                    "length": int(len(value)),
+                    "dtype": str(value.dtype)[:64],
+                    "series_name": _column_label(value.name) if value.name else None,
+                }
+            except Exception:
+                return None
+    return None
+
+
+def _histogram_counts(values: list[float], bins: int = 8) -> tuple[list[int], float, float] | None:
+    """Fixed-bin counts over finite floats; halving keeps `hi - lo` finite near ±1e308."""
+    if not values:
+        return None
+    lo, hi = min(values), max(values)
+    half_span = hi / 2 - lo / 2
+    counts = [0] * bins
+    if lo == hi or half_span <= 0:
+        counts[bins // 2] = len(values)
+        return counts, lo, hi
+    for val in values:
+        idx = int((val / 2 - lo / 2) / half_span * bins)
+        counts[min(max(idx, 0), bins - 1)] += 1
+    return counts, lo, hi
+
+
+def _numpy_histogram(np_mod: Any, arr: Any, bins: int = 8) -> dict[str, Any] | None:
+    """Vectorized histogram over a float64 ndarray; ±inf excluded and counted, NaN ignored."""
+    finite_mask = np_mod.isfinite(arr)
+    finite = arr[finite_mask]
+    inf_count = int(np_mod.isinf(arr).sum())
+    if finite.size == 0:
+        return {"inf_count": inf_count} if inf_count else None
+    lo, hi = float(finite.min()), float(finite.max())
+    half_span = hi / 2 - lo / 2
+    if lo == hi or half_span <= 0:
+        counts = [0] * bins
+        counts[bins // 2] = int(finite.size)
+    else:
+        idx = ((finite / 2 - lo / 2) / half_span * bins).astype(np_mod.int64)
+        idx = np_mod.clip(idx, 0, bins - 1)
+        counts = [int(c) for c in np_mod.bincount(idx, minlength=bins)[:bins]]
+    return {
+        "histogram": counts,
+        "histogram_range": [lo, hi],
+        "inf_count": inf_count,
+        "finite_count": int(finite.size),
+        "mean_value": float(finite.mean()),
+    }
+
+
+def _top_value_counts(raw_values: Any, limit: int = 5) -> list[dict[str, Any]]:
+    """Compute top-K value counts for categorical/string/boolean columns."""
+    counts: dict[str, int] = {}
+    for item in raw_values:
+        if _is_null_scalar(item):
+            continue
+        text = _format_cell_value(item, 40)["text"]
+        counts[text] = counts.get(text, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+    return [{"value": k, "count": v} for k, v in ranked]
+
+
+_FILTER_OPS = (">=", "<=", "==", "!=", ">", "<", ":")
+_PYARROW_COMPARE = {
+    ">=": "greater_equal",
+    "<=": "less_equal",
+    "==": "equal",
+    "!=": "not_equal",
+    ">": "greater",
+    "<": "less",
+}
+# Free-text search stringifies cells; bound that work and report truncation.
+_FREE_TEXT_CELL_BUDGET = 2_000_000
+_FREE_TEXT_MAX_COLS = 32
+_STATS_FULL_ROWS = 1_000_000
+_TOP_VALUES_ROWS = 20_000
+
+
+def _module_ns(name: str) -> dict[str, Any] | None:
+    module = sys.modules.get(name)
+    if type(module) is not types.ModuleType:
+        return None
+    return types.ModuleType.__getattribute__(module, "__dict__")
+
+
+def _plain_scalar(value: Any, strings_only: bool = False) -> bool:
+    """Values whose str/compare/hash are implemented by Python or NumPy, never user code."""
+    cls = cast(Any, type(value))
+    if cls is str or value is None or (cls is float and value != value):
+        return True
+    if strings_only:
+        return False
+    if cls in (bytes, int, float, bool, complex, decimal.Decimal):
+        return True
+    module = type.__dict__["__module__"].__get__(cls)
+    if module == "numpy":
+        return True
+    pd_ns = _module_ns("pandas")
+    return pd_ns is not None and (value is pd_ns.get("NA") or value is pd_ns.get("NaT"))
+
+
+class _FrameColumns:
+    """Positional column catalog: labels are display-only; identity is the integer index."""
+
+    def __init__(self, value: Any, lib: str) -> None:
+        self.value, self.lib = value, lib
+        self.multi = False
+        if lib == "pandas":
+            pd_ns = _module_ns("pandas") or {}
+            columns = value.columns
+            self.multi = type(columns) is pd_ns.get("MultiIndex")
+            self.labels: list[Any] = list(columns)
+            self.dtypes = [str(d)[:64] for d in value.dtypes.tolist()]
+        elif lib == "polars":
+            self.labels = list(value.columns)
+            self.dtypes = [str(d)[:64] for d in value.dtypes]
+        else:
+            self.labels = list(value.schema.names)
+            self.dtypes = [str(t)[:64] for t in value.schema.types]
+        self.count = len(self.labels)
+        literals = [_code_literal(label) for label in self.labels]
+        # Label lookup hashes every label; only allow it when all labels are plain literals.
+        self.all_literal = all(lit is not None for lit in literals)
+        counts: dict[Any, int] = {}
+        if self.all_literal:
+            for label in self.labels:
+                counts[label] = counts.get(label, 0) + 1
+        self.literal: list[str | None] = [
+            lit if self.all_literal and not self.multi and counts[label] == 1 else None
+            for lit, label in zip(literals, self.labels)
+        ]
+        self._display: dict[int, str] = {}
+
+    def display(self, k: int) -> str:
+        if k not in self._display:
+            self._display[k] = _column_label(self.labels[k])
+        return self._display[k]
+
+    def resolve(self, name: Any) -> int | None:
+        """Map a legacy string column name (or `#k`) to its first matching position."""
+        if type(name) is not str or not name:
+            return None
+        for k in range(self.count):
+            label = self.labels[k]
+            if (type(label) is str and label == name) or self.display(k) == name:
+                return k
+        if name.startswith("#") and name[1:].isdigit() and int(name[1:]) < self.count:
+            return int(name[1:])
+        return None
+
+    def ref(self, expr: str, k: int) -> str:
+        lit = self.literal[k]
+        if self.lib == "pandas":
+            return f"{expr}[{lit}]" if lit is not None else f"{expr}.iloc[:, {k}]"
+        if self.lib == "polars":
+            return f"pl.col({lit})"
+        return f"{expr}.column({lit if lit is not None else k})"
+
+    def series(self, view: Any, k: int) -> Any:
+        if self.lib == "pandas":
+            return view.iloc[:, k]
+        if self.lib == "polars":
+            return view.get_column(self.labels[k])
+        return view.column(k)
+
+    def safe(self, view: Any, k: int, *, stringify: bool = False, rows: int | None = None) -> bool:
+        """True when filtering/sorting/stringifying column k cannot call user dunders."""
+        dtype = self.dtypes[k]
+        if self.lib == "polars":
+            if dtype.startswith("Object"):
+                return False
+            if stringify:
+                return not any(dtype.startswith(p) for p in ("List", "Array", "Struct", "Binary"))
+            return True
+        if self.lib == "pyarrow":
+            if stringify:
+                return not any(
+                    dtype.startswith(p)
+                    for p in ("list", "large_list", "fixed_size_list", "struct", "map", "binary")
+                ) and not dtype.startswith("extension")
+            return True
+        series = self.series(view, k)
+        if rows is not None:
+            series = series.iloc[:rows]
+        return _pandas_plain(series)
+
+
+def _is_numpy_dtype(dtype: Any) -> bool:
+    np_ns = _module_ns("numpy") or {}
+    dtype_cls = np_ns.get("dtype")
+    return isinstance(dtype_cls, type) and isinstance(dtype, dtype_cls)
+
+
+def _pandas_plain(series: Any, strings_only: bool = False) -> bool:
+    pd_ns = _module_ns("pandas") or {}
+    dtype = series.dtype
+    categorical = pd_ns.get("CategoricalDtype")
+    if categorical is not None and type(dtype) is categorical:
+        categories = dtype.categories
+        if str(categories.dtype) != "object":
+            return not strings_only or "str" in str(categories.dtype)
+        return all(_plain_scalar(v, strings_only) for v in categories.to_numpy())
+    if _is_numpy_dtype(dtype):
+        if dtype.kind != "O":
+            return not strings_only or dtype.kind in "US"
+        return all(_plain_scalar(v, strings_only) for v in series.to_numpy())
+    # pandas extension dtypes (string, Int64, boolean, datetimetz, ...) hold no user objects.
+    return not strings_only or "str" in str(dtype)
+
+
+def _filter_rhs_code(rhs: str) -> str:
+    """A Python literal for the comparison operand, numeric when the text parses as a float."""
+    text = rhs.strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "'\"":
+        return repr(text[1:-1])
+    try:
+        number = float(text)
+    except ValueError:
+        return repr(text)
+    if math.isnan(number):
+        return "float('nan')"
+    if math.isinf(number):
+        return "float('inf')" if number > 0 else "-float('inf')"
+    if re.fullmatch(r"[+-]?\d+", text.replace("_", "")):
+        return str(int(text.replace("_", "")))
+    return repr(number)
+
+
+def _parse_column_filter(query: str, columns: _FrameColumns) -> tuple[int | None, str | None, str]:
+    """Parse `col>val`, `col>=val`, `col<val`, `col<=val`, `col==val`, `col!=val`, `col:val`."""
+    q = query.strip()
+    for op in _FILTER_OPS:
+        pos = q.find(op)
+        if pos > 0:
+            k = columns.resolve(q[:pos].strip())
+            rhs = q[pos + len(op) :].strip()
+            if k is not None and rhs:
+                return (k, op, rhs)
+    return (None, None, q)
+
+
+def _filter_stage(
+    columns: _FrameColumns,
+    view: Any,
+    expr: str,
+    parsed: tuple[int | None, str | None, str],
+    nrows: int,
+) -> tuple[list[str], str, dict[str, Any]]:
+    """Code (setup lines, expression) that filters `expr`; raises ValueError if unsafe."""
+    lib = columns.lib
+    k, op, rhs = parsed
+    meta: dict[str, Any] = {"filter_col_index": k, "filter_capped": False}
+    if k is not None and op is not None:
+        ref = columns.ref(expr, k)
+        if not columns.safe(view, k, stringify=op == ":"):
+            raise ValueError(
+                f"Column {columns.display(k)!r} holds Python objects; filtering would run their methods"
+            )
+        if op == ":":
+            if lib == "pandas":
+                mask = f"{ref}.astype(str).str.contains({rhs!r}, case=False, regex=False, na=False)"
+                return [], f"{expr}[{mask}]", meta
+            if lib == "polars":
+                needle = repr(rhs.lower())
+                code = (
+                    f"{ref}.cast(pl.String).str.to_lowercase().str.contains({needle}, literal=True)"
+                )
+                return [], f"{expr}.filter({code})", meta
+            mask = f"pc.match_substring(pc.cast({ref}, pa.string()), {rhs!r}, ignore_case=True)"
+            return [], f"{expr}.filter({mask})", meta
+        rhs_code = _filter_rhs_code(rhs)
+        if lib == "pandas":
+            mask = f"{ref} {op} {rhs_code}"
+            if not _is_numpy_dtype(columns.series(view, k).dtype):
+                mask = f"({mask}).fillna(False)"
+            return [], f"{expr}[{mask}]", meta
+        if lib == "polars":
+            return [], f"{expr}.filter({ref} {op} {rhs_code})", meta
+        return [], f"{expr}.filter(pc.{_PYARROW_COMPARE[op]}({ref}, {rhs_code}))", meta
+
+    # Free text across the first columns whose values are safe to stringify.
+    candidates = list(range(min(columns.count, _FREE_TEXT_MAX_COLS)))
+    scan_rows = max(1, _FREE_TEXT_CELL_BUDGET // max(1, len(candidates)))
+    capped = nrows > scan_rows
+    searched = [
+        c
+        for c in candidates
+        if columns.safe(view, c, stringify=True, rows=scan_rows if capped else None)
+    ]
+    meta.update(
+        filter_capped=capped,
+        filter_scanned_rows=min(nrows, scan_rows),
+        filter_searched_columns=searched,
+        filter_skipped_columns=[c for c in candidates if c not in searched],
+        filter_columns_truncated=columns.count > _FREE_TEXT_MAX_COLS,
+    )
+    lines: list[str] = []
+    base = expr
+    if capped:
+        head = (
+            f"{expr}.iloc[:{scan_rows}]"
+            if lib == "pandas"
+            else f"{expr}.head({scan_rows})"
+            if lib == "polars"
+            else f"{expr}.slice(0, {scan_rows})"
+        )
+        lines.append(f"# Live view searched only the first {scan_rows:,} rows")
+        lines.append(f"_view = {head}")
+        base = "_view"
+    needle = rhs
+    if lib == "pandas":
+        if not searched:
+            return lines, f"{base}.iloc[0:0]", meta
+        mask = (
+            f"{base}.iloc[:, {searched}].astype(str).apply("
+            f"lambda s: s.str.contains({needle!r}, case=False, regex=False, na=False)"
+            ").any(axis=1)"
+        )
+        return lines, f"{base}[{mask}]", meta
+    if lib == "polars":
+        if not searched:
+            return lines, f"{base}.clear()", meta
+        names = [columns.labels[c] for c in searched]
+        code = (
+            f"pl.any_horizontal(pl.col({names!r}).cast(pl.String).str.to_lowercase()"
+            f".str.contains({needle.lower()!r}, literal=True))"
+        )
+        return lines, f"{base}.filter({code})", meta
+    if not searched:
+        return lines, f"{base}.slice(0, 0)", meta
+    for i, c in enumerate(searched):
+        term = (
+            f"pc.match_substring(pc.cast({base}.column({c}), pa.string()), "
+            f"{needle!r}, ignore_case=True)"
+        )
+        lines.append(f"_mask = {term}" if i == 0 else f"_mask = pc.or_kleene(_mask, {term})")
+    return lines, f"{base}.filter(_mask)", meta
+
+
+def _sort_stage(
+    columns: _FrameColumns, view: Any, expr: str, k: int, desc: bool
+) -> tuple[list[str], str]:
+    if not columns.safe(view, k):
+        raise ValueError(
+            f"Column {columns.display(k)!r} holds Python objects; sorting would run their methods"
+        )
+    lib = columns.lib
+    lit = columns.literal[k]
+    if lib == "polars":
+        return [], f"{expr}.sort({lit}, descending={desc}, nulls_last=True)"
+    if lib == "pandas" and lit is not None:
+        return [], f"{expr}.sort_values({lit}, ascending={not desc})"
+    lines: list[str] = []
+    base = expr
+    if not expr.isidentifier():
+        lines.append(f"_view = {expr}")
+        base = "_view"
+    if lib == "pandas":
+        order = f"{base}.iloc[:, {k}].reset_index(drop=True).sort_values(ascending={not desc})"
+        return lines, f"{base}.iloc[{order}.index]"
+    order = "descending" if desc else "ascending"
+    indices = (
+        f"pc.array_sort_indices({columns.ref(base, k)}, order={order!r}, null_placement='at_end')"
+    )
+    return lines, f"{base}.take({indices})"
+
+
+def _snippet_imports(lib: str, code: str) -> list[str]:
+    if lib == "polars" and "pl." in code:
+        return ["import polars as pl"]
+    if lib == "pyarrow" and ("pc." in code or "pa." in code):
+        return ["import pyarrow as pa", "import pyarrow.compute as pc"]
+    return []
+
+
+def _run_stage(lines: list[str], expr: str, namespace: dict[str, Any]) -> Any:
+    """Evaluate generated (literal-only) code, so the live view equals the shown snippet."""
+    if lines:
+        exec(compile("\n".join(lines), "<kernelledger explorer>", "exec"), namespace)
+    return eval(compile(expr, "<kernelledger explorer>", "eval"), namespace)
+
+
+def _stage_namespace(lib: str, frame: Any) -> dict[str, Any]:
+    namespace: dict[str, Any] = {"__builtins__": {"float": float, "str": str}, "_kl_frame": frame}
+    if lib == "polars":
+        namespace["pl"] = sys.modules.get("polars")
+    elif lib == "pyarrow":
+        namespace["pa"] = sys.modules.get("pyarrow")
+        namespace["pc"] = importlib.import_module("pyarrow.compute")
+    return namespace
+
+
+def _frame_rows(value: Any, lib: str) -> int:
+    return len(value) if lib == "pandas" else value.height if lib == "polars" else value.num_rows
+
+
+def _column_stats(
+    value: Any,
+    lib: str,
+    columns: _FrameColumns,
+    k: int,
+    nrows: int,
+    include_stats: bool,
+) -> dict[str, Any]:
+    """Schema entry: samples, nulls, and on-demand stats that never call user dunders."""
+    dtype = columns.dtypes[k]
+    kind = _normalized_dtype_kind(dtype)
+    entry: dict[str, Any] = {
+        "name": columns.display(k),
+        "index": k,
+        "dtype": dtype,
+        "kind": kind,
+        "samples": [],
+    }
+    if nrows <= 0:
+        return entry
+    series = columns.series(value, k)
+    np_mod: Any = sys.modules.get("numpy")
+    if lib == "pandas":
+        entry["samples"] = [_format_cell_value(v, 36)["text"] for v in series.iloc[:3].tolist()]
+        if include_stats or nrows <= 10_000:
+            entry["null_count"] = int(series.isna().sum())
+    elif lib == "polars":
+        entry["samples"] = [_format_cell_value(v, 36)["text"] for v in series.head(3).to_list()]
+        if include_stats or nrows <= 10_000:
+            entry["null_count"] = int(series.null_count())
+    else:
+        entry["samples"] = [
+            _format_cell_value(v, 36)["text"] for v in series.slice(0, 3).to_pylist()
+        ]
+        entry["null_count"] = int(series.null_count)
+    numeric = kind in ("integer", "number")
+    temporal = kind in ("datetime", "date") and lib == "pandas" and dtype.startswith("datetime64")
+    if not (include_stats or (nrows <= 5_000 and (numeric or temporal))):
+        return entry
+    sampled = nrows > _STATS_FULL_ROWS
+    rows = min(nrows, _STATS_FULL_ROWS)
+    if include_stats and nrows <= _STATS_FULL_ROWS:
+        try:
+            if lib == "pandas":
+                if _pandas_plain(series, strings_only=series.dtype.kind == "O"):
+                    entry["unique_count"] = int(series.nunique(dropna=True))
+            elif lib == "polars" and not dtype.startswith("Object"):
+                entry["unique_count"] = int(series.drop_nulls().n_unique())
+        except Exception:
+            pass
+    if numeric or temporal:
+        try:
+            sub = (
+                series.iloc[:rows]
+                if lib == "pandas"
+                else series.head(rows)
+                if lib == "polars"
+                else series.slice(0, rows)
+            )
+            stats: dict[str, Any] | None = None
+            if np_mod is not None and temporal:
+                stamps = sub.dropna()
+                if getattr(stamps.dt, "tz", None) is not None:
+                    stamps = stamps.dt.tz_convert(None)
+                arr = stamps.to_numpy().view(np_mod.int64).astype(np_mod.float64)
+                stats = _numpy_histogram(np_mod, arr)
+                if stats and "histogram" in stats:
+                    stats.pop("histogram_range", None)
+                    stats.pop("mean_value", None)
+                    if include_stats:
+                        entry["min"] = str(stamps.min())[:32]
+                        entry["max"] = str(stamps.max())[:32]
+            elif np_mod is not None:
+                if lib == "pandas":
+                    arr = sub.to_numpy(dtype=np_mod.float64, na_value=np_mod.nan)
+                elif lib == "polars":
+                    arr = sub.cast(sys.modules["polars"].Float64).to_numpy()
+                else:
+                    pa_mod: Any = sys.modules["pyarrow"]
+                    pc_mod: Any = importlib.import_module("pyarrow.compute")
+                    arr = pc_mod.cast(sub, pa_mod.float64()).to_numpy(zero_copy_only=False)
+                stats = _numpy_histogram(np_mod, arr)
+            else:
+                raw = (
+                    sub.head(50_000).to_list()
+                    if lib == "polars"
+                    else sub.slice(0, 50_000).to_pylist()
+                )
+                finite = [float(v) for v in raw if type(v) in (int, float) and math.isfinite(v)]
+                counted = _histogram_counts(finite)
+                sampled = sampled or nrows > 50_000
+                if counted:
+                    stats = {
+                        "histogram": counted[0],
+                        "histogram_range": [counted[1], counted[2]],
+                        "inf_count": sum(1 for v in raw if type(v) is float and math.isinf(v)),
+                        "mean_value": sum(finite) / len(finite),
+                    }
+            if stats:
+                mean_value = stats.pop("mean_value", None)
+                stats.pop("finite_count", None)
+                if "histogram_range" in stats and numeric and include_stats:
+                    lo, hi = stats["histogram_range"]
+                    as_int = kind == "integer" and lo.is_integer() and hi.is_integer()
+                    entry["min"] = str(int(lo)) if as_int else _format_cell_value(lo, 32)["text"]
+                    entry["max"] = str(int(hi)) if as_int else _format_cell_value(hi, 32)["text"]
+                    if mean_value is not None:
+                        entry["mean"] = f"{mean_value:.4g}"
+                entry.update(stats)
+                entry["histogram_sampled"] = sampled
+                if sampled:
+                    entry["stats_sample_rows"] = rows
+        except Exception as error:
+            entry["stats_error"] = f"{type(error).__name__}: {error}"[:256]
+    elif include_stats:
+        try:
+            raw = (
+                series.iloc[:_TOP_VALUES_ROWS].tolist()
+                if lib == "pandas"
+                else series.head(_TOP_VALUES_ROWS).to_list()
+                if lib == "polars"
+                else series.slice(0, _TOP_VALUES_ROWS).to_pylist()
+            )
+            entry["top_values"] = _top_value_counts(raw)
+            entry["top_values_sampled"] = nrows > _TOP_VALUES_ROWS
+        except Exception as error:
+            entry["stats_error"] = f"{type(error).__name__}: {error}"[:256]
+    return entry
+
+
+def _passive_dataframe_slice(
+    value: Any,
+    info: dict[str, Any],
+    offset: int,
+    size: int,
+    col_offset: int,
+    col_limit: int,
+    include_stats: bool,
+    *,
+    sort_col: str | None = None,
+    sort_col_index: int | None = None,
+    sort_desc: bool = False,
+    filter_query: str = "",
+    var_name: str = "df",
+) -> dict[str, Any]:
+    lib = info["library"]
+    if info["lazy"]:
+        schema_cols: list[dict[str, Any]] = [
+            {
+                "name": name,
+                "index": i,
+                "dtype": dtype,
+                "kind": _normalized_dtype_kind(dtype),
+                "samples": [],
+            }
+            for i, (name, dtype) in enumerate(zip(info["col_names"], info["col_dtypes"]))
+        ]
+        return {
+            "mode": "table",
+            "lazy": True,
+            "library": lib,
+            "items": [],
+            "total": None,
+            "offset": 0,
+            "next_offset": None,
+            "schema": schema_cols,
+            "schema_collected": bool(info.get("schema_collected")),
+            **({"schema_error": info["schema_error"]} if info.get("schema_error") else {}),
+            "table": None,
+            "stats_included": False,
+        }
+
+    columns = _FrameColumns(value, lib)
+    ncols = columns.count
+    unfiltered_nrows = int(info["nrows"])
+    if col_offset > ncols:
+        col_offset = 0
+    schema_end = min(ncols, col_offset + max(col_limit, 40))
+    schema_cols = [
+        _column_stats(value, lib, columns, ci, unfiltered_nrows, include_stats)
+        for ci in range(col_offset, schema_end)
+    ]
+
+    display_var = var_name or "df"
+    try:
+        compile(display_var, "<snippet>", "eval")
+    except SyntaxError:
+        display_var = "df"
+    filter_text = (filter_query or "").strip()
+    sort_k = sort_col_index if type(sort_col_index) is int and 0 <= sort_col_index < ncols else None
+    if sort_k is None and sort_col:
+        sort_k = columns.resolve(sort_col)
+    table_meta: dict[str, Any] = {
+        "filter_applied": False,
+        "filter_error": None,
+        "filter_capped": False,
+        "sort_applied": False,
+        "sort_error": None,
+    }
+    snippet_lines: list[str] = []
+    snippet_expr = display_var
+    snippet_ok = True
+    namespace = _stage_namespace(lib, value)
+    view = value
+    if filter_text:
+        parsed = _parse_column_filter(filter_text, columns)
+        try:
+            live_lines, live_expr, meta = _filter_stage(
+                columns, value, "_kl_frame", parsed, unfiltered_nrows
+            )
+            table_meta.update(meta)
+            view = _run_stage(live_lines, live_expr, namespace)
+            shown_lines, snippet_expr, _meta = _filter_stage(
+                columns, value, display_var, parsed, unfiltered_nrows
+            )
+            snippet_lines.extend(shown_lines)
+            table_meta["filter_applied"] = True
+        except Exception as error:
+            view = value
+            snippet_ok = False
+            table_meta["filter_error"] = f"{type(error).__name__}: {error}"[:512]
+    if sort_k is not None:
+        try:
+            namespace["_kl_filtered"] = view
+            live_lines, live_expr = _sort_stage(columns, view, "_kl_filtered", sort_k, sort_desc)
+            sorted_view = _run_stage(live_lines, live_expr, namespace)
+            shown_lines, snippet_expr = _sort_stage(columns, view, snippet_expr, sort_k, sort_desc)
+            view = sorted_view
+            snippet_lines.extend(shown_lines)
+            table_meta["sort_applied"] = True
+        except Exception as error:
+            snippet_ok = False
+            table_meta["sort_error"] = f"{type(error).__name__}: {error}"[:512]
+    snippet: str | None = None
+    if snippet_ok:
+        body = [*snippet_lines, snippet_expr]
+        snippet = "\n".join([*_snippet_imports(lib, "\n".join(body)), *body])
+
+    nrows = _frame_rows(view, lib)
+    if offset > nrows:
+        offset = 0
+    row_end = min(nrows, offset + size)
+    col_end = min(ncols, col_offset + col_limit)
+    visible_cols = [
+        {
+            "name": columns.display(ci),
+            "label": columns.display(ci),
+            "index": ci,
+            "dtype": columns.dtypes[ci],
+            "kind": _normalized_dtype_kind(columns.dtypes[ci]),
+        }
+        for ci in range(col_offset, col_end)
+    ]
+    rows_out: list[list[dict[str, Any]]] = []
+    index_out: list[str] = []
+    if row_end > offset and col_end > col_offset:
+        if lib == "pandas":
+            sub = view.iloc[offset:row_end, col_offset:col_end]
+            index_out = [_column_label(idx, 48) for idx in sub.index]
+            for r in range(len(sub)):
+                rows_out.append(
+                    [_format_cell_value(sub.iloc[r, c], 80) for c in range(len(visible_cols))]
+                )
+        elif lib == "polars":
+            sub = view.slice(offset, row_end - offset).select(
+                [columns.labels[ci] for ci in range(col_offset, col_end)]
+            )
+            index_out = [str(offset + r) for r in range(sub.height)]
+            for row_tuple in sub.iter_rows():
+                rows_out.append([_format_cell_value(cell, 80) for cell in row_tuple])
+        else:
+            sub = view.slice(offset, row_end - offset).select(list(range(col_offset, col_end)))
+            index_out = [str(offset + r) for r in range(sub.num_rows)]
+            col_lists = [sub.column(c).to_pylist() for c in range(sub.num_columns)]
+            for r in range(sub.num_rows):
+                rows_out.append(
+                    [_format_cell_value(col_lists[c][r], 80) for c in range(sub.num_columns)]
+                )
+    applied_sort = sort_k if table_meta["sort_applied"] else None
+    return {
+        "mode": "table",
+        "lazy": False,
+        "library": lib,
+        "items": [],
+        "total": nrows,
+        "offset": offset,
+        "next_offset": row_end if row_end < nrows else None,
+        "schema": schema_cols,
+        "stats_included": include_stats,
+        "snippet": snippet,
+        "table": {
+            "columns": visible_cols,
+            "rows": rows_out,
+            "index": index_out,
+            "total_rows": nrows,
+            "unfiltered_rows": unfiltered_nrows,
+            "total_cols": ncols,
+            "row_offset": offset,
+            "col_offset": col_offset,
+            "col_limit": col_limit,
+            "next_row_offset": row_end if row_end < nrows else None,
+            "next_col_offset": col_end if col_end < ncols else None,
+            "sort_col": columns.display(applied_sort) if applied_sort is not None else None,
+            "sort_col_index": applied_sort,
+            "sort_desc": bool(sort_desc) if applied_sort is not None else False,
+            "filter_query": filter_text,
+            **table_meta,
+        },
+    }
+
+
+def _passive_inline(
+    value: Any,
+    *,
+    max_items: int = 5,
+    max_str: int = 48,
+    max_chars: int = 180,
+    _depth: int = 0,
+    _seen: set[int] | None = None,
+) -> str:
+    """Strictly passive inline value formatter inspired by marimo's get_variable_preview."""
+    cls = cast(Any, type(value))
+    if cls is type(None):
+        return "None"
+    if cls is bool:
+        return "True" if value else "False"
+    if cls is int:
+        return str(value) if value.bit_length() < 4096 else f"<int, {value.bit_length()} bits>"
+    if cls in (float, complex):
+        return repr(value)
+    if cls is str:
+        if len(value) <= max_str:
+            return repr(value)
+        return repr(value[:max_str])[:-1] + "…'"
+    if cls in (bytes, bytearray):
+        prefix = "bytearray" if cls is bytearray else "bytes"
+        sample = value[:8].hex()
+        ellipsis = "…" if len(value) > 8 else ""
+        return f"{prefix}<{len(value)} B: {sample}{ellipsis}>"
+
+    if _seen is None:
+        _seen = set()
+
+    def clip(text: str) -> str:
+        return text if len(text) <= max_chars else text[: max_chars - 1] + "…"
+
+    # Built-in containers (strict exact types + NamedTuple)
+    nt_fields = _namedtuple_fields(value)
+    if cls in (list, tuple, set, frozenset) or nt_fields is not None:
+        obj_id = id(value)
+        if obj_id in _seen:
+            return f"<circular {cls.__name__}>"
+        length = len(value)
+        if _depth >= 3:
+            return f"<{cls.__name__}, {length:,} items>"
+        _seen.add(obj_id)
+        try:
+            child_items = max(2, max_items // 2)
+            child_str = max(18, max_str // 2)
+            if nt_fields is not None:
+                parts: list[str] = []
+                tuple_getitem: Any = getattr(tuple, "__getitem__")
+                for idx, fname in enumerate(nt_fields[:max_items]):
+                    fv = _passive_inline(
+                        tuple_getitem(value, idx),
+                        max_items=child_items,
+                        max_str=child_str,
+                        max_chars=max(40, max_chars // 2),
+                        _depth=_depth + 1,
+                        _seen=_seen,
+                    )
+                    parts.append(f"{fname}={fv}")
+                if length > max_items:
+                    parts.append("…")
+                return clip(f"{cls.__name__}({', '.join(parts)})")
+            if cls in (list, tuple):
+                getter: Any = getattr(list if cls is list else tuple, "__getitem__")
+                if length <= max_items:
+                    parts = [
+                        _passive_inline(
+                            getter(value, i),
+                            max_items=child_items,
+                            max_str=child_str,
+                            max_chars=max(40, max_chars // 2),
+                            _depth=_depth + 1,
+                            _seen=_seen,
+                        )
+                        for i in range(length)
+                    ]
+                else:
+                    head_n = max(1, max_items // 2)
+                    tail_n = max(1, max_items - head_n)
+                    head = [
+                        _passive_inline(
+                            getter(value, i),
+                            max_items=child_items,
+                            max_str=child_str,
+                            max_chars=max(40, max_chars // 2),
+                            _depth=_depth + 1,
+                            _seen=_seen,
+                        )
+                        for i in range(head_n)
+                    ]
+                    tail = [
+                        _passive_inline(
+                            getter(value, length - tail_n + i),
+                            max_items=child_items,
+                            max_str=child_str,
+                            max_chars=max(40, max_chars // 2),
+                            _depth=_depth + 1,
+                            _seen=_seen,
+                        )
+                        for i in range(tail_n)
+                    ]
+                    parts = head + ["…"] + tail
+                if cls is list:
+                    return clip("[" + ", ".join(parts) + "]")
+                if length == 1:
+                    return clip("(" + parts[0] + ",)")
+                return clip("(" + ", ".join(parts) + ")")
+            # set / frozenset: bounded islice, never materialize full set
+            if length == 0:
+                return "set()" if cls is set else "frozenset()"
+            parts = [
+                _passive_inline(
+                    elem,
+                    max_items=child_items,
+                    max_str=child_str,
+                    max_chars=max(40, max_chars // 2),
+                    _depth=_depth + 1,
+                    _seen=_seen,
+                )
+                for elem in itertools.islice(value, max_items)
+            ]
+            if length > max_items:
+                parts.append("…")
+            inner = "{" + ", ".join(parts) + "}"
+            return clip(inner if cls is set else f"frozenset({inner})")
+        finally:
+            _seen.discard(obj_id)
+
+    if cls is dict or _is_exact_stdlib(value, "collections", ("OrderedDict", "Counter")):
+        obj_id = id(value)
+        if obj_id in _seen:
+            return f"<circular {cls.__name__}>"
+        length = len(value)
+        if _depth >= 3:
+            return f"<{cls.__name__}, {length:,} keys>"
+        _seen.add(obj_id)
+        try:
+            child_items = max(2, max_items // 2)
+            child_str = max(18, max_str // 2)
+            parts = []
+            dict_items: Any = getattr(dict, "items")
+            for k, v in itertools.islice(dict_items(value), max_items):
+                ks = _passive_inline(
+                    k,
+                    max_items=2,
+                    max_str=24,
+                    max_chars=36,
+                    _depth=_depth + 1,
+                    _seen=_seen,
+                )
+                vs = _passive_inline(
+                    v,
+                    max_items=child_items,
+                    max_str=child_str,
+                    max_chars=max(40, max_chars // 2),
+                    _depth=_depth + 1,
+                    _seen=_seen,
+                )
+                parts.append(f"{ks}: {vs}")
+            if length > max_items:
+                parts.append("…")
+            body = "{" + ", ".join(parts) + "}"
+            if cls is dict:
+                return clip(body)
+            return clip(f"{cls.__name__}({body})")
+        finally:
+            _seen.discard(obj_id)
+
+    if _is_exact_stdlib(value, "collections", ("deque",)):
+        obj_id = id(value)
+        if obj_id in _seen:
+            return "<circular deque>"
+        length = len(value)
+        if _depth >= 3:
+            return f"<deque, {length:,} items>"
+        _seen.add(obj_id)
+        try:
+            parts = [
+                _passive_inline(
+                    elem,
+                    max_items=max(2, max_items // 2),
+                    max_str=max(18, max_str // 2),
+                    max_chars=max(40, max_chars // 2),
+                    _depth=_depth + 1,
+                    _seen=_seen,
+                )
+                for elem in itertools.islice(value, max_items)
+            ]
+            if length > max_items:
+                parts.append("…")
+            return clip(f"deque([{', '.join(parts)}])")
+        finally:
+            _seen.discard(obj_id)
+
+    # Exact stdlib types
+    if cls is range:
+        if value.step == 1:
+            return f"range({value.start}, {value.stop})"
+        return f"range({value.start}, {value.stop}, {value.step})"
+    if cls is slice:
+        return f"slice({value.start!r}, {value.stop!r}, {value.step!r})"
+    if cls in (dt.datetime, dt.date, dt.time):
+        return value.isoformat()
+    if cls is dt.timedelta:
+        return str(value)
+    if cls in (decimal.Decimal, uuid.UUID, fractions.Fraction):
+        return clip(str(value))
+    if cls in (
+        pathlib.PosixPath,
+        pathlib.WindowsPath,
+        pathlib.PurePosixPath,
+        pathlib.PureWindowsPath,
+    ):
+        return clip(f"Path({str(value)!r})")
+    if cls is re.Pattern:
+        return clip(f"re.compile({value.pattern!r})")
+    if cls is types.ModuleType:
+        mname = types.ModuleType.__getattribute__(value, "__name__")
+        return clip(f"module '{mname}'")
+    if cls is types.FunctionType:
+        return clip(f"function {value.__name__}")
+    if cls is types.BuiltinFunctionType:
+        return clip(f"builtin {value.__name__}")
+    if cls is type:
+        name = type.__dict__["__name__"].__get__(value)
+        return clip(f"class {name}")
+    if cls is types.GeneratorType:
+        return "<generator (not consumed)>"
+    if cls is types.CoroutineType:
+        return "<coroutine (not awaited)>"
+    if cls is types.AsyncGeneratorType:
+        return "<async generator (not consumed)>"
+    if cls in (
+        io.TextIOWrapper,
+        io.BufferedReader,
+        io.BufferedWriter,
+        io.FileIO,
+        io.StringIO,
+        io.BytesIO,
+    ):
+        return f"<{cls.__name__} stream (not consumed)>"
+    if cls is types.SimpleNamespace:
+        ns_fields = _passive_instance_fields(value, limit=max_items + 1)
+        parts = [
+            f"{k}={_passive_inline(v, max_items=2, max_str=24, max_chars=40, _depth=_depth + 1, _seen=_seen)}"
+            for k, v in itertools.islice(ns_fields.items(), max_items)
+        ]
+        if len(ns_fields) > max_items:
+            parts.append("…")
+        return clip(f"namespace({', '.join(parts)})")
+    if _is_subclass_passive(cls, enum.Enum):
+        en_dict = _passive_instance_fields(value, limit=8)
+        if "_name_" in en_dict and "_value_" in en_dict:
+            vtxt = _passive_inline(
+                en_dict["_value_"],
+                max_items=2,
+                max_str=24,
+                max_chars=40,
+                _depth=_depth + 1,
+                _seen=_seen,
+            )
+            return clip(f"{cls.__name__}.{en_dict['_name_']} ({vtxt})")
+
+    # Scientific & Tabular types
+    df_info = passive_dataframe(value)
+    if df_info is not None:
+        cols = df_info["col_names"]
+        if df_info["lazy"] and df_info["ncols"] is None:
+            return "Lazy · schema not collected"
+        col_list = ", ".join(cols[:6]) + (", …" if df_info["ncols"] > 6 else "")
+        if df_info["lazy"]:
+            return clip(f"Lazy · {df_info['ncols']:,} cols · [{col_list}]")
+        return clip(f"{df_info['nrows']:,} × {df_info['ncols']:,} · [{col_list}]")
+
+    ser_info = passive_series(value)
+    if ser_info is not None:
+        length = ser_info["length"]
+        samples: list[str] = []
+        if length > 0:
+            try:
+                if ser_info["library"] == "pandas":
+                    take = min(4, length)
+                    samples = [_format_cell_value(value.iloc[i], 28)["text"] for i in range(take)]
+                else:
+                    samples = [_format_cell_value(v, 28)["text"] for v in value.head(4).to_list()]
+                if length > 4:
+                    samples.append("…")
+            except Exception:
+                samples = []
+        sample_str = f" · [{', '.join(samples)}]" if samples else ""
+        return clip(f"Series({length:,}, {ser_info['dtype']}){sample_str}")
+
+    array = passive_array(value)
+    if array is not None:
+        shape_str = (
+            "("
+            + ", ".join(str(d) for d in array["shape"])
+            + ("," if len(array["shape"]) == 1 else "")
+            + ")"
+        )
+        sample_str = ""
+        if (
+            array["length"] > 0
+            and not array["hasobject"]
+            and type(array["item_descriptor"]) is types.MethodDescriptorType
+        ):
+            try:
+                flat = array["flat_descriptor"].__get__(value)
+                total = array["length"]
+                is_narrow_float = array["dtype"] in ("f2", "f4")
+
+                def _fmt_elem(idx: int) -> str:
+                    raw = array["item_descriptor"](flat[idx])
+                    if is_narrow_float and type(raw) is float:
+                        if math.isnan(raw):
+                            return "nan"
+                        if math.isinf(raw):
+                            return "inf" if raw > 0 else "-inf"
+                        return f"{raw:.6g}"
+                    return _passive_inline(
+                        raw,
+                        max_str=16,
+                        max_chars=24,
+                        _depth=_depth + 1,
+                        _seen=_seen,
+                    )
+
+                if total <= 5:
+                    vals = [_fmt_elem(i) for i in range(total)]
+                else:
+                    vals = [_fmt_elem(i) for i in range(3)] + ["…", _fmt_elem(total - 1)]
+                sample_str = f" · [{', '.join(vals)}]"
+            except Exception:
+                sample_str = ""
+        return clip(f"{array['dtype_str']} {shape_str}{sample_str}")
+
+    tensor = passive_torch_tensor(value)
+    if tensor is not None:
+        shape_str = (
+            "("
+            + ", ".join(str(d) for d in tensor["shape"])
+            + ("," if len(tensor["shape"]) == 1 else "")
+            + ")"
+        )
+        prefix = f"{tensor['device']} · {tensor['dtype']} {shape_str}"
+        if not tensor["on_device"] and tensor["length"] > 0:
+            try:
+                detached = value.detach()
+                total = tensor["length"]
+                picks = list(range(total)) if total <= 5 else [0, 1, 2, -1, total - 1]
+                vals = [
+                    "…"
+                    if i < 0
+                    else _format_cell_value(_tensor_element(detached, tensor["shape"], i), 20)[
+                        "text"
+                    ]
+                    for i in picks
+                ]
+                return clip(f"{prefix} · [{', '.join(vals)}]")
+            except Exception:
+                pass
+        return clip(prefix)
+
+    # Custom objects / dataclasses: passive raw instance fields only
+    if _depth < 2:
+        inst = _passive_instance_fields(value, limit=max_items + 1)
+        if inst:
+            obj_id = id(value)
+            if obj_id not in _seen:
+                _seen.add(obj_id)
+                try:
+                    parts = [
+                        f"{k}={_passive_inline(v, max_items=2, max_str=20, max_chars=36, _depth=_depth + 1, _seen=_seen)}"
+                        for k, v in itertools.islice(inst.items(), max_items)
+                    ]
+                    if len(inst) > max_items:
+                        parts.append("…")
+                    return clip(f"{_short_type_name(passive_type(value))}({', '.join(parts)})")
+                finally:
+                    _seen.discard(obj_id)
+
+    return f"<{_short_type_name(passive_type(value))}>"
+
+
 def passive_preview(value: Any, limit: int = 4096) -> dict[str, Any]:
-    result: dict[str, Any] = {"type": passive_type(value), "preview": "", "truncated": False}
+    qualified = passive_type(value)
+    short = _short_type_name(qualified)
+    result: dict[str, Any] = {
+        "type": qualified,
+        "short_type": short,
+        "category": "object",
+        "size_label": "",
+        "expandable": False,
+        "preview": "",
+        "truncated": False,
+    }
     cls = cast(Any, type(value))
     if cls in (type(None), bool, float, complex):
+        result["category"] = "scalar"
         result["preview"] = repr(value)
     elif cls is int:
+        result["category"] = "scalar"
         result["preview"] = str(value) if value.bit_length() < 4096 else "<large integer>"
+        if value.bit_length() >= 4096:
+            result["size_label"] = f"{value.bit_length():,} bits"
     elif cls in (str, bytes, bytearray):
-        result.update(
-            length=len(value), preview=repr(value[:limit])[:limit], truncated=len(value) > limit
-        )
-    elif cls in (list, tuple, dict, set, frozenset):
-        result.update(length=len(value), preview=f"<{cls.__name__}, {len(value)} items>")
+        result["category"] = "scalar"
+        result["length"] = len(value)
+        result["truncated"] = len(value) > limit
+        result["expandable"] = len(value) > 48
+        if cls is str:
+            result["size_label"] = f"{len(value):,} chars"
+            result["preview"] = repr(value[:limit])[:limit]
+        else:
+            result["size_label"] = _format_bytes(len(value))
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 256))
+    elif cls in (list, tuple, dict, set, frozenset) or _namedtuple_fields(value) is not None:
+        result["category"] = "collection"
+        result["length"] = len(value)
+        unit = "keys" if cls is dict else "items"
+        result["size_label"] = f"{len(value):,} {unit}"
+        result["expandable"] = True
+        inline_budget = min(limit, 180 if limit <= 256 else 512)
+        result["preview"] = _passive_inline(value, max_items=6, max_chars=inline_budget)
+    elif _is_exact_stdlib(value, "collections", ("deque", "Counter", "OrderedDict")):
+        result["category"] = "collection"
+        result["length"] = len(value)
+        unit = "items" if cls.__name__ == "deque" else "keys"
+        result["size_label"] = f"{len(value):,} {unit}"
+        result["expandable"] = True
+        result["preview"] = _passive_inline(value, max_items=6, max_chars=min(limit, 256))
+    elif cls in (
+        range,
+        slice,
+        dt.datetime,
+        dt.date,
+        dt.time,
+        dt.timedelta,
+        decimal.Decimal,
+        uuid.UUID,
+        fractions.Fraction,
+        pathlib.PosixPath,
+        pathlib.WindowsPath,
+        pathlib.PurePosixPath,
+        pathlib.PureWindowsPath,
+        re.Pattern,
+    ) or _is_subclass_passive(cls, enum.Enum):
+        result["category"] = "scalar"
+        if cls is range:
+            result["length"] = len(value)
+            result["size_label"] = f"{len(value):,} items"
+        result["preview"] = _passive_inline(value, max_chars=min(limit, 256))
     elif cls is types.FunctionType:
+        result["category"] = "callable"
         result["preview"] = "function " + value.__name__
         result["file"], result["line"] = value.__code__.co_filename, value.__code__.co_firstlineno
         # Signature construction uses no annotation/default repr hooks.
@@ -1804,67 +3497,653 @@ def passive_preview(value: Any, limit: int = 4096) -> dict[str, Any]:
         )
         doc = value.__doc__
         result["documentation"] = doc[: min(limit, 16384)] if type(doc) is str else ""
+        result["expandable"] = True
     elif cls is types.BuiltinFunctionType:
+        result["category"] = "callable"
         result["preview"] = "builtin " + value.__name__
         doc = value.__doc__
         signature = value.__text_signature__
         result["documentation"] = doc[: min(limit, 16384)] if type(doc) is str else ""
         if type(signature) is str:
             result["signature"] = value.__name__ + signature[:1024]
+        result["expandable"] = True
     elif cls is type:
+        result["category"] = "callable"
         name = type.__dict__["__name__"].__get__(value)
         doc = type.__dict__["__dict__"].__get__(value).get("__doc__")
         result["preview"] = "class " + name[:1024]
         result["documentation"] = doc[: min(limit, 16384)] if type(doc) is str else ""
+        result["expandable"] = True
+    elif cls is types.ModuleType:
+        result["category"] = "callable"
+        result["preview"] = _passive_inline(value, max_chars=min(limit, 256))
+        result["expandable"] = True
     else:
+        df_info = passive_dataframe(value)
+        if df_info is not None:
+            result["category"] = "tabular"
+            result["library"] = df_info["library"]
+            result["lazy"] = df_info["lazy"]
+            result["expandable"] = True
+            result["columns_preview"] = df_info["col_names"][:12]
+            if df_info["lazy"]:
+                result["schema_collected"] = bool(df_info.get("schema_collected"))
+                result["size_label"] = (
+                    "Lazy" if df_info["ncols"] is None else f"Lazy · {df_info['ncols']:,} cols"
+                )
+            else:
+                result["shape"] = [df_info["nrows"], df_info["ncols"]]
+                mem = (
+                    f" · {_format_bytes(df_info['memory_bytes'])}"
+                    if df_info["memory_bytes"] is not None
+                    else ""
+                )
+                result["size_label"] = f"{df_info['nrows']:,} × {df_info['ncols']:,}{mem}"
+                if df_info["memory_bytes"] is not None:
+                    result["nbytes"] = df_info["memory_bytes"]
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
+            return result
+
+        ser_info = passive_series(value)
+        if ser_info is not None:
+            result["category"] = "tabular"
+            result["library"] = ser_info["library"]
+            result["length"] = ser_info["length"]
+            result["dtype"] = ser_info["dtype"]
+            result["size_label"] = f"{ser_info['length']:,} · {ser_info['dtype']}"
+            result["expandable"] = True
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
+            return result
+
         array = passive_array(value)
         if array is not None:
+            result["category"] = "array"
             result.update({key: array[key] for key in ("shape", "length", "nbytes", "dtype")})
-            result["preview"] = f"<ndarray, {array['length']} elements>"
+            result["dtype_str"] = array["dtype_str"]
+            shape_str = (
+                "("
+                + ", ".join(str(d) for d in array["shape"])
+                + ("," if len(array["shape"]) == 1 else "")
+                + ")"
+            )
+            result["size_label"] = f"{shape_str} · {_format_bytes(array['nbytes'])}"
+            result["expandable"] = not array["hasobject"]
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
+            return result
+
+        tensor = passive_torch_tensor(value)
+        if tensor is not None:
+            result["category"] = "array"
+            result.update(
+                {
+                    key: tensor[key]
+                    for key in (
+                        "shape",
+                        "length",
+                        "nbytes",
+                        "dtype",
+                        "device",
+                        "on_device",
+                        "requires_grad",
+                    )
+                }
+            )
+            shape_str = (
+                "("
+                + ", ".join(str(d) for d in tensor["shape"])
+                + ("," if len(tensor["shape"]) == 1 else "")
+                + ")"
+            )
+            result["size_label"] = (
+                f"{tensor['device']} · {shape_str} · {_format_bytes(tensor['nbytes'])}"
+            )
+            result["expandable"] = True
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
+            return result
+
+        if cls in (types.GeneratorType, types.CoroutineType, types.AsyncGeneratorType):
+            result["category"] = "object"
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
+            return result
+
+        inst = _passive_instance_fields(value, limit=101)
+        if inst:
+            result["category"] = "object"
+            count_label = "100+ attrs" if len(inst) > 100 else f"{len(inst)} attrs"
+            result["size_label"] = count_label
+            result["expandable"] = True
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
         else:
-            result["preview"] = "<preview unavailable for this type>"
+            result["preview"] = _passive_inline(value, max_chars=min(limit, 220))
     return result
 
 
-def passive_page(value: Any, offset: int = 0, size: int = 100) -> dict[str, Any]:
+def _resolve_segments(
+    root_value: Any, root_name: str, segments: list[dict[str, Any]]
+) -> tuple[Any, list[dict[str, Any]]]:
+    """Resolve structured nested drill-down segments strictly passively."""
+    if len(segments) > 16:
+        raise ValueError("invalid_segments")
+    current: Any = root_value
+    islice_any: Any = itertools.islice
+    dict_items: Any = getattr(dict, "items")
+    dict_getitem: Any = getattr(dict, "__getitem__")
+    breadcrumbs: list[dict[str, Any]] = [{"label": root_name, "segments": []}]
+    applied: list[dict[str, Any]] = []
+    for step in segments:
+        if type(step) is not dict:
+            raise ValueError("invalid_segments")
+        kind = step.get("kind")
+        val = step.get("value")
+        cls = cast(Any, type(current))
+        if kind == "index":
+            if type(val) is not int or val < 0:
+                raise ValueError("invalid_segments")
+            if cls in (list, tuple) or _namedtuple_fields(current) is not None:
+                getter: Any = getattr(list if cls is list else tuple, "__getitem__")
+                if val >= len(current):
+                    raise ValueError("name_not_found")
+                current = getter(current, val)
+            elif _is_exact_stdlib(current, "collections", ("deque",)):
+                if val >= len(current):
+                    raise ValueError("name_not_found")
+                current = next(islice_any(current, val, val + 1))
+            else:
+                raise ValueError("unsupported_expression")
+            label = f"[{val}]"
+        elif kind == "entry":
+            if type(val) is not int or val < 0:
+                raise ValueError("invalid_segments")
+            if cls is dict or _is_exact_stdlib(current, "collections", ("OrderedDict", "Counter")):
+                if val >= len(current):
+                    raise ValueError("name_not_found")
+                entry_key, current = next(islice_any(dict_items(current), val, val + 1))
+                label = f"[{_passive_inline(entry_key, max_items=1, max_str=20, max_chars=24)}]"
+            elif cls in (set, frozenset):
+                if val >= len(current):
+                    raise ValueError("name_not_found")
+                current = next(islice_any(current, val, val + 1))
+                label = f"#{val}"
+            else:
+                raise ValueError("unsupported_expression")
+        elif kind == "key":
+            if cls is dict or _is_exact_stdlib(current, "collections", ("OrderedDict", "Counter")):
+                if val not in current:
+                    raise ValueError("name_not_found")
+                current = dict_getitem(current, val)
+                label = f"[{val!r}]"
+            else:
+                raise ValueError("unsupported_expression")
+        elif kind == "attr":
+            if type(val) is not str or not val.isidentifier():
+                raise ValueError("invalid_segments")
+            inst = _passive_instance_fields(current, limit=500)
+            if val in inst:
+                current = inst[val]
+            else:
+                attrs = passive_attributes(current)
+                if val not in attrs:
+                    raise ValueError("name_not_found")
+                current = attrs[val]
+            label = f".{val}"
+        else:
+            raise ValueError("invalid_segments")
+        applied = [*applied, {"kind": kind, "value": val}]
+        breadcrumbs.append({"label": label, "segments": applied})
+    return current, breadcrumbs
+
+
+def passive_page(
+    value: Any,
+    offset: int = 0,
+    size: int = 100,
+    *,
+    col_offset: int = 0,
+    col_limit: int = 12,
+    include_stats: bool = False,
+    slice_prefix: list[int] | None = None,
+    allow_device_copy: bool = False,
+    sort_col: str | None = None,
+    sort_col_index: int | None = None,
+    sort_desc: bool = False,
+    filter_query: str = "",
+    var_name: str = "df",
+    lazy_schema: bool = False,
+) -> dict[str, Any]:
     if type(offset) is not int or offset < 0 or type(size) is not int or not 1 <= size <= 100:
         raise ValueError("invalid_page")
-    if type(value) in (list, tuple):
+    if (
+        type(col_offset) is not int
+        or col_offset < 0
+        or type(col_limit) is not int
+        or not 1 <= col_limit <= 40
+    ):
+        raise ValueError("invalid_page")
+
+    cls = cast(Any, type(value))
+
+    # 1. Exact DataFrames / LazyFrames / PyArrow Tables
+    if sort_col_index is not None and (type(sort_col_index) is not int or sort_col_index < 0):
+        raise ValueError("invalid_page")
+    df_info = passive_dataframe(value, lazy_schema=lazy_schema)
+    if df_info is not None:
+        return _passive_dataframe_slice(
+            value,
+            df_info,
+            offset,
+            min(size, 50),
+            col_offset,
+            col_limit,
+            include_stats,
+            sort_col=sort_col,
+            sort_col_index=sort_col_index,
+            sort_desc=sort_desc,
+            filter_query=filter_query,
+            var_name=var_name,
+        )
+
+    # 2. Exact Series (pandas / polars)
+    ser_info = passive_series(value)
+    if ser_info is not None:
+        total = ser_info["length"]
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
+        items: list[dict[str, Any]] = []
+        if ser_info["library"] == "pandas":
+            sub = value.iloc[offset:end]
+            for idx_val, elem in zip(sub.index, sub):
+                items.append(
+                    {
+                        "key": {
+                            "type": "index",
+                            "short_type": "index",
+                            "preview": _column_label(idx_val, 48),
+                        },
+                        "value": {
+                            "type": ser_info["dtype"],
+                            "short_type": ser_info["dtype"],
+                            "preview": _format_cell_value(elem, 128)["text"],
+                        },
+                    }
+                )
+        else:
+            sub = value.slice(offset, end - offset).to_list()
+            for i, elem in enumerate(sub):
+                items.append(
+                    {
+                        "key": {"type": "int", "short_type": "int", "preview": str(offset + i)},
+                        "value": {
+                            "type": ser_info["dtype"],
+                            "short_type": ser_info["dtype"],
+                            "preview": _format_cell_value(elem, 128)["text"],
+                        },
+                    }
+                )
+        return {
+            "mode": "series",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 3. Exact list / tuple / NamedTuple / deque
+    islice_any: Any = itertools.islice
+    dict_items: Any = getattr(dict, "items")
+    nt_fields = _namedtuple_fields(value)
+    if cls in (list, tuple) or nt_fields is not None:
         total = len(value)
-        items = [passive_preview(item, 256) for item in value[offset : offset + size]]
-    elif type(value) is dict:
-        value = cast(dict[Any, Any], value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        getter: Any = getattr(list if cls is list else tuple, "__getitem__")
+        end = min(total, offset + size)
+        items = []
+        for idx in range(offset, end):
+            child = passive_preview(getter(value, idx), 256)
+            if nt_fields is not None:
+                items.append(
+                    {
+                        "key": {"type": "str", "short_type": "field", "preview": nt_fields[idx]},
+                        "value": child,
+                        "step": {"kind": "index", "value": idx},
+                    }
+                )
+            else:
+                child["step"] = {"kind": "index", "value": idx}
+                items.append(child)
+        return {
+            "mode": "sequence",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    if _is_exact_stdlib(value, "collections", ("deque",)):
         total = len(value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
+        items = []
+        for pos, elem in enumerate(islice_any(value, offset, end), start=offset):
+            child = passive_preview(elem, 256)
+            child["step"] = {"kind": "index", "value": pos}
+            items.append(child)
+        return {
+            "mode": "sequence",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 4. Exact dict / OrderedDict / Counter
+    if cls is dict or _is_exact_stdlib(value, "collections", ("OrderedDict", "Counter")):
+        total = len(value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
         items = [
-            {"key": passive_preview(key, 128), "value": passive_preview(item, 128)}
-            for key, item in itertools.islice(value.items(), offset, offset + size)
+            {
+                "key": passive_preview(key, 128),
+                "value": passive_preview(item, 256),
+                "step": {"kind": "entry", "value": pos},
+            }
+            for pos, (key, item) in enumerate(
+                islice_any(dict_items(value), offset, end), start=offset
+            )
         ]
-    else:
-        array = passive_array(value)
-        if (
-            array is None
-            or array["hasobject"]
-            or type(array["item_descriptor"]) is not types.MethodDescriptorType
-        ):
+        return {
+            "mode": "mapping",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 5. Exact set / frozenset
+    if cls in (set, frozenset):
+        total = len(value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
+        items = []
+        for pos, elem in enumerate(islice_any(value, offset, end), start=offset):
+            child = passive_preview(elem, 256)
+            child["step"] = {"kind": "entry", "value": pos}
+            items.append(child)
+        return {
+            "mode": "set",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 6. Long string / bytes / bytearray
+    if cls is str:
+        total = len(value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        chunk_len = min(16384, max(size * 64, 4096))
+        end = min(total, offset + chunk_len)
+        return {
+            "mode": "text",
+            "text": value[offset:end],
+            "line_count": value.count("\n") + 1,
+            "items": [],
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+    if cls in (bytes, bytearray):
+        total = len(value)
+        if offset > total:
+            raise ValueError("invalid_page")
+        chunk_len = 256
+        end = min(total, offset + chunk_len)
+        chunk = bytes(value[offset:end])
+        hex_lines: list[str] = []
+        for row_off in range(0, len(chunk), 16):
+            row = chunk[row_off : row_off + 16]
+            hex_part = " ".join(f"{b:02x}" for b in row)
+            ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in row)
+            hex_lines.append(f"{offset + row_off:08x}  {hex_part:<47}  |{ascii_part}|")
+        return {
+            "mode": "bytes",
+            "hex_lines": hex_lines,
+            "items": [],
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 7. Exact NumPy ndarray (C descriptors only)
+    array = passive_array(value)
+    if array is not None:
+        if array["hasobject"] or type(array["item_descriptor"]) is not types.MethodDescriptorType:
             return {"items": [], "total": None, "next_offset": None, "unsupported": True}
+        shape = array["shape"]
         total = array["length"]
         flat = array["flat_descriptor"].__get__(value)
+        item_desc = array["item_descriptor"]
+
+        if len(shape) >= 2:
+            lead_dims = shape[:-2]
+            prefix = list(slice_prefix or ([0] * len(lead_dims)))
+            if len(prefix) != len(lead_dims) or any(
+                type(p) is not int or p < 0 or p >= dim for p, dim in zip(prefix, lead_dims)
+            ):
+                raise ValueError("invalid_page")
+            nrows, ncols = shape[-2], shape[-1]
+            if offset > nrows or col_offset > ncols:
+                raise ValueError("invalid_page")
+            row_end = min(nrows, offset + min(size, 50))
+            col_end = min(ncols, col_offset + col_limit)
+            # Compute linear offset in C-order flat view for leading prefix
+            plane_stride = nrows * ncols
+            base_linear = 0
+            mul = plane_stride
+            for p, dim in zip(reversed(prefix), reversed(lead_dims)):
+                base_linear += p * mul
+                mul *= dim
+            is_narrow_float = array["dtype"] in ("f2", "f4")
+            rows_out: list[list[dict[str, Any]]] = []
+            for r in range(offset, row_end):
+                row_base = base_linear + r * ncols
+                row_cells: list[dict[str, Any]] = []
+                for c in range(col_offset, col_end):
+                    raw = item_desc(flat[row_base + c])
+                    if is_narrow_float and type(raw) is float:
+                        if math.isnan(raw):
+                            row_cells.append({"text": "NaN", "null": True, "numeric": True})
+                        elif math.isinf(raw):
+                            row_cells.append(
+                                {
+                                    "text": "inf" if raw > 0 else "-inf",
+                                    "null": False,
+                                    "numeric": True,
+                                }
+                            )
+                        else:
+                            row_cells.append({"text": f"{raw:.6g}", "null": False, "numeric": True})
+                    else:
+                        row_cells.append(_format_cell_value(raw, 48))
+                rows_out.append(row_cells)
+            return {
+                "mode": "matrix",
+                "shape": shape,
+                "dtype": array["dtype_str"],
+                "slice_prefix": prefix,
+                "lead_dims": lead_dims,
+                "items": [],
+                "total": nrows,
+                "offset": offset,
+                "next_offset": row_end if row_end < nrows else None,
+                "table": {
+                    "columns": [
+                        {
+                            "name": f"[{c}]",
+                            "dtype": array["dtype_str"],
+                            "kind": _normalized_dtype_kind(array["dtype_str"]),
+                        }
+                        for c in range(col_offset, col_end)
+                    ],
+                    "rows": rows_out,
+                    "index": [f"[{r}]" for r in range(offset, row_end)],
+                    "total_rows": nrows,
+                    "total_cols": ncols,
+                    "row_offset": offset,
+                    "col_offset": col_offset,
+                    "col_limit": col_limit,
+                    "next_row_offset": row_end if row_end < nrows else None,
+                    "next_col_offset": col_end if col_end < ncols else None,
+                },
+            }
+
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(offset + size, total)
+        items = [passive_preview(item_desc(flat[index]), 256) for index in range(offset, end)]
+        return {
+            "mode": "array1d",
+            "shape": shape,
+            "dtype": array["dtype_str"],
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 8. Exact PyTorch Tensor (CPU passive; GPU only on explicit allow_device_copy)
+    tensor = passive_torch_tensor(value)
+    if tensor is not None:
+        if tensor["on_device"] and not allow_device_copy:
+            return {
+                "mode": "device_tensor",
+                "device": tensor["device"],
+                "shape": tensor["shape"],
+                "dtype": tensor["dtype"],
+                "requires_grad": tensor["requires_grad"],
+                "items": [],
+                "total": tensor["length"],
+                "offset": 0,
+                "next_offset": None,
+            }
+        shape = tensor["shape"]
+        detached = value.detach()
+        if len(shape) >= 2:
+            lead_dims = shape[:-2]
+            prefix = list(slice_prefix or ([0] * len(lead_dims)))
+            if len(prefix) != len(lead_dims) or any(
+                type(p) is not int or p < 0 or p >= dim for p, dim in zip(prefix, lead_dims)
+            ):
+                raise ValueError("invalid_page")
+            nrows, ncols = shape[-2], shape[-1]
+            if offset > nrows or col_offset > ncols:
+                raise ValueError("invalid_page")
+            row_end = min(nrows, offset + min(size, 50))
+            col_end = min(ncols, col_offset + col_limit)
+            idx_tuple = tuple(prefix) + (slice(offset, row_end), slice(col_offset, col_end))
+            sub = detached[idx_tuple].cpu().tolist()
+            rows_out = [[_format_cell_value(cell, 48) for cell in row] for row in sub]
+            return {
+                "mode": "matrix",
+                "shape": shape,
+                "dtype": tensor["dtype"],
+                "device": tensor["device"],
+                "slice_prefix": prefix,
+                "lead_dims": lead_dims,
+                "items": [],
+                "total": nrows,
+                "offset": offset,
+                "next_offset": row_end if row_end < nrows else None,
+                "table": {
+                    "columns": [
+                        {
+                            "name": f"[{c}]",
+                            "dtype": tensor["dtype"],
+                            "kind": _normalized_dtype_kind(tensor["dtype"]),
+                        }
+                        for c in range(col_offset, col_end)
+                    ],
+                    "rows": rows_out,
+                    "index": [f"[{r}]" for r in range(offset, row_end)],
+                    "total_rows": nrows,
+                    "total_cols": ncols,
+                    "row_offset": offset,
+                    "col_offset": col_offset,
+                    "col_limit": col_limit,
+                    "next_row_offset": row_end if row_end < nrows else None,
+                    "next_col_offset": col_end if col_end < ncols else None,
+                },
+            }
+        total = tensor["length"]
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
+        # A 1-D slice (or 0-d item) is a view; reshape(-1) would copy non-contiguous storage.
+        flat = detached[offset:end].cpu().tolist() if shape else [detached.item()]
+        items = [passive_preview(elem, 256) for elem in flat]
+        return {
+            "mode": "array1d",
+            "shape": shape,
+            "dtype": tensor["dtype"],
+            "device": tensor["device"],
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    # 9. Passive object/dataclass/module attributes
+    numpy_mod = sys.modules.get("numpy")
+    ndarray_cls = getattr(numpy_mod, "ndarray", None) if numpy_mod is not None else None
+    if _is_subclass_passive(cls, ndarray_cls):
+        return {"items": [], "total": None, "next_offset": None, "unsupported": True}
+    inst = _passive_instance_fields(value, limit=500)
+    if inst:
+        entries = list(inst.items())
+        total = len(entries)
+        if offset > total:
+            raise ValueError("invalid_page")
+        end = min(total, offset + size)
         items = [
-            passive_preview(array["item_descriptor"](flat[index]), 256)
-            for index in range(offset, min(offset + size, total))
+            {
+                "key": {"type": "str", "short_type": "attr", "preview": k},
+                "value": passive_preview(v, 256),
+                "step": {"kind": "attr", "value": k},
+            }
+            for k, v in entries[offset:end]
         ]
-    if offset > total:
-        raise ValueError("invalid_page")
-    return {
-        "items": items,
-        "total": total,
-        "offset": offset,
-        "next_offset": offset + size if offset + size < total else None,
-    }
+        return {
+            "mode": "attributes",
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "next_offset": end if end < total else None,
+        }
+
+    return {"items": [], "total": None, "next_offset": None, "unsupported": True}
 
 
 class NativeWidget:
     """Declared native subset, unrelated to the ipywidgets comm/model protocol."""
+
+    SUPPORTED_KINDS = (
+        "button",
+        "checkbox",
+        "dropdown",
+        "integer_slider",
+        "progress",
+        "float_slider",
+        "text",
+        "multiselect",
+        "stat",
+        "callout",
+        "form",
+    )
 
     def __init__(
         self,
@@ -1874,16 +4153,22 @@ class NativeWidget:
         *,
         label: str = "",
         options: Any = (),
-        lower: int = 0,
-        upper: int = 100,
+        lower: Any = 0,
+        upper: Any = 100,
+        step: Any = None,
+        placeholder: str = "",
+        caption: str = "",
+        delta: str = "",
+        direction: str = "neutral",
+        variant: str = "info",
+        submit_label: str = "Submit",
+        fields: Any = (),
         callback: Any = None,
     ) -> None:
         if len(worker.widgets) >= 128:
             raise ValueError("Close an existing widget before creating more than 128 models")
-        if kind not in ("button", "checkbox", "dropdown", "integer_slider", "progress"):
-            raise ValueError(
-                "Supported widgets: button, checkbox, dropdown, integer_slider, progress"
-            )
+        if kind not in self.SUPPORTED_KINDS:
+            raise ValueError("Supported widgets: " + ", ".join(self.SUPPORTED_KINDS))
         if type(label) is not str or len(label.encode()) > 1024:
             raise ValueError("Widget label exceeds 1024 bytes")
         if (
@@ -1892,12 +4177,44 @@ class NativeWidget:
             or any(type(option) is not str or len(option.encode()) > 1024 for option in options)
         ):
             raise ValueError("Dropdown options must be at most 100 bounded strings")
-        if (
-            type(lower) is not int
-            or type(upper) is not int
-            or not -(2**31) <= lower <= upper < 2**31
-        ):
-            raise ValueError("Widget bounds must be ordered signed 32-bit integers")
+        if kind == "float_slider":
+            if (
+                not isinstance(lower, (int, float))
+                or isinstance(lower, bool)
+                or not isinstance(upper, (int, float))
+                or isinstance(upper, bool)
+                or not math.isfinite(float(lower))
+                or not math.isfinite(float(upper))
+                or float(lower) > float(upper)
+            ):
+                raise ValueError("Float slider bounds must be finite ordered numbers")
+            lower = float(lower)
+            upper = float(upper)
+            if step is not None:
+                if (
+                    not isinstance(step, (int, float))
+                    or isinstance(step, bool)
+                    or not math.isfinite(float(step))
+                    or float(step) <= 0
+                ):
+                    raise ValueError("Float slider step must be a positive finite number")
+                step = float(step)
+            else:
+                step = max((upper - lower) / 100.0, 1e-6)
+        elif kind in ("integer_slider", "progress"):
+            if (
+                type(lower) is not int
+                or type(upper) is not int
+                or not -(2**31) <= lower <= upper < 2**31
+            ):
+                raise ValueError("Widget bounds must be ordered signed 32-bit integers")
+        else:
+            if (
+                type(lower) is not int
+                or type(upper) is not int
+                or not -(2**31) <= lower <= upper < 2**31
+            ):
+                raise ValueError("Widget bounds must be ordered signed 32-bit integers")
         if callback is not None and not callable(callback):
             raise TypeError("Widget callback must be callable")
         if callback is not None and inspect.iscoroutinefunction(callback):
@@ -1906,6 +4223,16 @@ class NativeWidget:
             )
         self.worker, self.kind, self.label = worker, kind, label
         self.options, self.lower, self.upper, self.callback = list(options), lower, upper, callback
+        self.step = step
+        self.placeholder = str(placeholder)[:256]
+        self.caption = str(caption)[:512]
+        self.delta = str(delta)[:128]
+        self.direction = (
+            direction if direction in ("increase", "decrease", "neutral") else "neutral"
+        )
+        self.variant = variant if variant in ("info", "success", "warning", "danger") else "info"
+        self.submit_label = str(submit_label)[:64] or "Submit"
+        self.fields = self.validate_fields(fields) if kind == "form" else []
         self.handle = str(uuid.uuid4())
         self.value = self.validate(value)
         if len(json_bytes(self.state())) > 65536:
@@ -1923,14 +4250,150 @@ class NativeWidget:
         elif self.kind == "dropdown":
             if type(value) is not str or value not in self.options:
                 raise ValueError("Dropdown value is not a declared option")
+        elif self.kind == "multiselect":
+            if type(value) is not list:
+                raise ValueError("Multiselect value must be a list of declared options")
+            val_list = cast(list[Any], value)
+            if any(type(v) is not str or v not in self.options for v in val_list):
+                raise ValueError("Multiselect value must be a list of declared options")
+        elif self.kind == "text":
+            if type(value) is not str or len(value.encode()) > 16384:
+                raise ValueError("Text widget value must be a bounded UTF-8 string")
+        elif self.kind == "float_slider":
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(float(value))
+                or not float(self.lower) <= float(value) <= float(self.upper)
+            ):
+                raise ValueError("Float slider value must be a finite number within bounds")
+            return float(value)
+        elif self.kind in ("stat", "callout"):
+            if type(value) is not str or len(value.encode()) > 16384:
+                raise ValueError("Display widget value must be a bounded string")
+        elif self.kind == "form":
+            if type(value) is not dict:
+                raise ValueError("Form value must be a bounded dict of field values")
+            val_dict = cast(dict[Any, Any], value)
+            specs = {spec["name"]: spec for spec in self.fields}
+            unknown = [k for k in val_dict if k not in specs]
+            if len(val_dict) > 32 or unknown:
+                raise ValueError(
+                    "Form value must only contain declared fields"
+                    + (f": unexpected {unknown[0]!r}" if unknown else "")
+                )
+            validated: dict[str, Any] = {}
+            for name, spec in specs.items():
+                # Omitted fields keep their current value; supplied ones are validated.
+                if name in val_dict:
+                    validated[name] = self.validate_field(spec, val_dict[name])
+                elif type(current := getattr(self, "value", None)) is dict and name in current:
+                    validated[name] = cast(dict[str, Any], current)[name]
+                else:
+                    validated[name] = self.validate_field(spec, spec.get("value"))
+            return validated
         elif type(value) is not int or not self.lower <= value <= self.upper:
             raise ValueError(
                 "Native numeric widgets accept bounded integers only; floats are unqualified"
             )
-        return value
+        return cast(Any, value)
+
+    FORM_FIELD_KINDS = (
+        "checkbox",
+        "dropdown",
+        "multiselect",
+        "text",
+        "integer_slider",
+        "float_slider",
+    )
+
+    @classmethod
+    def validate_fields(cls, fields: Any) -> list[dict[str, Any]]:
+        if type(fields) not in (list, tuple) or len(fields) > 32:
+            raise ValueError("Form fields must be a list of at most 32 field definitions")
+        specs: list[dict[str, Any]] = []
+        names: set[str] = set()
+        for raw in list(fields):
+            if type(raw) is not dict:
+                raise ValueError("Each form field must be a dict")
+            spec = dict(cast(dict[str, Any], raw))
+            name, kind = spec.get("name"), spec.get("kind", "text")
+            if type(name) is not str or not name or len(name.encode()) > 256 or name in names:
+                raise ValueError("Form field names must be unique non-empty strings")
+            if kind not in cls.FORM_FIELD_KINDS:
+                raise ValueError(
+                    f"Form field {name!r} kind must be one of " + ", ".join(cls.FORM_FIELD_KINDS)
+                )
+            options = spec.get("options", [])
+            if (
+                type(options) not in (list, tuple)
+                or len(options) > 100
+                or any(type(o) is not str or len(o.encode()) > 1024 for o in options)
+            ):
+                raise ValueError(f"Form field {name!r} options must be bounded strings")
+            spec["options"] = list(cast(list[str], options))
+            lower, upper = spec.get("lower", 0), spec.get("upper", 100)
+            if kind in ("integer_slider", "float_slider"):
+                numeric = (int,) if kind == "integer_slider" else (int, float)
+                if (
+                    type(lower) not in numeric
+                    or type(upper) not in numeric
+                    or not math.isfinite(lower)
+                    or not math.isfinite(upper)
+                    or lower > upper
+                ):
+                    raise ValueError(f"Form field {name!r} bounds must be ordered numbers")
+            max_length = spec.get("max_length", 16384)
+            if type(max_length) is not int or not 0 < max_length <= 16384:
+                raise ValueError(f"Form field {name!r} max_length must be in 1..16384")
+            spec["max_length"] = max_length
+            names.add(name)
+            specs.append(spec)
+        return specs
+
+    @staticmethod
+    def validate_field(spec: dict[str, Any], value: Any) -> Any:
+        """Validate one submitted form value against its declared field definition."""
+        name, kind = spec["name"], spec.get("kind", "text")
+        if kind == "checkbox":
+            if type(value) is not bool:
+                raise ValueError(f"Form field {name!r} must be a boolean")
+        elif kind == "dropdown":
+            if type(value) is not str or value not in spec["options"]:
+                raise ValueError(f"Form field {name!r} must be one of its declared options")
+        elif kind == "multiselect":
+            if type(value) is not list or any(
+                type(v) is not str or v not in spec["options"] for v in cast(list[Any], value)
+            ):
+                raise ValueError(f"Form field {name!r} must be a list of declared options")
+            return list(cast(list[str], value))
+        elif kind == "text":
+            if type(value) is not str or len(value) > spec["max_length"]:
+                raise ValueError(
+                    f"Form field {name!r} must be a string of at most {spec['max_length']} chars"
+                )
+            if len(value.encode()) > 16384:
+                raise ValueError(f"Form field {name!r} exceeds 16 KiB")
+        elif kind == "integer_slider":
+            if type(value) is not int or not spec["lower"] <= value <= spec["upper"]:
+                raise ValueError(
+                    f"Form field {name!r} must be an integer in [{spec['lower']}, {spec['upper']}]"
+                )
+        elif kind == "float_slider":
+            if (
+                type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not spec["lower"] <= value <= spec["upper"]
+            ):
+                raise ValueError(
+                    f"Form field {name!r} must be a finite number in "
+                    f"[{spec['lower']}, {spec['upper']}]"
+                )
+            return float(value)
+        return cast(Any, value)
 
     def state(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "schema": "kernelledger.widget/1",
             "handle": self.handle,
             "worker_generation": self.worker.generation,
@@ -1941,6 +4404,20 @@ class NativeWidget:
             "lower": self.lower,
             "upper": self.upper,
         }
+        if self.kind == "float_slider":
+            payload["step"] = self.step
+        elif self.kind == "text":
+            payload["placeholder"] = self.placeholder
+        elif self.kind == "stat":
+            payload["caption"] = self.caption
+            payload["delta"] = self.delta
+            payload["direction"] = self.direction
+        elif self.kind == "callout":
+            payload["variant"] = self.variant
+        elif self.kind == "form":
+            payload["submit_label"] = self.submit_label
+            payload["fields"] = self.fields
+        return payload
 
     def _repr_mimebundle_(self) -> dict[str, Any]:
         return {"application/vnd.kernelledger.widget+json": self.state()}
@@ -2058,6 +4535,336 @@ class NotebookDebugger(bdb.Bdb):
             del frame, current
 
 
+# IPython/KernelLedger history shortcuts and internal helpers are never SQL tables.
+_SQL_HIDDEN_NAMES = frozenset(
+    {"_", "__", "___", "In", "Out", "_i", "_ii", "_iii", "_oh", "_ih", "_dh", "get_ipython"}
+)
+_SQL_HISTORY_RE = re.compile(r"_i{0,3}\d+")
+_SQL_MISSING_TABLE_RE = re.compile(
+    r"(?:no such table:\s*|Table with name\s+)\"?([A-Za-z_][A-Za-z0-9_]*)\"?", re.IGNORECASE
+)
+
+
+def sql_visible_name(name: Any) -> bool:
+    """Single-underscore user names (e.g. the default `_sql_df`) are queryable tables."""
+    if type(name) is not str or not name.isidentifier() or keyword.iskeyword(name):
+        return False
+    if name.startswith("__") or name.startswith("_kl") or name in _SQL_HIDDEN_NAMES:
+        return False
+    return _SQL_HISTORY_RE.fullmatch(name) is None
+
+
+def sql_identifier_candidates(query: str) -> list[str]:
+    """Conservative identifier scan used when the supervisor did not supply DAG refs."""
+    text = re.sub(r"--[^\n]*|/\*.*?\*/", " ", query, flags=re.DOTALL)
+    text = re.sub(r"'(?:[^']|'')*'", " ", text)
+    names: list[str] = []
+    seen: set[str] = set()
+    for match in re.finditer(r'"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*)', text):
+        ident = match.group(1) or match.group(2)
+        if ident and ident not in seen:
+            seen.add(ident)
+            names.append(ident)
+    return names
+
+
+def _sql_result_library() -> str | None:
+    """Result type follows the input preference: pandas, else polars, else pyarrow."""
+    for name in ("pandas", "polars", "pyarrow"):
+        try:
+            importlib.import_module(name)
+            return name
+        except Exception:
+            continue
+    return None
+
+
+def _sql_records(value: Any) -> tuple[list[str], list[dict[Any, Any]]] | None:
+    if type(value) is not list:
+        return None
+    rows_list = cast(list[Any], value)
+    if not rows_list or not all(type(item) is dict for item in rows_list[:50]):
+        return None
+    dict_rows = cast(list[dict[Any, Any]], rows_list)
+    keys: list[Any] = list(dict_rows[0].keys())
+    if not keys or not all(isinstance(k, str) and k for k in keys):
+        return None
+    if not all(type(item) is dict for item in dict_rows):
+        return None
+    return cast(list[str], keys), dict_rows
+
+
+def _sql_record_params(keys: list[str], rows: list[dict[Any, Any]]) -> list[tuple[Any, ...]]:
+    return [
+        tuple(
+            row.get(k)
+            if isinstance(row.get(k), (int, float, str, bytes, type(None)))
+            else str(row.get(k))
+            for k in keys
+        )
+        for row in rows
+    ]
+
+
+def _sql_python_rows(value: Any) -> tuple[list[str], list[tuple[Any, ...]]]:
+    """Column names and DB-API rows of a record list or Polars/PyArrow/pandas frame."""
+    records = _sql_records(value)
+    if records is not None:
+        keys, rows = records
+        return keys, _sql_record_params(keys, rows)
+    library = (passive_dataframe(value) or {"library": None})["library"]
+    if library == "polars":
+        return [str(c) for c in value.columns], [tuple(r) for r in value.iter_rows()]
+    if library == "pyarrow":
+        cols = [value.column(i).to_pylist() for i in range(value.num_columns)]
+        return [str(c) for c in value.schema.names], [
+            tuple(col[r] for col in cols) for r in range(value.num_rows)
+        ]
+    if library == "pandas":
+        return [str(c) for c in value.columns], [
+            tuple(r) for r in value.itertuples(index=False, name=None)
+        ]
+    raise ValueError("unsupported SQL table")
+
+
+def _sql_frame_rows(
+    result: Any, library: str | None, max_rows: int = 100, max_cols: int = 20
+) -> tuple[list[str], list[list[Any]], int]:
+    """Bounded display rows taken from the bound result itself (never re-running the query)."""
+    if library == "pandas":
+        head = result.iloc[:max_rows, :max_cols]
+        columns = [_column_label(c) for c in head.columns]
+        rows = [list(row) for row in head.itertuples(index=False, name=None)]
+        return columns, rows, int(result.shape[0])
+    if library == "polars":
+        names = list(result.columns)[:max_cols]
+        rows = [list(row) for row in result.head(max_rows).select(names).rows()]
+        return [str(n) for n in names], rows, int(result.height)
+    if library == "pyarrow":
+        sub = result.slice(0, max_rows).select(list(range(min(max_cols, result.num_columns))))
+        cols = [sub.column(i).to_pylist() for i in range(sub.num_columns)]
+        rows = [[col[r] for col in cols] for r in range(sub.num_rows)]
+        return [str(n) for n in sub.schema.names], rows, int(result.num_rows)
+    records = cast(list[dict[str, Any]], result)
+    columns = list(records[0].keys())[:max_cols] if records else []
+    return columns, [[r.get(c) for c in columns] for r in records[:max_rows]], len(records)
+
+
+def _sql_quote(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _sql_record_types(keys: list[str], params: list[tuple[Any, ...]]) -> list[str]:
+    kinds: list[str] = []
+    for index, _key in enumerate(keys):
+        sample = next((row[index] for row in params if row[index] is not None), None)
+        kinds.append(
+            "BOOLEAN"
+            if type(sample) is bool
+            else "BIGINT"
+            if type(sample) is int
+            else "DOUBLE"
+            if type(sample) is float
+            else "BLOB"
+            if type(sample) is bytes
+            else "VARCHAR"
+        )
+    return kinds
+
+
+def sqlite_result(columns: list[str], rows: list[tuple[Any, ...]], library: str | None) -> Any:
+    """Convert DB-API rows to the preferred DataFrame library, else a list of dicts."""
+    try:
+        if library == "pandas":
+            return importlib.import_module("pandas").DataFrame(rows, columns=columns)
+        if library == "polars":
+            return importlib.import_module("polars").DataFrame(rows, schema=columns, orient="row")
+        if library == "pyarrow":
+            pa_mod: Any = importlib.import_module("pyarrow")
+            return pa_mod.table({c: [r[i] for r in rows] for i, c in enumerate(columns)})
+    except Exception:
+        pass
+    return [dict(zip(columns, r)) for r in rows]
+
+
+class SqlEngine:
+    """Run one SQL statement against referenced tables of a Python namespace.
+
+    DuckDB is used when installed; otherwise stdlib SQLite. Only bindings that the
+    query references (DAG refs, or a conservative identifier scan) are registered,
+    and a missing-table error retries with that one binding. Shared by SQL cells and
+    exported `.py` scripts (`kernelledger.sql.run_sql`).
+    """
+
+    def __init__(self, namespace: dict[Any, Any], hidden: dict[Any, Any] | None = None) -> None:
+        self.namespace = namespace
+        self.hidden = hidden or {}
+        self.registered: list[str] = []
+        self.engine = ""
+        self.library: str | None = None
+
+    def table(self, name: str) -> Any:
+        if not sql_visible_name(name) or name not in self.namespace:
+            return None
+        value = self.namespace[name]
+        if name in self.hidden and self.hidden[name] is value:
+            return None
+        info = passive_dataframe(value)
+        if info is not None:
+            return None if info["lazy"] else value
+        return value if _sql_records(value) is not None else None
+
+    def run(self, sql_source: str, refs: Any = None) -> Any:
+        query = sql_source.strip()
+        if not query:
+            return None
+        names = (
+            [r for r in cast(list[Any], refs) if type(r) is str]
+            if type(refs) is list
+            else sql_identifier_candidates(query)
+        )
+        self.library = _sql_result_library()
+        duckdb_mod: Any = None
+        try:
+            duckdb_mod = importlib.import_module("duckdb")
+        except Exception:
+            pass
+        if duckdb_mod is not None:
+            self.engine = "duckdb"
+            return self._duckdb(duckdb_mod, query, names)
+        self.engine = "sqlite"
+        return self._sqlite(query, names)
+
+    def _retry_name(self, error: Exception) -> str | None:
+        match = _SQL_MISSING_TABLE_RE.search(str(error))
+        if match is None:
+            return None
+        name = match.group(1)
+        if name in self.registered or self.table(name) is None:
+            return None
+        return name
+
+    def _records_frame(self, keys: list[str], rows: list[dict[Any, Any]]) -> Any:
+        try:
+            if self.library == "pandas":
+                return importlib.import_module("pandas").DataFrame.from_records(rows, columns=keys)
+            if self.library == "polars":
+                return importlib.import_module("polars").DataFrame(rows)
+            if self.library == "pyarrow":
+                return importlib.import_module("pyarrow").Table.from_pylist(rows)
+        except Exception:
+            return None
+        return None
+
+    def _duckdb(self, duckdb_mod: Any, query: str, names: list[str]) -> Any:
+        conn = duckdb_mod.connect(":memory:")
+
+        def register(name: str) -> None:
+            value = self.table(name)
+            if value is None or name in self.registered:
+                return
+            records = _sql_records(value)
+            frame = value if records is None else self._records_frame(*records)
+            try:
+                if frame is None:
+                    raise ValueError("no DataFrame library for records")
+                # Zero-copy scan; Polars/record frames need PyArrow, so fall back if absent.
+                conn.register(name, frame)
+            except Exception:
+                keys, params = _sql_python_rows(value)
+                kinds = _sql_record_types(keys, params)
+                defs = ", ".join(f"{_sql_quote(k)} {t}" for k, t in zip(keys, kinds))
+                conn.execute(f"CREATE TABLE {_sql_quote(name)} ({defs})")
+                if params:
+                    conn.executemany(
+                        f"INSERT INTO {_sql_quote(name)} VALUES ({', '.join('?' for _ in keys)})",
+                        params,
+                    )
+            self.registered.append(name)
+
+        try:
+            try:
+                # Only registered bindings are visible; DuckDB must not scan Python frames.
+                conn.execute("SET python_enable_replacements = false")
+            except Exception:
+                pass
+            for name in names:
+                register(name)
+            relation: Any = None
+            for _attempt in range(16):
+                try:
+                    relation = conn.sql(query)
+                    break
+                except Exception as error:
+                    missing = self._retry_name(error)
+                    if missing is None:
+                        raise
+                    register(missing)
+            else:
+                raise ValueError("SQL references too many unregistered tables")
+            if relation is None:
+                return None
+            if self.library == "pandas":
+                return relation.df()
+            if self.library == "polars" and importlib.util.find_spec("pyarrow") is not None:
+                return relation.pl()  # DuckDB hands Polars an Arrow table
+            if self.library == "pyarrow":
+                for method in ("to_arrow_table", "fetch_arrow_table", "arrow"):
+                    fetch = getattr(relation, method, None)
+                    if fetch is not None:
+                        table = fetch()
+                        return table.read_all() if hasattr(table, "read_all") else table
+            columns = [str(c) for c in relation.columns]
+            return sqlite_result(columns, relation.fetchall(), self.library)
+        finally:
+            conn.close()
+
+    def _sqlite(self, query: str, names: list[str]) -> Any:
+        import sqlite3
+
+        conn = sqlite3.connect(":memory:")
+
+        def register(name: str) -> None:
+            value = self.table(name)
+            if value is None or name in self.registered:
+                return
+            info = passive_dataframe(value)
+            if info is not None and info["library"] == "pandas":
+                value.to_sql(name, conn, index=False, if_exists="replace")
+                self.registered.append(name)
+                return
+            keys, params = _sql_python_rows(value)
+            defs = ", ".join(_sql_quote(k) for k in keys)
+            conn.execute(f"CREATE TABLE {_sql_quote(name)} ({defs})")
+            conn.executemany(
+                f"INSERT INTO {_sql_quote(name)} VALUES ({', '.join('?' for _ in keys)})", params
+            )
+            self.registered.append(name)
+
+        try:
+            for name in names:
+                register(name)
+            cursor: Any = None
+            for _attempt in range(16):
+                try:
+                    cursor = conn.execute(query)
+                    break
+                except sqlite3.OperationalError as error:
+                    missing = self._retry_name(error)
+                    if missing is None:
+                        raise
+                    register(missing)
+            else:
+                raise ValueError("SQL references too many unregistered tables")
+            if not cursor.description:
+                conn.commit()
+                return None
+            columns = [str(col[0]) for col in cursor.description]
+            return sqlite_result(columns, cursor.fetchall(), self.library)
+        finally:
+            conn.close()
+
+
 class Worker:
     def __init__(self, channel: Any) -> None:
         self.channel = channel
@@ -2097,17 +4904,35 @@ class Worker:
         self.executed_hash = ""
         self.widgets: dict[str, NativeWidget] = {}
         self.widget_snapshots: dict[str, Any] = {}
+        setattr(sys, "_kernelledger_active_worker", self)
+        # Warm the RSS probe (psutil import / ctypes setup) off the execution path.
+        _process_rss_bytes()
 
     def widget(self, kind: str, value: Any = None, **options: Any) -> NativeWidget:
-        if not self.advanced:
+        if not self.advanced and kind not in ("stat", "callout"):
             raise ValueError(
                 "Native widgets are experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
             )
         return NativeWidget(self, kind, value, **options)
 
-    def display_table(self, rows: Any, columns: Any = ()) -> None:
+    def execute_sql(self, sql_source: str, output_var: str = "_sql_df", refs: Any = None) -> Any:
+        """Execute SQL against referenced in-memory tables and bind the result to `output_var`."""
+        if not output_var or not output_var.isidentifier() or keyword.iskeyword(output_var):
+            raise ValueError("SQL output variable must be a valid Python identifier")
+        result = SqlEngine(self.namespace, self.internal_bindings).run(sql_source, refs)
+        if result is None:
+            return None
+        self.namespace[output_var] = result
+        result_library = (passive_dataframe(result) or {"library": None})["library"]
+        columns, rows, total = _sql_frame_rows(result, result_library)
+        if columns:
+            self.display_table(rows, columns, total_rows=total)
+        return result
+
+    def display_table(self, rows: Any, columns: Any = (), *, total_rows: Any = None) -> None:
         if type(rows) not in (list, tuple) or type(columns) not in (list, tuple):
             raise ValueError("display_table accepts built-in rows and column names")
+        total = len(rows) if type(total_rows) is not int or total_rows < len(rows) else total_rows
         if len(columns) > 20:
             raise ValueError("Tables are limited to 20 columns per recorded page")
         page: list[Any] = []
@@ -2123,15 +4948,15 @@ class Worker:
                     "value": {
                         "columns": headers,
                         "rows": page,
-                        "total_rows": len(rows),
-                        "truncated": len(rows) > 100,
+                        "total_rows": total,
+                        "truncated": total > len(page),
                     }
                 },
                 "text/plain": {
                     "value": "\n".join(" | ".join(row) for row in [headers, *page])
                     + (
-                        "\n[first 100 rows; inspect the source variable for more]"
-                        if len(rows) > 100
+                        f"\n[first {len(page)} rows; inspect the source variable for more]"
+                        if total > len(page)
                         else ""
                     )
                 },
@@ -2157,8 +4982,8 @@ class Worker:
         if generation != self.generation or handle not in self.widgets:
             raise ValueError("Stale widget; recreate it in the current session")
         widget = self.widgets[handle]
-        if widget.kind == "progress":
-            raise ValueError("Progress is read-only")
+        if widget.kind in ("progress", "stat", "callout"):
+            raise ValueError(f"{widget.kind} is read-only")
         widget.value = widget.validate(value)
         try:
             if widget.callback is not None:
@@ -2354,11 +5179,64 @@ class Worker:
                         if part not in attrs:
                             raise ValueError("name_not_found")
                         value = attrs[part]
-                    response.update(name=name, **passive_preview(value))
                     if method == "namespace.preview":
-                        response["page"] = passive_page(
-                            value, request.get("offset", 0), request.get("page_size", 100)
+                        raw_segments: list[dict[str, Any]] = request.get("segments") or []
+                        target, breadcrumbs = _resolve_segments(value, name, raw_segments)
+                        response.update(
+                            name=name,
+                            segments=raw_segments,
+                            breadcrumbs=breadcrumbs,
+                            **passive_preview(target, 1024),
                         )
+                        expr_label = "".join(str(b.get("label", "")) for b in breadcrumbs) or name
+                        page = passive_page(
+                            target,
+                            request.get("offset", 0),
+                            request.get("page_size", 50),
+                            col_offset=request.get("col_offset", 0),
+                            col_limit=request.get("col_limit", 16),
+                            include_stats=bool(request.get("include_stats", False)),
+                            slice_prefix=request.get("slice_prefix"),
+                            allow_device_copy=bool(request.get("allow_device_copy", False)),
+                            sort_col=request.get("sort_col"),
+                            sort_col_index=request.get("sort_col_index"),
+                            sort_desc=bool(request.get("sort_desc", False)),
+                            filter_query=str(request.get("filter_query") or ""),
+                            var_name=expr_label,
+                            lazy_schema=request.get("lazy_schema") is True,
+                        )
+                        response["page"] = page
+                        # Keep interactive_reply safely within the 64 KiB Channel frame budget.
+                        if len(json_bytes(response)) > 56000:
+                            response["truncated"] = True
+                            if (
+                                type(page.get("table")) is dict
+                                and type(page["table"].get("rows")) is list
+                            ):
+                                rows = page["table"]["rows"]
+                                idx = page["table"].get("index")
+                                idx_list: list[Any] | None = (
+                                    cast(list[Any], idx) if type(idx) is list else None
+                                )
+                                while len(rows) > 1 and len(json_bytes(response)) > 56000:
+                                    rows.pop()
+                                    if idx_list is not None and len(idx_list) > len(rows):
+                                        idx_list.pop()
+                                page["table"]["next_row_offset"] = page["table"].get(
+                                    "row_offset", 0
+                                ) + len(rows)
+                                page["next_offset"] = page["table"]["next_row_offset"]
+                            elif type(page.get("items")) is list:
+                                items_list = page["items"]
+                                while len(items_list) > 1 and len(json_bytes(response)) > 56000:
+                                    items_list.pop()
+                                page["next_offset"] = page.get("offset", 0) + len(items_list)
+                            elif type(page.get("text")) is str:
+                                while len(page["text"]) > 256 and len(json_bytes(response)) > 56000:
+                                    page["text"] = page["text"][: len(page["text"]) // 2]
+                                page["next_offset"] = page.get("offset", 0) + len(page["text"])
+                    else:
+                        response.update(name=name, **passive_preview(value))
             else:
                 raise ValueError("unsupported_capability")
         except (ValueError, KeyError, TypeError) as error:
@@ -2822,13 +5700,16 @@ class Worker:
         self.exec_id = message["exec_id"]
         self.interruptible = True
         self.ordinal += 1
+        cell_type = message.get("cell_type") or "code"
+        ext = ".sql" if cell_type == "sql" else ".py"
         filename = (
-            f"cells/{message['cell_id']}.py@{self.exec_id}"
+            f"cells/{message['cell_id']}{ext}@{self.exec_id}"
             if message.get("cell_id")
             else f"<unattributed>@{self.exec_id}"
         )
         state = "ok"
         ran_foreground = False
+        rss_before: int | None = None
         try:
             self.emit(
                 "status",
@@ -2837,44 +5718,56 @@ class Worker:
                     "origin", "notebook" if message.get("cell_id") else "unattributed"
                 ),
             )
+            rss_before = _process_rss_bytes()
             if hashlib.sha256(message["source"].encode()).hexdigest() != message["source_sha256"]:
                 raise ValueError("source hash mismatch")
             if asyncio.all_tasks(self.engine.loop):
                 raise RuntimeError(
                     "Previous tasks refused cancellation; restart or terminate this worker before another execution"
                 )
-            tree = self.index.add(filename, message["source"], self.ordinal)
             self.executed_hash = message["source_sha256"]
-            if message.get("debug", False):
-                if not self.advanced:
-                    raise ValueError(
-                        "Debugger is experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
-                    )
-                self.debugger.reset()
-                self.debugger.owner = None
-                for breakpoint in self.debugger.configured:
-                    prefix = f"cells/{breakpoint['cell_id']}.py@"
-                    for indexed, revision in self.index.revisions.items():
-                        if indexed.startswith(prefix) and revision == breakpoint["source_revision"]:
-                            linecache.cache[self.debugger.canonic(indexed)] = linecache.cache[
-                                indexed
-                            ]
-                            error = self.debugger.set_break(indexed, breakpoint["line"])
-                            if error:
-                                raise ValueError(error)
-                sys.settrace(self.debugger.trace_dispatch)
-            ran_foreground = True
-            result = self.engine.execute(tree, message["source"], filename)
-            suppressed = suppress_result(message["source"])
-            self.engine.history.record(self.ordinal, message["source"], result, suppressed)
-            if result is not None and not suppressed:
-                bundle, metadata = self.mimebundle(result)
-                self.emit(
-                    "result",
-                    bundle=bundle,
-                    metadata=metadata,
-                    **({"display_id": result.handle} if type(result) is NativeWidget else {}),
+            if cell_type == "sql":
+                ran_foreground = True
+                output_var = str(message.get("output_var") or "_sql_df")
+                result = self.execute_sql(
+                    message["source"], output_var=output_var, refs=message.get("sql_refs")
                 )
+                self.engine.history.record(self.ordinal, message["source"], result, False)
+            else:
+                tree = self.index.add(filename, message["source"], self.ordinal)
+                if message.get("debug", False):
+                    if not self.advanced:
+                        raise ValueError(
+                            "Debugger is experimental; start the owner with KL_EXPERIMENTAL_INTERACTIVITY=1"
+                        )
+                    self.debugger.reset()
+                    self.debugger.owner = None
+                    for breakpoint in self.debugger.configured:
+                        prefix = f"cells/{breakpoint['cell_id']}.py@"
+                        for indexed, revision in self.index.revisions.items():
+                            if (
+                                indexed.startswith(prefix)
+                                and revision == breakpoint["source_revision"]
+                            ):
+                                linecache.cache[self.debugger.canonic(indexed)] = linecache.cache[
+                                    indexed
+                                ]
+                                error = self.debugger.set_break(indexed, breakpoint["line"])
+                                if error:
+                                    raise ValueError(error)
+                    sys.settrace(self.debugger.trace_dispatch)
+                ran_foreground = True
+                result = self.engine.execute(tree, message["source"], filename)
+                suppressed = suppress_result(message["source"])
+                self.engine.history.record(self.ordinal, message["source"], result, suppressed)
+                if result is not None and not suppressed:
+                    bundle, metadata = self.mimebundle(result)
+                    self.emit(
+                        "result",
+                        bundle=bundle,
+                        metadata=metadata,
+                        **({"display_id": result.handle} if type(result) is NativeWidget else {}),
+                    )
             plt: Any = sys.modules.get("matplotlib.pyplot")
             if plt is not None:
                 plt.show = self.show_figures
@@ -2938,6 +5831,12 @@ class Worker:
                 self.figures()
             except Exception as error:
                 self.emit("stderr", text=f"figure capture failed: {error}\n")
+            rss_after = _process_rss_bytes()
+            telemetry: dict[str, Any] = {}
+            if rss_after is not None:
+                telemetry["rss_bytes"] = rss_after
+                if rss_before is not None:
+                    telemetry["memory_delta_bytes"] = rss_after - rss_before
             self.emit(
                 "status",
                 state="idle",
@@ -2945,6 +5844,7 @@ class Worker:
                 namespace_epoch=self.engine.epoch,
                 history_cache=self.engine.history.enabled,
                 background_tasks=bool(asyncio.all_tasks(self.engine.loop)),
+                **telemetry,
             )
             self.exec_id = None
 

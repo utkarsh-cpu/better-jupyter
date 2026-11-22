@@ -381,6 +381,9 @@ def test_deterministic_staleness_and_search(assistant, notebook):
     session = ledger.session(notebook.read()["id"], {})
     digest = blobs.put(b"x = 0\n")
     eid = ledger.execution(session, "first", digest)
+    # A still-queued run says nothing about the namespace; only a finished one makes it stale.
+    assert stale_cells(assistant.tools)["cells"][0]["state"] == "never_run"
+    ledger.write("UPDATE executions SET status='ok' WHERE exec_id=?", (eid,))
     ledger.close()
     assert stale_cells(assistant.tools)["cells"][0]["state"] == "stale"
     result = assistant.dispatch({"method": "search", "query": "x"})

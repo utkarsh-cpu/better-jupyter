@@ -74,6 +74,11 @@ HELPER = {
     "doctor": [],
     "interpreter.candidates": [],
     "interpreter.validate": ["path"],
+    "packages.list": [],
+    "packages.install": ["package"],
+    "code.format": ["source"],
+    "files.list": [],
+    "dag.analyze": [],
     "blob.read": ["sha256"],
     "ping": [],
 }
@@ -95,6 +100,37 @@ EFFECTS = {
     "import_ipynb",
     "bundle_import",
     "migrate",
+}
+
+
+# Optional `namespace.preview` paging/table fields. Columns are identified by position
+# (`sort_col_index`); `sort_col` (a display label) remains accepted for older clients.
+NAMESPACE_PREVIEW_PROPERTIES: dict[str, Any] = {
+    "offset": {"type": "integer", "minimum": 0},
+    "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
+    "segments": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+            "type": "object",
+            "required": ["kind", "value"],
+            "properties": {"kind": {"enum": ["index", "key", "entry", "attr"]}},
+        },
+    },
+    "slice_prefix": {
+        "type": "array",
+        "maxItems": 8,
+        "items": {"type": "integer", "minimum": 0},
+    },
+    "col_offset": {"type": "integer", "minimum": 0},
+    "col_limit": {"type": "integer", "minimum": 1, "maximum": 40},
+    "include_stats": {"type": "boolean"},
+    "allow_device_copy": {"type": "boolean"},
+    "lazy_schema": {"type": "boolean"},
+    "sort_col": {"type": "string"},
+    "sort_col_index": {"type": "integer", "minimum": 0},
+    "sort_desc": {"type": "boolean"},
+    "filter_query": {"type": "string"},
 }
 
 
@@ -130,12 +166,26 @@ def validate(request: Any, helper: bool = False) -> None:
         "handle",
         "controller_id",
         "command",
+        "sort_col",
+        "filter_query",
+        "package",
     ):
         if key in request and not isinstance(request[key], str):
             raise SourceError("invalid_request", f"{key} must be a string")
-    for key in ("offset", "length", "after_seq", "after_change_seq", "page_size"):
+    for key in (
+        "offset",
+        "length",
+        "after_seq",
+        "after_change_seq",
+        "page_size",
+        "col_offset",
+        "col_limit",
+        "sort_col_index",
+    ):
         if key in request and (type(request[key]) is not int or request[key] < 0):
             raise SourceError("invalid_request", f"{key} must be a nonnegative integer")
+    if "col_limit" in request and not 1 <= request["col_limit"] <= 40:
+        raise SourceError("invalid_request", "col_limit must be between 1 and 40")
     if "line" in request and (
         type(request["line"]) is not int or not 1 <= request["line"] <= 100000
     ):
@@ -154,6 +204,36 @@ def validate(request: Any, helper: bool = False) -> None:
         raise SourceError("invalid_request", "cursor must be a Unicode code-point offset in source")
     if method == "namespace.list" and not 1 <= request.get("page_size", 100) <= 100:
         raise SourceError("invalid_request", "namespace pages are limited to 100 bindings")
+    if method == "namespace.preview":
+        if "segments" in request:
+            segs = request["segments"]
+            if type(segs) is not list:
+                raise SourceError("invalid_request", "segments must be a list of at most 16 steps")
+            segs_list = cast(list[Any], segs)
+            if len(segs_list) > 16:
+                raise SourceError("invalid_request", "segments must be a list of at most 16 steps")
+            for seg in segs_list:
+                if type(seg) is not dict:
+                    raise SourceError("invalid_request", "invalid segment entry")
+                seg_dict = cast(dict[str, Any], seg)
+                if (
+                    seg_dict.get("kind") not in ("index", "key", "entry", "attr")
+                    or "value" not in seg_dict
+                ):
+                    raise SourceError("invalid_request", "invalid segment entry")
+        if "slice_prefix" in request:
+            prefix = request["slice_prefix"]
+            if type(prefix) is not list:
+                raise SourceError(
+                    "invalid_request",
+                    "slice_prefix must be a list of at most 8 nonnegative integers",
+                )
+            prefix_list = cast(list[Any], prefix)
+            if len(prefix_list) > 8 or any(type(p) is not int or p < 0 for p in prefix_list):
+                raise SourceError(
+                    "invalid_request",
+                    "slice_prefix must be a list of at most 8 nonnegative integers",
+                )
     if method == "debug.breakpoints" and (
         type(request["breakpoints"]) is not list or len(request["breakpoints"]) > 100
     ):
@@ -166,6 +246,11 @@ def validate(request: Any, helper: bool = False) -> None:
         "dry_run",
         "latest_per_cell",
         "debug",
+        "include_stats",
+        "allow_device_copy",
+        "sort_desc",
+        "lazy_schema",
+        "report",
     ):
         if key in request and type(request[key]) is not bool:
             raise SourceError("invalid_request", f"{key} must be a boolean")
@@ -225,6 +310,12 @@ def schema(helper: bool = False) -> Any:
             properties["debug"] = {"type": "boolean"}
         if helper and method == "export_document":
             properties["markdown"] = {"type": "string"}
+            properties["report"] = {"type": "boolean"}
+        if not helper and method == "namespace.list":
+            properties["cursor"] = {"type": "string"}
+            properties["page_size"] = {"type": "integer", "minimum": 1, "maximum": 100}
+        if not helper and method == "namespace.preview":
+            properties.update(NAMESPACE_PREVIEW_PROPERTIES)
         variants.append({"type": "object", "required": keys, "properties": properties})
     variants.extend(
         [

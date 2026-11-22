@@ -215,7 +215,7 @@ impl Workspace {
     pub(super) fn anchored(
         &self,
         key: impl Into<String>,
-        button: WorkbenchButton,
+        button: impl IntoElement,
         cx: &mut Context<Self>,
     ) -> Stateful<Div> {
         let key = key.into();
@@ -325,7 +325,7 @@ impl Workspace {
             .ghost()
             .small()
             .w(px(shaped_width))
-            .when(!self.notebook_menu, |b| {
+            .when(!matches!(self.menu, Some(ActiveMenu::Notebook)), |b| {
                 b.hint(format!("{path} \u{2014} switch or open notebook"))
             })
             .accessibility_label(format!("Notebook switcher: {path}"))
@@ -335,7 +335,7 @@ impl Workspace {
                 v.close_menu(window, cx);
                 v.return_focus = window.focused(cx);
                 v.menu_anchor = "switcher".into();
-                v.notebook_menu = true;
+                v.menu = Some(ActiveMenu::Notebook);
                 v.dialog_focus.focus(window, cx);
                 cx.notify();
             }));
@@ -404,13 +404,20 @@ impl Workspace {
                 {
                     continue;
                 }
+                let collapsed_secondary = collapse.navigation && self.surface != surface;
+                let button_label: SharedString = if collapsed_secondary {
+                    self.surface.clone().into()
+                } else {
+                    surface.into()
+                };
                 let mut button = action_button(surface)
                     .debug_selector(surface)
                     .small()
-                    .segment(self.surface == surface)
+                    .when(collapsed_secondary, |b| b.outline())
+                    .when(!collapsed_secondary, |b| b.segment(self.surface == surface))
                     .accessibility_label(format!(
-                        "{surface}{}",
-                        if self.surface == surface {
+                        "{button_label}{}",
+                        if self.surface == surface || collapsed_secondary {
                             ", current destination"
                         } else {
                             ""
@@ -434,7 +441,7 @@ impl Workspace {
                             v.close_menu(window, cx);
                             v.return_focus = window.focused(cx);
                             v.menu_anchor = "application".into();
-                            v.app_menu = true;
+                            v.menu = Some(ActiveMenu::Application);
                             v.dialog_focus.focus(window, cx);
                             cx.notify();
                         } else {
@@ -442,7 +449,7 @@ impl Workspace {
                             v.focus.focus(window, cx);
                         }
                     }));
-                button = button.label(surface).w(px(if collapse.navigation {
+                button = button.label(button_label).w(px(if collapse.navigation {
                     116.
                 } else {
                     destination_width(surface)
@@ -482,17 +489,19 @@ impl Workspace {
                 .ghost()
                 .small()
                 .accessibility_label(format!("Runtime: Python ({state})"))
-                .when(!self.runtime_menu, |b| {
+                .when(!matches!(self.menu, Some(ActiveMenu::Runtime)), |b| {
                     b.hint(format!("Python ({state}) \u{2014} runtime controls"))
                 })
                 .on_click(cx.listener(|v, _, window, cx| {
-                    let open = !v.runtime_menu;
+                    let open = !matches!(v.menu, Some(ActiveMenu::Runtime));
                     v.close_menu(window, cx);
-                    v.return_focus = window.focused(cx);
-                    v.menu_anchor = "runtime".into();
-                    v.runtime_menu = open;
-                    v.dialog_focus.focus(window, cx);
-                    cx.notify();
+                    if open {
+                        v.return_focus = window.focused(cx);
+                        v.menu_anchor = "runtime".into();
+                        v.menu = Some(ActiveMenu::Runtime);
+                        v.dialog_focus.focus(window, cx);
+                        cx.notify();
+                    }
                 }));
             if tight {
                 runtime = runtime
@@ -553,7 +562,7 @@ impl Workspace {
                     .small()
                     .icon(Glyph::FileText)
                     .accessibility_label("Export notebook")
-                    .when(!self.export_menu, |b| {
+                    .when(!matches!(self.menu, Some(ActiveMenu::Export)), |b| {
                         b.hint("Export PDF, Word, Jupyter, or bundle (Ctrl+Shift+E)")
                     })
                     .unavailable(self.command_reason("export-menu").is_some())
@@ -605,15 +614,19 @@ impl Workspace {
                     .small()
                     .icon(Glyph::Ellipsis)
                     .accessibility_label("Menu")
-                    .when(!self.app_menu, |b| b.hint("Workspace menu"))
+                    .when(!matches!(self.menu, Some(ActiveMenu::Application)), |b| {
+                        b.hint("Workspace menu")
+                    })
                     .on_click(cx.listener(|v, _, window, cx| {
-                        let open = !v.app_menu;
+                        let open = !matches!(v.menu, Some(ActiveMenu::Application));
                         v.close_menu(window, cx);
-                        v.return_focus = window.focused(cx);
-                        v.menu_anchor = "application".into();
-                        v.app_menu = open;
-                        v.dialog_focus.focus(window, cx);
-                        cx.notify();
+                        if open {
+                            v.return_focus = window.focused(cx);
+                            v.menu_anchor = "application".into();
+                            v.menu = Some(ActiveMenu::Application);
+                            v.dialog_focus.focus(window, cx);
+                            cx.notify();
+                        }
                     })),
                 cx,
             ),
@@ -636,8 +649,8 @@ impl Workspace {
             .id("workspace-menu-content")
             .debug_selector(|| "workspace-menu-content".into())
             .overflow_y_scroll()
-            .w(px(272.))
-            .max_h(px(440.))
+            .w(rems(17.))
+            .max_h(rems(27.5))
             .p_1()
             .gap_0p5()
             .items_stretch()
@@ -646,473 +659,714 @@ impl Workspace {
             .border_color(surface_edge(cx))
             .rounded(px(8.))
             .when(!self.high_contrast, |d| d.shadow_lg());
-        if self.export_menu {
-            menu = menu
-                .child(
-                    div()
-                        .px_2()
-                        .py_1()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("Export notebook"),
-                )
-                .child(
-                    div()
-                        .px_2()
-                        .pb_2()
-                        .text_xs()
-                        .text_color(cx.theme().muted_foreground)
-                        .child("PDF and Word include saved source and recorded outputs."),
-                );
-            for (format, label, description) in [
-                (
-                    "pdf",
-                    "PDF document (.pdf)",
-                    "A paginated document for reading and sharing",
-                ),
-                (
-                    "docx",
-                    "Word document (.docx)",
-                    "An editable document for reports",
-                ),
-                (
-                    "ipynb",
-                    "Jupyter notebook (.ipynb)",
-                    "Current source in Jupyter format",
-                ),
-                (
-                    "zip",
-                    "Portable bundle (.zip)",
-                    "Source and recorded history",
-                ),
-            ] {
-                menu = menu.child(
-                    action_button(SharedString::from(format!("export-{format}")))
-                        .ghost()
-                        .w_full()
-                        .menu_item(label, None)
-                        .hint(description)
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.export_dialog(format, window, cx);
-                        })),
-                );
-            }
-        } else if let Some(index) = self.insert_menu {
-            for (kind, label, icon) in [
-                ("code", "Code cell", Glyph::Code),
-                ("markdown", "Markdown prose", Glyph::Type),
-                ("raw", "Raw text", Glyph::FileText),
-            ] {
-                menu = menu.child(
-                    action_button(SharedString::from(format!("insert-type-{kind}")))
-                        .ghost()
-                        .w_full()
-                        .icon(icon)
-                        .menu_item(label, None)
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.mutate(json!({"action":"add","type":kind,"index":index}));
-                        })),
-                );
-            }
-        } else if let Some((id, _)) = self.cell_menu.as_ref().filter(|_| self.cell_menu_assistant) {
-            menu = menu
-                .child(
-                    action_button("cell-menu-back")
-                        .ghost()
-                        .w_full()
-                        .menu_item("\u{2039} Back", Some("left"))
-                        .accessibility_label("Back to cell actions")
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.cell_menu_assistant = false;
-                            v.dialog_focus.focus(window, cx);
-                            cx.notify();
-                        })),
-                )
-                .child(menu_sep(cx))
-                .child(
-                    div()
-                        .px_2()
-                        .py_0p5()
-                        .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(cx.theme().muted_foreground)
-                        .child("Assistant"),
-                );
-            for (action, label) in CELL_ASSISTANT_ACTIONS {
-                let id = id.clone();
-                menu = menu.child(
-                    action_button(action)
-                        .ghost()
-                        .w_full()
-                        .menu_item(label, None)
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.tabs[v.active].model.selected = Some(id.clone());
-                            v.tabs[v.active].assistant.selected_cells = vec![id.clone()];
-                            v.close_menu(window, cx);
-                            v.run_command(action, window, cx);
-                        })),
-                );
-            }
-        } else if let Some((id, index)) = &self.cell_menu {
-            for (action, label) in [
-                ("duplicate", "Duplicate cell"),
-                ("move-up", "Move up"),
-                ("move-down", "Move down"),
-                ("assistant-group", "Assistant"),
-                ("delete", "Delete cell\u{2026}"),
-            ] {
-                let cell_id = id.clone();
-                let index = *index;
-                if action == "assistant-group" {
-                    menu = menu.child(menu_sep(cx)).child(
-                        action_button("cell-menu-assistant")
+        match self.menu.as_ref() {
+            Some(ActiveMenu::Export) => {
+                menu = menu
+                    .child(
+                        div()
+                            .px_2()
+                            .py_1()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("Export notebook"),
+                    )
+                    .child(
+                        div()
+                            .px_2()
+                            .pb_2()
+                            .text_xs()
+                            .text_color(cx.theme().muted_foreground)
+                            .child("PDF and Word include saved source and recorded outputs."),
+                    );
+                for (format, label, description) in [
+                    (
+                        "html",
+                        "HTML report (.html)",
+                        "Standalone interactive HTML report with source and outputs",
+                    ),
+                    (
+                        "py",
+                        "Python script (.py)",
+                        "Percent-format Python script (# %%) for version control",
+                    ),
+                    (
+                        "pdf",
+                        "PDF document (.pdf)",
+                        "A paginated document for reading and sharing",
+                    ),
+                    (
+                        "docx",
+                        "Word document (.docx)",
+                        "An editable document for reports",
+                    ),
+                    (
+                        "ipynb",
+                        "Jupyter notebook (.ipynb)",
+                        "Current source in Jupyter format",
+                    ),
+                    (
+                        "zip",
+                        "Portable bundle (.zip)",
+                        "Source and recorded history",
+                    ),
+                ] {
+                    menu = menu.child(
+                        action_button(SharedString::from(format!("export-{format}")))
                             .ghost()
                             .w_full()
-                            .submenu_item(label)
-                            .accessibility_label("Assistant actions")
-                            .hint("Ask, suggest an edit, refactor, document, or generate tests")
+                            .menu_item(label, None)
+                            .hint(description)
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.export_dialog(format, window, cx);
+                            })),
+                    );
+                }
+            }
+            Some(ActiveMenu::Insert { after }) => {
+                for (kind, label, icon) in [
+                    ("code", "Code cell", Glyph::Code),
+                    ("sql", "SQL query", Glyph::Database),
+                    ("markdown", "Markdown prose", Glyph::Type),
+                    ("raw", "Raw text", Glyph::FileText),
+                ] {
+                    menu = menu.child(
+                        action_button(SharedString::from(format!("insert-type-{kind}")))
+                            .ghost()
+                            .w_full()
+                            .icon(icon)
+                            .menu_item(label, None)
+                            .on_click(cx.listener({
+                                let after = after.clone();
+                                move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.insert_cell_after(&after, kind);
+                                }
+                            })),
+                    );
+                }
+            }
+            Some(ActiveMenu::Cell {
+                cell_id: id,
+                assistant: true,
+                ..
+            }) => {
+                menu = menu
+                    .child(
+                        action_button("cell-menu-back")
+                            .ghost()
+                            .w_full()
+                            .menu_item("\u{2039} Back", Some("left"))
+                            .accessibility_label("Back to cell actions")
                             .on_click(cx.listener(|v, _, window, cx| {
-                                v.cell_menu_assistant = true;
+                                if let Some(ActiveMenu::Cell { assistant, .. }) = &mut v.menu {
+                                    *assistant = false;
+                                }
                                 v.dialog_focus.focus(window, cx);
                                 cx.notify();
                             })),
-                    );
-                    continue;
-                }
-                if action == "delete" {
-                    menu = menu.child(menu_sep(cx));
-                }
-                menu = menu.child(
-                    action_button(action)
-                        .ghost()
-                        .w_full()
-                        .when(action == "delete", |b| b.text_color(cx.theme().danger))
-                        .menu_item(
-                            label,
-                            match action {
-                                "duplicate" => Some("ctrl-shift-d"),
-                                _ => None,
-                            },
-                        )
-                        .unavailable(
-                            (action == "move-up" && index == 0)
-                                || (action == "move-down"
-                                    && index + 1 == self.tabs[self.active].model.order.len()),
-                        )
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            match action {
-                                "delete" => {
-                                    v.confirmation =
-                                        Some(("delete".into(), json!({"cell_id":cell_id})));
-                                    cx.notify();
-                                }
-                                "move-up" | "move-down" => v.mutate(json!({
-                                    "action":"move",
-                                    "cell_id":cell_id,
-                                    "index": if action == "move-up" {
-                                        index.saturating_sub(1)
-                                    } else {
-                                        index + 1
-                                    }
-                                })),
-                                _ => v.mutate(json!({"action":action,"cell_id":cell_id})),
-                            }
-                        })),
-                );
-            }
-        } else if self.notebook_menu {
-            for (index, tab) in self.tabs.iter().enumerate() {
-                let basename = tab
-                    .model
-                    .project
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy();
-                let duplicate = self
-                    .tabs
-                    .iter()
-                    .filter(|other| {
-                        other.model.project.file_name() == tab.model.project.file_name()
-                    })
-                    .count()
-                    > 1;
-                let label = if duplicate {
-                    format!(
-                        "{basename} \u{2014} {}",
-                        tab.model
-                            .project
-                            .parent()
-                            .unwrap_or(&tab.model.project)
-                            .display()
                     )
-                } else {
-                    basename.to_string()
-                };
-                menu = menu.child(
-                    action_button(("switch-notebook", index))
-                        .ghost()
-                        .w_full()
-                        .menu_item(label, None)
-                        .accessibility_label(format!(
-                            "Notebook: {}{}",
-                            tab.model.project.display(),
-                            if index == self.active {
-                                ", current notebook"
-                            } else {
-                                ""
-                            }
-                        ))
-                        .hint(tab.model.project.display().to_string())
-                        .quiet_toggle(index == self.active)
-                        .selected(index == self.active)
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            if let Some(tab) = v.tabs.get_mut(v.active) {
-                                tab.selections.insert(v.surface.clone(), v.record_active);
-                            }
-                            v.active = index;
-                            v.record_active = v.tabs[index]
-                                .selections
-                                .get(&v.surface)
-                                .copied()
-                                .unwrap_or(0);
-                            v.close_menu(window, cx);
-                        })),
-                );
+                    .child(menu_sep(cx))
+                    .child(
+                        div()
+                            .px_2()
+                            .py_0p5()
+                            .text_xs()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(cx.theme().muted_foreground)
+                            .child("Assistant"),
+                    );
+                for (action, label) in CELL_ASSISTANT_ACTIONS {
+                    let id = id.clone();
+                    menu = menu.child(
+                        action_button(action)
+                            .ghost()
+                            .w_full()
+                            .menu_item(label, None)
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.tabs[v.active].model.selected = Some(id.clone());
+                                v.tabs[v.active].assistant.selected_cells = vec![id.clone()];
+                                v.close_menu(window, cx);
+                                v.run_command(action, window, cx);
+                            })),
+                    );
+                }
             }
-            menu = menu.child(menu_sep(cx)).child(
-                action_button("switch-open")
-                    .ghost()
-                    .w_full()
-                    .icon(Glyph::FolderOpen)
-                    .menu_item("Open notebook\u{2026}", Some("ctrl-o"))
-                    .on_click(cx.listener(|v, _, window, cx| {
-                        v.close_menu(window, cx);
-                        v.open_dialog(&OpenNotebook, window, cx);
-                    })),
-            );
-        } else if self.runtime_menu {
-            let runtime = &self.tabs[self.active].runtime;
-            let status_color = if runtime["connection_lost"] == true {
-                cx.theme().danger
-            } else {
-                runtime["worker_state"]
-                    .as_str()
-                    .map(|s| tone(s, cx))
-                    .unwrap_or(cx.theme().muted_foreground)
-            };
-            menu = menu
-                .child(
-                    v_flex()
-                        .gap_1()
-                        .px_2p5()
-                        .py_2()
-                        .rounded(px(7.))
-                        .bg(cx.theme().muted)
+            Some(ActiveMenu::Cell {
+                cell_id: id,
+                assistant: false,
+            }) => {
+                let order = &self.tabs[self.active].model.order;
+                let position = order.iter().position(|c| c == id);
+                let (first, last) = (
+                    position == Some(0),
+                    position.map(|i| i + 1) == Some(order.len()),
+                );
+                let cell_meta = self.tabs[self.active].model.cells.get(id);
+                let is_exec = cell_meta.is_some_and(|c| c.is_executable());
+                let is_code = cell_meta.is_some_and(|c| c.disk.kind == "code");
+                let is_sql = cell_meta.is_some_and(|c| c.disk.kind == "sql");
+                let is_hidden = cell_meta.is_some_and(|c| c.is_code_hidden());
+                let is_disabled = cell_meta.is_some_and(|c| c.is_disabled());
+                if is_exec {
+                    let model = &self.tabs[self.active].model;
+                    let plan = downstream_plan(model, &dag::analyze_notebook(model), id);
+                    let cid_ds = id.clone();
+                    menu = menu.child(
+                        action_button("run-downstream")
+                            .ghost()
+                            .w_full()
+                            .menu_item(run_downstream_label(&plan), None)
+                            .unavailable(plan.is_err())
+                            .when_some(plan.err(), |b, reason| b.hint(reason))
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.run_cell_and_downstream(&cid_ds, cx);
+                            })),
+                    );
+                    if is_code {
+                        let cid_fmt = id.clone();
+                        menu = menu.child(
+                            action_button("format-cell-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item("Format cell (ruff)", None)
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.format_cell(&cid_fmt, cx);
+                                })),
+                        );
+                    }
+                    let cid_hide = id.clone();
+                    let cid_dis = id.clone();
+                    let cid_conv = id.clone();
+                    menu = menu
                         .child(
-                            h_flex()
-                                .gap_2()
-                                .items_center()
-                                .child(dot(status_color))
-                                .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(
-                                    if runtime["connection_lost"] == true {
-                                        "Connection lost \u{2014} execution state unknown".into()
+                            action_button("toggle-hide-code-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(if is_hidden { "Show code" } else { "Hide code" }, None)
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.mutate_cell_metadata(
+                                        &cid_hide,
+                                        "hide_code",
+                                        json!(!is_hidden),
+                                        cx,
+                                    );
+                                })),
+                        )
+                        .child(
+                            action_button("toggle-disabled-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if is_disabled {
+                                        "Enable cell"
                                     } else {
-                                        worker_label(runtime["worker_state"].as_str())
+                                        "Disable cell"
                                     },
-                                )),
+                                    None,
+                                )
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.mutate_cell_metadata(
+                                        &cid_dis,
+                                        "disabled",
+                                        json!(!is_disabled),
+                                        cx,
+                                    );
+                                })),
                         )
                         .child(
-                            div()
-                                .text_xs()
-                                .text_color(cx.theme().muted_foreground)
-                                .font_family(cx.theme().mono_font_family.clone())
-                                .whitespace_normal()
-                                .child(
-                                    runtime["interpreter"]["executable"]
-                                        .as_str()
-                                        .or(runtime["interpreter"]["python"].as_str())
-                                        .unwrap_or(
-                                            "Interpreter details are available after running a cell",
-                                        )
-                                        .to_string(),
-                                ),
-                        ),
-                )
-                .child(menu_sep(cx));
-            for (method, label) in [
-                ("interrupt", "Interrupt"),
-                ("restart", "Restart empty\u{2026}"),
-                ("stop", "Stop runtime\u{2026}"),
-            ] {
-                menu = menu.child(
-                    action_button(method)
-                        .ghost()
-                        .w_full()
-                        .menu_item(
-                            label,
-                            match method {
-                                "interrupt" => Some("ctrl-shift-i"),
-                                _ => None,
-                            },
+                            action_button("convert-cell-type-menu")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if is_sql {
+                                        "Convert to Python"
+                                    } else {
+                                        "Convert to SQL"
+                                    },
+                                    None,
+                                )
+                                .on_click(cx.listener(move |v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    let target = if is_sql { "code" } else { "sql" };
+                                    if target == "sql" {
+                                        v.assign_output_var(cid_conv.clone());
+                                    }
+                                    v.mutate(json!({
+                                        "action": "convert",
+                                        "cell_id": cid_conv,
+                                        "type": target,
+                                    }));
+                                })),
                         )
-                        .unavailable(action_reason(method, runtime).is_some())
-                        .hint(action_reason(method, runtime).unwrap_or(label))
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.runtime_menu = false;
-                            v.run_command(method, window, cx);
-                        })),
-                );
+                        .child(menu_sep(cx));
+                }
+                for (action, label) in [
+                    ("duplicate", "Duplicate cell"),
+                    ("move-up", "Move up"),
+                    ("move-down", "Move down"),
+                    ("assistant-group", "Assistant"),
+                    ("delete", "Delete cell\u{2026}"),
+                ] {
+                    let cell_id = id.clone();
+                    if action == "assistant-group" {
+                        menu = menu.child(menu_sep(cx)).child(
+                            action_button("cell-menu-assistant")
+                                .ghost()
+                                .w_full()
+                                .submenu_item(label)
+                                .accessibility_label("Assistant actions")
+                                .hint("Ask, suggest an edit, refactor, document, or generate tests")
+                                .on_click(cx.listener(|v, _, window, cx| {
+                                    if let Some(ActiveMenu::Cell { assistant, .. }) = &mut v.menu {
+                                        *assistant = true;
+                                    }
+                                    v.dialog_focus.focus(window, cx);
+                                    cx.notify();
+                                })),
+                        );
+                        continue;
+                    }
+                    if action == "delete" {
+                        menu = menu.child(menu_sep(cx));
+                    }
+                    menu = menu.child(
+                        action_button(action)
+                            .ghost()
+                            .w_full()
+                            .when(action == "delete", |b| b.text_color(cx.theme().danger))
+                            .menu_item(
+                                label,
+                                match action {
+                                    "duplicate" => Some("ctrl-shift-d"),
+                                    _ => None,
+                                },
+                            )
+                            .unavailable(
+                                position.is_none()
+                                    || (action == "move-up" && first)
+                                    || (action == "move-down" && last),
+                            )
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                // Resolve the position now: cells may have moved
+                                // while the menu was open.
+                                let order = &v.tabs[v.active].model.order;
+                                let Some(index) = order.iter().position(|c| *c == cell_id) else {
+                                    return;
+                                };
+                                let count = order.len();
+                                match action {
+                                    "delete" => {
+                                        v.confirmation =
+                                            Some(("delete".into(), json!({"cell_id":cell_id})));
+                                        cx.notify();
+                                    }
+                                    "move-up" | "move-down" => {
+                                        let target = if action == "move-up" {
+                                            index.checked_sub(1)
+                                        } else {
+                                            Some(index + 1).filter(|i| *i < count)
+                                        };
+                                        if let Some(target) = target {
+                                            v.mutate(json!({
+                                                "action":"move",
+                                                "cell_id":cell_id,
+                                                "index": target,
+                                            }));
+                                        }
+                                    }
+                                    _ => v.mutate(json!({"action":action,"cell_id":cell_id})),
+                                }
+                            })),
+                    );
+                }
             }
-            menu = menu.child(menu_sep(cx)).child(
-                action_button("all-runtimes")
-                    .ghost()
-                    .w_full()
-                    .menu_item("All runtimes", None)
-                    .on_click(cx.listener(|v, _, window, cx| {
-                        v.runtime_menu = false;
-                        v.select_surface("Runtimes", cx);
-                        v.focus.focus(window, cx);
-                    })),
-            );
-        } else {
-            menu = menu
-                .child(
-                    action_button("open")
+            Some(ActiveMenu::Notebook) => {
+                for (index, tab) in self.tabs.iter().enumerate() {
+                    let basename = tab
+                        .model
+                        .project
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy();
+                    let duplicate = self
+                        .tabs
+                        .iter()
+                        .filter(|other| {
+                            other.model.project.file_name() == tab.model.project.file_name()
+                        })
+                        .count()
+                        > 1;
+                    let label = if duplicate {
+                        format!(
+                            "{basename} \u{2014} {}",
+                            tab.model
+                                .project
+                                .parent()
+                                .unwrap_or(&tab.model.project)
+                                .display()
+                        )
+                    } else {
+                        basename.to_string()
+                    };
+                    menu = menu.child(
+                        h_flex()
+                            .w_full()
+                            .items_center()
+                            .gap_1()
+                            .child(
+                                action_button(("switch-notebook", index))
+                                    .ghost()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .menu_item(label.clone(), None)
+                                    .accessibility_label(format!(
+                                        "Notebook: {}{}",
+                                        tab.model.project.display(),
+                                        if index == self.active {
+                                            ", current notebook"
+                                        } else {
+                                            ""
+                                        }
+                                    ))
+                                    .hint(tab.model.project.display().to_string())
+                                    .quiet_toggle(index == self.active)
+                                    .selected(index == self.active)
+                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                        if let Some(tab) = v.tabs.get_mut(v.active) {
+                                            tab.selections
+                                                .insert(v.surface.clone(), v.record_active);
+                                        }
+                                        v.active = index;
+                                        v.record_active = v.tabs[index]
+                                            .selections
+                                            .get(&v.surface)
+                                            .copied()
+                                            .unwrap_or(0);
+                                        v.close_menu(window, cx);
+                                    })),
+                            )
+                            .child(
+                                action_button(("close-notebook", index))
+                                    .ghost()
+                                    .small()
+                                    .icon(Glyph::X)
+                                    .accessibility_label(format!("Close {label}"))
+                                    .hint(format!(
+                                        "Close notebook ({})",
+                                        shortcuts::shortcut_text("Ctrl+W")
+                                    ))
+                                    .on_click(cx.listener(move |v, _, window, cx| {
+                                        v.close_tab(index, window, cx);
+                                    })),
+                            ),
+                    );
+                }
+                menu = menu.child(menu_sep(cx)).child(
+                    action_button("switch-open")
                         .ghost()
                         .w_full()
-                        .debug_selector("open")
+                        .icon(Glyph::FolderOpen)
                         .menu_item("Open notebook\u{2026}", Some("ctrl-o"))
                         .on_click(cx.listener(|v, _, window, cx| {
-                            v.app_menu = false;
+                            v.close_menu(window, cx);
                             v.open_dialog(&OpenNotebook, window, cx);
                         })),
-                )
-                .child(
-                    action_button("inspect-bundle")
-                        .ghost()
-                        .w_full()
-                        .menu_item("Inspect bundle\u{2026}", None)
-                        .unavailable(self.tabs.is_empty())
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.app_menu = false;
-                            v.run_command("inspect-bundle", window, cx);
-                        })),
-                )
-                .child(
-                    action_button("menu-notebooks")
-                        .ghost()
-                        .w_full()
-                        .menu_item("Switch notebook\u{2026}", None)
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.return_focus = window.focused(cx);
-                            v.menu_anchor = "application".into();
-                            v.notebook_menu = true;
-                            v.dialog_focus.focus(window, cx);
-                            cx.notify();
-                        })),
-                )
-                .child(
-                    action_button("menu-commands")
-                        .ghost()
-                        .w_full()
-                        .menu_item("Commands", Some("ctrl-shift-p"))
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.palette(&Palette, window, cx);
-                        })),
-                )
-                .child(
-                    action_button("menu-assistant")
-                        .ghost()
-                        .w_full()
-                        .icon(Glyph::Sparkles)
-                        .menu_item("Assistant", None)
-                        .unavailable(self.tabs.is_empty())
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.open_assistant(cx);
-                        })),
-                )
-                .child(
-                    action_button("menu-runtime")
-                        .ghost()
-                        .w_full()
-                        .menu_item("Runtime", None)
-                        .unavailable(self.tabs.is_empty())
-                        .on_click(cx.listener(|v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.return_focus = window.focused(cx);
-                            v.menu_anchor = "application".into();
-                            v.runtime_menu = true;
-                            v.dialog_focus.focus(window, cx);
-                            cx.notify();
-                        })),
-                )
-                .child(menu_sep(cx));
-            if !self.tabs.is_empty() {
-                menu = menu.child(
-                    action_button("menu-export")
-                        .ghost()
-                        .w_full()
-                        .menu_item("Export notebook\u{2026}", Some("ctrl-shift-e"))
-                        .unavailable(self.command_reason("export-menu").is_some())
-                        .hint("Export notebook (Ctrl+Shift+E)")
-                        .on_click(cx.listener(|v, _, window, cx| v.toggle_export(window, cx))),
                 );
             }
-            for (surface, shortcut) in [
-                ("Notebook", "ctrl-1"),
-                ("History", "ctrl-2"),
-                ("Checkpoints", "ctrl-3"),
-            ] {
-                menu = menu.child(
-                    action_button(SharedString::from(format!("destination-{surface}")))
-                        .debug_selector(surface)
+            Some(ActiveMenu::Runtime) => {
+                let runtime = &self.tabs[self.active].runtime;
+                let status_color = if runtime["connection_lost"] == true {
+                    cx.theme().danger
+                } else {
+                    runtime["worker_state"]
+                        .as_str()
+                        .map(|s| tone(s, cx))
+                        .unwrap_or(cx.theme().muted_foreground)
+                };
+                menu = menu
+                    .child(
+                        v_flex()
+                            .gap_1()
+                            .px_2p5()
+                            .py_2()
+                            .rounded(px(7.))
+                            .bg(cx.theme().muted)
+                            .child(
+                                h_flex()
+                                    .gap_2()
+                                    .items_center()
+                                    .child(dot(status_color))
+                                    .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(
+                                        if runtime["connection_lost"] == true {
+                                            "Connection lost \u{2014} execution state unknown".into()
+                                        } else {
+                                            worker_label(runtime["worker_state"].as_str())
+                                        },
+                                    )),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .font_family(cx.theme().mono_font_family.clone())
+                                    .whitespace_normal()
+                                    .child(
+                                        runtime["interpreter"]["executable"]
+                                            .as_str()
+                                            .or(runtime["interpreter"]["python"].as_str())
+                                            .unwrap_or(
+                                                "Interpreter details are available after running a cell",
+                                            )
+                                            .to_string(),
+                                    ),
+                            ),
+                    )
+                    .child(menu_sep(cx));
+                for (method, label) in [
+                    ("interrupt", "Interrupt"),
+                    ("restart", "Restart empty\u{2026}"),
+                    ("stop", "Stop runtime\u{2026}"),
+                ] {
+                    menu = menu.child(
+                        action_button(method)
+                            .ghost()
+                            .w_full()
+                            .menu_item(
+                                label,
+                                match method {
+                                    "interrupt" => Some("ctrl-shift-i"),
+                                    _ => None,
+                                },
+                            )
+                            .unavailable(action_reason(method, runtime).is_some())
+                            .hint(action_reason(method, runtime).unwrap_or(label))
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.menu = None;
+                                v.run_command(method, window, cx);
+                            })),
+                    );
+                }
+                menu = menu.child(menu_sep(cx)).child(
+                    action_button("all-runtimes")
                         .ghost()
                         .w_full()
-                        .menu_item(surface, Some(shortcut))
-                        .quiet_toggle(self.surface == surface)
-                        .selected(self.surface == surface)
-                        .accessibility_label(format!(
-                            "{surface}{}",
-                            if self.surface == surface {
-                                ", current destination"
-                            } else {
-                                ""
-                            }
-                        ))
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.close_menu(window, cx);
-                            v.select_surface(surface, cx);
+                        .menu_item("All runtimes", None)
+                        .on_click(cx.listener(|v, _, window, cx| {
+                            v.menu = None;
+                            v.select_surface("Runtimes", cx);
                             v.focus.focus(window, cx);
                         })),
                 );
             }
-            for surface in ["Settings", "Help", "Diagnostics", "Runtimes"] {
-                menu = menu.child(
-                    action_button(surface)
-                        .ghost()
-                        .w_full()
-                        .debug_selector(surface)
-                        .menu_item(
-                            surface,
-                            match surface {
-                                "Settings" => Some("ctrl-,"),
-                                "Help" => Some("f1"),
-                                _ => None,
-                            },
+            Some(ActiveMenu::Application) | None => {
+                menu = menu
+                    .child(
+                        action_button("open")
+                            .ghost()
+                            .w_full()
+                            .debug_selector("open")
+                            .menu_item("Open notebook\u{2026}", Some("ctrl-o"))
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.menu = None;
+                                v.open_dialog(&OpenNotebook, window, cx);
+                            })),
+                    )
+                    .child(
+                        action_button("inspect-bundle")
+                            .ghost()
+                            .w_full()
+                            .menu_item("Inspect bundle\u{2026}", None)
+                            .unavailable(self.tabs.is_empty())
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.menu = None;
+                                v.run_command("inspect-bundle", window, cx);
+                            })),
+                    )
+                    .child(
+                        action_button("menu-notebooks")
+                            .ghost()
+                            .w_full()
+                            .menu_item("Switch notebook\u{2026}", None)
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.return_focus = window.focused(cx);
+                                v.menu_anchor = "application".into();
+                                v.menu = Some(ActiveMenu::Notebook);
+                                v.dialog_focus.focus(window, cx);
+                                cx.notify();
+                            })),
+                    )
+                    .child(
+                        action_button("menu-commands")
+                            .ghost()
+                            .w_full()
+                            .menu_item("Commands", Some("ctrl-shift-p"))
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.palette(&Palette, window, cx);
+                            })),
+                    )
+                    .child(
+                        action_button("menu-assistant")
+                            .ghost()
+                            .w_full()
+                            .icon(Glyph::Sparkles)
+                            .menu_item("Assistant", None)
+                            .unavailable(self.tabs.is_empty())
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.open_assistant(cx);
+                            })),
+                    )
+                    .child(
+                        action_button("menu-runtime")
+                            .ghost()
+                            .w_full()
+                            .menu_item("Runtime", None)
+                            .unavailable(self.tabs.is_empty())
+                            .on_click(cx.listener(|v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.return_focus = window.focused(cx);
+                                v.menu_anchor = "application".into();
+                                v.menu = Some(ActiveMenu::Runtime);
+                                v.dialog_focus.focus(window, cx);
+                                cx.notify();
+                            })),
+                    )
+                    .child(menu_sep(cx));
+                if !self.tabs.is_empty() {
+                    let app_mode = self.tabs[self.active].app_mode;
+                    let stale_count = dag::analyze_notebook(&self.tabs[self.active].model)
+                        .run_stale_ids
+                        .len();
+                    menu = menu
+                        .child(
+                            action_button("menu-run-stale")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if stale_count > 0 {
+                                        format!("Run stale cells ({stale_count})")
+                                    } else {
+                                        "Run stale cells".into()
+                                    },
+                                    None,
+                                )
+                                .unavailable(stale_count == 0)
+                                .on_click(cx.listener(|v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.run_stale_cells(cx);
+                                })),
                         )
-                        .unavailable(self.tabs.is_empty() && surface != "Help")
-                        .on_click(cx.listener(move |v, _, window, cx| {
-                            v.app_menu = false;
-                            v.select_surface(surface, cx);
-                            v.focus.focus(window, cx);
-                        })),
-                );
+                        .child(
+                            action_button("menu-app-mode")
+                                .ghost()
+                                .w_full()
+                                .menu_item(
+                                    if app_mode {
+                                        "Exit App mode"
+                                    } else {
+                                        "App / Report mode"
+                                    },
+                                    Some("ctrl-."),
+                                )
+                                .on_click(cx.listener(|v, _, window, cx| {
+                                    v.close_menu(window, cx);
+                                    v.toggle_app_mode(&ToggleAppMode, window, cx);
+                                })),
+                        )
+                        .child(
+                            action_button("menu-export")
+                                .ghost()
+                                .w_full()
+                                .menu_item("Export notebook\u{2026}", Some("ctrl-shift-e"))
+                                .unavailable(self.command_reason("export-menu").is_some())
+                                .hint("Export notebook (Ctrl+Shift+E)")
+                                .on_click(
+                                    cx.listener(|v, _, window, cx| v.toggle_export(window, cx)),
+                                ),
+                        );
+                }
+                for (surface, shortcut) in [
+                    ("Notebook", "ctrl-1"),
+                    ("History", "ctrl-2"),
+                    ("Checkpoints", "ctrl-3"),
+                ] {
+                    menu = menu.child(
+                        action_button(SharedString::from(format!("destination-{surface}")))
+                            .debug_selector(surface)
+                            .ghost()
+                            .w_full()
+                            .menu_item(surface, Some(shortcut))
+                            .quiet_toggle(self.surface == surface)
+                            .selected(self.surface == surface)
+                            .accessibility_label(format!(
+                                "{surface}{}",
+                                if self.surface == surface {
+                                    ", current destination"
+                                } else {
+                                    ""
+                                }
+                            ))
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.select_surface(surface, cx);
+                                v.focus.focus(window, cx);
+                            })),
+                    );
+                }
+                menu = menu.child(menu_sep(cx));
+                for (surface, hint) in [
+                    ("Variables", "Inspect live namespace values while idle"),
+                    ("Console", "Run Python in the attached notebook session"),
+                    ("Debugger", "Inspect paused stack frames and locals"),
+                ] {
+                    menu = menu.child(
+                        action_button(SharedString::from(format!("destination-{surface}")))
+                            .debug_selector(surface)
+                            .ghost()
+                            .w_full()
+                            .menu_item(surface, None)
+                            .quiet_toggle(self.surface == surface)
+                            .selected(self.surface == surface)
+                            .unavailable(self.tabs.is_empty())
+                            .hint(hint)
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.close_menu(window, cx);
+                                v.select_surface(surface, cx);
+                                v.focus.focus(window, cx);
+                            })),
+                    );
+                }
+                menu = menu.child(menu_sep(cx));
+                for surface in ["Settings", "Help", "Diagnostics", "Runtimes"] {
+                    menu = menu.child(
+                        action_button(surface)
+                            .ghost()
+                            .w_full()
+                            .debug_selector(surface)
+                            .menu_item(
+                                surface,
+                                match surface {
+                                    "Settings" => Some("ctrl-,"),
+                                    "Help" => Some("f1"),
+                                    _ => None,
+                                },
+                            )
+                            .unavailable(self.tabs.is_empty() && surface != "Help")
+                            .on_click(cx.listener(move |v, _, window, cx| {
+                                v.menu = None;
+                                v.select_surface(surface, cx);
+                                v.focus.focus(window, cx);
+                            })),
+                    );
+                }
             }
         }
         div()
@@ -1131,11 +1385,11 @@ impl Workspace {
                     .unwrap_or_default();
                 let width = px(280. * self.preferences.ui_scale)
                     .min(window.viewport_size().width - px(24.));
-                let left = bounds
-                    .origin
-                    .x
-                    .min(window.viewport_size().width - width - px(12.))
-                    .max(px(12.));
+                let right_aligned = matches!(
+                    self.menu_anchor.as_str(),
+                    "runtime" | "export" | "application"
+                ) || self.menu_anchor.starts_with("cell-menu-");
+                let left = popover_left(bounds, width, window.viewport_size().width, right_aligned);
                 let top = (bounds.origin.y + bounds.size.height + px(4.))
                     .min(window.viewport_size().height - px(180.))
                     .max(px(4.));
@@ -1166,16 +1420,30 @@ impl Workspace {
             .into_any_element()
     }
     pub(super) fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.app_menu = false;
-        self.export_menu = false;
-        self.runtime_menu = false;
-        self.notebook_menu = false;
-        self.cell_menu = None;
-        self.cell_menu_assistant = false;
-        self.insert_menu = None;
+        self.menu = None;
         if let Some(focus) = self.return_focus.take() {
             focus.focus(window, cx);
         }
         cx.notify();
     }
+}
+
+pub(super) fn popover_left(
+    trigger: Bounds<Pixels>,
+    width: Pixels,
+    viewport_width: Pixels,
+    right_aligned: bool,
+) -> Pixels {
+    let margin = px(12.);
+    let max_left = (viewport_width - width - margin).max(margin);
+    let preferred = if right_aligned {
+        if trigger.size.width > px(0.) {
+            trigger.origin.x + trigger.size.width - width
+        } else {
+            max_left
+        }
+    } else {
+        trigger.origin.x
+    };
+    preferred.min(max_left).max(margin)
 }

@@ -157,49 +157,95 @@ impl Workspace {
                 }
             }
             let mut rows = card(cx);
+            let theme = cx.theme();
+            let (muted_fg, active_bg, hover_bg) =
+                (theme.muted_foreground, theme.list_active, theme.list_hover);
             for (i, item) in items.iter().enumerate() {
                 let id = item["checkpoint_id"]
                     .as_str()
                     .unwrap_or_default()
                     .to_string();
                 let ai_id = id.clone();
+                let status = item["status"].as_str().unwrap_or("Unknown");
+                let label = record_label(item, &self.tabs[self.active].model);
+                let mut meta_parts = Vec::new();
+                if !id.is_empty() {
+                    meta_parts.push(short_session(&id));
+                }
+                if let Some(saved) = item["saved_values"].as_u64() {
+                    meta_parts.push(format!("{saved} saved"));
+                }
+                let excluded = item["excluded"]
+                    .as_array()
+                    .map(|items| items.len() as u64)
+                    .or_else(|| item["excluded_count"].as_u64());
+                if let Some(excluded) = excluded.filter(|count| *count > 0) {
+                    meta_parts.push(format!("{excluded} excluded"));
+                }
+                if let Some(sid) = item["session_id"].as_str().filter(|sid| !sid.is_empty()) {
+                    meta_parts.push(format!("Session {}", short_session(sid)));
+                }
+                let meta = meta_parts.join(" \u{00b7} ");
                 rows = rows.child(
-                    record_row(
-                        Glyph::Flag,
-                        &record_label(item, &self.tabs[self.active].model),
-                        item["status"].as_str().unwrap_or("Unknown"),
-                        i == self.record_active,
-                        cx,
-                    )
-                    .child(
-                        action_button(("checkpoint-ai", i))
-                            .ghost()
-                            .small()
-                            .icon(Glyph::Sparkles)
-                            .accessibility_label("Explain checkpoint in Assistant")
-                            .hint("Ask Assistant about this checkpoint")
-                            .on_click(cx.listener(move |v, _, _, cx| {
-                                let ai = &mut v.tabs[v.active].assistant;
-                                ai.checkpoint_ids = vec![ai_id.clone()];
-                                ai.open = true;
-                                ai.receipt = Value::Null;
-                                v.ai_preview(
-                                    "checkpoint",
-                                    "Explain this checkpoint's coverage, exclusions and recovery options. Cite the saved evidence.".into(),
-                                    cx,
-                                );
-                            })),
-                    )
-                    .child(
-                        action_button(("report", i))
-                            .outline()
-                            .small()
-                            .label("Inspect")
-                            .accessibility_label("Inspect checkpoint")
-                            .on_click(cx.listener(move |v, _, _, _| {
-                                v.inspect("checkpoint.get", json!({"checkpoint_id":id}))
-                            })),
-                    ),
+                    row(cx)
+                        .when(i == self.record_active, |d| d.bg(active_bg))
+                        .hover(move |s| s.bg(hover_bg))
+                        .child(Icon::new(Glyph::Flag).small().text_color(muted_fg))
+                        .child(
+                            v_flex()
+                                .flex_1()
+                                .min_w_0()
+                                .gap_0p5()
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .whitespace_normal()
+                                        .text_sm()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .child(label),
+                                )
+                                .when(!meta.is_empty(), |d| {
+                                    d.child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(muted_fg)
+                                            .truncate()
+                                            .child(meta),
+                                    )
+                                }),
+                        )
+                        .when(notable_status(status), |d| {
+                            d.child(badge(outcome_label(status).to_string(), tone(status, cx)))
+                        })
+                        .child(
+                            action_button(("checkpoint-ai", i))
+                                .ghost()
+                                .small()
+                                .icon(Glyph::Sparkles)
+                                .accessibility_label("Explain checkpoint in Assistant")
+                                .hint("Ask Assistant about this checkpoint")
+                                .on_click(cx.listener(move |v, _, _, cx| {
+                                    let ai = &mut v.tabs[v.active].assistant;
+                                    ai.checkpoint_ids = vec![ai_id.clone()];
+                                    ai.open = true;
+                                    ai.receipt = Value::Null;
+                                    v.ai_preview(
+                                        "checkpoint",
+                                        "Explain this checkpoint's coverage, exclusions and recovery options. Cite the saved evidence.".into(),
+                                        cx,
+                                    );
+                                })),
+                        )
+                        .child(
+                            action_button(("report", i))
+                                .outline()
+                                .small()
+                                .label("Inspect")
+                                .accessibility_label("Inspect checkpoint")
+                                .on_click(cx.listener(move |v, _, _, _| {
+                                    v.inspect("checkpoint.get", json!({"checkpoint_id":id}))
+                                })),
+                        ),
                 );
             }
             if !items.is_empty() {

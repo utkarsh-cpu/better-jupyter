@@ -74,7 +74,10 @@ impl SourceService {
         let selected = if ids == "all" {
             cells
                 .iter()
-                .filter(|cell| cell["type"] == "code")
+                .filter(|cell| {
+                    matches!(cell["type"].as_str(), Some("code" | "sql"))
+                        && normalize_metadata(&cell["metadata"])["disabled"].as_bool() != Some(true)
+                })
                 .map(|cell| cell["id"].clone())
                 .collect::<Vec<_>>()
         } else {
@@ -84,11 +87,13 @@ impl SourceService {
         for id in selected {
             let cell = cells
                 .iter()
-                .find(|cell| cell["id"] == id && cell["type"] == "code")
+                .find(|cell| {
+                    cell["id"] == id && matches!(cell["type"].as_str(), Some("code" | "sql"))
+                })
                 .ok_or_else(|| {
                     fail(
                         "source_invalid",
-                        "missing or non-code cell",
+                        "missing or non-executable cell",
                         json!({"cell_id":id}),
                     )
                 })?;
@@ -449,7 +454,7 @@ impl SourceService {
                 let metadata = request.get("metadata").cloned().context("metadata")?;
                 if let Some(id) = cid {
                     let index = require_id(&cells, id, &revisions)?;
-                    cells[index]["metadata"] = metadata;
+                    cells[index]["metadata"] = normalize_metadata(&metadata);
                 } else {
                     data["metadata"] = metadata;
                 }
@@ -978,6 +983,39 @@ pub fn manifest_bytes(data: &Value) -> Result<Vec<u8>> {
     Ok(format!("{stem},\n  \"cells\": [\n{lines}\n  ]\n}}\n").into_bytes())
 }
 
+/// Cell-level keys that clients once copied into `metadata` by mistake
+/// (mirrors `kernelledger.notebook.CELL_KEYS`).
+const CELL_KEYS: [&str; 7] = [
+    "id",
+    "type",
+    "source",
+    "revision",
+    "attachments",
+    "attachment_mimes",
+    "attachment_alternatives",
+];
+
+/// Flatten accidental `{"metadata": {...}}` nesting and drop copied cell-level
+/// keys; outer keys win. Byte-for-byte mirror of Python `normalize_metadata`.
+fn normalize_metadata(metadata: &Value) -> Value {
+    let Some(outer) = metadata.as_object() else {
+        return json!({});
+    };
+    let mut flat = match outer.get("metadata") {
+        Some(nested) if nested.is_object() => normalize_metadata(nested),
+        _ => json!({}),
+    };
+    let map = flat
+        .as_object_mut()
+        .expect("normalized metadata is an object");
+    for (key, value) in outer {
+        if key != "metadata" && !CELL_KEYS.contains(&key.as_str()) {
+            map.insert(key.clone(), value.clone());
+        }
+    }
+    flat
+}
+
 fn python_dump(value: &Value, pretty: bool, sort: bool) -> String {
     fn dump(value: &Value, indent: Option<usize>, level: usize, sort: bool) -> String {
         match value {
@@ -1373,6 +1411,25 @@ fn strip_verbatim(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalize_metadata_flattens_nesting_and_drops_cell_keys() {
+        let nested = json!({
+            "metadata": {"metadata": {"tags": ["a"]}, "hide_code": true},
+            "disabled": true,
+            "attachments": ["x.png"],
+            "attachment_mimes": {},
+        });
+        assert_eq!(
+            normalize_metadata(&nested),
+            json!({"tags": ["a"], "hide_code": true, "disabled": true})
+        );
+        assert_eq!(
+            normalize_metadata(&json!({"output_var": "res"})),
+            json!({"output_var": "res"})
+        );
+        assert_eq!(normalize_metadata(&json!(null)), json!({}));
+    }
 
     #[test]
     fn structural_history_restores_ids_and_refuses_changed_files() {

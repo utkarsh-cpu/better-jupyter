@@ -7,12 +7,12 @@ operation results, and the offline helper's history and checkpoint reads.
 import time
 
 import pytest
+from test_desktop import Client
 
 from kernelledger.cli import alive, ensure_supervisor, rpc
 from kernelledger.desktop.helper import Helper
 from kernelledger.notebook import Notebook
 from kernelledger.source import source_hash
-from tests.test_desktop import Client
 
 
 @pytest.fixture
